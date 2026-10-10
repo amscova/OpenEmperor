@@ -4,9 +4,13 @@ Current native input delivery and the executable short human check are centraliz
 
 Current [income and startup budget guidance](economy-start-guidance.md) separates missing infrastructure, actual operations and House supply; it retains historical taxes separately and shows a checked strictly future upkeep projection. Its current validation is tracked there. Construction and simultaneous-full-staffing estimates are not a first-tax promise; all economy, upkeep rates and paid starter authority below remain unchanged.
 
-## Current rule 3: original map roads and gate passages
+## Current rule 4: usable original ground roads
 
-New City-v16 games use rule **3**, immutable original-map road permissions and fixed GateHouse passages. Schema **19** binds their versioned canonical fingerprint. Economy and 2×2 Well/HealthPost inherit rule 2 exactly. Rules 1/2 and schema 18 remain unchanged without migration; the general menu default remains City-v11 rule 3. See [the contract and isolated test starter](gate-passages.md).
+New City-v16 games use **rule 4 / MapPermissions policy 2 / save schema 20**. Supported normal original roads are immutable free transport, available before the first dispatch, without buying or duplicating them. The economy and 2×2 Well/HealthPost geometry inherit rule 3 unchanged; FireWatch remains 1×1. Explicit rules 1–3 retain their saved contracts; no automatic upgrade or refund occurs. The general menu default remains City-v11 rule 3. See [original-road classification, trip evidence and the test starter](original-roads.md).
+
+## Historical rule 3: road permissions and gate passages
+
+Historical City-v16 rule-3 games use rule **3**, immutable original-map road permissions and fixed GateHouse passages. Schema **19** binds their versioned canonical fingerprint. Economy and 2×2 Well/HealthPost inherit rule 2 exactly. Rules 1/2 and schema 18 remain unchanged without migration; the general menu default remains City-v11 rule 3. See [the contract and isolated test starter](gate-passages.md).
 
 The separate [paid Xia goal playthrough](city-v16-playthrough.md) records the combined rule-3 economy, expansion, settlement-goal, stability and persistence checks. Earlier rule-1/2 measurements below retain their original scope.
 

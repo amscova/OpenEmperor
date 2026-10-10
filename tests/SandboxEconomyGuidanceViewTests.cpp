@@ -55,14 +55,19 @@ std::array<sim::Command,8> critical_buildings() { return {{
     {sim::CommandType::PlaceMarket,{103,104}},
     {sim::CommandType::PlaceFarm,{104,104}}}}; }
 void build_critical(Menu& menu) {
-    // The first road is road_allowed but never building_allowed. Every later
-    // budget preflight must retain its exact immutable policy and content.
-    paid(menu,{sim::CommandType::PlaceRoad,{110,110}});
+    // The original road is free transport in the new game's explicit policy.
+    // The separate 102 paid empty-cell roads below create this budget warning;
+    // they do not rebuy or repair the fixed road.
+    const auto before=menu.sandbox()->world().snapshot();
+    const auto result=menu.sandbox()->request_execute({sim::CommandType::PlaceRoad,{110,110}});
+    check(result.accepted && !result.changed && result.reason=="Original road already available." &&
+        menu.sandbox()->world().treasury()==before.treasury &&
+        menu.sandbox()->world().roads_placed_total()==0,"Original road was purchased by budget fixture.");
     const auto policy=menu.sandbox()->world().map_permissions();
-    check(policy&&policy->road_allowed({110,110})&&!policy->building_allowed({110,110}),
+    check(policy&&policy->original_road({110,110})&&policy->road_allowed({110,110})&&!policy->building_allowed({110,110}),
         "Authored road-only source was lost.");
     for (const auto command:critical_buildings()) paid(menu,command);
-    int roads=1;
+    int roads=0;
     for (int y=117;y<=126&&roads<102;++y) for (int x=100;x<=115&&roads<102;++x) {
         paid(menu,{sim::CommandType::PlaceRoad,{x,y}});++roads;
     }

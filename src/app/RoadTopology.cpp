@@ -8,7 +8,7 @@ constexpr std::array<simulation::Cell,4> directions{{{0,-1},{1,0},{0,1},{-1,0}}}
 bool is_road(const simulation::World& world,std::span<const simulation::Cell> planned,
              simulation::Cell cell) {
     if (world.fixed_passage(cell)) return false;
-    return world.object_at(cell)==simulation::Object::Road ||
+    return world.road_cell(cell) ||
         std::find(planned.begin(),planned.end(),cell)!=planned.end();
 }
 bool is_building(simulation::Object object) {

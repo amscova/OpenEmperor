@@ -124,6 +124,8 @@ void selection_and_lifecycle() {
     stale_replacement(first,older);
     auto rule2=first; rule2.rule_version=2; rule2.policy_version=0;
     stale_replacement(first,rule2);
+    auto rule4=first;rule4.rule_version=4;rule4.policy_version=2;
+    stale_replacement(first,rule4);stale_replacement(rule4,first);
     stale_replacement(first,request("Cities/A.map","/data/two"));
 
     auto controls=std::make_shared<ControlledChecks>();
@@ -149,6 +151,22 @@ void selection_and_lifecycle() {
           "old identical selection result crossed setup lifetime boundary");
     controls->release(2); accept(controller);
     check(controller.can_start(),"reopened setup did not accept fresh result");
+}
+void versioned_policy_cache_identity() {
+    auto controls=std::make_shared<ControlledChecks>();
+    Controller controller([controls](const auto& selected){return controls->run(selected);});
+    const auto historic=request();auto integrated=historic;
+    integrated.rule_version=4;integrated.policy_version=2;
+    controller.select(historic);controls->wait_started(1);controls->release(0);accept(controller);
+    controller.select(integrated);controls->wait_started(2);
+    check(!controller.can_start() && controller.result().status==Status::Checking &&
+          controller.remembered_result(historic) && !controller.remembered_result(integrated),
+          "historic policy approval must not authorize original-road transport on identical map bytes");
+    controls->release(1);accept(controller);
+    const auto old_result=controller.remembered_result(historic),new_result=controller.remembered_result(integrated);
+    check(old_result && new_result && old_result->request==historic && new_result->request==integrated &&
+          old_result->input_sha256==new_result->input_sha256 && controller.cache_size()==2,
+          "same-map policy1 and policy2 content checks need distinct bounded cache entries");
 }
 void bounded_queue() {
     auto controls=std::make_shared<ControlledChecks>();
@@ -272,7 +290,7 @@ void exception_and_shutdown() {
 
 int main() {
     try {
-        selection_and_lifecycle(); bounded_queue(); content_bound_cache(); exception_and_shutdown();
+        selection_and_lifecycle(); versioned_policy_cache_identity(); bounded_queue(); content_bound_cache(); exception_and_shutdown();
         std::cout<<"map rules selected worker, content cache, generations and shutdown checks passed\n";
         return 0;
     } catch (const std::exception& error) {

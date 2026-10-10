@@ -188,9 +188,44 @@ void input_failures() {
     request=root.request("missing.map");request.map_relative="../missing.map";
     check(maps::check_map_rules(request).status==maps::MapRulesStatus::InputError,"path escape must not create an unsupported cache entry");
 }
+void versioned_original_roads() {
+    Root root;
+    auto raw=logical_map(manager());put32(raw,std::size_t(maps::terrain_logical_offset)+at(116,110)*4,0xc0);
+    write(root.path/"Cities/authored.map",compressed_map(raw));
+    const auto old_request=root.request("authored.map",simulation::RulesProfile::CityV16,3);
+    const auto new_request=root.request("authored.map",simulation::RulesProfile::CityV16,4);
+    const auto old_result=maps::check_map_rules(old_request);
+    performance::set_enabled(true);performance::reset();
+    const auto new_result=maps::check_map_rules(new_request);
+    check(old_result.status==maps::MapRulesStatus::MapRulesChecked &&
+          new_result.status==maps::MapRulesStatus::MapRulesChecked && old_request!=new_request &&
+          old_result.input_sha256==new_result.input_sha256,
+          "rule3 and rule4 need separate successful identities over the same retained map bytes");
+    for(const auto counter:{performance::Counter::WorldCopies,performance::Counter::WorldRestores,
+        performance::Counter::WorldExecutes,performance::Counter::BfsCalls,performance::Counter::RouteRefreshes,
+        performance::Counter::AssetDecodes,performance::Counter::TextureUploads,performance::Counter::FileWrites,
+        performance::Counter::SimulationTicks})
+        check(performance::counter(counter)==0,"policy2 preflight must remain pure original-data validation");
+    performance::set_enabled(false);
+    auto wrong=old_request;wrong.policy_version=2;
+    check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"rule3 must reject policy2");
+    wrong=new_request;wrong.policy_version=1;
+    check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"rule4 must reject policy1");
+    wrong=new_request;wrong.policy_version=3;
+    check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"unknown policy must reject");
+    wrong=new_request;wrong.rule_version=5;
+    check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"unknown rule must reject");
+}
 } // namespace
 
 int main() {
-    try {positive_and_identity();unsupported_and_legacy();input_failures();std::cout<<"Map rules check tests passed\n";return 0;}
+    try {
+        check(maps::map_rules_policy_version(simulation::RulesProfile::CityV16,3)==1,
+              "historic City-v16 rule 3 must keep policy 1");
+        check(maps::map_rules_policy_version(simulation::RulesProfile::CityV16,4)==2,
+              "City-v16 rule 4 requires policy 2 for original road transport");
+        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();
+        std::cout<<"Map rules check tests passed\n";return 0;
+    }
     catch (const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}
 }

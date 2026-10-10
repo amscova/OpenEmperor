@@ -37,6 +37,11 @@ RoadConnectivityCell facts(const World& world,Cell cell) {
     result.building_allowed=permissions.building_allowed(cell);
     result.protected_original=permissions.protected_original(cell);
     result.fixed_passage=permissions.fixed_passage(cell);
+    result.original_road=permissions.original_road(cell);
+    result.original_road_classification=permissions.original_road_classification(cell);
+    result.transport_source=world.transport_source(cell);
+    result.traversable=world.transport_cell(cell);
+    result.imported_under_policy=result.original_road ? permissions.policy_version():0;
     result.fixed_gate=permissions.fixed_gate_at(cell);
     result.road_blocker=permissions.road_blocker(cell);
     result.building_blocker=permissions.building_blocker(cell);
@@ -60,6 +65,16 @@ RoadConnectivityEdge edge(const World& world,Cell from,Cell to,bool candidate) {
                 RoadConnectivityCategory::MissingRoadCell:category(permission);
             result.reason=permission==BuildBlocker::None ?
                 "Cell has no Sandbox road or fixed passage":build_blocker_reason(permission);
+            const auto classification=result.to.original_road_classification;
+            if (classification!=OriginalRoadClassification::None &&
+                classification!=OriginalRoadClassification::GroundRoad &&
+                result.category==RoadConnectivityCategory::UnsupportedOrUnknown)
+                result.reason=original_road_classification_reason(classification);
+            else if (classification==OriginalRoadClassification::GroundRoad &&
+                     !result.to.original_road && !world.road_cell(to)) {
+                result.category=RoadConnectivityCategory::UnsupportedOrUnknown;
+                result.reason="Original road is visual-only under this saved policy.";
+            }
         }
     }
     return result;
@@ -76,16 +91,18 @@ RoadConnectivityEndpoint endpoint(const World& world,const BuildingState& buildi
         const bool valid=std::find(result.entrances.begin(),result.entrances.end(),
                                   BuildingEntrance{to,from})!=result.entrances.end();
         if (valid) continue;
-        const bool actual_road=world.object_at(to)==Object::Road;
+        const bool actual_road=world.road_cell(to);
         const bool fixed=world.fixed_passage(to);
         if (!actual_road && !fixed && world.object_at(to)!=Object::Empty) continue;
         auto rejected=edge(world,from,to,!actual_road && !fixed);
-        // World::building_entrances requires an actual Road. Even an opening
+        // World::building_entrances requires an owned or original road. Even an opening
         // cannot enter a building directly from the fixed corridor.
         if (fixed) {
             rejected.category=RoadConnectivityCategory::BlockedGateEntry;
             if (rejected.permission_blocker==BuildBlocker::None)
-                rejected.reason="Building entrances require a Sandbox road, not a fixed passage";
+                rejected.reason=world.rule_version()==3 ?
+                    "Building entrances require a Sandbox road, not a fixed passage":
+                    "Building entrances require an owned or original road, not a fixed passage";
         }
         if (target) std::swap(rejected.from,rejected.to);
         if (actual_road || fixed) result.rejected_entrances.push_back(std::move(rejected));
@@ -142,10 +159,13 @@ RoadConnectivityReport diagnose_road_connectivity(
     result.source.id=source_id;result.target.id=target_id;
     result.measured_tick=world.ticks();result.command_sequence=world.command_sequence();
     result.road_revision=world.road_revision();
+    result.rule_version=world.rule_version();
     const auto permissions=world.map_permissions();
-    if (world.profile()!=RulesProfile::CityV16 || world.rule_version()!=3 || !permissions ||
-        permissions->policy_version()!=kMapPermissionsPolicyVersion) {
-        result.unsupported_reason="Requires City-v16 rule 3 and complete policy-1 permissions";
+    const bool version_pair=permissions &&
+        ((world.rule_version()==3 && permissions->policy_version()==kMapPermissionsPolicyVersion) ||
+         (world.rule_version()==4 && permissions->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion));
+    if (world.profile()!=RulesProfile::CityV16 || !version_pair) {
+        result.unsupported_reason="Requires City-v16 rule 3/policy 1 or rule 4/policy 2 permissions";
         return result;
     }
     result.policy_version=permissions->policy_version();

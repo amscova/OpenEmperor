@@ -322,8 +322,9 @@ void content_retry_and_resume(Temp& temp,SDL_Window* window,SDL_Renderer* render
     check(menu.map_rules_result().input_sha256!=original_hash,"changed source content retained old hash");
     key(menu,SDLK_RETURN);finish_load(menu);
     check(menu.state()==Menu::State::Playing && menu.sandbox() &&
-          menu.sandbox()->world().rule_version()==3 && menu.sandbox()->world().map_permissions(),
-          "positive map-rules result did not allow normal rule-3 initialization");
+          menu.sandbox()->world().rule_version()==4 && menu.sandbox()->world().map_permissions() &&
+          menu.sandbox()->world().map_permissions()->policy_version()==2,
+          "positive map-rules result did not allow normal rule-4/policy-2 initialization");
     auto* const retained=menu.sandbox();
     const auto before=retained->world().snapshot();
     key(menu,SDLK_ESCAPE);key(menu,SDLK_N);controls->wait_started(4);

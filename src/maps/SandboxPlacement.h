@@ -20,7 +20,7 @@ public:
 };
 
 // Validate the same original manager/occupancy/gate/height prerequisites used
-// by the rule-3 producer. No legacy mask is supplied, no usable MapPermissions
+// by the rule-3/4 producer. No legacy mask is supplied, no usable MapPermissions
 // are made or returned, and renderer/starter readiness is outside this check.
 void validate_sandbox_original_map_rules(
     const ParsedEmperorMap& map, const MapGeometry& geometry,
@@ -32,7 +32,7 @@ void validate_sandbox_original_map_rules(
 std::vector<std::uint8_t> make_sandbox_buildable_mask(const StoredGraphicsPlan& plan,
                                                       const MapGeometry& geometry);
 
-// City-v16 rule 3 only. Road and fixed-passage authority comes from complete
+// City-v16 rule 3/policy 1 and rule 4/policy 2. Road and fixed-passage authority comes from complete
 // original raw data, never renderer readiness, saved graphics or alpha. The
 // conservative legacy mask remains the upper bound for building placement.
 std::shared_ptr<const simulation::MapPermissions> prepare_sandbox_map_permissions(

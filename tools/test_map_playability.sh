@@ -59,7 +59,7 @@ pathlib.Path(sys.argv[1]).write_text(json.dumps({
 }, indent=2) + "\n")
 PY
 echo "Choose New Sandbox, wait for Map rules checked, then Start Sandbox: ${map_file%.map}."
-echo "City-v16 rule 3 / Map policy 1 / Empty City. An empty city has no sandbox couriers."
+echo "New City-v16: rule 4 / Map policy 2 / Empty City. The historical A-E test saves retain rule 3 / policy 1."
 echo "Build Houses, paid roads, Clay Source and Pottery to observe a real Clay trip."
 echo "Optional Load Sandbox: B-paid-courier is a normally paid 2-House city; Space starts its Clay trip."
 echo "C-paid-supply is the paid compact starter; D records actual supply at tick 1600."

@@ -122,7 +122,7 @@ OriginalRulePreparation prepare_original_rules(
     const ParsedEmperorMap& map,const MapGeometry& geometry,
     const OriginalMapEntities& entities,
     std::span<const std::uint8_t> height_bytes,std::uint32_t policy_version) {
-    permission_require(policy_version==simulation::kMapPermissionsPolicyVersion,"unsupported policy version");
+    permission_require(simulation::supported_map_permissions_policy(policy_version),"unsupported policy version");
     permission_require(geometry.supported && map.declared_map_size==geometry.declared_size &&
         map.stored_width==stored_grid_width && map.stored_height==stored_grid_height &&
         map.terrain_raw.values.size()==permission_cells && map.objects_raw.values.size()==permission_cells &&
@@ -206,6 +206,8 @@ OriginalRulePreparation prepare_original_rules(
                 !(map.terrain_raw.values[at]&0x4000U),"incomplete/conflicting original GateHouse raw footprint");
             auto& out=cells[at];out.protected_original=true;out.road_allowed=out.building_allowed=false;
             out.road_blocker=out.building_blocker=gate ? BuildBlocker::GateSolidPart:BuildBlocker::OriginalStructure;
+            if (gate && (map.terrain_raw.values[at]&0x40U))
+                out.original_road_classification=simulation::OriginalRoadClassification::FixedGateFootprint;
         }
     }
     std::vector<simulation::FixedGatePassage> passages;passages.reserve(gates.size());
@@ -242,6 +244,37 @@ OriginalRulePreparation prepare_original_rules(
         }
         passages.push_back(std::move(passage));
     }
+    // Classify only after the complete original manager and all gate claims
+    // have passed. The sole imported normal-ground case is exact 0xc0 with
+    // objects zero: 0x80 ground + 0x40 road, independently observed on Handan
+    // and Badaling. A bare bit, graphic ID or renderer status is not authority.
+    // Policy 1 carries diagnostic evidence only and keeps all former bytes.
+    using simulation::OriginalRoadClassification;
+    for (unsigned y=0;y<stored_grid_height;++y) for (unsigned x=0;x<stored_grid_width;++x) {
+        const GridCell cell{x,y};const auto at=storage(cell);auto& out=cells[at];
+        const auto terrain=map.terrain_raw.values[at];
+        if (!(terrain&0x40U))continue;
+        if (!geometry.contains(cell) || (terrain&offmap))
+            out.original_road_classification=OriginalRoadClassification::OutsideMap;
+        else if (out.protected_original) {
+            if (out.original_road_classification!=OriginalRoadClassification::FixedGateFootprint)
+                out.original_road_classification=OriginalRoadClassification::OriginalStructure;
+        } else if (map.objects_raw.values[at]!=0)
+            out.original_road_classification=OriginalRoadClassification::NonzeroObjects;
+        else if (terrain==0xc0U)
+            out.original_road_classification=OriginalRoadClassification::GroundRoad;
+        else if (terrain&0x4U)
+            out.original_road_classification=OriginalRoadClassification::WaterOrBridge;
+        else out.original_road_classification=OriginalRoadClassification::UnsupportedTerrain;
+        if (policy_version==simulation::kOriginalRoadsMapPermissionsPolicyVersion) {
+            if (out.original_road_classification==OriginalRoadClassification::GroundRoad) {
+                out.original_road=true;
+                out.building_allowed=false;
+                out.building_blocker=BuildBlocker::ProtectedOriginalRoad;
+            } else if (!out.protected_original && out.road_blocker!=BuildBlocker::OutsideMap)
+                out.road_blocker=BuildBlocker::UnsupportedOriginalRoad;
+        }
+    }
     return {std::move(cells),std::move(passages)};
 }
 } // namespace
@@ -261,7 +294,7 @@ std::shared_ptr<const simulation::MapPermissions> prepare_sandbox_map_permission
     auto original=prepare_original_rules(map,geometry,entities,height_bytes,policy_version);
     for (std::size_t at=0;at<permission_cells;++at) {
         auto& out=original.cells[at];
-        if (out.protected_original || out.building_blocker==BuildBlocker::OutsideMap) continue;
+        if (out.protected_original || out.original_road || out.building_blocker==BuildBlocker::OutsideMap) continue;
         out.building_allowed=legacy_mask[at]!=0 && map.terrain_raw.values[at]==0x80U &&
             map.objects_raw.values[at]==0;
         out.building_blocker=out.building_allowed ? BuildBlocker::None:BuildBlocker::LegacyBuildabilityRestriction;
@@ -280,7 +313,7 @@ std::shared_ptr<const simulation::MapPermissions> load_sandbox_map_permissions(
     const ParsedEmperorMap& map,const StoredGraphicsPlan& plan,const MapGeometry& geometry,
     std::span<const std::uint8_t> legacy_mask,std::uint32_t policy_version,
     const std::string& expected_input_sha256) {
-    permission_require(policy_version==simulation::kMapPermissionsPolicyVersion,"unsupported policy version");
+    permission_require(simulation::supported_map_permissions_policy(policy_version),"unsupported policy version");
     const auto container=EmperorContainer::open(resolve_map_path(plan.data_root,plan.map_relative));
     if (!expected_input_sha256.empty() && map_input_sha256(container)!=expected_input_sha256)
         throw std::runtime_error("Map changed since the map-rules check. Check the selected map again.");
@@ -291,7 +324,7 @@ std::shared_ptr<const simulation::MapPermissions> load_sandbox_map_permissions(
 std::shared_ptr<const simulation::MapPermissions> read_sandbox_map_permissions(
     const std::filesystem::path& data_root,const std::filesystem::path& map_relative,
     std::span<const std::uint8_t> legacy_mask,std::uint32_t policy_version) {
-    permission_require(policy_version==simulation::kMapPermissionsPolicyVersion,"unsupported policy version");
+    permission_require(simulation::supported_map_permissions_policy(policy_version),"unsupported policy version");
     const auto container=EmperorContainer::open(resolve_map_path(data_root,map_relative));
     permission_require(!container.multipart(),"requires standalone original map");
     const auto map=read_emperor_map(container,0);const MapGeometry geometry{map.declared_map_size};

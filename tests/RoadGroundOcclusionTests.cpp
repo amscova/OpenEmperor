@@ -114,8 +114,39 @@ struct Fixture {
         for(int mask=0;mask<16;++mask)tiles[std::string("0x")+hex[mask]]={{"archive","DATA/authored.sg3"},{"image_index",1},{"ground_anchor",{39,20}},{"evidence","Independent opaque blue road, fixed native geometry."}};
         save_json(roads,{{"schema_version",1},{"mode","curated_road_preview"},{"replaces_ground",true},{"tiles",tiles}});
     }
-    maps::StoredMapSession session(bool tall=false) const {
+    void original_roads_map() const {
+        Bytes raw(static_cast<std::size_t>(maps::original_entities_logical_offset+6),0);
+        authored::u16(raw,static_cast<std::size_t>(maps::original_entities_logical_offset),1);
+        const Bytes signature{5,0,0xfe,0xca,0,0,2,0};std::copy(signature.begin(),signature.end(),raw.begin());authored::u32(raw,84,84);
+        for(std::size_t i=0;i<228U*228U;++i) {
+            authored::u32(raw,static_cast<std::size_t>(maps::candidate_word_logical_offset)+4*i,0xc000);
+            raw[static_cast<std::size_t>(maps::candidate_byte_logical_offset)+i]=64;
+            authored::u32(raw,static_cast<std::size_t>(maps::terrain_logical_offset)+4*i,0x80);
+        }
+        for(unsigned x=105;x<=110;++x)authored::u32(raw,static_cast<std::size_t>(maps::terrain_logical_offset)+4*(111U*228U+x),0xc0);
+        Bytes file{0xaa,0xba,0xdc,0xfe};
+        for(std::size_t at=0;at<raw.size();at+=32768) {
+            const auto count=std::min<std::size_t>(32768,raw.size()-at);
+            uLongf length=compressBound(static_cast<uLong>(count));Bytes compressed(length);
+            check(compress2(compressed.data(),&length,raw.data()+at,static_cast<uLong>(count),6)==Z_OK,"original road authored compression");
+            const auto header=file.size();file.resize(header+12);authored::u32(file,header,0x12345678);
+            authored::u32(file,header+4,static_cast<std::uint32_t>(length));authored::u32(file,header+8,static_cast<std::uint32_t>(count));
+            file.insert(file.end(),compressed.begin(),compressed.begin()+static_cast<std::ptrdiff_t>(length));
+        }
+        authored::write(data/"Cities/A.map",file);
+    }
+    maps::StoredMapSession session(bool tall=false,bool original_roads=false) const {
+        if(original_roads)original_roads_map();
         auto result=maps::load_stored_map_session(data,"Cities/A.map",maps::FootprintPolicy::EdgeByte4x4Preview,maps::StoredGraphicsProfile::Slot8);
+        if(original_roads) {
+            const auto archive=assets::scan_asset_archive(data,"DATA/authored.sg3");
+            maps::StoredAsset asset;asset.record=archive.records.at(1);const auto index=result.plan.assets.size();result.plan.assets.push_back(std::move(asset));
+            for(unsigned x=105;x<=110;++x) {
+                const auto cell_index=*result.plan.cell_by_storage[111U*228U+x];auto& cell=result.plan.cells[cell_index];
+                auto& footprint=result.plan.footprints[*cell.footprint_index];cell.asset_index=index;footprint.asset_index=index;
+                const auto origin=maps::stored_image_origin(cell.world,78,40);cell.image_origin=origin;footprint.image_origin=origin;
+            }
+        }
         if(tall) {
             const auto archive=assets::scan_asset_archive(data,"DATA/authored.sg3");
             auto record=archive.records.at(4);
@@ -272,6 +303,101 @@ void route_case(SDL_Window* window,SDL_Renderer* renderer) {
     check(std::all_of(directions.begin(),directions.end(),[](bool d){return d;})&&empty_return&&curve&&cross,"real loaded/empty Food route lacks positive road-foot direction/curve/crossing witnesses");
     equal_documents(view,prepared.control,fixture,"transport");view.shutdown();
 }
+void original_road_case(SDL_Window* window,SDL_Renderer* renderer) {
+    Fixture fixture;
+    // Install the authored original-road map before World construction; transport
+    // authority is raw 0xc0/objects-zero plus the complete original manager.
+    oe::SandboxView imported(fixture.session(false,true),false,sim::RulesProfile::CityV16,4);
+    imported.configure_save(fixture.data,"Cities/A.map",fixture.map.root/"original.json");
+    imported.set_walker_visuals(fixture.walkers);imported.set_road_visuals(fixture.roads);imported.initialize(window,renderer);
+    check(imported.world().rule_version()==4 && imported.world().map_permissions()->policy_version()==2 &&
+          imported.original_road_ground_items()==6,"original road figure fixture has wrong policy/ground preparation");
+    sim::World control=imported.world();
+    const auto paid=[&](sim::CommandType type,int x,int y) {
+        command(imported,type,x,y);check(control.execute({type,{x,y}}).accepted,"original-road paid control command");
+        check(imported.world().snapshot()==control.snapshot(),"original-road visuals changed paid state");
+    };
+    paid(sim::CommandType::PlaceHousehold,97,107);paid(sim::CommandType::PlaceHousehold,100,107);
+    paid(sim::CommandType::PlaceFarm,105,113);paid(sim::CommandType::PlaceMarket,111,111);
+    paid(sim::CommandType::PlaceRoad,105,112);
+    sim::CourierId id=sim::CourierId::Clay;bool witnessed=false;
+    for(int tick=0;tick<600 && !witnessed;++tick) {
+        imported.tick_once();control.tick();check(imported.world().snapshot()==control.snapshot(),"original-road ordinary tick differs");
+        for(const auto& courier:imported.world().couriers())if(courier.role==sim::CourierRole::MarketFoodInbound &&
+            courier.phase==sim::CourierPhase::ToWarehouse && courier.path_vertex+1<courier.path.size()) {
+            const auto position=imported.world().courier_position(courier.id);
+            if(courier.path[courier.path_vertex]==sim::Cell{105,111} && courier.path[courier.path_vertex+1]==sim::Cell{106,111} &&
+                position && position->x>105.6 && position->x<106) {id=courier.id;witnessed=true;break;}
+        }
+    }
+    check(witnessed,"earned Food trip did not reach actual original-road foot witness");
+    check(imported.world().courier(id).cargo>0 && imported.world().object_at({105,111})==sim::Object::Empty &&
+          imported.world().snapshot().roads.size()==1,"original road trip used fabricated Sandbox roads/cargo");
+    zoom(imported,ground(imported,id),1);const auto before=imported.world().snapshot();
+    const auto permissions=imported.world().map_permissions();const auto canonical=permissions->canonical_state();
+    cargo_observer::omit=false;render(imported);
+    const auto positive=[&] {
+        const auto road_draws_before=imported.road_display_stats().draws;
+        render(imported);const auto image=pixels(renderer);const auto foot=relative(imported,id,2.5,-1.5);
+        in_map(imported,foot);check(pixel(image.get(),foot)==leg,"original-map ground overwrote an independently authored opaque Walker foot");
+        const auto torso=relative(imported,id,-3.5,-12.5);in_map(imported,torso);
+        check(pixel(image.get(),torso)==Color{0,255,255,255},"original-map ground overwrote Walker torso");
+        const auto road_draws=imported.road_display_stats().draws-road_draws_before;
+        if(road_draws!=1)std::cerr<<"original ground road draws="<<road_draws
+            <<" painterroad="<<imported.painter_stats().road_ground_items<<" flags="<<imported.original_road_ground_items()<<"\n";
+        check(road_draws==1,"fixed original roads received duplicate Sandbox Road submissions");
+    };
+    positive();
+    for(int layer=0;layer<8;++layer) {key(imported,SDLK_F8);positive();}
+    for(double factor:{1.15,2.0,4.0,1.0}) {zoom(imported,ground(imported,id),factor);positive();}
+    // Move the normal white selection outline away from the shared road edge.
+    // The last paid command selected the owned connector, whose diamond border
+    // would otherwise be an unrelated foreground pixel at the join witness.
+    imported.set_tool(5);click(imported,cell_ground(imported,{105,109}));positive();
+    const auto from=cell_ground(imported,{105,111}),to=cell_ground(imported,{105,112});
+    const auto joined=pixels(renderer);
+    for(int step=2;step<19;++step)for(int lane=-2;lane<=2;++lane) {
+        const auto p=Point{from.x+(to.x-from.x)*step/20.0+lane,from.y+(to.y-from.y)*step/20.0};
+        if(pixel(joined.get(),p)!=road) {
+            const auto actual=pixel(joined.get(),p);
+            std::cerr<<"original connection gap step="<<step<<" lane="<<lane<<" pixel="<<p.x<<","<<p.y
+                <<" rgba="<<int(actual[0])<<","<<int(actual[1])<<","<<int(actual[2])<<" from="<<from.x<<","<<from.y
+                <<" to="<<to.x<<","<<to.y<<" zoom="<<imported.camera().zoom<<"\n";
+        }
+        check(pixel(joined.get(),p)==road,"mixed original/owned connection contains a disconnecting ground gap");
+    }
+    key(imported,SDLK_F1);imported.set_tool(5);render(imported);
+    click(imported,relative(imported,id,2.5,-1.5));
+    check(imported.input_diagnostic_state().selected_walker==static_cast<std::uint32_t>(id),
+          "early original-road background prevented actual visible Walker-foot picking");
+    key(imported,SDLK_F2);render(imported);key(imported,SDLK_F2);positive();
+    check(SDL_SetWindowSize(window,1290,780),"original-road actual viewport change");SDL_PumpEvents();
+    SDL_Event resized{};resized.type=SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;bool running=true;imported.handle_event(resized,running);
+    positive();
+    check(imported.world().snapshot()==before && imported.world().map_permissions()==permissions && canonical==permissions->canonical_state(),
+          "original-road F1/F2/F8/zoom/viewport changed navigation or complete World");
+    equal_documents(imported,control,fixture,"original-road");
+    // Direct production component oracle: each classified original road uses
+    // exactly one existing Combined submission in every debug layer, then its
+    // spatial draw is empty. This is separate from the ordinary-view pixels.
+    auto session=fixture.session(false,true);oe::StoredGraphicsRenderer original_ground(std::move(session.plan));
+    original_ground.initialize(renderer);original_ground.set_original_road_ground(permissions);
+    const auto& items=original_ground.draw_items();std::optional<std::size_t> original_index;
+    for(std::size_t i=0;i<items.size();++i)if(items[i].footprint) {
+        const auto& footprint=original_ground.plan().footprints[items[i].plan_index];
+        if(footprint.origin==maps::GridCell{106,111})original_index=i;
+    }
+    check(original_index.has_value(),"positive original road draw item absent");
+    for(int layer=0;layer<8;++layer) {
+        original_ground.set_landscape_mode(static_cast<oe::LandscapeDebugMode>(layer));original_ground.begin_frame();
+        check(original_ground.draw_ground_item(*original_index,imported.camera()) && original_ground.last_texture_draws()==1 &&
+              original_ground.draw_item(*original_index,imported.camera()) && original_ground.last_texture_draws()==1,
+              "original-map road has duplicate Base/Overlay/Combined body draws");
+    }
+    original_ground.shutdown();imported.shutdown();
+    check(SDL_SetWindowSize(window,1100,700),"restore original-road test window");SDL_PumpEvents();
+    std::cout<<"Production original-road ground: earned Food trip, opaque feet/torso, mixed connection, F8/zoom/viewport, picking, one draw and full save purity PASS\n";
+}
 }
 int main(int argc,char** argv) {
     SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;SDL_Texture* target=nullptr;
@@ -286,6 +412,7 @@ int main(int argc,char** argv) {
         if(mode=="all"||mode=="metal"||mode=="foreground")foreground_case(window,renderer);
         if(mode=="all"||mode=="metal"||mode=="preview")preview_case(window,renderer);
         if(mode=="all"||mode=="metal"||mode=="route")route_case(window,renderer);
+        if(mode=="original"||mode=="--original-roads-only")original_road_case(window,renderer);
         check(oe::WalkerSpriteSet::live_texture_count()==0&&oe::RoadSpriteSet::live_texture_count()==0&&oe::StoredGraphicsRenderer::live_texture_count()==0,"owned session texture leak");
         SDL_DestroyTexture(target);SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
         std::cout<<"Production Road-ground and Cargo-overlay pixels PASS\n";return 0;

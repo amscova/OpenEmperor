@@ -459,7 +459,7 @@ void actual_gate_neutrality(const assets::WalkerVisualProfile& profile,bool hori
     using namespace openemperor;
     const auto permissions=gate_permissions(horizontal);
     const auto axis=[&](sim::Cell cell) { return horizontal ? sim::Cell{cell.y,cell.x}:cell; };
-    sim::World world(permissions);
+    sim::World world(permissions,sim::RulesProfile::CityV16,3);
     const auto target=put(world,sim::CommandType::PlaceClaySource,axis({7,12}));
     for (const auto cell:{sim::Cell{0,0},sim::Cell{3,0},sim::Cell{10,0},sim::Cell{13,0}})
         put(world,sim::CommandType::PlaceHousehold,axis(cell));
@@ -567,7 +567,7 @@ void actual_gate_neutrality(const assets::WalkerVisualProfile& profile,bool hori
     std::cout<<(horizontal ? "horizontal":"vertical")<<" Inspector dispatch "<<dispatch_tick
              <<", actual arrival "<<arrival_tick<<", real gate/wait/restore/return neutral\n";
     // No ordinary population means no fabricated Inspector departure.
-    sim::World unstaffed(permissions);
+    sim::World unstaffed(permissions,sim::RulesProfile::CityV16,3);
     put(unstaffed,sim::CommandType::PlaceClaySource,axis({7,12}));
     const auto empty_watch=put(unstaffed,sim::CommandType::PlaceFireWatch,axis({4,4}));
     check(unstaffed.execute_road_batch(roads).accepted,"unstaffed road setup");

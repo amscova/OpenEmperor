@@ -190,6 +190,7 @@ public:
         bool road_ground_pass=false;
     };
     PainterStats painter_stats() const { return painter_stats_; }
+    std::size_t original_road_ground_items() const { return background_.original_road_ground_items(); }
     bool unified_depth() const { return unified_depth_; }
     bool building_visuals_active() const { return building_enabled_ && building_profile_.has_value(); }
     std::size_t building_texture_count() const { return building_sprite_ ? building_sprite_->texture_count():0; }

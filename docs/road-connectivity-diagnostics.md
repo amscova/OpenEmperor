@@ -1,6 +1,8 @@
 # Road connectivity diagnostics
 
-Status: **EXPECTED / DIAGNOSTICS IMPROVED**, 2026-10-09. Baseline HEAD
+Current City-v16 rule 4 / policy 2 now imports validated normal original roads into the existing traffic network. F1/G includes transport source, imported policy and traversability; known special-road classifications produce their concrete unsupported reason. Rule-3 saves retain their original visual-only roads. See [the implementation and real-road acceptance](original-roads.md).
+
+Historical status: **EXPECTED / DIAGNOSTICS IMPROVED**, 2026-10-09. Baseline HEAD
 `0891513a3608d481c648c309e1a9c8aa2c03a42c` was clean before this pass.
 No reproduced production routing defect warrants a rule or cache fix.
 City-v16 rule 3, MapPermissions policy 1, save schema 19, building footprints,
@@ -43,7 +45,7 @@ are unchanged. The exact authoritative route is returned when one exists.
 | BLOCKED_HEIGHT_TRANSITION | A specific measured edge has incompatible signed heights. |
 | BLOCKED_ORIGINAL_STRUCTURE | A measured attachment meets protected original structure/solid gate cells. |
 | BLOCKED_GATE_ENTRY | A measured attachment violates the existing gate-entry or building-from-corridor rule. |
-| MISSING_ROAD_CELL | A measured local attachment lacks a Sandbox Road/fixed passage. |
+| MISSING_ROAD_CELL | A measured local attachment lacks supported transport under its saved policy. |
 | UNSUPPORTED_OR_UNKNOWN | Unsupported query or an unclassified measured permission reason; no guessed repair. |
 
 The first three are topology results; several secondary edge categories can

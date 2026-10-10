@@ -224,13 +224,16 @@ RecoveryEntry make_entry(const std::string& history,const std::optional<Recovery
     return e;
 }
 void validate_policy_readback(const SaveDocument& saved,const SaveDocument& source) {
-    if (source.world.profile!=simulation::RulesProfile::CityV16 || source.world.rule_version!=3) return;
-    require(saved.source_schema_version==19 && saved.world==source.world &&
+    if (source.world.profile!=simulation::RulesProfile::CityV16 ||
+        (source.world.rule_version!=3 && source.world.rule_version!=4)) return;
+    const auto expected_schema=source.world.rule_version==3 ? 19U:20U;
+    require(saved.source_schema_version==expected_schema && saved.world==source.world &&
             saved.map_relative==source.map_relative && saved.map_sha256==source.map_sha256 &&
             saved.buildable_sha256==source.buildable_sha256 &&
             saved.map_permissions_policy_version==source.map_permissions_policy_version &&
             saved.map_permissions_sha256==source.map_permissions_sha256,
-            "recovery read-back differs from schema19 world or map policy");
+            source.world.rule_version==3 ? "recovery read-back differs from schema19 world or map policy":
+                "recovery read-back differs from schema20 world or map policy");
 }
 void validate_entry_document(RecoveryEntry& entry) {
     try {

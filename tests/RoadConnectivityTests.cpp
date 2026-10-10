@@ -43,7 +43,7 @@ struct City {
     sim::World world;
     sim::BuildingId clay,pottery;
     explicit City(std::shared_ptr<const sim::MapPermissions> permissions=policy(),bool staffed=true)
-        :world(std::move(permissions)),
+        :world(std::move(permissions),sim::RulesProfile::CityV16,3),
          clay(place(world,sim::CommandType::PlaceClaySource,{2,2})),
          pottery(place(world,sim::CommandType::PlacePottery,{8,2})) {
         if (staffed) houses(world);
@@ -225,7 +225,7 @@ auto gate_policy(bool wall=true) {
     return policy(cells,{gate});
 }
 void h_gate_and_i_side() {
-    sim::World world(gate_policy());
+    sim::World world(gate_policy(),sim::RulesProfile::CityV16,3);
     const auto clay=place(world,sim::CommandType::PlaceClaySource,{6,3});
     const auto pottery=place(world,sim::CommandType::PlacePottery,{6,12});
     for (const auto p:std::vector<sim::Cell>{{7,5},{7,6},{7,10},{7,11}}) road(world,p);
@@ -236,7 +236,7 @@ void h_gate_and_i_side() {
     check(world.validate({sim::CommandType::PlaceRoad,{7,8}}).accepted &&
           !world.validate({sim::CommandType::RemoveRoad,{7,8}}).accepted,
           "H: diagnostics changed free fixed passage/protected removal");
-    sim::World direct(gate_policy());
+    sim::World direct(gate_policy(),sim::RulesProfile::CityV16,3);
     const auto farm=place(direct,sim::CommandType::PlaceFarm,{7,6});
     const auto target=place(direct,sim::CommandType::PlacePottery,{6,12});road(direct,{7,11});
     const auto rejected=diagnose(direct,farm,target);
@@ -316,14 +316,14 @@ void n_save_readonly_and_limits() {
           "Legacy profile silently borrowed policy authority");
     sim::World oversized(std::make_shared<const sim::MapPermissions>(229,3,1,
         std::vector<sim::MapCellPermission>(229U*3U,{true,true,false,0,
-            sim::BuildBlocker::None,sim::BuildBlocker::None}),std::vector<sim::FixedGatePassage>{}));
+            sim::BuildBlocker::None,sim::BuildBlocker::None}),std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,3);
     const auto excessive=sim::diagnose_road_connectivity(oversized,city.clay,city.pottery);
     check(excessive.category==Category::UnsupportedOrUnknown && excessive.cells_scanned==0 &&
           excessive.authoritative_route_queries==0,"Out-of-scope dimension did diagnostic work");
     auto crowded_cells=std::vector<sim::MapCellPermission>(228U*228U,
         {true,true,false,0,sim::BuildBlocker::None,sim::BuildBlocker::None});
     sim::World large(std::make_shared<const sim::MapPermissions>(228,228,1,std::move(crowded_cells),
-        std::vector<sim::FixedGatePassage>{}));
+        std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,3);
     const auto first=place(large,sim::CommandType::PlaceClaySource,{2,2});
     const auto last=place(large,sim::CommandType::PlacePottery,{8,2});
     for (int x=4;x<=7;++x) road(large,{x,2});

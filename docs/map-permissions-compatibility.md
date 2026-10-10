@@ -1,4 +1,6 @@
-# Rule-3 map compatibility: Xia and bounded original occupancy
+# Original-map policy compatibility: Xia and bounded original occupancy
+
+Current rule 4 uses a separate **policy 2 / schema 20** for immutable original ground-road transport. The complete manager, markers, unknown-source rejection and gate contracts below remain mandatory. Policy 1 retains its exact canonical bytes and fingerprints. See [the versioned import and corpus comparison](original-roads.md).
 
 The subsequent [profile-aware selection pass](map-selection-compatibility.md) exposes these rule prerequisites before graphical session preparation, without changing the occupancy contracts or permissions below.
 
@@ -125,7 +127,7 @@ The full suites include parser/MapPermissions, budget/UI, gate passages, RoadBat
 
 The current dirty local `0.1.0-alpha.2` bundle passes dependency containment, relocation/unzip, ad-hoc signature verification and thirteen negative package cases, with no original assets or personal state packaged. A further **packaged Xia City-v16 rule-3 Prepared Starter** check passes 1,200 ticks, production/economy and direct/continued save equality with empty stderr; signature verification still passes afterward. Staging dependency fixups report two expected signature invalidations before inside-out signing; final signatures are verified. The local ZIP SHA-256 is `9c7f619bbad54c2e2ba412d73f66ff315bfbaa2bf742b68162b16bd4da035e14`. This is package validation, not publication or native/human acceptance.
 
-The actual repository starter was exercised through its current build and production `Application` menu loop using isolated dummy/software processes and a test-only SDL event-delivery observer. Xia with the exact command below, a data path containing spaces, Banpo, Kaifeng and Zhengzhou all start and display **rule 3 / map policy 1**; the test processes quit normally and are stopped. The observer is private test instrumentation, not linked into the application or package. These delivered scripted events remain separate from native and human input evidence.
+At the policy-1 acceptance revision, the actual repository starter was exercised through its build and production `Application` menu loop using isolated dummy/software processes and a test-only SDL event-delivery observer. Xia with the exact command below, a data path containing spaces, Banpo, Kaifeng and Zhengzhou all started and displayed **rule 3 / map policy 1**; the test processes quit normally and were stopped. The observer is private test instrumentation, not linked into the application or package. These historical delivered scripted events remain separate from native and human input evidence.
 
 ## Start a fresh Xia test
 
@@ -135,6 +137,6 @@ From the repository root:
 sh tools/test_gate_passages.sh .local/gog-extracted/app Xia
 ```
 
-The repository starter builds current Release, chooses City-v16 for new games (rule **3**), selects Xia and creates a fresh isolated settings/save/Recovery root. Choose **New Sandbox**, then **Start Sandbox**. Confirm **rule 3 / Map policy 1** in the window title/HUD. Begin with Empty City; the Prepared Starter toggle uses the same current policy. The existing Kaifeng/Zhengzhou invocations remain available, and Banpo is an independent point-marker countermap. Data paths are shell/JSON quoted, including spaces.
+The repository starter builds current Release, chooses City-v16 for new games (rule **4 / policy 2 / schema 20**), selects Xia and creates a fresh isolated settings/save/Recovery root. Choose **New Sandbox**, then **Start Sandbox**. Confirm **v4 / Policy 2 / Save 20** in the window title/HUD. Begin with Empty City; the Prepared Starter toggle uses the same current policy. The existing Kaifeng/Zhengzhou invocations remain available, and Banpo is an independent point-marker countermap. Data paths are shell/JSON quoted, including spaces. Earlier costs and acceptance above remain historical rule-3 results; [the current original-road acceptance](original-roads.md) reports rule 4 separately.
 
 Visible success is a paid road followed by a further building purchase without rejection/abort, normal Clay delivery and Pottery production, then an unchanged F5/F9 restore. For the small setup above, ordinary Food/Service/Water/Health infrastructure is still required for extended city play. Full map fidelity, original elevation/composition parity and the separate human native-input checklist remain open.

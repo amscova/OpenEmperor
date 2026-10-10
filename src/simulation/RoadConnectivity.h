@@ -23,6 +23,10 @@ struct RoadConnectivityCell {
     Object object=Object::Empty;
     bool in_bounds=false,road_allowed=false,building_allowed=false;
     bool protected_original=false,fixed_passage=false;
+    bool original_road=false,traversable=false;
+    OriginalRoadClassification original_road_classification=OriginalRoadClassification::None;
+    TransportCellSource transport_source=TransportCellSource::None;
+    std::uint32_t imported_under_policy=0;
     std::int8_t height=0;
     std::optional<FixedGateId> fixed_gate;
     BuildBlocker road_blocker=BuildBlocker::None,building_blocker=BuildBlocker::None;
@@ -74,6 +78,7 @@ struct RoadConnectivityReport {
     RoadConnectivityEndpoint source{},target{};
     std::uint64_t measured_tick=0,command_sequence=0,road_revision=0;
     std::uint32_t policy_version=0;
+    std::uint32_t rule_version=0;
     // This is precisely World::find_building_route(), including both building
     // endpoint cells. No diagnostic route is substituted for that authority.
     std::optional<std::vector<Cell>> route;

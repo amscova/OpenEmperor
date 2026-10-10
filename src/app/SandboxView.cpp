@@ -3,6 +3,7 @@
 #include "maps/RegeneratedMapRenderPlan.h"
 
 #include "maps/SandboxPlacement.h"
+#include "maps/MapRulesCheck.h"
 #include "renderer/StoredCamera.h"
 #include "renderer/WellFallbackRenderer.h"
 #include "renderer/HealthPostFallbackRenderer.h"
@@ -220,7 +221,9 @@ void SandboxView::load_now() {
     if (document.map_relative!=map_relative_ || document.world.profile!=rules_)
         throw std::runtime_error("Save map or rules differ from current sandbox");
     auto replacement=persistence::restore_save(document,data_root_,buildable_mask_);
-    world_=std::make_unique<simulation::World>(std::move(replacement));
+    auto candidate=std::make_unique<simulation::World>(std::move(replacement));
+    background_.set_original_road_ground(candidate->map_permissions());
+    world_=std::move(candidate);
     road_connectivity_report_.reset();
     road_connectivity_world_=nullptr;
     road_connectivity_courier_.reset();
@@ -296,11 +299,11 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
     const auto active_version=initial_save_ ? initial_save_->world.rule_version:
         requested_rule_version_;
     std::shared_ptr<const simulation::MapPermissions> permissions;
-    if (rules_==simulation::RulesProfile::CityV16 && active_version==3)
+    if (maps::map_rules_policy_version(rules_,active_version))
         permissions=maps::load_sandbox_map_permissions(original_map_,background_.plan(),
             geometry_,buildable_mask_,initial_save_ ?
                 initial_save_->map_permissions_policy_version:
-                simulation::kMapPermissionsPolicyVersion,expected_map_input_sha256_);
+                maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
         world_=std::make_unique<simulation::World>(persistence::restore_save(*initial_save_,data_root_,
@@ -313,6 +316,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         world_=std::make_unique<simulation::World>(std::move(permissions),rules_,active_version);
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,
         buildable_mask_,rules_,active_version);
+    background_.set_original_road_ground(world_->map_permissions());
     reset_camera();
     if (demo_) place_demo();
     if (initial_save_ == std::nullopt && !demo_) {
@@ -326,6 +330,7 @@ void SandboxView::update_window_title() {
     std::string title="OpenEmperor "+std::string(version::display)+" - "+profile_title(rules_);
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
+    if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
     SDL_SetWindowTitle(window_,title.c_str());
 }
 void SandboxView::shutdown() {
@@ -2410,7 +2415,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     }
     if (road_start_ && road_preview_.valid) {
         for (const auto cell:road_preview_.cells) {
-            if (world_->object_at(cell)==simulation::Object::Road || world_->fixed_passage(cell)) continue;
+            if (world_->road_cell(cell) || world_->fixed_passage(cell)) continue;
             const auto ground=world_for({static_cast<double>(cell.x),static_cast<double>(cell.y)});
             const auto id=static_cast<unsigned>(cell.y*world_->width()+cell.x);
             instances.push_back({{ground.y,ground.x,scene::WorldVisualLayer::SandboxRoad,id},cell,
@@ -2531,7 +2536,8 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             for (const simulation::Cell next : {simulation::Cell{x+1,y},simulation::Cell{x,y+1},
                                                 simulation::Cell{x-1,y},simulation::Cell{x,y-1}}) {
                 const auto other=world_->object_at(next);
-                if (other==simulation::Object::Empty ||
+                if ((other==simulation::Object::Empty && !world_->transport_cell(next)) ||
+                    (world_->map_permissions() && !world_->map_permissions()->transport_edge_allowed(cell,next)) ||
                     (other==simulation::Object::Road && (next.x<x || next.y<y))) continue;
                 const auto screen=camera_.world_to_screen(world_for({static_cast<double>(next.x),
                     static_cast<double>(next.y)}));
@@ -3067,6 +3073,7 @@ std::vector<std::string> SandboxView::road_connectivity_lines() const {
         "Source entrances: "+std::to_string(report->source.entrances.size())+
             " | Target: "+std::to_string(report->target.entrances.size()),
         "Transport components: "+std::to_string(report->components.size()),
+        "Rule "+std::to_string(report->rule_version)+" | imported map policy "+std::to_string(report->policy_version),
         "Measured tick "+std::to_string(report->measured_tick)+" | road rev "+std::to_string(report->road_revision),
         "G: check next compatible target"};
     if (report->route) lines.push_back("Authoritative route: "+std::to_string(report->route->size())+" cells");
@@ -3077,6 +3084,11 @@ std::vector<std::string> SandboxView::road_connectivity_lines() const {
         lines.push_back(std::move(footprint));
         for (const auto& entrance:endpoint.entrances)
             lines.push_back(std::string(label)+" entrance "+cell(entrance.building_cell)+" <-> "+cell(entrance.road_cell));
+        for (const auto& entrance:endpoint.entrances) {
+            const auto source=world_->transport_source(entrance.road_cell);
+            lines.push_back("Transport source: "+std::string(simulation::transport_cell_source_name(source))+
+                " at "+cell(entrance.road_cell));
+        }
         for (std::size_t i=0;i<std::min<std::size_t>(2,endpoint.rejected_entrances.size());++i) {
             const auto& edge=endpoint.rejected_entrances[i];
             lines.push_back(std::string(label)+" rejected "+cell(edge.from.cell)+" -> "+cell(edge.to.cell));
@@ -3171,6 +3183,11 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             lines={"Original gate #"+std::to_string(gate->id.value),
                 permissions.fixed_passage(*selected_) ? "Fixed passage":"Protected gate structure",
                 "OpenEmperor open passage rule"};
+            if (debug_open_) {
+                lines.push_back("Transport source: "+std::string(simulation::transport_cell_source_name(world_->transport_source(*selected_))));
+                lines.push_back("Map policy: "+std::to_string(permissions.policy_version()));
+                lines.push_back(world_->transport_cell(*selected_) ? "Traversable: yes":"Traversable: no");
+            }
             for (std::size_t side=0;side<2;++side) {
                 const auto corridor=side==0 ? gate->corridor.front():gate->corridor.back();
                 lines.push_back(std::string("Opening ")+(side==0 ? "A":"B")+
@@ -3181,6 +3198,30 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 const auto provenance=maps::landscape_inspection_lines(background_.plan(),
                     {static_cast<unsigned>(selected_->x),static_cast<unsigned>(selected_->y)},
                     background_.elevated(),&camera_);
+                lines.insert(lines.end(),provenance.begin(),provenance.end());
+            }
+            return wrap_panel_lines(lines);
+        }
+        const auto classification=permissions.original_road_classification(*selected_);
+        if (world_->object_at(*selected_)==simulation::Object::Empty &&
+            classification!=simulation::OriginalRoadClassification::None) {
+            lines={"Original map road",std::string("Classification: ")+
+                simulation::original_road_classification_name(classification)};
+            if (world_->original_road(*selected_)) {
+                lines.push_back("Transport source: Original map road");
+                lines.push_back("Imported under policy: "+std::to_string(permissions.policy_version()));
+                lines.push_back("Traversable: yes");
+                lines.push_back("Fixed road: free; cannot build over or remove.");
+            } else {
+                lines.push_back("Traversable: no");
+                lines.push_back(classification==simulation::OriginalRoadClassification::GroundRoad ?
+                    "Original road is visual-only under this saved policy.":
+                    simulation::original_road_classification_reason(classification));
+            }
+            lines.push_back("Signed height: "+std::to_string(permissions.cell_height(*selected_)));
+            if (debug_open_) {
+                const auto provenance=maps::landscape_inspection_lines(background_.plan(),
+                    {unsigned(selected_->x),unsigned(selected_->y)},background_.elevated(),&camera_);
                 lines.insert(lines.end(),provenance.begin(),provenance.end());
             }
             return wrap_panel_lines(lines);
@@ -3960,7 +4001,10 @@ bool SandboxView::draw_hud() {
     else overview+=" | Goods "+std::to_string(world_->total_produced());
     if (world_->burning_buildings()>0 && !SDL_SetRenderDrawColor(renderer_,255,174,80,255)) return false;
     if (simulation::market_profile(rules_)) {
-        overview=profile+" v"+std::to_string(world_->rule_version())+" | Tick "+
+        overview=profile+" v"+std::to_string(world_->rule_version());
+        if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
+            overview+=" | Policy 2 | Save 20";
+        overview+=" | Tick "+
             std::to_string(world_->ticks())+" | "+(clock_.paused() ? "Paused ":"Running ")+
             std::to_string(clock_.speed())+"x";
         if (!draw_text(8*layout_.scale,10*layout_.scale,overview,layout_.top.w-310*layout_.scale)) return false;

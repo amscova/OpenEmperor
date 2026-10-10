@@ -39,7 +39,7 @@ const char* description(simulation::RulesProfile p) {
     case simulation::RulesProfile::CityV10: return "Older city: scalable independent districts";
     case simulation::RulesProfile::CityV11: return "City - markets, population and workforce controls";
     case simulation::RulesProfile::CityV12: return "Fire safety and city services";
-    case simulation::RulesProfile::CityV16: return "City v16 - Maintenance and city budget";
+    case simulation::RulesProfile::CityV16: return "City v16 - Budget and original roads";
     case simulation::RulesProfile::CityV15: return "City v15 - Water, road-based health services and deterministic illness";
     case simulation::RulesProfile::CityV14: return "City v14 - Water and residential infrastructure";
     case simulation::RulesProfile::CityV13: return "City v13 - Residential quality and zoning";

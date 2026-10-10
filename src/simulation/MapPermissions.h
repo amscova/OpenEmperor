@@ -20,10 +20,15 @@ struct FixedGateId {
     auto operator<=>(const FixedGateId&) const = default;
 };
 inline constexpr std::uint32_t kMapPermissionsPolicyVersion=1;
+inline constexpr std::uint32_t kOriginalRoadsMapPermissionsPolicyVersion=2;
+constexpr bool supported_map_permissions_policy(std::uint32_t version) {
+    return version==kMapPermissionsPolicyVersion || version==kOriginalRoadsMapPermissionsPolicyVersion;
+}
 enum class BuildBlocker : std::uint8_t {
     None, OutsideMap, UnsupportedTerrain, OriginalStructure, GateSolidPart,
     GateSideEntry, SandboxOccupied, InsufficientFunds, LegacyBuildabilityRestriction,
-    UnsupportedHeightTransition, ProtectedGatePassage, InvalidEdge, CounterExhausted
+    UnsupportedHeightTransition, ProtectedGatePassage, InvalidEdge, CounterExhausted,
+    ProtectedOriginalRoad, UnsupportedOriginalRoad
 };
 const char* build_blocker_name(BuildBlocker blocker);
 const char* build_blocker_reason(BuildBlocker blocker);
@@ -43,7 +48,16 @@ struct RoadCellDiagnostic {
     bool existing_road=false;
     bool fixed_passage=false;
     BuildBlocker blocker=BuildBlocker::None;
+    bool original_road=false;
 };
+// Load-time classification, independent of rendered pixels and mutable roads.
+// Policy 1 may retain GroundRoad as diagnostic evidence, but never imports it.
+enum class OriginalRoadClassification : std::uint8_t {
+    None, GroundRoad, UnsupportedTerrain, WaterOrBridge, OriginalStructure,
+    NonzeroObjects, OutsideMap, FixedGateFootprint
+};
+const char* original_road_classification_name(OriginalRoadClassification classification);
+const char* original_road_classification_reason(OriginalRoadClassification classification);
 struct MapCellPermission {
     bool road_allowed=false;
     bool building_allowed=false;
@@ -51,6 +65,8 @@ struct MapCellPermission {
     std::int8_t height=0;
     BuildBlocker road_blocker=BuildBlocker::UnsupportedTerrain;
     BuildBlocker building_blocker=BuildBlocker::LegacyBuildabilityRestriction;
+    bool original_road=false;
+    OriginalRoadClassification original_road_classification=OriginalRoadClassification::None;
 };
 struct FixedGatePassage {
     FixedGateId id{};
@@ -77,6 +93,8 @@ public:
     bool road_allowed(Cell cell) const;
     bool building_allowed(Cell cell) const;
     bool protected_original(Cell cell) const;
+    bool original_road(Cell cell) const;
+    OriginalRoadClassification original_road_classification(Cell cell) const;
     std::int8_t cell_height(Cell cell) const;
     bool fixed_passage(Cell cell) const;
     const FixedGatePassage* fixed_gate(Cell cell) const;
@@ -105,6 +123,7 @@ private:
 // Explicit authored fixture policy: the supplied mask permits roads/buildings,
 // all heights are zero and no original structures or gates are introduced.
 std::shared_ptr<const MapPermissions> authored_simple_permissions(
-    int width,int height,const std::vector<std::uint8_t>& mask);
+    int width,int height,const std::vector<std::uint8_t>& mask,
+    std::uint32_t policy_version=kMapPermissionsPolicyVersion);
 
 } // namespace openemperor::simulation

@@ -18,7 +18,8 @@ struct SaveDocument {
     simulation::WorldSnapshot world;
     bool migrated_from_schema1=false; // Diagnostic only; never serialized.
     std::uint32_t source_schema_version=0; // Diagnostic only; set when reading.
-    // Schema 19 / City-v16 rule 3 only. The save contains no transit links.
+    // Schema 19/rule 3/policy 1 or schema 20/rule 4/policy 2 only.
+    // The save contains no transit links or editable original-road claims.
     std::uint32_t map_permissions_policy_version=0;
     std::string map_permissions_sha256;
     // Prepared immutable input for manual/autosave validation; never serialized.

@@ -220,6 +220,10 @@ enum class Object : std::uint8_t {
     Empty, Road, Workshop, Warehouse, ClaySource, Pottery, Household, Farm, ServicePost, Market,
     FireWatch, Well, HealthPost
 };
+enum class TransportCellSource : std::uint8_t {
+    None, SandboxRoad, OriginalMapRoad, FixedGatePassage
+};
+const char* transport_cell_source_name(TransportCellSource source);
 std::int64_t maintenance_cost(RulesProfile profile,Object kind);
 struct BuildingFootprint {
     int width=1;
@@ -508,7 +512,10 @@ public:
     bool buildable(Cell cell) const;
     bool road_buildable(Cell cell) const;
     bool fixed_passage(Cell cell) const;
+    bool original_road(Cell cell) const;
+    bool road_cell(Cell cell) const;
     bool transport_cell(Cell cell) const;
+    TransportCellSource transport_source(Cell cell) const;
     bool transport_edge_allowed(Cell from,Cell to) const;
     const std::shared_ptr<const MapPermissions>& map_permissions() const { return permissions_; }
     Object object_at(Cell cell) const;
@@ -642,6 +649,9 @@ public:
     int warehouse_stock() const { return warehouse_stock_; }
     bool goods_balance_valid() const;
 private:
+    World(int width,int height,std::vector<std::uint8_t> buildable,
+          RulesProfile profile,std::uint32_t rule_version,
+          std::shared_ptr<const MapPermissions> permissions);
     void update_health();
     void update_fire();
     CommandResult execute_impl(Command command,bool refresh_after);

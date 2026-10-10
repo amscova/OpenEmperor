@@ -204,13 +204,14 @@ int main(int argc,char* argv[]) {
             click(maintenance_menu,90,650);finish_load(maintenance_menu);
             check(maintenance_menu.state()==Menu::State::Playing && maintenance_menu.sandbox() &&
                 maintenance_menu.sandbox()->world().profile()==openemperor::simulation::RulesProfile::CityV16 &&
-                maintenance_menu.sandbox()->world().rule_version()==3 &&
+                maintenance_menu.sandbox()->world().rule_version()==4 &&
                 maintenance_menu.sandbox()->world().map_permissions() &&
+                maintenance_menu.sandbox()->world().map_permissions()->policy_version()==2 &&
                 maintenance_menu.sandbox()->world().treasury()==20 &&
                 maintenance_menu.sandbox()->world().current_maintenance_rate()==48 &&
                 maintenance_menu.sandbox()->world().maintenance_spent_total()==0,"menu paid maintenance starter");
             maintenance_menu.sandbox()->save_now();const auto entries=openemperor::menu::list_saves(root);
-            check(entries.entries.size()==1 && entries.entries[0].schema==19 &&
+            check(entries.entries.size()==1 && entries.entries[0].schema==20 && entries.entries[0].rule_version==4 &&
                 entries.entries[0].profile==openemperor::simulation::city_v16_profile_name,"City-v16 save list identity");
             maintenance_menu.shutdown();
         }

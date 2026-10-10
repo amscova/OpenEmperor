@@ -100,6 +100,47 @@ int main() {
         check(invalid.valid && live.snapshot()==state,"drag planning mutated World");
         check(!live.execute({sim::CommandType::RemoveRoad,{1,1}}).accepted &&
               ui::road_neighbor_mask(live,{3,3})==0x0,"rejected command changed topology");
+        // Immutable original roads use the same visual neighbor ordering and
+        // height-filtered edges; they never need a mutable Road object.
+        for (int expected=0;expected<16;++expected) {
+            std::vector<sim::MapCellPermission> cells(49);
+            for (auto& cell:cells) {
+                cell.road_allowed=cell.building_allowed=true;
+                cell.road_blocker=cell.building_blocker=sim::BuildBlocker::None;
+            }
+            for (int bit=0;bit<4;++bit) if (expected&(1<<bit)) {
+                const auto neighbor=neighbors[static_cast<std::size_t>(bit)];
+                auto& cell=cells[std::size_t(neighbor.y*7+neighbor.x)];
+                cell.original_road=true;cell.building_allowed=false;
+                cell.building_blocker=sim::BuildBlocker::ProtectedOriginalRoad;
+                cell.original_road_classification=sim::OriginalRoadClassification::GroundRoad;
+            }
+            sim::World mixed(std::make_shared<const sim::MapPermissions>(7,7,2,std::move(cells),
+                std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,4);
+            place(mixed,sim::CommandType::PlaceRoad,{3,3});
+            const auto snapshot=mixed.snapshot();
+            check(ui::road_neighbor_mask(mixed,{3,3})==expected,
+                  "owned road does not connect to all original road masks");
+            check(ui::road_neighbor_mask_for_preview(mixed,{}, {3,3})==expected &&
+                  mixed.snapshot()==snapshot,"mixed road topology preview changes World");
+        }
+        {
+            std::vector<sim::MapCellPermission> cells(49);
+            for (auto& cell:cells) {
+                cell.road_allowed=cell.building_allowed=true;
+                cell.road_blocker=cell.building_blocker=sim::BuildBlocker::None;
+            }
+            auto& original=cells[3*7+4];original.original_road=true;
+            original.original_road_classification=sim::OriginalRoadClassification::GroundRoad;
+            original.building_allowed=false;original.building_blocker=sim::BuildBlocker::ProtectedOriginalRoad;
+            original.height=-1;
+            sim::World high(std::make_shared<const sim::MapPermissions>(7,7,2,std::move(cells),
+                std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,4);
+            const std::array<sim::Cell,1> original_plan{{{3,3}}};
+            check(ui::road_neighbor_mask_for_preview(high,original_plan,{3,3})==0 &&
+                  ui::road_neighbor_mask_for_preview(high,original_plan,{4,3})==0,
+                  "visual original-road connection bypassed signed height edge");
+        }
         std::cout<<"road topology: all 16 road-only masks, entrances and live preview passed\n";
         return 0;
     } catch (const std::exception& e) { std::cerr<<e.what()<<'\n';return 1; }

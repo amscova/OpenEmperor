@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "maps/MapRulesCheck.h"
 #include "app/AssetBrowser.h"
 #include "app/SceneView.h"
 #include "app/MapDebugView.h"
@@ -520,8 +521,8 @@ int main(int argc, char* argv[]) {
                       << " | footprint=edge-byte-4x4 | buildable=sandbox_buildable_v1"
                       << " | rules=" << openemperor::simulation::rules_profile_name(sandbox_rules)
                       << " | rule=" << active_rule_version;
-            if (sandbox_rules==openemperor::simulation::RulesProfile::CityV16 && active_rule_version==3)
-                std::cout << " | map-policy=" << openemperor::simulation::kMapPermissionsPolicyVersion;
+            if (const auto policy=openemperor::maps::map_rules_policy_version(sandbox_rules,active_rule_version))
+                std::cout << " | map-policy=" << policy;
             std::cout << '\n';
         } catch (const std::exception& error) {
             std::cerr << "Sandbox load failed: " << error.what() << '\n'; return 1;

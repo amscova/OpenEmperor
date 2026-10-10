@@ -238,14 +238,14 @@ std::uint32_t current_rule_version(RulesProfile profile) {
     // Keep new games on v3 until the native v4 replanning acceptance is complete.
     // Explicit v4 restores and confirmed copy upgrades remain supported.
     if (profile==RulesProfile::CityV11) return 3;
-    if (profile==RulesProfile::CityV16) return 3;
+    if (profile==RulesProfile::CityV16) return 4;
     return profile==RulesProfile::ProductionV2 ? 2U:1U;
 }
 
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=3;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=4;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -267,6 +267,8 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::CityV16 && version==2) return city_v16_v2;
     static constexpr ProfileRules city_v16_v3{3,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==3) return city_v16_v3;
+    static constexpr ProfileRules city_v16_v4{4,32,64,32,5,800};
+    if (profile==RulesProfile::CityV16 && version==4) return city_v16_v4;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};
     if (fire_profile(profile)) return city_v12;
     return legacy;
@@ -274,9 +276,12 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
 
 World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfile profile,
              std::uint32_t rule_version)
+    : World(width,height,std::move(buildable),profile,rule_version,{}) {}
+World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfile profile,
+             std::uint32_t rule_version,std::shared_ptr<const MapPermissions> permissions)
     : width_(width),height_(height),profile_(profile),
       rule_version_(rule_version==0 ? current_rule_version(profile):rule_version),
-      buildable_(std::move(buildable)) {
+      buildable_(std::move(buildable)),permissions_(std::move(permissions)) {
     if (width<=0 || height<=0 || width>512 || height>512 ||
         buildable_.size()!=static_cast<std::size_t>(width)*static_cast<std::size_t>(height))
         throw std::invalid_argument("invalid bounded sandbox grid");
@@ -290,7 +295,15 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
         profile!=RulesProfile::CityV15 && profile!=RulesProfile::CityV16)
         throw std::invalid_argument("unknown sandbox rules profile");
     (void)profile_rules(profile_,rule_version_);
-    if (profile_==RulesProfile::CityV16 && rule_version_==3)
+    if (permissions_) {
+        const bool valid_pair=profile_==RulesProfile::CityV16 &&
+            ((rule_version_==3 && permissions_->policy_version()==kMapPermissionsPolicyVersion) ||
+             (rule_version_==4 && permissions_->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion));
+        if (!valid_pair)
+            throw std::invalid_argument("map permissions require City-v16 rule 3/policy 1 or rule 4/policy 2");
+    } else if (profile_==RulesProfile::CityV16 && rule_version_==4) {
+        throw std::invalid_argument("City-v16 rule 4 requires complete policy-2 map permissions");
+    } else if (profile_==RulesProfile::CityV16 && rule_version_==3)
         permissions_=authored_simple_permissions(width_,height_,buildable_);
     treasury_=city_profile(profile) ? starting_treasury_for(profile):0;
     objects_.assign(buildable_.size(),Object::Empty);
@@ -338,11 +351,8 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
 World::World(std::shared_ptr<const MapPermissions> permissions,RulesProfile profile,
              std::uint32_t version)
     : World(permissions ? permissions->width():0,permissions ? permissions->height():0,
-            permissions ? permissions->building_mask():std::vector<std::uint8_t>{},profile,version) {
-    if (!permissions || profile_!=RulesProfile::CityV16 || rule_version_!=3)
-        throw std::invalid_argument("map permissions require City-v16 rule 3");
-    permissions_=std::move(permissions);
-}
+            permissions ? permissions->building_mask():std::vector<std::uint8_t>{},profile,version,
+            permissions) {}
 
 bool World::in_bounds(Cell cell) const {
     return cell.x>=0 && cell.y>=0 && cell.x<width_ && cell.y<height_;
@@ -358,8 +368,29 @@ bool World::road_buildable(Cell cell) const {
 bool World::fixed_passage(Cell cell) const {
     return permissions_ && permissions_->fixed_passage(cell);
 }
+bool World::original_road(Cell cell) const {
+    return permissions_ && permissions_->original_road(cell);
+}
+bool World::road_cell(Cell cell) const {
+    return object_at(cell)==Object::Road || original_road(cell);
+}
 bool World::transport_cell(Cell cell) const {
-    return object_at(cell)==Object::Road || fixed_passage(cell);
+    return road_cell(cell) || fixed_passage(cell);
+}
+TransportCellSource World::transport_source(Cell cell) const {
+    if (object_at(cell)==Object::Road) return TransportCellSource::SandboxRoad;
+    if (original_road(cell)) return TransportCellSource::OriginalMapRoad;
+    if (fixed_passage(cell)) return TransportCellSource::FixedGatePassage;
+    return TransportCellSource::None;
+}
+const char* transport_cell_source_name(TransportCellSource source) {
+    switch (source) {
+    case TransportCellSource::None:return "None";
+    case TransportCellSource::SandboxRoad:return "Sandbox road";
+    case TransportCellSource::OriginalMapRoad:return "Original map road";
+    case TransportCellSource::FixedGatePassage:return "Fixed gate passage";
+    }
+    return "Unknown";
 }
 bool World::permission_edge_allowed(Cell from,Cell to) const {
     if (!permissions_) return true;
@@ -915,6 +946,8 @@ CommandResult World::validate(Command command) const {
     }
     if (!in_bounds(command.cell)) return blocked(BuildBlocker::OutsideMap,command.cell);
     if (command.type==CommandType::RemoveRoad) {
+        if (original_road(command.cell))
+            return blocked(BuildBlocker::ProtectedOriginalRoad,command.cell);
         if (fixed_passage(command.cell))
             return blocked(BuildBlocker::ProtectedGatePassage,command.cell);
         if (object_at(command.cell)!=Object::Road) {
@@ -933,6 +966,8 @@ CommandResult World::validate(Command command) const {
         }
         return {true,true,"Road removed",result.sequence,ticks_};
     }
+    if (command.type==CommandType::PlaceRoad && original_road(command.cell))
+        return {true,false,"Original road already available.",result.sequence,ticks_};
     if (command.type==CommandType::PlaceRoad && fixed_passage(command.cell))
         return {true,false,"Original gate passage already provides a fixed connection",result.sequence,ticks_};
     if (scalable(profile_)) {
@@ -940,7 +975,9 @@ CommandResult World::validate(Command command) const {
         if (kind) for (const auto cell:building_footprint_cells(profile_,rule_version_,*kind,command.cell)) {
             if (!in_bounds(cell)) return blocked(BuildBlocker::OutsideMap,cell,"Building footprint outside sandbox grid");
             if (!buildable(cell)) return blocked(permissions_ ? permissions_->building_blocker(cell):
-                BuildBlocker::LegacyBuildabilityRestriction,cell,permissions_ ? nullptr:"Building footprint is not sandbox-buildable");
+                BuildBlocker::LegacyBuildabilityRestriction,cell,original_road(cell) ?
+                    "Original map road cannot be built over.":
+                    permissions_ ? nullptr:"Building footprint is not sandbox-buildable");
             if (object_at(cell)!=Object::Empty)
                 return blocked(BuildBlocker::SandboxOccupied,cell,"Building footprint overlaps an occupied cell");
         }
@@ -1073,7 +1110,7 @@ RoadBatchValidation World::validate_road_batch(std::span<const Cell> cells) cons
     };
     for (std::size_t ci=0;ci<cells.size();++ci) {
         const auto cell=cells[ci];
-        const bool existing=object_at(cell)==Object::Road,passage=fixed_passage(cell);
+        const bool existing=object_at(cell)==Object::Road,passage=fixed_passage(cell),original=original_road(cell);
         const bool duplicate=std::find(new_cells.begin(),new_cells.end(),cell)!=new_cells.end();
         if (!permissions_ && (existing || duplicate)) continue;
         auto result=validate({CommandType::PlaceRoad,cell});
@@ -1085,7 +1122,7 @@ RoadBatchValidation World::validate_road_batch(std::span<const Cell> cells) cons
             result.diagnostic={BuildBlocker::CounterExhausted,cell,{}};
         if (permissions_) {
             batch.cell_diagnostics.push_back({cell,allowed,existing,passage,
-                allowed ? BuildBlocker::None:result.diagnostic.blocker});
+                allowed ? BuildBlocker::None:result.diagnostic.blocker,original});
             if (!allowed) record_blocker(result.diagnostic,result.reason);
             if (ci && allowed && batch.cell_diagnostics[ci-1].allowed && cells[ci-1]!=cell) {
                 const auto blocker=permissions_->transport_edge_blocker(cells[ci-1],cell);
@@ -1095,7 +1132,7 @@ RoadBatchValidation World::validate_road_batch(std::span<const Cell> cells) cons
         } else if (!allowed) {
             batch.reason=result.reason;batch.diagnostic=result.diagnostic;return batch;
         }
-        if (allowed && !existing && !passage && !duplicate)new_cells.push_back(cell);
+        if (allowed && !existing && !passage && !original && !duplicate)new_cells.push_back(cell);
     }
     if (batch.diagnostic.blocker!=BuildBlocker::None)return batch;
     const auto count=static_cast<std::uint64_t>(new_cells.size());
@@ -1126,7 +1163,8 @@ RoadBatchValidation World::validate_road_batch(std::span<const Cell> cells) cons
     batch.accepted=true;
     batch.reason=new_cells.empty() ? (permissions_ && std::any_of(cells.begin(),cells.end(),
         [&](Cell p){return fixed_passage(p);}) ? "Fixed gate passage/roads already provide the connection":
-        "Road already present"):"Road ready";
+        std::any_of(cells.begin(),cells.end(),[&](Cell p){return original_road(p);}) ?
+            "Original road already available.":"Road already present"):"Road ready";
     batch.new_road_count=new_cells.size();
     batch.total_cost=total;
     return batch;
@@ -1142,7 +1180,7 @@ CommandResult World::execute_road_batch(std::span<const Cell> cells) {
     auto candidate=*this;
     CommandResult last;
     for (const auto cell:cells) {
-        if (candidate.object_at(cell)==Object::Road || candidate.fixed_passage(cell)) continue;
+        if (candidate.road_cell(cell) || candidate.fixed_passage(cell)) continue;
         last=candidate.execute_impl({CommandType::PlaceRoad,cell},false);
         if (!last.accepted || !last.changed)
             return {false,false,last.reason,command_sequence_+1,ticks_};
@@ -1402,7 +1440,7 @@ std::optional<std::vector<Cell>> World::find_route() const {
 std::optional<std::vector<Cell>> World::find_route(Cell start,Cell goal) const {
     if (!in_bounds(start) || !in_bounds(goal) || start==goal) return std::nullopt;
     const auto start_kind=object_at(start),goal_kind=object_at(goal);
-    if ((start_kind==Object::Empty && !fixed_passage(start)) || goal_kind==Object::Empty ||
+    if ((start_kind==Object::Empty && !transport_cell(start)) || goal_kind==Object::Empty ||
         goal_kind==Object::Road) return std::nullopt;
     const auto start_index=index(start);
     std::vector<std::size_t> previous(objects_.size(),objects_.size());
@@ -1416,10 +1454,9 @@ std::optional<std::vector<Cell>> World::find_route(Cell start,Cell goal) const {
         for (const auto delta:neighbors) {
             const auto next=add(current,delta);
             if (!in_bounds(next) || previous[index(next)]!=objects_.size()) continue;
-            const auto kind=object_at(next);
             if (next==goal) {
-                if ((current==start && start_kind!=Object::Road) ||
-                    (permissions_ && (object_at(current)!=Object::Road ||
+                if ((current==start && !road_cell(start)) ||
+                    (permissions_ && (!road_cell(current) ||
                      !permission_edge_allowed(current,next)))) continue;
                 // New dispatches require an intervening road; a courier
                 // already on a road may finish with one adjacent edge.
@@ -1435,7 +1472,7 @@ std::optional<std::vector<Cell>> World::find_route(Cell start,Cell goal) const {
                 std::reverse(route.begin(),route.end());
                 return route;
             }
-            if (kind!=Object::Road && !fixed_passage(next)) continue;
+            if (!transport_cell(next)) continue;
             if (!permission_edge_allowed(current,next)) continue;
             previous[index(next)]=index(current);
             queue.push_back(next);
@@ -1451,7 +1488,7 @@ std::vector<BuildingEntrance> World::building_entrances(BuildingId id) const {
     for (const auto building_cell:building_footprint_cells(profile_,rule_version_,value.kind,value.cell))
         for (const auto delta:neighbors) {
             const auto road_cell=add(building_cell,delta);
-            if (object_at(road_cell)==Object::Road && permission_edge_allowed(building_cell,road_cell))
+            if (this->road_cell(road_cell) && permission_edge_allowed(building_cell,road_cell))
                 result.push_back({road_cell,building_cell});
         }
     std::sort(result.begin(),result.end(),[](const auto& a,const auto& b) {
@@ -3182,7 +3219,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         s.roads.size()>w.objects_.size() || s.command_sequence<s.roads.size())
         fail("invalid sandbox counters or road count");
     const auto put=[&](Cell cell,Object object,BuildingId owner) {
-        if (object==Object::Road ? (!w.road_buildable(cell) || w.fixed_passage(cell)):
+        if (object==Object::Road ? (!w.road_buildable(cell) || w.fixed_passage(cell) || w.original_road(cell)):
             !w.buildable(cell)) fail(w.permissions_ ? "saved object outside permitted map cells":
                 "saved object outside buildable mask");
         const auto i=w.index(cell);

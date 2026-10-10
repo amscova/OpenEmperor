@@ -1,4 +1,5 @@
 #include "renderer/StoredGraphicsRenderer.h"
+#include "simulation/MapPermissions.h"
 #include "renderer/TextureCompatibility.h"
 #include "core/PerformanceDiagnostics.h"
 
@@ -35,6 +36,26 @@ const char* landscape_debug_mode_name(LandscapeDebugMode mode) {
 }
 void StoredGraphicsRenderer::set_landscape_mode(LandscapeDebugMode mode) {
     landscape_mode_=plan_.landscape_layers_available ? mode:LandscapeDebugMode::Snapshot;
+}
+void StoredGraphicsRenderer::set_original_road_ground(
+    std::shared_ptr<const simulation::MapPermissions> permissions) {
+    std::vector<bool> prepared(draw_order_.size(),false);
+    if (!permissions) {original_road_ground_.swap(prepared);return;}
+    for (std::size_t i=0;i<draw_order_.size();++i) {
+        const auto& item=draw_order_[i];
+        if (item.regenerated) continue;
+        maps::GridCell cell;
+        if (item.footprint) {
+            const auto& footprint=plan_.footprints[item.plan_index];
+            if (footprint.width_cells!=1 || footprint.height_cells!=1) continue;
+            cell=footprint.origin;
+        } else cell=plan_.cells[item.plan_index].storage;
+        prepared[i]=permissions->original_road({int(cell.x),int(cell.y)});
+    }
+    original_road_ground_.swap(prepared);
+}
+std::size_t StoredGraphicsRenderer::original_road_ground_items() const {
+    return static_cast<std::size_t>(std::count(original_road_ground_.begin(),original_road_ground_.end(),true));
 }
 scene::Point StoredGraphicsRenderer::image_origin(const maps::PlacedFootprint& f) const {
     auto origin=f.image_origin;
@@ -365,6 +386,7 @@ void StoredGraphicsRenderer::begin_frame() {
 
 bool StoredGraphicsRenderer::draw_item(std::size_t renderer_index,
                                       const scene::Camera2D& camera) {
+    if (renderer_index<original_road_ground_.size() && original_road_ground_[renderer_index]) return true;
     if (landscape_mode_!=LandscapeDebugMode::Snapshot)
         return draw_component(renderer_index,camera,false);
     const auto& item=draw_order_.at(renderer_index);
@@ -424,7 +446,35 @@ bool StoredGraphicsRenderer::render(const scene::Camera2D& camera,
 }
 
 bool StoredGraphicsRenderer::draw_ground_item(std::size_t index, const scene::Camera2D& camera) {
+    if (index<original_road_ground_.size() && original_road_ground_[index])
+        return draw_original_road_ground(index,camera);
     return landscape_mode_==LandscapeDebugMode::Snapshot || draw_component(index,camera,true);
+}
+bool StoredGraphicsRenderer::draw_original_road_ground(std::size_t index,const scene::Camera2D& camera) {
+    const auto& item=draw_order_.at(index);
+    if (!item.footprint) {
+        const auto& cell=plan_.cells[item.plan_index];auto world=cell.world;
+        if (elevated()) world.y-=maps::landscape_height(plan_,cell.storage)*maps::landscape_height_step;
+        if (!maps::stored_rect_visible({world.x-40,world.y},80,40,camera)) return true;
+        if (!draw_diagnostic(world,camera,false,maps::interpret_terrain(cell.terrain_raw,cell.objects_raw).category)) return false;
+        ++last_diagnostic_draws_;++last_drawn_instances_;return true;
+    }
+    const auto& footprint=plan_.footprints[item.plan_index];
+    const auto asset=render_asset_index(footprint);
+    if (plan_.assets[asset].status!=maps::StoredStatus::Rendered) {
+        // Retain the named diagnostic fallback without inventing another road.
+        if (landscape_mode_!=LandscapeDebugMode::Snapshot) return draw_component(index,camera,true);
+        const auto world=plan_.cells[footprint.cell_indices.front()].world;
+        if (!maps::stored_rect_visible({world.x-40,world.y},80,40,camera)) return true;
+        if (!draw_diagnostic(world,camera,false,maps::TerrainCategory::Road)) return false;
+        ++last_diagnostic_draws_;++last_drawn_instances_;return true;
+    }
+    const auto& record=plan_.assets[asset].record;const auto origin=image_origin(footprint);
+    if (!maps::stored_rect_visible(origin,unsigned(record.width),unsigned(record.height),camera)) return true;
+    const auto top=camera.world_to_screen(origin);
+    const SDL_FRect destination{float(top.x),float(top.y),float(record.width*camera.zoom),float(record.height*camera.zoom)};
+    if (!SDL_RenderTexture(renderer_,textures_[asset],nullptr,&destination)) return false;
+    ++last_texture_draws_;++last_drawn_instances_;return true;
 }
 bool StoredGraphicsRenderer::draw_component(std::size_t index, const scene::Camera2D& camera, bool base) {
     const auto& item=draw_order_.at(index);
@@ -500,6 +550,8 @@ std::optional<StoredVisualHit> StoredGraphicsRenderer::hit_test_item(scene::Poin
             continue;
         }
         if (!it->footprint) continue;
+        const auto index=static_cast<std::size_t>(std::distance(it,draw_order_.rend())-1);
+        if (index<original_road_ground_.size() && original_road_ground_[index]) continue;
         if (landscape_mode_!=LandscapeDebugMode::Snapshot && suppressed_footprints_[it->plan_index]) continue;
         const auto& f=plan_.footprints[it->plan_index];
         if (f.width_cells==1 && f.height_cells==1 && replacement_width>0 &&

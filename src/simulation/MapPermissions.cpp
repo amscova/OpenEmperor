@@ -26,6 +26,8 @@ const char* build_blocker_name(BuildBlocker b) {
     case BuildBlocker::ProtectedGatePassage:return "protected_gate_passage";
     case BuildBlocker::InvalidEdge:return "invalid_edge";
     case BuildBlocker::CounterExhausted:return "counter_exhausted";
+    case BuildBlocker::ProtectedOriginalRoad:return "protected_original_road";
+    case BuildBlocker::UnsupportedOriginalRoad:return "unsupported_original_road";
     }
     return "unknown";
 }
@@ -44,8 +46,36 @@ const char* build_blocker_reason(BuildBlocker b) {
     case BuildBlocker::ProtectedGatePassage:return "Original gate passage cannot be removed.";
     case BuildBlocker::InvalidEdge:return "Road drag has a nonorthogonal edge";
     case BuildBlocker::CounterExhausted:return "Sandbox counter exhausted";
+    case BuildBlocker::ProtectedOriginalRoad:return "Original map road cannot be removed.";
+    case BuildBlocker::UnsupportedOriginalRoad:return "Unsupported original road form";
     }
     return "Unknown road blocker";
+}
+const char* original_road_classification_name(OriginalRoadClassification c) {
+    switch (c) {
+    case OriginalRoadClassification::None:return "none";
+    case OriginalRoadClassification::GroundRoad:return "ground_road";
+    case OriginalRoadClassification::UnsupportedTerrain:return "unsupported_road_terrain";
+    case OriginalRoadClassification::WaterOrBridge:return "water_or_bridge_candidate";
+    case OriginalRoadClassification::OriginalStructure:return "original_structure";
+    case OriginalRoadClassification::NonzeroObjects:return "nonzero_original_objects";
+    case OriginalRoadClassification::OutsideMap:return "outside_map";
+    case OriginalRoadClassification::FixedGateFootprint:return "fixed_gate_footprint";
+    }
+    return "unknown";
+}
+const char* original_road_classification_reason(OriginalRoadClassification c) {
+    switch (c) {
+    case OriginalRoadClassification::None:return "No original road marking";
+    case OriginalRoadClassification::GroundRoad:return "Validated normal ground road";
+    case OriginalRoadClassification::UnsupportedTerrain:return "Original road has unsupported terrain features";
+    case OriginalRoadClassification::WaterOrBridge:return "Original water/bridge road is unsupported";
+    case OriginalRoadClassification::OriginalStructure:return "Original road marking is covered by protected original occupancy";
+    case OriginalRoadClassification::NonzeroObjects:return "Original road has nonzero raw object features";
+    case OriginalRoadClassification::OutsideMap:return "Original road marking is outside the supported map";
+    case OriginalRoadClassification::FixedGateFootprint:return "Original road marking belongs to the fixed gate contract";
+    }
+    return "Unknown original road classification";
 }
 MapPermissions::MapPermissions(int width,int height,std::uint32_t version,
     std::vector<MapCellPermission> cells,std::vector<FixedGatePassage> gates)
@@ -53,7 +83,7 @@ MapPermissions::MapPermissions(int width,int height,std::uint32_t version,
     if (width<=0 || height<=0 || width>512 || height>512 ||
         cells_.size()!=static_cast<std::size_t>(width)*static_cast<std::size_t>(height))
         throw std::invalid_argument("invalid bounded map permissions grid");
-    if (version!=kMapPermissionsPolicyVersion)
+    if (!supported_map_permissions_policy(version))
         throw std::invalid_argument("unsupported map permissions policy version");
     gate_index_.assign(cells_.size(),-1);corridor_index_.assign(cells_.size(),-1);
     std::sort(gates_.begin(),gates_.end(),[](const auto& a,const auto& b){return a.id<b.id;});
@@ -104,12 +134,22 @@ MapPermissions::MapPermissions(int width,int height,std::uint32_t version,
         if (gate_index_[index(p)]>=0)
             throw std::invalid_argument("fixed gate opening overlaps another gate");
     road_mask_.reserve(cells_.size());building_mask_.reserve(cells_.size());
+    const auto maximum_blocker=version==kMapPermissionsPolicyVersion ?
+        BuildBlocker::CounterExhausted:BuildBlocker::UnsupportedOriginalRoad;
     for (std::size_t i=0;i<cells_.size();++i) {
         const auto& c=cells_[i];
-        if (static_cast<unsigned>(c.road_blocker)>static_cast<unsigned>(BuildBlocker::CounterExhausted) ||
-            static_cast<unsigned>(c.building_blocker)>static_cast<unsigned>(BuildBlocker::CounterExhausted) ||
+        if (static_cast<unsigned>(c.road_blocker)>static_cast<unsigned>(maximum_blocker) ||
+            static_cast<unsigned>(c.building_blocker)>static_cast<unsigned>(maximum_blocker) ||
+            static_cast<unsigned>(c.original_road_classification)>static_cast<unsigned>(OriginalRoadClassification::FixedGateFootprint) ||
             (c.protected_original && (c.building_allowed || (c.road_allowed && corridor_index_[i]<0))))
             throw std::invalid_argument("inconsistent protected map permission");
+        if ((version==kMapPermissionsPolicyVersion && c.original_road) ||
+            (version==kOriginalRoadsMapPermissionsPolicyVersion &&
+                c.original_road!=(c.original_road_classification==OriginalRoadClassification::GroundRoad)) ||
+            (c.original_road && (!c.road_allowed || c.building_allowed || c.protected_original ||
+                gate_index_[i]>=0 || c.road_blocker!=BuildBlocker::None ||
+                c.building_blocker!=BuildBlocker::ProtectedOriginalRoad)))
+            throw std::invalid_argument("inconsistent original map road permission");
         road_mask_.push_back(static_cast<std::uint8_t>(c.road_allowed));
         building_mask_.push_back(static_cast<std::uint8_t>(c.building_allowed));
     }
@@ -120,6 +160,10 @@ const MapCellPermission* MapPermissions::cell_permission(Cell p) const {return i
 bool MapPermissions::road_allowed(Cell p) const {const auto* c=cell_permission(p);return c && c->road_allowed;}
 bool MapPermissions::building_allowed(Cell p) const {const auto* c=cell_permission(p);return c && c->building_allowed;}
 bool MapPermissions::protected_original(Cell p) const {const auto* c=cell_permission(p);return c && c->protected_original;}
+bool MapPermissions::original_road(Cell p) const {const auto* c=cell_permission(p);return c && c->original_road;}
+OriginalRoadClassification MapPermissions::original_road_classification(Cell p) const {
+    const auto* c=cell_permission(p);return c ? c->original_road_classification:OriginalRoadClassification::OutsideMap;
+}
 std::int8_t MapPermissions::cell_height(Cell p) const {const auto* c=cell_permission(p);return c ? c->height:0;}
 bool MapPermissions::fixed_passage(Cell p) const {return in_bounds(p) && corridor_index_[index(p)]>=0;}
 const FixedGatePassage* MapPermissions::fixed_gate(Cell p) const {
@@ -164,9 +208,15 @@ BuildBlocker MapPermissions::transport_edge_blocker(Cell from,Cell to) const {
 }
 std::string MapPermissions::canonical_state() const {
     std::ostringstream s;s.imbue(std::locale::classic());s<<"map-permissions:"<<policy_version_<<':'<<width_<<':'<<height_<<'\n';
-    for (const auto& c:cells_) s<<c.road_allowed<<','<<c.building_allowed<<','<<c.protected_original<<','
+    if (policy_version_==kOriginalRoadsMapPermissionsPolicyVersion)s<<"original-roads-format:1\n";
+    for (const auto& c:cells_) {
+        s<<c.road_allowed<<','<<c.building_allowed<<','<<c.protected_original<<','
         <<static_cast<int>(c.height)<<','<<static_cast<unsigned>(c.road_blocker)<<','
-        <<static_cast<unsigned>(c.building_blocker)<<';';
+        <<static_cast<unsigned>(c.building_blocker);
+        if (policy_version_==kOriginalRoadsMapPermissionsPolicyVersion)
+            s<<','<<c.original_road<<','<<static_cast<unsigned>(c.original_road_classification);
+        s<<';';
+    }
     for (const auto& g:gates_) {
         s<<"\ngate:"<<g.id.value<<':';
         for (const auto p:g.protected_footprint)s<<p.x<<','<<p.y<<';';
@@ -175,11 +225,12 @@ std::string MapPermissions::canonical_state() const {
     }
     return s.str();
 }
-std::shared_ptr<const MapPermissions> authored_simple_permissions(int width,int height,const std::vector<std::uint8_t>& mask) {
+std::shared_ptr<const MapPermissions> authored_simple_permissions(int width,int height,const std::vector<std::uint8_t>& mask,
+    std::uint32_t policy_version) {
     std::vector<MapCellPermission> cells;cells.reserve(mask.size());
     for (const auto m:mask)cells.push_back({m!=0,m!=0,false,0,
         m ? BuildBlocker::None:BuildBlocker::LegacyBuildabilityRestriction,
         m ? BuildBlocker::None:BuildBlocker::LegacyBuildabilityRestriction});
-    return std::make_shared<const MapPermissions>(width,height,kMapPermissionsPolicyVersion,std::move(cells),std::vector<FixedGatePassage>{});
+    return std::make_shared<const MapPermissions>(width,height,policy_version,std::move(cells),std::vector<FixedGatePassage>{});
 }
 } // namespace openemperor::simulation

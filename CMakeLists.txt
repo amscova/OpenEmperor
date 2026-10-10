@@ -353,6 +353,7 @@ if(BUILD_TESTING)
     set_tests_properties(sandbox-gate-budget-view PROPERTIES TIMEOUT 60)
     add_test(NAME sandbox-city-v15-view COMMAND openemperor-sandbox-view-tests --health-only)
     add_test(NAME sandbox-road-connectivity-view COMMAND openemperor-sandbox-view-tests --connectivity-only)
+    add_test(NAME sandbox-original-roads-view COMMAND openemperor-sandbox-view-tests --original-roads-only)
     set_tests_properties(sandbox-road-connectivity-view PROPERTIES TIMEOUT 60)
     add_test(NAME road-continuity-production-pixels COMMAND openemperor-sandbox-view-tests --road-continuity-only)
     set_tests_properties(road-continuity-production-pixels PROPERTIES TIMEOUT 60)
@@ -515,6 +516,19 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-road-connectivity-tests PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-road-connectivity-tests)
     add_test(NAME road-connectivity-diagnostics COMMAND openemperor-road-connectivity-tests)
+    add_executable(openemperor-original-road-transport-tests tests/OriginalRoadTransportTests.cpp)
+    target_link_libraries(openemperor-original-road-transport-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-road-transport-tests)
+    add_test(NAME original-road-transport COMMAND openemperor-original-road-transport-tests)
+    add_executable(openemperor-original-road-classification-tests tests/OriginalRoadClassificationTests.cpp)
+    target_link_libraries(openemperor-original-road-classification-tests PRIVATE openemperor-maps)
+    openemperor_enable_warnings(openemperor-original-road-classification-tests)
+    add_test(NAME original-road-classification COMMAND openemperor-original-road-classification-tests)
+    add_executable(openemperor-original-road-save-tests tests/OriginalRoadSaveTests.cpp)
+    target_link_libraries(openemperor-original-road-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-road-save-tests)
+    add_test(NAME original-road-save-recovery COMMAND openemperor-original-road-save-tests)
+    set_tests_properties(original-road-transport original-road-classification original-road-save-recovery PROPERTIES TIMEOUT 120)
     set_tests_properties(sandbox-live-rerouting PROPERTIES TIMEOUT 30)
     add_executable(openemperor-sandbox-household-tests tests/SandboxHouseholdTests.cpp)
     target_link_libraries(openemperor-sandbox-household-tests PRIVATE openemperor-persistence)
@@ -836,6 +850,7 @@ if(BUILD_TESTING)
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-road-ground-occlusion-tests)
     add_test(NAME road-ground-occlusion-production-pixels COMMAND openemperor-road-ground-occlusion-tests)
+    add_test(NAME original-road-ground-pixels COMMAND openemperor-road-ground-occlusion-tests --original-roads-only)
     add_executable(openemperor-walker-visual-tests tests/WalkerVisualTests.cpp
         src/app/WalkerPose.cpp src/renderer/WalkerSpriteSet.cpp)
     target_link_libraries(openemperor-walker-visual-tests PRIVATE
@@ -1077,3 +1092,12 @@ add_executable(openemperor-map-playability-fixture EXCLUDE_FROM_ALL
 target_link_libraries(openemperor-map-playability-fixture PRIVATE
     openemperor-persistence SDL3::SDL3)
 openemperor_enable_warnings(openemperor-map-playability-fixture)
+
+# Real normally paid rule-4 trips on immutable original roads. Explicitly
+# separate from the historical rule-3 A-E fixtures above.
+add_executable(openemperor-original-roads-fixture EXCLUDE_FROM_ALL
+    tools/OriginalRoadsFixture.cpp
+    src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+target_link_libraries(openemperor-original-roads-fixture PRIVATE
+    openemperor-persistence SDL3::SDL3)
+openemperor_enable_warnings(openemperor-original-roads-fixture)

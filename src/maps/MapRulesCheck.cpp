@@ -48,8 +48,10 @@ void require_selection(const MapRulesRequest& request) {
 } // namespace
 
 std::uint32_t map_rules_policy_version(simulation::RulesProfile profile,std::uint32_t rule_version) {
-    return profile==simulation::RulesProfile::CityV16 && rule_version==3 ?
-        simulation::kMapPermissionsPolicyVersion:0;
+    if (profile!=simulation::RulesProfile::CityV16) return 0;
+    if (rule_version==3) return simulation::kMapPermissionsPolicyVersion;
+    if (rule_version==4) return simulation::kOriginalRoadsMapPermissionsPolicyVersion;
+    return 0;
 }
 
 std::string map_input_sha256(const EmperorContainer& container) {

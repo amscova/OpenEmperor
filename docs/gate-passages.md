@@ -1,5 +1,7 @@
 # City-v16 rule 3: roads and fixed gate passages
 
+Current new City-v16 games use rule 4 / policy 2 with [usable original ground roads](original-roads.md). This document retains the rule-3 / policy-1 gate contract and its historical evidence; gate geometry and edge restrictions are unchanged.
+
 This authored sandbox integration starts from `479076a79aebc0b10baf1f310d7f65bee6df0530`. It connects paid roads through supported original GateHouse objects; it does not reconstruct Emperor military permissions, gate operation or courier rules. Oliver's positive feedback on the two gate maps is **User-reported visual acceptance**, not passage/routing or native-input acceptance.
 
 After the budget hotfix Oliver additionally reports “es läuft der walker kann durch gehen”: **User-reported successful gate traversal in the tested session**. Return, goods balance, Save/Load restart and other maps are not established by that report. The subsequent [Xia compatibility pass](map-permissions-compatibility.md) safely admits two evidenced editor-marker states while preserving all previously prepared policy-1 maps and gate connections.
@@ -12,7 +14,7 @@ A separately specified real Kaifeng probe at `x=99`, `y=116..126` encounters `0x
 
 ## Immutable map contract
 
-New City-v16 games use rule **3**, inheriting rule 2's economy, maintenance, services and **2×2 Well/HealthPost** footprints. The general menu default remains City-v11 rule 3. City-v16 rules 1/2 and every older profile retain their old map/routing/save semantics. There is no automatic migration or copy upgrade.
+Historical City-v16 rule-3 games use rule **3**, inheriting rule 2's economy, maintenance, services and **2×2 Well/HealthPost** footprints. The general menu default remains City-v11 rule 3. City-v16 rules 1/2 and every older profile retain their old map/routing/save semantics. There is no automatic migration or copy upgrade.
 
 `simulation::MapPermissions` holds road permission, building permission, protected original occupancy, signed saved height and fixed gate topology. It is prepared once from complete bounded original sources. World reads neither SDL, assets, alpha, render status, camera nor F8 state. The vector-mask World API represents an authored synthetic rule-3 fixture with zero heights and no gates; real sessions and loaded saves use the original-data producer.
 
@@ -104,8 +106,8 @@ tools/test_gate_passages.sh .local/gog-extracted/app Kaifeng
 tools/test_gate_passages.sh .local/gog-extracted/app Zhengzhou
 ```
 
-The starter builds current Release and creates fresh isolated settings/save/recovery. Choose **New Sandbox**, then **Start Sandbox**. Confirm **City v16 v3 / Map policy 1** in the HUD/window. It starts an empty paid city; old City-v10 and City-v16-v1/v2 saves keep their rules. Build through the center short-axis passage and its two openings. Visible success means real delivery and return between staffed industry on opposite sides, continuing after F5/F9 inside the passage.
+The starter builds current Release and creates fresh isolated settings/save/recovery. Choose **New Sandbox**, then **Start Sandbox**. Confirm **City v16 v4 / Policy 2 / Save 20** in the HUD/window. It starts an empty paid city; all existing saves keep their rules. Build through the center short-axis passage and its two openings. Supported original ground roads are already free transport under this new policy. Visible success means real delivery and return between staffed industry on opposite sides, continuing after F5/F9 inside the passage.
 
-For the exact paid Kaifeng setup above, place Houses at `(100,115)` and `(97,116)`; for Zhengzhou use `(120,103)` and `(120,100)`. The origins and road drag in the table use storage coordinates. Use normal map inspection to locate them, pause while building, then continue simulation. This is a small production/traffic check, not a self-sufficient long-term city; it still needs ordinary Food, Service, Water and Health infrastructure for extended play.
+The setup, costs and captures above are historical rule-3/policy-1 evidence. Their Kaifeng Houses are at `(100,115)` and `(97,116)`; Zhengzhou uses `(120,103)` and `(120,100)`. Storage coordinates and gate geometry remain valid, but a current city can pay less for roads because imported roads are free. For an independently prepared current paid scene use [the original-road starter](original-roads.md#test-the-current-local-build), also with Kaifeng or Zhengzhou. These small production/traffic checks still need ordinary Food, Service, Water and Health infrastructure for extended play.
 
 Synthetic, scripted original-data rendering, native input and human evidence remain separate. The existing short human native-input check and full Emperor composition parity remain open.

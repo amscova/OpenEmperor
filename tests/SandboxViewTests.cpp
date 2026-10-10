@@ -8,6 +8,7 @@
 #include "maps/EmperorMap.h"
 #include "maps/LandscapeProvenance.h"
 #include "maps/OriginalMapEntities.h"
+#include "maps/SandboxPlacement.h"
 
 #include <SDL3/SDL.h>
 #include <zlib.h>
@@ -1343,7 +1344,8 @@ void input_reliability_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* 
     std::cout<<"Sandbox input: real resize/modal presses, actual Down/Up, A-J drag safety, invalid positions/wheel, viewport literals, held-state seam and pure World PASS\n";
 }
 
-maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vector<std::uint8_t>& mask) {
+maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vector<std::uint8_t>& mask,
+                                                     bool original_roads=false) {
     auto session=city_v10_fixture(temp,mask);
     Bytes raw(maps::original_entities_logical_offset+6,0);
     const Bytes signature{5,0,0xfe,0xca,0,0,2,0};
@@ -1351,6 +1353,8 @@ maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vect
     const maps::MapGeometry geometry{84};
     for (unsigned y=0;y<228;++y) for (unsigned x=0;x<228;++x)
         u32(raw,maps::terrain_logical_offset+4*(std::size_t(y)*228+x),geometry.contains({x,y}) ? 0x80:0x80000);
+    if (original_roads) for (unsigned x=100;x<=110;++x) if (x!=104)
+        u32(raw,maps::terrain_logical_offset+4*(103U*228U+x),0xc0);
     u16(raw,maps::original_entities_logical_offset,1); // Complete empty authored original manager.
     Bytes packed(4);u32(packed,0,0xfedcbaaa);
     for (std::size_t at=0;at<raw.size();at+=16384) {
@@ -1365,7 +1369,137 @@ maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vect
     write(temp.path/"Cities/Synthetic.map",packed);
     session.map=maps::read_emperor_map(maps::EmperorContainer::open(temp.path/"Cities/Synthetic.map"),0);
     session.plan.map_relative="Cities/Synthetic.map";session.plan.height_bytes.assign(228U*228U,0);
+    if (original_roads) for (unsigned x=100;x<=110;++x) if (x!=104) {
+        const auto cell=session.plan.cell_by_storage[103U*228U+x];
+        if (cell) session.plan.cells[*cell].terrain_raw=0xc0;
+    }
     return session;
+}
+void original_roads_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
+    namespace perf=openemperor::performance;
+    using Category=simulation::RoadConnectivityCategory;
+    check(SDL_SetWindowSize(window,1100,700),"original-road actual window resize");SDL_PumpEvents();
+    std::vector<std::uint8_t> mask;
+    openemperor::SandboxView view(road_connectivity_view_fixture(temp,mask,true),false,simulation::RulesProfile::CityV16,4);
+    const auto save=temp.path.parent_path()/(temp.path.filename().string()+"-viewer-save.json");
+    view.configure_save(temp.path,"Cities/Synthetic.map",save);view.initialize(window,renderer);
+    bool running=true;if(!view.paused())view.handle_event(key(SDLK_SPACE),running);
+    mask=view.buildable_mask();
+    check(view.world().rule_version()==4 && view.world().map_permissions()->policy_version()==2 &&
+          view.original_road_ground_items()==10,"new view did not prepare exact policy2 original road ground");
+    const auto policy=view.world().map_permissions();const auto canonical=policy->canonical_state();
+    const auto screen=[&](simulation::Cell cell) {return view.camera().world_to_screen(maps::terrain_ground(
+        {static_cast<unsigned>(cell.x),static_cast<unsigned>(cell.y)},72));};
+    const auto text=[](const std::vector<std::string>& lines) {std::string joined;for(const auto& line:lines)joined+=line+' ';return joined;};
+    view.handle_event(key(SDLK_F1),running);view.set_tool(5);check(view.render(),"original ground pick redraw");
+    const auto point=screen({102,103});
+    check(view.layout().map.contains(point.x,point.y),"positive original-road pick is clipped");
+    mouse_click(view,float(point.x),float(point.y),running);
+    const auto original_lines=text(view.inspection_lines());
+    check(original_lines.find("Transport source: Original map road")!=std::string::npos &&
+          original_lines.find("Imported under policy: 2")!=std::string::npos &&
+          original_lines.find("Traversable: yes")!=std::string::npos,
+          "F1 original-road ground pick lost source/policy/traversability facts");
+    const auto initial=view.world().snapshot();const auto noop=view.execute({simulation::CommandType::PlaceRoad,{102,103}});
+    check(noop.accepted && !noop.changed && noop.reason=="Original road already available." &&
+          view.world().treasury()==initial.treasury && view.world().snapshot().roads_placed_total==initial.roads_placed_total &&
+          view.world().command_sequence()==initial.command_sequence+1 && view.world().road_revision()==initial.road_revision,
+          "original-road UI command is not the free counted no-op");
+    check(!view.execute({simulation::CommandType::RemoveRoad,{102,103}}).accepted &&
+          !view.execute({simulation::CommandType::PlaceHousehold,{102,103}}).accepted,
+          "view allowed original-road removal/building overpass");
+    const auto put=[&](simulation::CommandType type,simulation::Cell cell) {
+        const auto result=view.execute({type,cell});check(result.accepted && result.changed,"original UI paid building command");
+    };
+    put(simulation::CommandType::PlaceHousehold,{113,101});put(simulation::CommandType::PlaceHousehold,{116,101});
+    put(simulation::CommandType::PlaceClaySource,{100,101});put(simulation::CommandType::PlacePottery,{100,104});
+    put(simulation::CommandType::PlacePottery,{106,104});
+    const auto clay=*view.world().building_owner_at({100,101});
+    const auto select=[&](simulation::BuildingId id) {
+        const auto& buildings=view.world().buildings();const auto found=std::find_if(buildings.begin(),buildings.end(),
+            [&](const auto& building){return building.id==id;});
+        check(found!=buildings.end(),"original UI selection ID exists");const auto panel=view.layout().panel;const auto scale=view.layout().scale;
+        mouse_click(view,float(panel.x+20*scale),float(panel.y+(46+18*std::distance(buildings.begin(),found)+5)*scale),running);
+        check(view.selected_building()==id,"original UI building selection");
+    };
+    select(clay);view.handle_event(key(SDLK_G),running);
+    check(view.road_connectivity_report() && view.road_connectivity_report()->category==Category::Connected &&
+          view.road_connectivity_report()->source.entrances.size()==2 &&
+          view.road_connectivity_report()->route && view.road_connectivity_report()->route->size()==3,
+          "actual shared original-road cell did not connect complete footprint entrances");
+    check(text(view.road_connectivity_lines()).find("Transport source: Original map road")!=std::string::npos,
+          "explicit G omitted original-road entrance source");
+    view.handle_event(key(SDLK_G),running);
+    check(view.road_connectivity_report() && view.road_connectivity_report()->category==Category::DisconnectedRoadComponents,
+          "missing grass segment was imported as transit");
+    const auto before=view.world().snapshot();const auto cached=*view.road_connectivity_report();
+    const auto diagnosis_count=view.road_connectivity_check_count();
+    perf::set_enabled(true);perf::reset();
+    for(int i=0;i<8;++i) {
+        view.handle_event(key(SDLK_F8),running);view.handle_event(key(SDLK_F2),running);
+        check(view.render(),"policy2 F8/F2 cached draw");(void)view.inspection_lines();(void)view.road_connectivity_lines();
+    }
+    for(std::size_t i=0;i<static_cast<std::size_t>(perf::Counter::Count);++i)
+        check(perf::counter(static_cast<perf::Counter>(i))==0,"policy2 cached debug frames did World/navigation/asset work");
+    perf::set_enabled(false);
+    check(view.world().snapshot()==before && view.world().map_permissions()==policy && policy->canonical_state()==canonical &&
+          view.road_connectivity_check_count()==diagnosis_count && *view.road_connectivity_report()==cached,
+          "render profile/debug switches changed policy2 navigation or repeated explicit G");
+    view.set_tool(1);const auto start=screen({100,103}),end=screen({110,103});
+    view.handle_event(click(float(start.x),float(start.y)),running);view.handle_event(motion(float(end.x),float(end.y)),running);
+    check(view.render(),"coalesced original-road preview rebuild");
+    if(!view.road_preview().valid || view.road_preview().new_road_count!=1 || view.road_preview().total_cost!=2) {
+        std::cerr<<"original preview valid="<<view.road_preview().valid<<" new="<<view.road_preview().new_road_count
+            <<" cost="<<view.road_preview().total_cost<<" reason="<<view.road_preview().reason<<" cells="<<view.road_preview().cells.size()
+            <<" start="<<start.x<<","<<start.y<<" end="<<end.x<<","<<end.y<<"\n";
+    }
+    check(view.road_preview().valid && view.road_preview().new_road_count==1 && view.road_preview().total_cost==2 &&
+          view.world().snapshot()==before,"original-road UI drag did not skip fixed cells in pure preview");
+    view.handle_event(release(float(end.x),float(end.y)),running);
+    if(view.budget_warning_pending())check(view.resolve_budget_warning(true),"explicit normal budget warning confirmation");
+    const auto repaired=view.world().snapshot();
+    if(repaired.roads.size()!=1 || repaired.treasury!=before.treasury-2 || repaired.command_sequence!=before.command_sequence+1 || view.road_connectivity_report())
+        std::cerr<<"original commit roads="<<repaired.roads.size()<<" fundsdelta="<<(repaired.treasury-before.treasury)
+            <<" seqdelta="<<(repaired.command_sequence-before.command_sequence)<<" roadcounterdelta="<<(repaired.roads_placed_total-before.roads_placed_total)
+            <<" cached="<<bool(view.road_connectivity_report())<<" message="<<view.last_message()<<"\n";
+    check(repaired.roads.size()==1 && repaired.roads.front()==simulation::Cell{104,103} &&
+          repaired.roads_placed_total==before.roads_placed_total+1 && repaired.treasury==before.treasury-2 &&
+          repaired.command_sequence==before.command_sequence+1 && !view.road_connectivity_report(),
+          "mixed original-road drag paid/created fixed roads or retained stale G result");
+    select(clay);view.handle_event(key(SDLK_G),running);
+    check(view.road_connectivity_report() && view.road_connectivity_report()->category==Category::Connected,
+          "one actual owned gap repair did not connect original components");
+    check(openemperor::sandbox_ui::road_neighbor_mask(view.world(),{104,103})==10,
+          "owned connector topology omitted either original-road neighbor");
+    view.save_now();const auto saved=view.capture_save_document();view.load_now();select(clay);
+    check(view.world().snapshot()==saved.world && view.world().map_permissions()->canonical_state()==canonical &&
+          !view.road_connectivity_report() && view.original_road_ground_items()==10,
+          "schema20 F9 lost road authority or retained old World diagnosis");
+    const auto old_permissions=maps::read_sandbox_map_permissions(temp.path,"Cities/Synthetic.map",mask,1);
+    simulation::World historic(old_permissions,simulation::RulesProfile::CityV16,3);
+    openemperor::persistence::write_save(save,
+        openemperor::persistence::make_document(temp.path,"Cities/Synthetic.map",mask,historic),temp.path,mask);
+    view.load_now();view.set_tool(5);check(view.render(),"cross-rule F9 historic redraw");
+    const auto historic_point=screen({102,103});mouse_click(view,float(historic_point.x),float(historic_point.y),running);
+    check(view.world().snapshot()==historic.snapshot() && view.world().rule_version()==3 &&
+          view.original_road_ground_items()==0 && !view.world().transport_cell({102,103}) &&
+          text(view.inspection_lines()).find("Original road is visual-only under this saved policy.")!=std::string::npos,
+          "explicit F9 schema19 retained policy2 original-road render/navigation flags");
+    openemperor::persistence::write_save(save,saved,temp.path,mask);view.load_now();select(clay);
+    check(view.world().snapshot()==saved.world && view.world().rule_version()==4 && view.original_road_ground_items()==10 &&
+          !view.road_connectivity_report() && view.world().transport_cell({102,103}),
+          "explicit F9 schema20 did not atomically restore original-road flags and complete World");
+    view.shutdown();
+    openemperor::SandboxView old(road_connectivity_view_fixture(temp,mask,true),false,simulation::RulesProfile::CityV16,3);
+    old.configure_save(temp.path,"Cities/Synthetic.map",save);old.initialize(window,renderer);old.handle_event(key(SDLK_F1),running);
+    old.set_tool(5);check(old.render(),"historic visual-only original road redraw");
+    const auto old_point=old.camera().world_to_screen(maps::terrain_ground({102,103},72));
+    mouse_click(old,float(old_point.x),float(old_point.y),running);
+    check(!old.world().transport_cell({102,103}) && old.original_road_ground_items()==0 &&
+          text(old.inspection_lines()).find("Original road is visual-only under this saved policy.")!=std::string::npos,
+          "rule3 F1 road inspection silently gained policy2 transit");
+    old.shutdown();
+    std::cout<<"Original-road UI: policy versions, shared cell, F1/G source and cache, paid drag/F9, old visual-only and zero-work frames PASS\n";
 }
 void road_connectivity_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
     namespace perf=openemperor::performance;
@@ -1469,13 +1603,14 @@ int main(int argc,char** argv) {
     try {
         const bool input_only=argc==2 && std::string(argv[1])=="--input-only";
         const bool connectivity_only=argc==2 && std::string(argv[1])=="--connectivity-only";
+        const bool original_roads_only=argc==2 && std::string(argv[1])=="--original-roads-only";
         const bool road_only=argc==2 && std::string(argv[1])=="--road-continuity-only";
         const bool geometry_only=argc==2 && std::string(argv[1])=="--geometry16-only";
         const bool maintenance_only=argc==2 && std::string(argv[1])=="--maintenance-only";
         const bool health_only=argc==2 && std::string(argv[1])=="--health-only";
         const bool water_only=argc==2 && std::string(argv[1])=="--water-only";
         const bool alpha_stress=argc==2 && std::string(argv[1])=="--alpha-stress";
-        check(argc==1 || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
+        check(argc==1 || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only || original_roads_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
         {
             const auto layout=openemperor::sandbox_ui::make_layout(1100,700,1100,700,true);
             check(layout.top.h==52 && layout.map.w==796 && layout.map.h==516 &&
@@ -1571,6 +1706,10 @@ int main(int argc,char** argv) {
         check(SDL_CreateWindowAndRenderer("sandbox test",road_only ? 3000:800,road_only ? 2200:600,0,&window,&renderer),"window");
         if (connectivity_only) {
             road_connectivity_view_checks(temp,window,renderer);
+            SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;
+        }
+        if (original_roads_only) {
+            original_roads_view_checks(temp,window,renderer);
             SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;
         }
         if (road_only) {

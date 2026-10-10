@@ -83,7 +83,7 @@ void contract_cases() {
     const auto old=std::locale();std::locale::global(std::locale(old,new Grouping));
     const auto localized=p->canonical_state();std::locale::global(old);
     check(localized==p->canonical_state(),"canonical bytes independent of process locale");
-    rejects([&]{sim::MapPermissions bad(size,size,2,p->cells(),p->gates());},"unknown policy accepted");
+    rejects([&]{sim::MapPermissions bad(size,size,3,p->cells(),p->gates());},"unknown policy accepted");
     g=p->gates()[0];g.id={0};rejects([&]{sim::MapPermissions bad(size,size,1,p->cells(),{g});},"zero gate ID accepted");
     g=p->gates()[0];g.protected_footprint.pop_back();rejects([&]{sim::MapPermissions bad(size,size,1,p->cells(),{g});},"partial protected footprint accepted");
     g=p->gates()[0];g.protected_footprint.front()={std::numeric_limits<int>::min(),std::numeric_limits<int>::min()};
@@ -99,8 +99,8 @@ void contract_cases() {
     sim::MapPermissions pair_reverse(size,size,1,cells,two);
     check(pair.canonical_state()==pair_reverse.canonical_state() && pair.fixed_gate_at({17,13})==sim::FixedGateId{202},"independent sorted gate identities");
     rejects([&]{sim::World bad(p,sim::RulesProfile::CityV16,2);},"new topology injected into old rule");
-    sim::World authored(size,size,std::vector<std::uint8_t>(size*size,1),sim::RulesProfile::CityV16);
-    check(authored.rule_version()==3 && authored.map_permissions() && authored.map_permissions()->gates().empty(),"explicit authored simple policy/default rule3");
+    sim::World authored(size,size,std::vector<std::uint8_t>(size*size,1),sim::RulesProfile::CityV16,3);
+    check(authored.rule_version()==3 && authored.map_permissions() && authored.map_permissions()->gates().empty(),"explicit authored simple policy/rule3");
     for(const auto k:{sim::Object::Well,sim::Object::HealthPost})
         check(sim::building_footprint(sim::RulesProfile::CityV16,3,k)==sim::BuildingFootprint{2,2},"rule3 retains safety footprints");
     const auto& r2=sim::profile_rules(sim::RulesProfile::CityV16,2);const auto& r3=authored.active_rules();
@@ -109,7 +109,7 @@ void contract_cases() {
         r2.household_move_in_grace_ticks==r3.household_move_in_grace_ticks,"rule3 inherits economy timings");
 }
 void command_cases() {
-    const auto permissions=policy();sim::World w(permissions);const auto initial=w.snapshot();
+    const auto permissions=policy();sim::World w(permissions,sim::RulesProfile::CityV16,3);const auto initial=w.snapshot();
     for(const auto cell:permissions->gates()[0].protected_footprint)
         check(!w.validate({sim::CommandType::PlaceFarm,cell}).accepted,"building on protected gate accepted");
     const auto noop=w.execute({sim::CommandType::PlaceRoad,{7,8}});
@@ -146,14 +146,14 @@ void command_cases() {
     check(!edge.accepted && edge.diagnostic.edge==sim::TransportEdge{{7,6},{7,9}} &&
         edge.cell_diagnostics[0].allowed && edge.cell_diagnostics[1].allowed,"edge blocker distinct from allowed cells");
     auto cells=policy()->cells();cells[ix({7,10})].height=-1;
-    sim::World heights(std::make_shared<const sim::MapPermissions>(size,size,1,cells,policy()->gates()));
+    sim::World heights(std::make_shared<const sim::MapPermissions>(size,size,1,cells,policy()->gates()),sim::RulesProfile::CityV16,3);
     const auto hf=heights.validate_road_batch(mixed);
     check(!hf.accepted && hf.diagnostic.blocker==sim::BuildBlocker::UnsupportedHeightTransition &&
         hf.diagnostic.edge==sim::TransportEdge{{7,9},{7,10}},"height edge has exact diagnostic");
     cells=free_cells();cells[ix({1,1})].road_allowed=false;cells[ix({1,1})].road_blocker=sim::BuildBlocker::UnsupportedTerrain;
     cells[ix({2,1})].road_allowed=false;cells[ix({2,1})].protected_original=true;cells[ix({2,1})].building_allowed=false;
     cells[ix({2,1})].road_blocker=sim::BuildBlocker::OriginalStructure;
-    sim::World terrain(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}));
+    sim::World terrain(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,3);
     check(terrain.validate({sim::CommandType::PlaceRoad,{-1,0}}).diagnostic.blocker==sim::BuildBlocker::OutsideMap &&
         terrain.validate({sim::CommandType::PlaceRoad,{1,1}}).diagnostic.blocker==sim::BuildBlocker::UnsupportedTerrain &&
         terrain.validate({sim::CommandType::PlaceRoad,{2,1}}).diagnostic.blocker==sim::BuildBlocker::OriginalStructure,"separate road permission categories");
@@ -161,12 +161,12 @@ void command_cases() {
     rejects([&]{auto restored=sim::World::restore(bad,w.map_permissions());(void)restored;},"saved road authority inside gate accepted");
     // Equal cell permissions do not permit an uphill road-to-building edge.
     cells=free_cells();cells[ix({4,2})].height=1;
-    sim::World entrance_height(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}));
+    sim::World entrance_height(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,3);
     const auto industry=place(entrance_height,sim::CommandType::PlaceClaySource,{2,2});
     check(entrance_height.execute({sim::CommandType::PlaceRoad,{4,2}}).accepted &&
         entrance_height.building_entrances(industry).empty(),"unsupported road-to-building height admitted an entrance");
     // A building at an opening never gets a direct entrance from the passage.
-    sim::World direct(permissions);const auto farm=place(direct,sim::CommandType::PlaceFarm,{7,6});
+    sim::World direct(permissions,sim::RulesProfile::CityV16,3);const auto farm=place(direct,sim::CommandType::PlaceFarm,{7,6});
     check(direct.building_entrances(farm).empty() && !direct.transport_edge_allowed({7,6},{7,7}),"direct gate-to-building entrance");
     for(const auto version:{1U,2U}) {
         sim::World legacy(size,size,permissions->building_mask(),sim::RulesProfile::CityV16,version);
@@ -180,7 +180,7 @@ void command_cases() {
     const auto spend=[](sim::World& world) {
         for(int y:{0,2})for(int x=0;x<16;x+=2)place(world,sim::CommandType::PlaceHousehold,{x,y});
     };
-    sim::World poor(size,size,std::vector<std::uint8_t>(size*size,1),sim::RulesProfile::CityV16);spend(poor);
+    sim::World poor(size,size,std::vector<std::uint8_t>(size*size,1),sim::RulesProfile::CityV16,3);spend(poor);
     const auto poverty=poor.snapshot();const auto money=poor.validate_road_batch(long_road);
     check(!money.accepted && money.diagnostic.blocker==sim::BuildBlocker::InsufficientFunds &&
         money.new_road_count==long_road.size() &&
@@ -188,17 +188,17 @@ void command_cases() {
         std::all_of(money.cell_diagnostics.begin(),money.cell_diagnostics.end(),[](const auto& d){return d.allowed;}),"funds misclassified allowed terrain cells");
     check(!poor.execute_road_batch(long_road).accepted && poor.snapshot()==poverty,"insufficient batch changed World");
     cells=free_cells();cells[ix({23,12})].road_allowed=false;cells[ix({23,12})].road_blocker=sim::BuildBlocker::UnsupportedTerrain;
-    sim::World poor_terrain(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}));spend(poor_terrain);
+    sim::World poor_terrain(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,3);spend(poor_terrain);
     const auto terrain_and_money=poor_terrain.validate_road_batch(long_road);
     check(!terrain_and_money.accepted && terrain_and_money.diagnostic.blocker==sim::BuildBlocker::UnsupportedTerrain &&
         terrain_and_money.diagnostic.cell==sim::Cell{23,12},"funds hid actual terrain blocker");
     cells=free_cells();for(int x=0;x<size;++x)cells[ix({x,23})].road_allowed=false;
-    sim::World many(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}));
+    sim::World many(std::make_shared<const sim::MapPermissions>(size,size,1,cells,std::vector<sim::FixedGatePassage>{}),sim::RulesProfile::CityV16,3);
     const auto bounded=many.validate_road_batch(long_road);
     check(!bounded.accepted && bounded.additional_blockers.size()==16 && bounded.cell_diagnostics.size()==long_road.size(),"additional blocker budget");
 }
 void courier_cases(bool horizontal,bool reverse) {
-    const auto permissions=policy(horizontal);sim::World w(permissions);
+    const auto permissions=policy(horizontal);sim::World w(permissions,sim::RulesProfile::CityV16,3);
     for(const auto p:{sim::Cell{0,0},sim::Cell{3,0},sim::Cell{10,0},sim::Cell{13,0}})
         place(w,sim::CommandType::PlaceHousehold,axis(p,horizontal));
     const auto source=place(w,sim::CommandType::PlaceClaySource,axis(reverse ? sim::Cell{7,12}:sim::Cell{3,3},horizontal));

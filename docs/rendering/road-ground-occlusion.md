@@ -1,11 +1,13 @@
 # Walker ground occlusion and cargo overlay
 
+City-v16 rule 4 additionally prepares immutable original-road singleton images as early Combined ground once at load (and rebinds them on explicit cross-version F9 load). They submit no Sandbox Road descriptor or replacement texture and cannot occlude a walker through spatial alpha picking. Other original foreground bodies and all policy-1 ordering retain their existing paths. See [the bounded original-road contract and acceptance](../original-roads.md).
+
 This bounded presentation correction starts from clean HEAD
 `22962777dc2df4dc1cffb8312361f0a14f16c400`. Oliver observed original Market
 figures walking, Service remaining a marker, and occasional apparent ground
 pixels over figures. His video-state save is unavailable: the evidence below
 reproduces both technical causes, without claiming his exact frame or city.
-Service and HealthWorker remain outside this change; the subsequent [Service pass](../service-walker-visuals.md) implements its separately prepared figure, while HealthWorker stays open.
+Service and HealthWorker remain outside this historical change; the subsequent [Service](../service-walker-visuals.md) and [Health](../health-walker-visuals.md) passes implement their separately prepared figures.
 
 ## Two independently reproduced causes
 
@@ -270,6 +272,6 @@ tiles and building entrances during Farm/Warehouse→Market→House trips and
 empty returns. Normal original figures should have no extra colored cargo
 rectangle, Roads should remain below feet, and foreground buildings/gate
 roofs should still hide figures. F1 deliberately restores the diagnostic;
-F7 deliberately retains the old ordering comparison. Optional Service fallback/Health markers
-remain expected. Human native play acceptance and complete Emperor renderer
+F7 deliberately retains the old ordering comparison. Optional Service/Health fallbacks
+remain available; their subsequent figure passes have separate acceptance. Human native play acceptance and complete Emperor renderer
 parity remain open. No commit, push, tag, release or publication is performed.

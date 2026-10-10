@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -16,6 +17,7 @@ struct SDL_Texture;
 
 namespace openemperor {
 namespace maps { struct RegeneratedLandscapeInstance; }
+namespace simulation { class MapPermissions; }
 
 std::array<std::uint8_t,3> stored_presentation_fallback_color(
     maps::TerrainCategory category);
@@ -47,6 +49,10 @@ public:
     void begin_frame();
     bool draw_item(std::size_t renderer_index, const scene::Camera2D& camera);
     bool draw_ground_item(std::size_t renderer_index, const scene::Camera2D& camera);
+    // Load-time classification only. The existing singleton road image is
+    // submitted once as ground, including Snapshot, never as a spatial body.
+    void set_original_road_ground(std::shared_ptr<const simulation::MapPermissions> permissions);
+    std::size_t original_road_ground_items() const;
     void set_landscape_mode(LandscapeDebugMode mode);
     LandscapeDebugMode landscape_mode() const { return landscape_mode_; }
     bool elevated() const { return landscape_mode_!=LandscapeDebugMode::Snapshot && plan_.landscape_layers_available; }
@@ -71,6 +77,7 @@ private:
     bool draw_diagnostic(scene::Point world, const scene::Camera2D& camera, bool selected,
                          maps::TerrainCategory category=maps::TerrainCategory::Unknown);
     bool draw_component(std::size_t index, const scene::Camera2D& camera, bool base);
+    bool draw_original_road_ground(std::size_t index, const scene::Camera2D& camera);
     scene::Point image_origin(const maps::PlacedFootprint& footprint) const;
     std::size_t render_asset_index(const maps::PlacedFootprint& footprint) const;
     bool overlay_visible(const maps::PlacedFootprint& footprint) const;
@@ -84,6 +91,7 @@ private:
     SDL_Renderer* renderer_ = nullptr;
     std::vector<SDL_Texture*> textures_;
     std::vector<StoredDrawItem> draw_order_;
+    std::vector<bool> original_road_ground_;
     std::vector<bool> regenerated_ready_, suppressed_footprints_, suppressed_cells_;
     std::size_t stored_order_builds_ = 0;
     std::size_t last_drawn_instances_ = 0;

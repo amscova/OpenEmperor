@@ -29,7 +29,7 @@ pathlib.Path(sys.argv[1]).write_text(json.dumps({
     "profile": "sandbox-city-v16"
 }, indent=2) + "\n")
 PY
-echo "Choose New Sandbox, then Start Sandbox: City v16 rule 3, map policy 1, $map_name."
+echo "Choose New Sandbox, then Start Sandbox: City v16 rule 4, map policy 2, save schema 20, $map_name."
 echo "This starts a new empty city. Old cities retain their existing rules."
 echo "Private settings, saves and recovery: $app_data_dir"
 exec "$build_dir/openemperor" --data "$original_data" --app-root "$app_data_dir" \
