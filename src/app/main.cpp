@@ -24,6 +24,7 @@
 #include "maps/LandscapeProvenance.h"
 #include "maps/RegeneratedMapRenderPlan.h"
 #include "maps/GreatWallMapPresentation.h"
+#include "maps/OrdinaryTowerMapPresentation.h"
 #include "persistence/SandboxSave.h"
 #include "core/Version.h"
 #include "core/PerformanceDiagnostics.h"
@@ -626,6 +627,7 @@ int main(int argc, char* argv[]) {
                     throw std::runtime_error("Great Wall preview preparation failed: "+
                         (stored_plan->original_great_wall ? stored_plan->original_great_wall->error:
                          "standalone landscape/entity input unavailable"));
+                maps::read_ordinary_tower_presentation(*stored_plan,container,map_part);
                 maps::add_regenerated_wall_registration(*stored_plan,registrations);
                 maps::build_regenerated_map_render_plan(*stored_plan,registrations);
                 stored_plan->map_relative=map_debug_path;

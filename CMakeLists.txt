@@ -224,6 +224,7 @@ add_library(openemperor-maps STATIC
     src/maps/RegeneratedMapRenderPlan.cpp
     src/maps/OriginalMapEntities.cpp
     src/maps/OrdinaryGateMapPresentation.cpp
+    src/maps/OrdinaryTowerMapPresentation.cpp
     src/maps/GreatWallModels.cpp
     src/maps/GreatWallSelector.cpp
     src/maps/GreatWallMapPresentation.cpp
@@ -712,6 +713,17 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-ordinary-gate-presentation-tests)
     add_test(NAME ordinary-gate-map-presentation COMMAND openemperor-ordinary-gate-presentation-tests)
     set_tests_properties(ordinary-gate-map-presentation PROPERTIES TIMEOUT 30)
+    add_executable(openemperor-ordinary-tower-selector-tests tests/OrdinaryTowerSelectorTests.cpp)
+    target_link_libraries(openemperor-ordinary-tower-selector-tests PRIVATE openemperor-maps)
+    openemperor_enable_warnings(openemperor-ordinary-tower-selector-tests)
+    add_test(NAME ordinary-tower-selector COMMAND openemperor-ordinary-tower-selector-tests)
+    set_tests_properties(ordinary-tower-selector PROPERTIES TIMEOUT 30)
+    add_executable(openemperor-ordinary-tower-presentation-tests tests/OrdinaryTowerPresentationTests.cpp
+        src/renderer/StoredGraphicsRenderer.cpp)
+    target_link_libraries(openemperor-ordinary-tower-presentation-tests PRIVATE openemperor-maps SDL3::SDL3)
+    openemperor_enable_warnings(openemperor-ordinary-tower-presentation-tests)
+    add_test(NAME ordinary-tower-map-presentation COMMAND openemperor-ordinary-tower-presentation-tests)
+    set_tests_properties(ordinary-tower-map-presentation PROPERTIES TIMEOUT 30)
     add_executable(openemperor-terrain-preview-tests tests/TerrainPreviewTests.cpp src/renderer/TerrainPreviewRenderer.cpp)
     target_link_libraries(openemperor-terrain-preview-tests PRIVATE openemperor-maps SDL3::SDL3)
     openemperor_enable_warnings(openemperor-terrain-preview-tests)

@@ -18,6 +18,7 @@ namespace openemperor::maps {
 struct RegeneratedMapRenderPlan;
 struct GreatWallMapPresentation;
 struct OrdinaryGateMapPresentation;
+struct OrdinaryTowerMapPresentation;
 
 inline constexpr const char* stored_graphics_profile = "exe-6373328b-v213-runtime-table";
 inline constexpr const char* stored_graphics_slot8_profile = "exe-6373328b-v213-slot8-runtime-table";
@@ -98,6 +99,7 @@ struct StoredGraphicsPlan {
     std::shared_ptr<const RegeneratedMapRenderPlan> regenerated;
     std::shared_ptr<const GreatWallMapPresentation> original_great_wall;
     std::shared_ptr<const OrdinaryGateMapPresentation> original_ordinary_gates;
+    std::shared_ptr<const OrdinaryTowerMapPresentation> original_ordinary_towers;
     // Eager renderer initialization publishes decode/atomic-fallback readiness
     // once, separately from immutable selected geometry. No frame mutation.
     std::vector<std::uint8_t> regenerated_instance_active;

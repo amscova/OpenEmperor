@@ -59,6 +59,11 @@ struct OrdinaryGatePreparationResult {
     std::vector<std::size_t> instance_indices;
     std::string fallback;
 };
+struct OrdinaryTowerPreparationResult {
+    std::vector<std::size_t> instance_indices;
+    LandscapeVariantResolution resource;
+    std::string fallback;
+};
 // Published const once per load. Historical cells, footprints and buildability
 // remain untouched. Indices refer to the renderer's shared physical asset pool.
 struct RegeneratedMapRenderPlan {
@@ -69,6 +74,7 @@ struct RegeneratedMapRenderPlan {
     // pass. Inspection never reconstructs a neighborhood or scans the map.
     std::map<std::size_t,WallTopologySelection> normal_wall_topology;
     std::map<std::size_t,OrdinaryGatePreparationResult> ordinary_gate_preparation;
+    std::map<std::size_t,OrdinaryTowerPreparationResult> ordinary_tower_preparation;
     // Load-time refusal reason for a selected original piece that cannot
     // publish a complete image. Provenance only; never grants ownership.
     std::map<std::size_t,std::string> original_wall_fallbacks;

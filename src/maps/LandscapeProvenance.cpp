@@ -3,6 +3,7 @@
 #include "maps/RegeneratedMapRenderPlan.h"
 #include "maps/GreatWallMapPresentation.h"
 #include "maps/OrdinaryGateMapPresentation.h"
+#include "maps/OrdinaryTowerMapPresentation.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <iomanip>
@@ -99,6 +100,65 @@ Json ordinary_gate_json(const StoredGraphicsPlan& plan,std::size_t gate_index) {
     }
     return out;
 }
+Json ordinary_tower_json(const StoredGraphicsPlan& plan,std::size_t tower_index) {
+    const auto& tower=plan.original_ordinary_towers->towers.at(tower_index);
+    const auto& source=tower.source;
+    Json components=Json::array();
+    for (const auto& spec:tower.components)
+        components.push_back({{"resource_key",hex(spec.selection.group.value,3)},
+            {"variant",spec.selection.variant},{"origin",cell_json(spec.origin)},
+            {"draw_cell",cell_json(spec.draw_cell)},{"footprint_side",spec.side},
+            {"height_cell",spec.explicit_height ? cell_json(spec.explicit_height->cell):cell_json(spec.draw_cell)},
+            {"height_signed",landscape_height(plan,spec.explicit_height ? spec.explicit_height->cell:spec.draw_cell)},
+            {"height_step_pixels",landscape_height_step},{"height_source","RAW MAP FACT: signed serialized cell height"},
+            {"placement_evidence",spec.placement_evidence},{"composition_evidence",spec.composition_evidence}});
+    Json out={{"original_id",source.original_id ? Json(source.original_id->value):Json(nullptr)},
+        {"manager_index",source.manager_index},{"original_class",original_entity_class_name(source.entity_class)},
+        {"type",source.type},{"status_raw",source.status},{"saved_footprint_side",source.footprint_side},
+        {"subindex_raw",source.subindex},{"local",{{"x",source.local_x},{"y",source.local_y}}},
+        {"serialized_cell_reference",source.serialized_cell_reference},{"origin",cell_json(tower.origin)},
+        {"base_schema",source.provenance.base_schema},{"parent_wrapper_schema",source.provenance.wrapper_schema},
+        {"nonhouse_state_schema",source.provenance.extended_schema},
+        {"tower_wrapper_schema",source.provenance.class_wrapper_schema},
+        {"record_logical_offset",source.provenance.logical_record_offset},
+        {"selected_components",tower.components.size()},{"components",std::move(components)},
+        {"camera_view",0},{"orientation","no stored Tower orientation used"},
+        {"selector_evidence","EXE-OBSERVED: standalone cTower restore, type-131 static body"},
+        {"external_wall_attachments","UNRESOLVED: separate 4c9/4ca wall composition"},
+        {"fallback",tower.fallback},{"active_components",0},
+        {"preparation_status",tower.fallback.empty() ? "unprepared":"complete_claim_unavailable"}};
+    if (!plan.regenerated) return out;
+    const auto found=plan.regenerated->ordinary_tower_preparation.find(tower_index);
+    if (found==plan.regenerated->ordinary_tower_preparation.end()) return out;
+    const auto& prepared=found->second;
+    out["fallback"]=prepared.fallback;
+    const auto& resource=prepared.resource;
+    out["group_status"]=resource.attempted ? Json(group_lookup_status_name(resource.group.status)):Json(nullptr);
+    out["runtime_local_begin"]=resource.group.local_base ? Json(*resource.group.local_base):Json(nullptr);
+    out["runtime_local_end_exclusive"]=resource.local_end ? Json(*resource.local_end):Json(nullptr);
+    if (!prepared.fallback.empty()) {
+        out["preparation_status"]=tower.fallback.empty() ? "complete_preparation_unavailable":"complete_claim_unavailable";
+        return out;
+    }
+    if (prepared.instance_indices.size()!=1) return out;
+    const auto n=prepared.instance_indices.front();
+    const auto& instance=plan.regenerated->instances.at(n);
+    const auto& asset=plan.assets.at(instance.asset_index);
+    out["physical_asset"]={{"archive",asset.record.id.archive_relative_path.generic_string()},
+        {"image_index",asset.record.id.image_index},{"decode_status",stored_status_name(asset.status)}};
+    out["composition_group"]=instance.composition_group ? Json(*instance.composition_group):Json(nullptr);
+    out["composition_policy"]="SpatialCombined: evidenced static structural body only";
+    if (asset.status==StoredStatus::DecodeFailed) {
+        out["preparation_status"]="decode_failed";out["fallback"]=asset.error;
+    } else if (n>=plan.regenerated_instance_active.size()) out["preparation_status"]="prepared";
+    else if (plan.regenerated_instance_active[n]) {
+        out["preparation_status"]="active";out["active_components"]=1;
+    } else {
+        out["preparation_status"]="atomic_activation_unavailable";
+        out["fallback"]="complete body decode/placement or overlapping historical footprint unavailable";
+    }
+    return out;
+}
 }
 void read_landscape_layers(StoredGraphicsPlan& plan, const EmperorContainer& container,
                            std::size_t part) {
@@ -160,6 +220,19 @@ Json landscape_provenance(const StoredGraphicsPlan& plan, GridCell selected,
         return j;
     }
     const auto* c=plan.at(selected);
+    if (plan.original_ordinary_towers) {
+        j["ordinary_tower_reader"]={{"manager_records",plan.original_ordinary_towers->manager_records},
+            {"error",plan.original_ordinary_towers->error}};
+        if (plan.original_ordinary_towers->tower_by_storage.size()==count &&
+            plan.original_ordinary_towers->tower_by_storage[index])
+            j["ordinary_tower"]=ordinary_tower_json(plan,*plan.original_ordinary_towers->tower_by_storage[index]);
+        else if (const auto source=plan.original_ordinary_towers->tower_source_at_origin.find(index);
+                 source!=plan.original_ordinary_towers->tower_source_at_origin.end()) {
+            if (source->second) j["ordinary_tower"]=ordinary_tower_json(plan,*source->second);
+            else j["ordinary_tower"]={{"preparation_status","ambiguous_source_origin"},
+                {"fallback","multiple original Tower sources at this origin; no single diagnostic owner or render claim"}};
+        }
+    }
     if (plan.original_ordinary_gates) {
         j["ordinary_gate_reader"]={{"manager_records",plan.original_ordinary_gates->manager_records},
             {"error",plan.original_ordinary_gates->error}};
@@ -393,7 +466,7 @@ std::vector<std::string> landscape_inspection_lines(const StoredGraphicsPlan& pl
     const auto j=landscape_provenance(plan,cell,elevated,camera);
     std::vector<std::string> lines={"Landscape ("+std::to_string(cell.x)+","+std::to_string(cell.y)+")"};
     for (const auto& key:{"candidate_mask","offmap_bit","terrain_hex","semantic_category","objects_hex",
-        "render_source","regenerated","original_entity_reader","original_great_wall","ordinary_gate_reader","ordinary_gate","variation_byte","variation_logical_offset","variation_semantics",
+        "render_source","regenerated","original_entity_reader","original_great_wall","ordinary_gate_reader","ordinary_gate","ordinary_tower_reader","ordinary_tower","variation_byte","variation_logical_offset","variation_semantics",
         "fertility_selector_operand","saved_id","saved_id_hex","candidate_byte_hex","tentative_parts","resource","image",
         "height_available","height_signed","draw_properties_raw","placement","ground_world",
         "screen_ground","painter","status","placement_evidence","composition_evidence"}) {
@@ -465,7 +538,7 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
             switch(c.selection.family) {case LandscapeFamily::Water:++water;break;
             case LandscapeFamily::Ground:++ground;break;case LandscapeFamily::Decoration:++decor;break;
             case LandscapeFamily::Rock:case LandscapeFamily::Mountain:case LandscapeFamily::Wall:
-            case LandscapeFamily::GreatWall:case LandscapeFamily::OrdinaryGate:break;
+            case LandscapeFamily::GreatWall:case LandscapeFamily::OrdinaryGate:case LandscapeFamily::OrdinaryTower:break;
             case LandscapeFamily::Preserved:break;}
         }
         regeneration.update({{"verified_identity",verified},{"preview_identity",preview},
@@ -545,6 +618,35 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
                 {"active_cells",active_components},{"reader_error",plan.original_ordinary_gates->error},
                 {"source_gate_statuses",std::move(sources)},
                 {"full_original_composition_verified",0},{"tower_bodies_reproduced",0}};
+        }
+        if (plan.original_ordinary_towers) {
+            std::size_t supported_towers=0,prepared_towers=0,active_towers=0;
+            Json sources=Json::array();std::set<std::size_t> physical_assets;
+            for (std::size_t n=0;n<plan.original_ordinary_towers->towers.size();++n) {
+                const auto detail=ordinary_tower_json(plan,n);sources.push_back(detail);
+                const auto& tower=plan.original_ordinary_towers->towers[n];
+                if (tower.fallback.empty() && tower.components.size()==1) ++supported_towers;
+                const auto found=plan.regenerated->ordinary_tower_preparation.find(n);
+                if (found!=plan.regenerated->ordinary_tower_preparation.end() &&
+                    found->second.instance_indices.size()==1) {
+                    ++prepared_towers;
+                    physical_assets.insert(plan.regenerated->instances.at(found->second.instance_indices.front()).asset_index);
+                }
+                if (detail["preparation_status"]=="active") ++active_towers;
+            }
+            std::uint64_t logical_bytes=0;
+            for (const auto asset:physical_assets) {
+                const auto& r=plan.assets.at(asset).record;
+                logical_bytes+=std::uint64_t(r.width)*std::uint64_t(r.height)*4U*3U;
+            }
+            regeneration["ordinary_tower_rendering"]={{"source_tower_objects",plan.original_ordinary_towers->towers.size()},
+                {"supported_static_tower_objects",supported_towers},{"prepared_complete_tower_objects",prepared_towers},
+                {"active_complete_tower_objects",active_towers},{"active_components",active_towers},
+                {"active_claim_cells",4U*active_towers},{"fallback_objects",plan.original_ordinary_towers->towers.size()-active_towers},
+                {"unique_body_assets",physical_assets.size()},{"selected_logical_RGBA_bytes",logical_bytes},
+                {"reader_error",plan.original_ordinary_towers->error},{"source_tower_statuses",std::move(sources)},
+                {"full_original_composition_verified",0},{"external_wall_attachments_reproduced",0},
+                {"viewport_draw_count","measured per frame separately; active is not in-viewport drawn"}};
         }
     }
     return {{"original_great_wall",original},{"regeneration",regeneration},

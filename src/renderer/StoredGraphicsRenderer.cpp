@@ -92,7 +92,7 @@ bool StoredGraphicsRenderer::regenerated_visible(std::size_t index) const {
     if (family==maps::LandscapeFamily::Mountain || family==maps::LandscapeFamily::Rock)
         return landscape_mode_>=LandscapeDebugMode::MountainsRocks;
     if (family==maps::LandscapeFamily::Wall || family==maps::LandscapeFamily::GreatWall ||
-        family==maps::LandscapeFamily::OrdinaryGate)
+        family==maps::LandscapeFamily::OrdinaryGate || family==maps::LandscapeFamily::OrdinaryTower)
         return landscape_mode_>=LandscapeDebugMode::WallsMonuments;
     return landscape_mode_>=LandscapeDebugMode::Decorations;
 }

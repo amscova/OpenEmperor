@@ -2,6 +2,7 @@
 
 #include "assets/Sg3ImageLoader.h"
 #include "assets/GreatWallDependencyPaths.h"
+#include "maps/OrdinaryTowerMapPresentation.h"
 
 #include <stdexcept>
 #include <set>
@@ -120,6 +121,11 @@ void add_regenerated_wall_registration(const StoredGraphicsPlan& plan,
     if (!plan.landscape_layers_available || registrations.contains(2U)) return;
     bool wall=false;
     for (const auto& cell:plan.cells) if (cell.terrain_raw&0x4000U) {wall=true;break;}
+    // A validated cTower restore independently requires General slot 2.
+    // Saved IDs and surrounding wall bits are not its registration authority.
+    if (plan.original_ordinary_towers && plan.original_ordinary_towers->error.empty())
+        for (const auto& tower:plan.original_ordinary_towers->towers)
+            if (tower.fallback.empty() && !tower.components.empty()) {wall=true;break;}
     if (!wall) return;
     // 475c4b's explicit China_General registration at slot 2. Missing local
     // data retains an unresolved preview; never substitute another archive.

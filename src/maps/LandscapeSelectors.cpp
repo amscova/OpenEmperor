@@ -118,7 +118,8 @@ const char* landscape_family_name(LandscapeFamily f) {
     case LandscapeFamily::Decoration:return "decoration";case LandscapeFamily::Rock:return "rock";
     case LandscapeFamily::Mountain:return "mountain";case LandscapeFamily::Wall:return "normal_wall";
     case LandscapeFamily::GreatWall:return "great_wall";case LandscapeFamily::Preserved:return "preserved";
-    case LandscapeFamily::OrdinaryGate:return "ordinary_gate";}return "invalid";
+    case LandscapeFamily::OrdinaryGate:return "ordinary_gate";
+    case LandscapeFamily::OrdinaryTower:return "ordinary_tower";}return "invalid";
 }
 bool LandscapeSelection::operator==(const LandscapeSelection& r) const {
     return family==r.family && evidence==r.evidence && std::string_view(selector)==r.selector &&

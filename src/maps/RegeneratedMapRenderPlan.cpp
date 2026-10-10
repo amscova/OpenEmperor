@@ -3,6 +3,7 @@
 #include "maps/WallTopology.h"
 #include "maps/GreatWallMapPresentation.h"
 #include "maps/OrdinaryGateMapPresentation.h"
+#include "maps/OrdinaryTowerMapPresentation.h"
 #include <chrono>
 #include <memory>
 #include <algorithm>
@@ -361,6 +362,72 @@ void build_regenerated_map_render_plan(StoredGraphicsPlan& plan,
             c.fallback="historical slot-8 preview retained; raw saved material is not restored authority";
         }
     }
+    // Prepare the optional Tower after all existing layers have reserved their
+    // physical assets. It must never crowd a valid historical/landscape session
+    // out of the fixed logical RGBA budget. Source claims were validated first.
+    if (plan.original_ordinary_towers && plan.original_ordinary_towers->error.empty())
+        for (std::size_t tower_index=0;tower_index<plan.original_ordinary_towers->towers.size();++tower_index) {
+            const auto& tower=plan.original_ordinary_towers->towers[tower_index];
+            auto& preparation=generated->ordinary_tower_preparation[tower_index];
+            preparation.fallback=tower.fallback;
+            if (!preparation.fallback.empty()) continue;
+            if (tower.components.size()!=1 || tower.components.front().owned_cells.size()!=4) {
+                preparation.fallback="complete static Tower body unavailable; historical preview retained";
+                continue;
+            }
+            const auto& body=tower.components.front();
+            const auto graphic=resolve_landscape_variant(body.selection.group,body.selection.variant,groups,
+                    &preparation.resource);
+            if (!graphic) {
+                preparation.fallback=preparation.resource.variant_out_of_range ?
+                    "required Tower variant outside General group; historical preview retained":
+                    "required Tower General group unavailable; historical preview retained";
+                continue;
+            }
+            const auto resolved=resolve_graphics_id_hypothesis(graphic->value,images);
+            const auto* record=resolved.record;
+            if (resolved.status!=GraphicsIdStatus::DecodeCandidate || !record ||
+                record->image_type!=30 || record->width!=158 || record->height<80 ||
+                record->uncompressed_length!=12800 || record->isometric_size_flag!=2 ||
+                record->horizontal_mirror_offset!=0 || record->animation_sprites!=0) {
+                preparation.fallback="required Tower static unmirrored side-two Type30 body unavailable; historical preview retained";
+                continue;
+            }
+            const auto body_bytes=std::uint64_t(record->width)*std::uint64_t(record->height)*4U;
+            const AssetKey key{record->id.archive_relative_path.generic_string(),record->id.image_index};
+            std::uint64_t reserved_bytes=std::min(plan.logical_texture_bytes,stored_max_texture_bytes);
+            for (const auto& asset:plan.assets) if (asset.status==StoredStatus::DecodePending) {
+                const auto& r=asset.record;
+                if (r.width<=0 || r.height<=0) continue;
+                const auto bytes=std::uint64_t(r.width)*std::uint64_t(r.height)*4U*
+                    (r.image_type==30 ? 3U:1U);
+                if (bytes>stored_max_texture_bytes || reserved_bytes>stored_max_texture_bytes-bytes) {
+                    reserved_bytes=stored_max_texture_bytes;break;
+                }
+                reserved_bytes+=bytes;
+            }
+            const auto pooled=pool.find(key);
+            const bool body_reserved=pooled!=pool.end() &&
+                (plan.assets[pooled->second].status==StoredStatus::DecodePending ||
+                 plan.assets[pooled->second].status==StoredStatus::Rendered);
+            if (record->data_length>stored_max_payload_bytes || record->alpha_length>stored_max_payload_bytes ||
+                body_bytes>stored_max_image_bytes || (!body_reserved &&
+                    (body_bytes*3U>stored_max_texture_bytes-reserved_bytes))) {
+                preparation.fallback="required Tower payload or logical RGBA budget exceeded; historical preview retained";
+                continue;
+            }
+            // The evidenced static 2x2 body includes structural Base pixels.
+            // Its one existing Combined raster belongs at its spatial front
+            // key, once. External 4c9/4ca wall attachments remain unresolved.
+            if (!append_instance(body,nullptr,nullptr,
+                    LandscapeCompositionPolicy::SpatialCombined)) {
+                preparation.fallback="required Tower complete claim, General group/variant, static Type30 geometry or asset budget unavailable; historical preview retained";
+                continue;
+            }
+            const auto id=generated->instances.size()-1;
+            generated->instances[id].composition_group=2U*maximum_original_entity_records+tower.source.manager_index;
+            preparation.instance_indices.push_back(id);
+        }
     generated->build_milliseconds=std::chrono::duration<double,std::milli>(
         std::chrono::steady_clock::now()-start).count();
     plan.regenerated=std::move(generated);

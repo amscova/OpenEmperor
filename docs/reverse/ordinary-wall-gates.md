@@ -77,9 +77,12 @@ The serialized signed 32-bit layout is at base-record offset 112 for schemas 3/4
 is schema 1, followed by the saved NonHouse state schema 1 (128 bytes), then its
 own wrapper 1 (no payload) or 2 (eight opaque attached-unit bytes). Those unit bytes
 are consumed but never used as entity IDs or selector authority. Active layouts
-other than 0/1 are rejected. `cTower` is consumed only to validate the complete
-chosen managers: the same base/parent/NonHouse path followed by its own wrapper 0,
-without a payload. No Tower producer is implemented. `cResWall` stays unsupported.
+other than 0/1 are rejected. In this historical gate pass, `cTower` was consumed
+only to validate the complete chosen managers: the same base/parent/NonHouse path
+followed by its own wrapper 0, without a payload. The later
+[bounded ordinary Tower body pass](ordinary-towers.md) adds a separate type-131
+producer; it does not reuse the GateHouse layout or fifteen-component contract.
+`cResWall` stays unsupported.
 
 At camera zero, the 30 rows at `0x850fc0` contain two layouts of 15 components each:
 
@@ -196,8 +199,10 @@ captures and all nine regenerated gate-free control captures exactly; only the
 12 intended gate/connection captures change. Complete common rendering-state
 hashes on all three gate-free controls agree. All five maps preserve every raw
 grid and historical plan. The independent 2×2 Tower/gate-bit auxiliary case in
-Zhengzhou remains a named gap; the old private `C-height` filename refers to that
-auxiliary, not the proven ID-5 gate near `(125,99)`.
+Zhengzhou remained a named gap in this gate pass; its later body support and
+separate acceptance are tracked in [the Tower pass](ordinary-towers.md). The old
+private `C-height` filename refers to that auxiliary, not the proven ID-5 gate
+near `(125,99)`.
 
 The normal `MenuSession → New Sandbox → SandboxView` scripted comparison covers
 13 cases: Badaling/Handan in all five Great Wall modes, plus Xia, Kaifeng and
@@ -247,7 +252,8 @@ for that tested session, and is not a blocker or broader gate acceptance.
 
 Gate-only maps without an ordinary wall candidate currently retain the existing General-registration fallback; this pass validates connections on maps with walls.
 
-Open: other GateHouse states/views/lifecycle, Tower/ResWall body producers, optional
+Open: other GateHouse states/views/lifecycle, Tower states beyond the separate
+bounded static body, external Tower wall joins, ResWall body producers, optional
 ordinary-wall Type-256/model components, original height normalization, general
 interpenetrating images, independently captured original-game parity and complete
 first-draw composition. The 197 newly selectable wall cells do not establish 197
