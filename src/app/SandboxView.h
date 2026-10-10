@@ -191,6 +191,17 @@ public:
     };
     PainterStats painter_stats() const { return painter_stats_; }
     std::size_t original_road_ground_items() const { return background_.original_road_ground_items(); }
+    struct RoadVisualDiagnostic {
+        simulation::Cell cell{};
+        bool original=false,road=false,supported=false,dynamic=false,preview=false;
+        std::uint8_t mask=0,entrance=0,replacement=0;
+        std::optional<std::uint8_t> historical_mask;
+        bool stale_ground=false;
+        std::optional<assets::AssetId> historical_asset,regenerated_ground,actual_asset;
+        scene::Point image_origin{};
+        std::string mode,fallback;
+    };
+    RoadVisualDiagnostic road_visual_diagnostic(simulation::Cell cell) const;
     bool unified_depth() const { return unified_depth_; }
     bool building_visuals_active() const { return building_enabled_ && building_profile_.has_value(); }
     std::size_t building_texture_count() const { return building_sprite_ ? building_sprite_->texture_count():0; }
@@ -365,6 +376,26 @@ private:
     sandbox_ui::RoadPlan road_preview_;
     // Render-only indexed projection: 0 additive, 1 opaque replacement, 2 alpha preview.
     std::vector<std::uint8_t> road_ground_replacements_;
+    struct OriginalRoadVisual {
+        simulation::Cell cell{};
+        std::size_t renderer_index=0;
+        std::optional<std::uint8_t> historical_mask;
+        bool stale_ground=false;
+        std::uint8_t mask=0,entrance=0,preview_mask=0;
+    };
+    // Load-time singleton index and small revision/preview caches. No map scan
+    // or asset work is added to hover/render; only changed road/building rims
+    // invalidate their adjacent original roads.
+    std::vector<OriginalRoadVisual> original_road_visuals_;
+    std::vector<std::size_t> preview_original_roads_;
+    std::uint64_t original_road_visual_revision_=UINT64_MAX;
+    std::uint64_t original_road_preview_build_=UINT64_MAX;
+    bool original_road_preview_valid_=false;
+    void prepare_original_road_visuals();
+    void refresh_original_road_visuals(std::span<const simulation::Cell> changed={});
+    void refresh_original_road_preview();
+    std::optional<std::size_t> original_road_visual_index(simulation::Cell cell) const;
+    bool original_road_dynamic(const OriginalRoadVisual& road) const;
     std::optional<simulation::Cell> road_start_;
     std::optional<sandbox_ui::Action> pressed_button_;
     std::optional<simulation::BuildingId> pressed_building_;

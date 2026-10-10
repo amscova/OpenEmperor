@@ -224,6 +224,7 @@ void SandboxView::load_now() {
     auto candidate=std::make_unique<simulation::World>(std::move(replacement));
     background_.set_original_road_ground(candidate->map_permissions());
     world_=std::move(candidate);
+    prepare_original_road_visuals();
     road_connectivity_report_.reset();
     road_connectivity_world_=nullptr;
     road_connectivity_courier_.reset();
@@ -317,6 +318,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,
         buildable_mask_,rules_,active_version);
     background_.set_original_road_ground(world_->map_permissions());
+    prepare_original_road_visuals();
     reset_camera();
     if (demo_) place_demo();
     if (initial_save_ == std::nullopt && !demo_) {
@@ -830,6 +832,7 @@ void SandboxView::set_road_visuals(const std::filesystem::path& manifest,
                                    VisualProfileSource source) {
     if (manifest.empty()) {
         road_sprites_.reset();road_profile_.reset();road_manifest_.clear();
+        prepare_original_road_visuals();
         road_source_=VisualProfileSource::Fallback;return;
     }
     if (!renderer_) { road_manifest_=manifest;road_source_=source;return; }
@@ -844,6 +847,122 @@ void SandboxView::set_road_visuals(const std::filesystem::path& manifest,
     road_masks_seen_.fill(false);road_draws_=road_fallbacks_current_=0;
     last_message_="Curated road preview active";
     enforce_fire_texture_budget();
+    prepare_original_road_visuals();
+}
+std::optional<std::size_t> SandboxView::original_road_visual_index(simulation::Cell cell) const {
+    const auto key=[](simulation::Cell p){return std::pair{p.y,p.x};};
+    const auto found=std::lower_bound(original_road_visuals_.begin(),original_road_visuals_.end(),cell,
+        [&](const OriginalRoadVisual& a,simulation::Cell b){return key(a.cell)<key(b);});
+    if(found==original_road_visuals_.end() || found->cell!=cell) return std::nullopt;
+    return static_cast<std::size_t>(found-original_road_visuals_.begin());
+}
+void SandboxView::prepare_original_road_visuals() {
+    original_road_visuals_.clear();preview_original_roads_.clear();
+    original_road_visual_revision_=original_road_preview_build_=UINT64_MAX;
+    original_road_preview_valid_=false;
+    if(!world_) return;
+    const auto& plan=background_.plan();const auto& items=background_.draw_items();
+    for(std::size_t i=0;i<items.size();++i) {
+        if(!background_.original_road_ground_item(i) || !items[i].footprint) continue;
+        const auto& footprint=plan.footprints[items[i].plan_index];
+        OriginalRoadVisual road;road.cell={int(footprint.origin.x),int(footprint.origin.y)};road.renderer_index=i;
+        // The existing prepared profile is the only family table. Unknown,
+        // ambiguous, additive or unprepared styles keep their historical image.
+        if(road_profile_ && road_profile_->replaces_ground &&
+            plan.assets[footprint.asset_index].status==maps::StoredStatus::Rendered) {
+            const auto& record=plan.assets[footprint.asset_index].record;const auto& id=record.id;
+            if(road_source_==VisualProfileSource::Builtin && plan.regenerated && plan.regenerated->historical_ground_family) {
+                const auto& ground=*plan.regenerated->historical_ground_family;
+                road.stale_ground=id.archive_relative_path==ground.first.archive_relative_path &&
+                    id.image_index>=ground.first.image_index && id.image_index-ground.first.image_index<ground.count &&
+                    record.image_type==30 && record.width==78 && record.height>=40 && record.isometric_size_flag==1 &&
+                    record.uncompressed_length==3200 && record.horizontal_mirror_offset==0 && record.animation_sprites==0;
+            }
+            unsigned matches=0;
+            for(std::uint8_t mask=0;mask<16;++mask)if(const auto* entry=road_profile_->find(mask);entry && entry->id==id) {
+                road.historical_mask=mask;++matches;
+            }
+            if(matches!=1)road.historical_mask.reset();
+        }
+        original_road_visuals_.push_back(road);
+    }
+    std::sort(original_road_visuals_.begin(),original_road_visuals_.end(),[](const auto& a,const auto& b) {
+        return std::pair{a.cell.y,a.cell.x}<std::pair{b.cell.y,b.cell.x};
+    });
+    refresh_original_road_visuals();
+}
+void SandboxView::refresh_original_road_visuals(std::span<const simulation::Cell> changed) {
+    if(!world_)return;
+    const auto refresh=[&](OriginalRoadVisual& road) {
+        road.mask=sandbox_ui::road_neighbor_mask(*world_,road.cell);
+        road.entrance=sandbox_ui::entrance_mask(*world_,road.cell);
+    };
+    if(changed.empty()) for(auto& road:original_road_visuals_)refresh(road);
+    else for(const auto cell:changed)for(const simulation::Cell offset:
+        {simulation::Cell{0,0},{0,-1},{1,0},{0,1},{-1,0}})
+        if(const auto index=original_road_visual_index({cell.x+offset.x,cell.y+offset.y}))refresh(original_road_visuals_[*index]);
+    original_road_visual_revision_=world_->road_revision();
+    original_road_preview_build_=UINT64_MAX;
+}
+void SandboxView::refresh_original_road_preview() {
+    if(original_road_visual_revision_!=world_->road_revision())refresh_original_road_visuals();
+    const bool valid=road_start_.has_value() && road_preview_.valid;
+    if(original_road_preview_build_==road_plan_build_count_ && original_road_preview_valid_==valid)return;
+    preview_original_roads_.clear();
+    if(valid)for(const auto cell:road_preview_.cells)for(const simulation::Cell offset:
+        {simulation::Cell{0,0},{0,-1},{1,0},{0,1},{-1,0}})
+        if(const auto index=original_road_visual_index({cell.x+offset.x,cell.y+offset.y}))preview_original_roads_.push_back(*index);
+    std::sort(preview_original_roads_.begin(),preview_original_roads_.end());
+    preview_original_roads_.erase(std::unique(preview_original_roads_.begin(),preview_original_roads_.end()),preview_original_roads_.end());
+    for(const auto index:preview_original_roads_) {
+        auto& road=original_road_visuals_[index];
+        road.preview_mask=sandbox_ui::road_neighbor_mask_for_preview(*world_,road_preview_.cells,road.cell);
+    }
+    original_road_preview_valid_=valid;original_road_preview_build_=road_plan_build_count_;
+}
+bool SandboxView::original_road_dynamic(const OriginalRoadVisual& road) const {
+    if((!road.historical_mask && !road.stale_ground) || !unified_depth_ || background_.landscape_mode()==LandscapeDebugMode::Snapshot ||
+        !road_visuals_active() || !road_sprites_ || !road_profile_->replaces_ground)return false;
+    const auto index=static_cast<std::size_t>(&road-original_road_visuals_.data());
+    const auto mask=std::binary_search(preview_original_roads_.begin(),preview_original_roads_.end(),index)?road.preview_mask:road.mask;
+    return (road.stale_ground || (road.historical_mask && mask!=*road.historical_mask)) && road_profile_->find(mask);
+}
+SandboxView::RoadVisualDiagnostic SandboxView::road_visual_diagnostic(simulation::Cell cell) const {
+    RoadVisualDiagnostic result;result.cell=cell;if(!world_ || !world_->in_bounds(cell))return result;
+    result.original=world_->original_road(cell);result.road=world_->road_cell(cell);
+    result.mode=result.road ? "Sandbox Road":"no supported transport Road";
+    result.mask=sandbox_ui::road_neighbor_mask(*world_,cell);result.entrance=sandbox_ui::entrance_mask(*world_,cell);
+    const auto index=original_road_visual_index(cell);
+    if(index) {
+        const auto& road=original_road_visuals_[*index];const auto& plan=background_.plan();
+        const auto& footprint=plan.footprints[background_.draw_items()[road.renderer_index].plan_index];
+        result.historical_asset=plan.assets[footprint.asset_index].record.id;
+        if(plan.regenerated && footprint.id<plan.regenerated->footprint_assets.size())
+            if(const auto asset=plan.regenerated->footprint_assets[footprint.id])result.regenerated_ground=plan.assets[*asset].record.id;
+        result.actual_asset=result.historical_asset;result.historical_mask=road.historical_mask;result.supported=road.historical_mask.has_value() || road.stale_ground;
+        result.stale_ground=road.stale_ground;
+        result.image_origin=footprint.image_origin;
+        if(background_.elevated())result.image_origin.y-=maps::landscape_height(plan,footprint.draw_cell_candidate.value_or(footprint.origin))*maps::landscape_height_step;
+        result.dynamic=original_road_dynamic(road);
+        if(result.dynamic && std::binary_search(preview_original_roads_.begin(),preview_original_roads_.end(),*index))result.mask=road.preview_mask;
+        result.mode="historical original Road ground";
+        if(!road_visuals_active())result.fallback="historical: Road profile unavailable or disabled";
+        else if(background_.landscape_mode()==LandscapeDebugMode::Snapshot || !unified_depth_)result.fallback="historical comparison";
+        else if(!result.supported)result.fallback="historical: style absent or ambiguous in prepared replacement profile";
+        else if(!road_profile_->find(result.mask))result.fallback="historical: required mask not prepared";
+    } else result.dynamic=world_->object_at(cell)==simulation::Object::Road;
+    result.preview=road_start_ && road_preview_.valid && !result.road &&
+        std::find(road_preview_.cells.begin(),road_preview_.cells.end(),cell)!=road_preview_.cells.end();
+    if(result.preview) {result.dynamic=true;result.mask=sandbox_ui::road_neighbor_mask_for_preview(*world_,road_preview_.cells,cell);}
+    if(result.dynamic && road_visuals_active() && road_sprites_) {
+        if(const auto* entry=road_profile_->find(result.mask)) {
+            result.actual_asset=entry->id;const auto ground=world_for({double(cell.x),double(cell.y)});
+            result.image_origin={ground.x-entry->ground_x,ground.y-entry->ground_y};
+            result.replacement=road_profile_->replaces_ground ? (result.preview?2:1):0;
+            result.mode=result.original?(result.stale_ground?"ordinary original Road surface (61b snapshot Ground)":"dynamic original Road connection"):"Sandbox Road";
+        } else result.fallback="prepared profile missing mask; historical original or Sandbox diagnostic retained";
+    }
+    return result;
 }
 std::optional<std::uint64_t> SandboxView::session_texture_headroom(
         bool include_walkers,bool include_fire) const {
@@ -2122,7 +2241,21 @@ void SandboxView::tick_once() {
     clear_hidden_walker_selection();
 }
 simulation::CommandResult SandboxView::execute(simulation::Command command) {
+    std::vector<simulation::Cell> changed{command.cell};
+    if(command.type==simulation::CommandType::DemolishBuilding) {
+        const auto& buildings=world_->buildings();
+        const auto found=std::find_if(buildings.begin(),buildings.end(),[&](const auto& b){return b.id==command.building_id;});
+        if(found!=buildings.end())changed=simulation::building_footprint_cells(rules_,world_->rule_version(),found->kind,found->cell);
+    }
     const auto result=world_->execute(command);
+    if(result.accepted && result.changed) {
+        if(command.type!=simulation::CommandType::DemolishBuilding)
+            if(const auto owner=world_->building_owner_at(command.cell)) {
+                const auto& b=world_->building(*owner);
+                changed=simulation::building_footprint_cells(rules_,world_->rule_version(),b.kind,b.cell);
+            }
+        refresh_original_road_visuals(changed);
+    }
     last_message_=result.reason;
     if (command.type==simulation::CommandType::DemolishBuilding) {
         if (result.changed) { clear_visual_selection(); selected_.reset(); cancel_gesture(); refresh_hover(true); }
@@ -2180,6 +2313,7 @@ bool SandboxView::request_road(const sandbox_ui::RoadPlan& plan) {
     }
     std::string reason;
     const bool okay=sandbox_ui::commit_road(*world_,plan,reason);
+    if(okay)refresh_original_road_visuals(plan.cells);
     last_message_=reason;
     return okay;
 }
@@ -2201,6 +2335,7 @@ bool SandboxView::resolve_budget_warning(bool build_anyway) {
     if (road) {
         std::string reason;
         const bool okay=sandbox_ui::commit_road(*world_,*road,reason);
+        if(okay)refresh_original_road_visuals(road->cells);
         last_message_=reason;
         return okay;
     }
@@ -2380,6 +2515,7 @@ bool SandboxView::draw_diamond(scene::Point world,std::uint8_t r,std::uint8_t g,
     return true;
 }
 bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
+    refresh_original_road_preview();
     clear_hidden_walker_selection();
     last_courier_draws_=0;
     fire_draws_=fire_fallback_draws_=0;
@@ -2413,6 +2549,11 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             scene::WorldVisualLayer::SandboxRoad:scene::WorldVisualLayer::SandboxBuilding,id},
             cell,object});
     }
+    for(const auto& road:original_road_visuals_)if(original_road_dynamic(road)) {
+        const auto ground=world_for({double(road.cell.x),double(road.cell.y)});
+        const auto id=static_cast<unsigned>(road.cell.y*world_->width()+road.cell.x);
+        instances.push_back({{ground.y,ground.x,scene::WorldVisualLayer::SandboxRoad,id},road.cell,simulation::Object::Road});
+    }
     if (road_start_ && road_preview_.valid) {
         for (const auto cell:road_preview_.cells) {
             if (world_->road_cell(cell) || world_->fixed_passage(cell)) continue;
@@ -2434,7 +2575,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             if (road_profile_->find(mask))
                 road_ground_replacements_[static_cast<std::size_t>(cell.y)*
                     static_cast<std::size_t>(world_->width())+static_cast<std::size_t>(cell.x)]=
-                    world_->object_at(cell)==simulation::Object::Road ? 1:2;
+                    world_->road_cell(cell) ? 1:2;
         }
     }
     const auto draw_fire_overlay=[&](simulation::Cell cell,scene::Point center,
@@ -2516,7 +2657,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         const auto center=camera_.world_to_screen(top);
         if (object==simulation::Object::Road) {
             const bool new_preview=road_start_ && road_preview_.valid &&
-                world_->object_at(cell)!=simulation::Object::Road;
+                !world_->road_cell(cell);
             const auto mask=road_start_ && road_preview_.valid ?
                 sandbox_ui::road_neighbor_mask_for_preview(*world_,road_preview_.cells,cell):
                 sandbox_ui::road_neighbor_mask(*world_,cell);
@@ -3220,6 +3361,13 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             }
             lines.push_back("Signed height: "+std::to_string(permissions.cell_height(*selected_)));
             if (debug_open_) {
+                const auto visual=road_visual_diagnostic(*selected_);
+                constexpr char hex[]="0123456789abcdef";
+                lines.push_back(std::string("Road mask 0x")+hex[visual.mask]+" | entrance 0x"+hex[visual.entrance]);
+                lines.push_back(visual.mode);
+                if(visual.actual_asset)lines.push_back("Draw asset "+visual.actual_asset->archive_relative_path.generic_string()+
+                    " #"+std::to_string(visual.actual_asset->image_index));
+                if(!visual.fallback.empty())lines.push_back(visual.fallback);
                 const auto provenance=maps::landscape_inspection_lines(background_.plan(),
                     {unsigned(selected_->x),unsigned(selected_->y)},background_.elevated(),&camera_);
                 lines.insert(lines.end(),provenance.begin(),provenance.end());

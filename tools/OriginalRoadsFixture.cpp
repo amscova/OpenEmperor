@@ -6,6 +6,10 @@
 #include "renderer/StoredGraphicsRenderer.h"
 #include "persistence/SandboxSave.h"
 #include "simulation/RoadConnectivity.h"
+#include "app/RoadTopology.h"
+#include "app/VisualSelection.h"
+#include "assets/RoadVisualProfile.h"
+#include "maps/RegeneratedMapRenderPlan.h"
 
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
@@ -318,11 +322,93 @@ J actual_gate_trip(const fs::path& output,const fs::path& data,const fs::path& r
 void write_report(const fs::path& path,const J& report) {
     std::ofstream output(path);output<<report.dump(2)<<'\n';require(bool(output),"Report write failed");
 }
+void visual_scene(const fs::path& output,const fs::path& data,const fs::path& relative,
+                  Loaded& map,sim::World& world,const Layout& layout,J& report,bool horizontal) {
+    const auto selected=oe::detect_and_select_visual_profiles(data,fs::current_path()/"resources");
+    require(!selected.road.empty(),"A validated built-in road profile is required for the mixed visual fixture");
+    const auto profile=oe::assets::load_road_visual_profile(data,selected.road);
+    const auto& plan=map.background->plan();
+    struct Choice {sim::Cell center,branch,well;std::size_t footprint;int distance;};
+    std::optional<Choice> choice;
+    for(std::size_t index=0;index<plan.footprints.size();++index) {
+        const auto& f=plan.footprints[index];const sim::Cell center{int(f.origin.x),int(f.origin.y)};
+        if(f.width_cells!=1 || f.height_cells!=1 || !world.original_road(center))continue;
+        const auto mask=oe::sandbox_ui::road_neighbor_mask(world,center);
+        const auto* original=profile.find(mask);
+        report["visual_road_candidates"].push_back({{"cell",point(center)},{"mask",mask},
+            {"historical_archive",plan.assets[f.asset_index].record.id.archive_relative_path.generic_string()},
+            {"historical_image",plan.assets[f.asset_index].record.id.image_index},
+            {"prepared_archive",original?original->id.archive_relative_path.generic_string():""},
+            {"prepared_image",original?original->id.image_index:0}});
+        const auto& saved_id=plan.assets[f.asset_index].record.id;
+        bool supported=false;for(std::uint8_t variant=0;variant<16;++variant)
+            if(const auto* candidate=profile.find(variant);candidate && candidate->id==saved_id)supported=true;
+        if(plan.regenerated && plan.regenerated->historical_ground_family) {
+            const auto& ground=*plan.regenerated->historical_ground_family;
+            supported=supported || (saved_id.archive_relative_path==ground.first.archive_relative_path &&
+                saved_id.image_index>=ground.first.image_index && saved_id.image_index-ground.first.image_index<ground.count);
+        }
+        if((mask!=5 && mask!=10) || (horizontal && mask!=10) || !supported)continue;
+        for(const auto direction:neighbors) {
+            const sim::Cell branch{center.x+direction.x,center.y+direction.y};
+            if(world.road_cell(branch) || !world.validate({sim::CommandType::PlaceRoad,branch}).accepted ||
+                !map.policy->transport_edge_allowed(center,branch))continue;
+            for(const auto offset:neighbors) {
+                const sim::Cell well{branch.x+offset.x,branch.y+offset.y};
+                const auto cells=sim::building_footprint_cells(world.profile(),world.rule_version(),sim::Object::Well,well);
+                if(std::find(cells.begin(),cells.end(),branch)!=cells.end() ||
+                    !world.validate({sim::CommandType::PlaceWell,well}).accepted)continue;
+                const int distance=std::abs(center.x-layout.clay.x)+std::abs(center.y-layout.clay.y);
+                if(!choice || distance<choice->distance)choice=Choice{center,branch,well,index,distance};
+            }
+        }
+    }
+    write_report(output/"original-roads-report.json",report);
+    require(choice.has_value(),"No complete supported straight/paid side Road/2x2 Well mini in this map");
+    const auto center=choice->center,branch=choice->branch,well=choice->well;
+    report["visual_scene"]={{"center",point(center)},{"branch",point(branch)},{"well",point(well)},
+        {"evidence","Independent real-map paid reconstruction; actual App render is separate; no exact Oliver save claim"},
+        {"stages",J::array()}};
+    const auto record=[&](const char* label) {
+        const auto& f=plan.footprints[choice->footprint];const auto mask=oe::sandbox_ui::road_neighbor_mask(world,center);
+        const auto* entry=profile.find(mask);const auto& original=plan.assets[f.asset_index].record;
+        J row={{"label",label},{"world",facts(world)},{"cells",J::array()},
+            {"historical_asset",{{"archive",original.id.archive_relative_path.generic_string()},{"image",original.id.image_index}}},
+            {"historical_origin",{f.image_origin.x,f.image_origin.y}},
+            {"historical_dimensions",{original.width,original.height}},
+            {"chosen_prepared_asset",entry->id.image_index},{"road_mask",mask},
+            {"entrance_mask",oe::sandbox_ui::entrance_mask(world,center)}};
+        for(const auto cell:std::array{center,branch,well}) {
+            auto cellrow=raw(map,world,cell);cellrow["road_cell"]=world.road_cell(cell);
+            cellrow["road_mask"]=oe::sandbox_ui::road_neighbor_mask(world,cell);
+            cellrow["entrance_mask"]=oe::sandbox_ui::entrance_mask(world,cell);
+            cellrow["edges"]=J::array();for(const auto direction:neighbors) {
+                const sim::Cell next{cell.x+direction.x,cell.y+direction.y};
+                cellrow["edges"].push_back({{"to",point(next)},{"height",map.policy->cell_height(next)},
+                    {"allowed",world.transport_edge_allowed(cell,next)},
+                    {"blocker",sim::build_blocker_name(map.policy->transport_edge_blocker(cell,next))}});
+            }
+            row["cells"].push_back(std::move(cellrow));
+        }
+        if(plan.regenerated && f.id<plan.regenerated->footprint_assets.size())
+            if(const auto asset=plan.regenerated->footprint_assets[f.id])row["regenerated_ground"]=plan.assets[*asset].record.id.image_index;
+        report["visual_scene"]["stages"].push_back(std::move(row));
+        write_world(output/"saves"/(std::string(label)+".json"),data,relative,map,world);
+    };
+    record("A-original-unchanged");
+    require(world.execute({sim::CommandType::PlaceRoad,branch}).changed,"Side Road normal paid command failed");record("B-mixed-connection");
+    require(world.execute({sim::CommandType::PlaceWell,well}).changed,"Well normal paid command failed");record("C-mixed-road-well");
+    require(world.execute({sim::CommandType::RemoveRoad,branch}).changed,"Ordinary branch removal failed");record("D-branch-removed");
+    write_report(output/"original-roads-report.json",report);
+    std::cout<<"Paid mixed road mini: "<<relative<<" center "<<center.x<<','<<center.y<<"; branch "<<branch.x<<','<<branch.y
+        <<"; Well "<<well.x<<','<<well.y<<". Load C-mixed-road-well, paused at tick 0.\n";
+}
 }
 int main(int argc,char** argv) {
     std::optional<fs::path> failure_output;
     try {
-        require(argc==4 || (argc==6 && std::string(argv[4])=="--continue"),
+        const bool visuals=argc==5 && (std::string(argv[4])=="--visuals" || std::string(argv[4])=="--visuals-x");
+        require(argc==4 || visuals || (argc==6 && std::string(argv[4])=="--continue"),
             "usage: openemperor-original-roads-fixture DATA exact-relative-map fresh-.local-root [--continue private-save]");
         const auto data=fs::canonical(argv[1]);const fs::path relative=argv[2];
         const auto output=fs::weakly_canonical(argv[3]);const auto private_root=fs::canonical(fs::current_path()/".local");
@@ -363,6 +449,7 @@ int main(int argc,char** argv) {
         require(world.buildings().empty() && world.couriers().empty() && world.total_population()==0 &&
             world.roads_placed_total()==0 && world.command_sequence()==0,"Original infrastructure imported mutable entities/commands");
         report["empty"]=facts(world);const auto layout=find_layout(world);report["commands"]=J::array();
+        if(visuals)write_world(output/"saves"/"0-original-empty.json",data,relative,map,world);
         report["layout"]={{"clay",point(layout.clay)},{"pottery",point(layout.pottery)},
             {"house1",point(layout.house1)},{"house2",point(layout.house2)},
             {"matches_user_geometry",layout.user_geometry},{"exact_user_save_executed",false}};
@@ -371,6 +458,7 @@ int main(int argc,char** argv) {
             world.workforce_supply()==12 && world.workforce_used()==10,"Paid no-road mini has artificial authority");
         report["connectivity"]=connectivity(map,world,clay,pottery);
         require(report["connectivity"]["category"]=="CONNECTED","Actual original-road entrances did not connect");
+        if(visuals) {visual_scene(output,data,relative,map,world,layout,report,std::string(argv[4])=="--visuals-x");return 0;}
         sim::World old(map.old_policy,sim::RulesProfile::CityV16,3);J old_commands=J::array();
         const auto [old_clay,old_pottery]=build(old,layout,old_commands);
         for (int i=0;i<64;++i) old.tick();

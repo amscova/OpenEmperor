@@ -460,16 +460,19 @@ bool StoredGraphicsRenderer::draw_original_road_ground(std::size_t index,const s
         ++last_diagnostic_draws_;++last_drawn_instances_;return true;
     }
     const auto& footprint=plan_.footprints[item.plan_index];
-    const auto asset=render_asset_index(footprint);
+    // Regenerated Ground is not the stored Road surface. Keep its matching
+    // historical image, dimensions and anchor together on this ground path.
+    const auto asset=footprint.asset_index;
     if (plan_.assets[asset].status!=maps::StoredStatus::Rendered) {
         // Retain the named diagnostic fallback without inventing another road.
-        if (landscape_mode_!=LandscapeDebugMode::Snapshot) return draw_component(index,camera,true);
-        const auto world=plan_.cells[footprint.cell_indices.front()].world;
+        auto world=plan_.cells[footprint.cell_indices.front()].world;
+        if (elevated()) world.y-=maps::landscape_height(plan_,footprint.origin)*maps::landscape_height_step;
         if (!maps::stored_rect_visible({world.x-40,world.y},80,40,camera)) return true;
         if (!draw_diagnostic(world,camera,false,maps::TerrainCategory::Road)) return false;
         ++last_diagnostic_draws_;++last_drawn_instances_;return true;
     }
-    const auto& record=plan_.assets[asset].record;const auto origin=image_origin(footprint);
+    const auto& record=plan_.assets[asset].record;auto origin=footprint.image_origin;
+    if (elevated()) origin.y-=maps::landscape_height(plan_,footprint.draw_cell_candidate.value_or(footprint.origin))*maps::landscape_height_step;
     if (!maps::stored_rect_visible(origin,unsigned(record.width),unsigned(record.height),camera)) return true;
     const auto top=camera.world_to_screen(origin);
     const SDL_FRect destination{float(top.x),float(top.y),float(record.width*camera.zoom),float(record.height*camera.zoom)};

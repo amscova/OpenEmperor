@@ -863,6 +863,10 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-road-ground-occlusion-tests)
     add_test(NAME road-ground-occlusion-production-pixels COMMAND openemperor-road-ground-occlusion-tests)
     add_test(NAME original-road-ground-pixels COMMAND openemperor-road-ground-occlusion-tests --original-roads-only)
+    add_test(NAME original-road-asset-pixels COMMAND openemperor-road-ground-occlusion-tests --original-road-asset)
+    add_test(NAME original-road-mixed-pixels COMMAND openemperor-road-ground-occlusion-tests --original-road-mixed)
+    add_test(NAME original-road-stale-ground-pixels COMMAND openemperor-road-ground-occlusion-tests --original-road-stale)
+    add_test(NAME original-road-axis-height-pixels COMMAND openemperor-road-ground-occlusion-tests --original-road-axis-height)
     add_executable(openemperor-walker-visual-tests tests/WalkerVisualTests.cpp
         src/app/WalkerPose.cpp src/renderer/WalkerSpriteSet.cpp)
     target_link_libraries(openemperor-walker-visual-tests PRIVATE
@@ -1109,6 +1113,7 @@ openemperor_enable_warnings(openemperor-map-playability-fixture)
 # separate from the historical rule-3 A-E fixtures above.
 add_executable(openemperor-original-roads-fixture EXCLUDE_FROM_ALL
     tools/OriginalRoadsFixture.cpp
+    src/app/RoadTopology.cpp src/app/VisualSelection.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
 target_link_libraries(openemperor-original-roads-fixture PRIVATE
     openemperor-persistence SDL3::SDL3)

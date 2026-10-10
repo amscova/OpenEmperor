@@ -67,6 +67,14 @@ struct OrdinaryTowerPreparationResult {
 // Published const once per load. Historical cells, footprints and buildability
 // remain untouched. Indices refer to the renderer's shared physical asset pool.
 struct RegeneratedMapRenderPlan {
+    // Bounded historical 61b Ground registration. Saved Ground images have no
+    // Road style authority after load; raw ordinary roads may use the already
+    // prepared basic Road profile. No new selection table, image or claim.
+    struct HistoricalGroundFamily {
+        assets::AssetId first;
+        unsigned count=0;
+    };
+    std::optional<HistoricalGroundFamily> historical_ground_family;
     std::vector<RegeneratedCell> cells; // Same candidate order as historical plan.
     std::vector<std::optional<std::size_t>> footprint_assets;
     std::vector<RegeneratedLandscapeInstance> instances;

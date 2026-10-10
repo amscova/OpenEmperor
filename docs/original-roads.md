@@ -35,9 +35,15 @@ A save binds the original map, original legacy buildable mask, explicit policy v
 
 ## Presentation and inspection
 
-Existing supported original singleton images draw their prepared Combined texture exactly once in the early ground pass, under walkers, in every debug layer including Snapshot. No second Sandbox road descriptor or replacement texture is created. The original image, anchor, signed-height projection, eager deduplication and upload policy are reused. Other buildings, walls and gate houses retain their spatial foreground path. Owned connection masks include original roads and legal gate openings through the same height-filtered edges.
+The later [Original Road visual consistency pass](rendering/original-road-visuals.md) corrects the historical early-ground asset/anchor selection and adds bounded connections through the already prepared Road profile. A ready original surface draws once as historical Combined **or** an opaque Road replacement under walkers; no duplicate old surface or new texture is created. Valid built-in 0x61b snapshot Ground on already imported ordinary roads uses the basic Road surface. Matching unchanged Road images, unknown styles, unavailable profiles, F7 and Snapshot retain their historical comparison/fallback. Other buildings, walls and gate houses keep their spatial foreground path. Both owned and original connection masks reuse the same height-filtered `RoadTopology`, with building entrances separate.
 
 F1 identifies **Transport source: Original map road**, its imported policy, traversability, classification and signed height. Policy-1 roads report **“Original road is visual-only under this saved policy.”** Unsupported special forms report their concrete classification. F1/G remains an explicit read-only, bounded, revisions-bound diagnostic; it does not run BFS on cached Inspector frames. F2/F8, zoom and viewport changes cannot alter navigation or the immutable policy.
+
+F1 additionally shows the current Road mask, EntranceMask, draw mode/actual asset
+and named fallback. For a paused paid visual scene use
+`sh tools/test_original_road_visuals.sh .local/gog-extracted/app Kaifeng`, then
+**Load Sandbox → C-mixed-road-well**. The transport playthrough below remains a
+separate test recipe; its historical evidence is unchanged.
 
 ## Test the current local build
 

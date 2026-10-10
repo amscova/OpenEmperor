@@ -1,6 +1,7 @@
 #include "app/SandboxView.h"
 #include "app/WalkerPose.h"
 #include "assets/Sg3ImageLoader.h"
+#include "maps/RegeneratedMapRenderPlan.h"
 #include "core/PerformanceDiagnostics.h"
 #include "renderer/RoadSpriteSet.h"
 #include "renderer/WalkerSpriteSet.h"
@@ -67,15 +68,16 @@ Bytes omega(const std::vector<std::uint16_t>& raster,int w,int h) {
 struct Fixture {
     authored::Temp map;
     fs::path data=map.root/"data",walkers=map.root/"walkers.json",roads=map.root/"roads.json";
-    Fixture() {
+    bool consistency=false,vertical=false,high=false;
+    Fixture(bool distinct=false,bool other_axis=false,bool elevated=false):consistency(distinct),vertical(other_axis),high(elevated) {
         map.root=fs::canonical(map.root);data=map.root/"data";walkers=map.root/"walkers.json";roads=map.root/"roads.json";
         // Neutral gray historical ground, independent blue opaque road bases.
         Bytes neutral(3200);for(std::size_t p=0;p<neutral.size();p+=2)authored::u16(neutral,p,0x4210);
         authored::write(data/"DATA/China_Terrain.555",neutral);
-        Bytes archive(40680+5*72,0),bitmap(4,0);
+        Bytes archive(40680+22*72,0),bitmap(4,0);
         authored::u32(archive,0,static_cast<std::uint32_t>(archive.size()));authored::u32(archive,4,214);
-        authored::u32(archive,12,5);authored::u32(archive,16,5);authored::u32(archive,20,1);
-        const std::string name="independently-authored.bmp";std::copy(name.begin(),name.end(),archive.begin()+680);authored::u32(archive,804,5);
+        authored::u32(archive,12,22);authored::u32(archive,16,22);authored::u32(archive,20,1);
+        const std::string name="independently-authored.bmp";std::copy(name.begin(),name.end(),archive.begin()+680);authored::u32(archive,804,22);
         const auto image=[&](int id,int w,int h,int type,int base,const Bytes& pixels) {
             const auto at=40680+static_cast<std::size_t>(id)*72;
             authored::u32(archive,at,static_cast<std::uint32_t>(bitmap.size()));authored::u32(archive,at+4,static_cast<std::uint32_t>(pixels.size()));
@@ -104,6 +106,16 @@ struct Fixture {
         for(int y=12;y<90;++y)for(int x=16;x<62;++x) tall[static_cast<std::size_t>(y*78+x)]=0x7c00;
         for(int y=32;y<39;++y)for(int x=28;x<35;++x)tall[static_cast<std::size_t>(y*78+x)]=0;
         auto overlay=omega(tall,78,100);tall_base.insert(tall_base.end(),overlay.begin(),overlay.end());image(4,78,100,30,3200,tall_base);
+        for(int mask=0;mask<16;++mask) {
+            Bytes colored(3200);for(std::size_t p=0;p<colored.size();p+=2)
+                authored::u16(colored,p,static_cast<std::uint16_t>(((mask+1)<<10)|(mask<<5)|31));
+            image(5+mask,78,40,30,3200,colored);
+        }
+        // Deliberately different height/anchor from the historical Road. A
+        // regenerated Ground must never select this image for that Road.
+        Bytes grass(3200);for(std::size_t p=0;p<grass.size();p+=2)authored::u16(grass,p,0x03e0);
+        auto transparent=omega(std::vector<std::uint16_t>(78*80,0),78,80);
+        grass.insert(grass.end(),transparent.begin(),transparent.end());image(21,78,80,30,3200,grass);
         authored::write(data/"DATA/authored.sg3",archive);authored::write(data/"DATA/authored.555",bitmap);
         Json role={{"ticks_per_frame",2},{"clip_id","independent-road-ground-walker"},{"evidence","Authored off-center torso, yellow feet and transparent cargo area."},
             {"frames",Json::array({{{"alias","a"},{"archive","DATA/authored.sg3"},{"image_index",2},{"foot_anchor",{foot_x,foot_y}}},
@@ -111,7 +123,7 @@ struct Fixture {
             {"clips",{{"pos_x",{"a","b"}},{"neg_x",{"a","b"}},{"pos_y",{"a","b"}},{"neg_y",{"a","b"}}}},{"idle","a"}};
         save_json(walkers,{{"schema_version",4},{"mode","curated_walker_preview"},{"roles",{{"supplier",role},{"distributor",role},{"fire_inspector",role}}}});
         Json tiles=Json::object();constexpr char hex[]="0123456789abcdef";
-        for(int mask=0;mask<16;++mask)tiles[std::string("0x")+hex[mask]]={{"archive","DATA/authored.sg3"},{"image_index",1},{"ground_anchor",{39,20}},{"evidence","Independent opaque blue road, fixed native geometry."}};
+        for(int mask=0;mask<16;++mask)tiles[std::string("0x")+hex[mask]]={{"archive","DATA/authored.sg3"},{"image_index",consistency?5+mask:1},{"ground_anchor",{39,20}},{"evidence","Independent opaque road, fixed native geometry."}};
         save_json(roads,{{"schema_version",1},{"mode","curated_road_preview"},{"replaces_ground",true},{"tiles",tiles}});
     }
     void original_roads_map() const {
@@ -123,7 +135,11 @@ struct Fixture {
             raw[static_cast<std::size_t>(maps::candidate_byte_logical_offset)+i]=64;
             authored::u32(raw,static_cast<std::size_t>(maps::terrain_logical_offset)+4*i,0x80);
         }
-        for(unsigned x=105;x<=110;++x)authored::u32(raw,static_cast<std::size_t>(maps::terrain_logical_offset)+4*(111U*228U+x),0xc0);
+        for(unsigned x=105;x<=110;++x) {
+            const auto index=vertical?x*228U+111U:111U*228U+x;
+            authored::u32(raw,static_cast<std::size_t>(maps::terrain_logical_offset)+4*index,0xc0);
+            if(high)raw[static_cast<std::size_t>(maps::landscape_height_offset)+index]=1;
+        }
         Bytes file{0xaa,0xba,0xdc,0xfe};
         for(std::size_t at=0;at<raw.size();at+=32768) {
             const auto count=std::min<std::size_t>(32768,raw.size()-at);
@@ -140,11 +156,17 @@ struct Fixture {
         auto result=maps::load_stored_map_session(data,"Cities/A.map",maps::FootprintPolicy::EdgeByte4x4Preview,maps::StoredGraphicsProfile::Slot8);
         if(original_roads) {
             const auto archive=assets::scan_asset_archive(data,"DATA/authored.sg3");
-            maps::StoredAsset asset;asset.record=archive.records.at(1);const auto index=result.plan.assets.size();result.plan.assets.push_back(std::move(asset));
+                maps::StoredAsset asset;asset.record=archive.records.at(1);const auto index=result.plan.assets.size();result.plan.assets.push_back(std::move(asset));
             for(unsigned x=105;x<=110;++x) {
-                const auto cell_index=*result.plan.cell_by_storage[111U*228U+x];auto& cell=result.plan.cells[cell_index];
+                const auto cell_index=*result.plan.cell_by_storage[vertical?x*228U+111U:111U*228U+x];auto& cell=result.plan.cells[cell_index];
                 auto& footprint=result.plan.footprints[*cell.footprint_index];cell.asset_index=index;footprint.asset_index=index;
                 const auto origin=maps::stored_image_origin(cell.world,78,40);cell.image_origin=origin;footprint.image_origin=origin;
+                if(consistency) {
+                    const int mask=vertical?(x==105?4:x==110?1:5):(x==105?2:x==110?8:10);
+                    maps::StoredAsset variant;variant.record=archive.records.at(static_cast<std::size_t>(5+mask));
+                    cell.asset_index=result.plan.assets.size();footprint.asset_index=*cell.asset_index;
+                    result.plan.assets.push_back(std::move(variant));
+                }
             }
         }
         if(tall) {
@@ -303,6 +325,150 @@ void route_case(SDL_Window* window,SDL_Renderer* renderer) {
     check(std::all_of(directions.begin(),directions.end(),[](bool d){return d;})&&empty_return&&curve&&cross,"real loaded/empty Food route lacks positive road-foot direction/curve/crossing witnesses");
     equal_documents(view,prepared.control,fixture,"transport");view.shutdown();
 }
+Color variant_color(int mask) {
+    const auto channel=[](int n){return static_cast<std::uint8_t>((n<<3)|(n>>2));};
+    return {channel(mask+1),channel(mask),255,255};
+}
+void consistency_case(SDL_Window* window,SDL_Renderer* renderer,bool regenerated,bool stale=false) {
+    Fixture fixture(true);auto session=fixture.session(false,true);
+    const sim::Cell center{106,111};
+    if(regenerated || stale) {
+        const auto archive=assets::scan_asset_archive(fixture.data,"DATA/authored.sg3");
+        maps::StoredAsset grass;grass.record=archive.records.at(21);
+        const auto asset=session.plan.assets.size();session.plan.assets.push_back(std::move(grass));
+        auto plan=std::make_shared<maps::RegeneratedMapRenderPlan>();
+        if(session.plan.regenerated)*plan=*session.plan.regenerated;
+        plan->footprint_assets.resize(session.plan.footprints.size());
+        const auto cell_index=*session.plan.cell_by_storage[111U*228U+106U];
+        plan->footprint_assets[session.plan.footprints[*session.plan.cells[cell_index].footprint_index].id]=asset;
+        if(stale) {
+            auto& footprint=session.plan.footprints[*session.plan.cells[cell_index].footprint_index];
+            footprint.asset_index=asset;footprint.image_origin=maps::stored_image_origin(session.plan.cells[cell_index].world,78,80);
+            plan->historical_ground_family=maps::RegeneratedMapRenderPlan::HistoricalGroundFamily{{"DATA/authored.sg3",21},1};
+        }
+        session.plan.regenerated=std::move(plan);
+    }
+    oe::SandboxView view(std::move(session),false,sim::RulesProfile::CityV16,4);
+    view.configure_save(fixture.data,"Cities/A.map",fixture.map.root/"consistent.json");
+    view.set_road_visuals(fixture.roads,stale?oe::VisualProfileSource::Builtin:oe::VisualProfileSource::Custom);view.initialize(window,renderer);view.set_tool(5);
+    zoom(view,cell_ground(view,center),1);render(view);
+    const auto witness=cell_ground(view,center);
+    check(pixel(pixels(renderer).get(),witness)==variant_color(10),
+          "original-road A: regenerated Ground replaced the historical Road pixels/anchor");
+    if(regenerated || stale) {
+        if(stale) {
+            check(view.road_visual_diagnostic(center).stale_ground && view.road_visual_diagnostic(center).dynamic,"bounded snapshot Ground not admitted for actual raw Road");
+            command(view,sim::CommandType::PlaceRoad,106,112);render(view);
+            check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(14),"snapshot Ground mixed T still grassy");
+            key(view,SDLK_F1);key(view,SDLK_F8);render(view);
+            check(pixel(pixels(renderer).get(),cell_ground(view,center))==Color{0,255,0,255},"Snapshot no longer preserves stored Ground pixels");
+        }
+        view.shutdown();return;
+    }
+    sim::World control=view.world();
+    const auto paid=[&](sim::CommandType type,sim::Cell cell) {
+        check(view.execute({type,cell}).accepted&&control.execute({type,cell}).accepted,"mixed paid command failed");
+        check(view.world().snapshot()==control.snapshot(),"mixed presentation changed complete command state");
+    };
+    paid(sim::CommandType::PlaceRoad,{106,112});render(view);
+    check(oe::sandbox_ui::road_neighbor_mask(view.world(),center)==14,"positive mixed T has wrong logical mask");
+    check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(14),
+          "original-road B: actual original T pixels retain the historical straight variant");
+    check(pixel(pixels(renderer).get(),cell_ground(view,{106,112}))==variant_color(1),"mutable end does not connect to original T");
+    const auto diagnostic=view.road_visual_diagnostic(center);
+    check(diagnostic.original && diagnostic.dynamic && diagnostic.replacement==1 && diagnostic.mask==14 &&
+        diagnostic.historical_mask==10 && diagnostic.actual_asset->image_index==19,"actual original T diagnosis differs from selected pixels");
+    key(view,SDLK_F1);key(view,SDLK_F8);render(view);
+    check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10),"Snapshot no longer shows historical straight");
+    for(int n=0;n<7;++n)key(view,SDLK_F8);
+    key(view,SDLK_F1);
+    paid(sim::CommandType::PlaceRoad,{106,110});render(view);
+    check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(15),"mixed cross pixels missing");
+    paid(sim::CommandType::RemoveRoad,{106,110});render(view);
+    check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(14),"cross removal pixels stale");
+    paid(sim::CommandType::RemoveRoad,{106,112});render(view);
+    check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10),"branch removal did not restore historical straight");
+    paid(sim::CommandType::PlaceRoad,{106,113});render(view);
+    check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10) &&
+        pixel(pixels(renderer).get(),cell_ground(view,{106,113}))==variant_color(0) &&
+        pixel(pixels(renderer).get(),cell_ground(view,{106,112}))==Color{132,132,132,255},"actual missing cell was masked by a fabricated Road connection");
+    paid(sim::CommandType::RemoveRoad,{106,113});
+    for(const auto cell:std::array<sim::Cell,2>{{{105,110},{105,112}}}) {
+        paid(sim::CommandType::PlaceRoad,cell);render(view);
+        const int mask=cell.y==110?3:7;
+        check(pixel(pixels(renderer).get(),cell_ground(view,{105,111}))==variant_color(mask),"original end/corner/T pixels stale");
+    }
+    paid(sim::CommandType::RemoveRoad,{105,110});paid(sim::CommandType::RemoveRoad,{105,112});
+    paid(sim::CommandType::PlaceFireWatch,{106,112});render(view);
+    check(view.road_visual_diagnostic(center).entrance==4 && view.road_visual_diagnostic(center).mask==10 &&
+        pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10),"1x1 entrance changed a Road mask/surface");
+    const auto watch=*view.world().building_owner_at({106,112});
+    check(view.execute(sim::demolish_building(watch)).accepted && control.execute(sim::demolish_building(watch)).accepted,"safe singleton demolition failed");
+    paid(sim::CommandType::PlaceWell,{105,112});render(view);
+    check(view.road_visual_diagnostic(center).entrance==4 && view.road_visual_diagnostic({105,111}).entrance==4 &&
+        view.road_visual_diagnostic(center).mask==10,"2x2 rim lost separate EntranceMask");
+    const auto well=*view.world().building_owner_at({105,112});
+    check(view.execute(sim::demolish_building(well)).accepted && control.execute(sim::demolish_building(well)).accepted,"safe 2x2 demolition failed");
+    render(view);check(view.road_visual_diagnostic(center).entrance==0,"demolition left stale entrance cache");
+    for(double z:{1.0,1.15,2.0,4.0,1.0}) {
+        zoom(view,cell_ground(view,center),z);render(view);
+        view.set_tool(1);button(view,cell_ground(view,{106,112}),true);render(view);
+        check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(14),"valid preview did not update original T pixels");
+        check(view.world().snapshot()==control.snapshot(),"preview changed full authority");
+        const auto built=view.road_plan_build_count();render(view);check(view.road_plan_build_count()==built,"stable hover rebuilt pure preview");
+        key(view,SDLK_ESCAPE);view.set_tool(5);render(view);
+        check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10),"cancelled preview did not restore original straight");
+    }
+    for(const auto boundary:{SDL_EVENT_WINDOW_FOCUS_LOST,SDL_EVENT_MOUSE_BUTTON_DOWN}) {
+        view.set_tool(1);button(view,cell_ground(view,{106,112}),true);render(view);
+        SDL_Event e{};e.type=boundary;
+        if(boundary==SDL_EVENT_MOUSE_BUTTON_DOWN)e.button.button=SDL_BUTTON_RIGHT;
+        bool running=true;view.handle_event(e,running);view.set_tool(5);render(view);
+        check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10) &&
+            view.world().snapshot()==control.snapshot(),"focus/right-click cancellation retained proposed original connection");
+        e={};e.type=SDL_EVENT_WINDOW_FOCUS_GAINED;view.handle_event(e,running);
+    }
+    const auto before_reject=view.world().snapshot();
+    check(!view.execute({sim::CommandType::RemoveRoad,center}).accepted,"immutable original Road removal accepted");render(view);
+    check(view.world().snapshot()==before_reject && pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10),"failed original command persisted a visual change");
+    // Optional profile failure is atomic; F6 off retains the actual Road,
+    // while an unknown historical style is never replaced merely by terrain.
+    bool rejected=false;try{view.set_road_visuals(fixture.map.root/"missing.json");}catch(const std::exception&){rejected=true;}
+    check(rejected,"missing optional profile was accepted");render(view);
+    check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(10),"failed optional preparation lost historical Road");
+    key(view,SDLK_F6);paid(sim::CommandType::PlaceRoad,{106,112});render(view);
+    const auto old_witness=cell_ground(view,center);
+    check(pixel(pixels(renderer).get(),{old_witness.x+6,old_witness.y-4})==variant_color(10) &&
+        !view.road_visual_diagnostic(center).dynamic,"F6 off suppressed historical Road");
+    key(view,SDLK_F6);render(view);check(pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(14),"F6 reenable did not reuse prepared T");
+    const auto saved_branch=control.snapshot();view.save_now();paid(sim::CommandType::RemoveRoad,{106,112});render(view);
+    view.load_now();control=sim::World::restore(saved_branch,control.map_permissions());render(view);
+    check(view.world().snapshot()==saved_branch && pixel(pixels(renderer).get(),cell_ground(view,center))==variant_color(14),"load retained a removed-branch visual cache or changed full saved authority");
+    equal_documents(view,control,fixture,"mixed-visual");view.shutdown();
+}
+void axis_height_case(SDL_Window* window,SDL_Renderer* renderer) {
+    for(bool high:{false,true}) {
+        Fixture fixture(true,!high,high);oe::SandboxView view(fixture.session(false,true),false,sim::RulesProfile::CityV16,4);
+        view.configure_save(fixture.data,"Cities/A.map",fixture.map.root/"axis.json");view.set_road_visuals(fixture.roads);view.initialize(window,renderer);view.set_tool(5);
+        const sim::Cell center=high?sim::Cell{106,111}:sim::Cell{111,106};
+        auto witness=cell_ground(view,center);if(high)witness.y-=40*view.camera().zoom;
+        zoom(view,witness,1);auto point=cell_ground(view,center);if(high)point.y-=40;
+        const sim::Cell branch=high?sim::Cell{center.x,center.y+1}:sim::Cell{center.x+1,center.y};
+        command(view,sim::CommandType::PlaceRoad,branch.x,branch.y);render(view);
+        check(pixel(pixels(renderer).get(),point)==variant_color(high?10:7),"other-axis T or signed-height negative selected wrong actual surface");
+        if(high) {
+            check(view.world().map_permissions()->cell_height(center)==1 && view.world().map_permissions()->cell_height(branch)==0 &&
+                !view.world().transport_edge_allowed(center,branch) && view.road_visual_diagnostic(branch).mask==0,
+                "height-separated Road was visually/logically bridged");
+        } else {
+            command(view,sim::CommandType::PlaceRoad,center.x-1,center.y);render(view);
+            check(pixel(pixels(renderer).get(),point)==variant_color(15),"other-axis cross pixels stale");
+            command(view,sim::CommandType::RemoveRoad,branch.x,branch.y);render(view);
+            check(pixel(pixels(renderer).get(),point)==variant_color(13),"other-axis branch removal pixels stale");
+        }
+        view.shutdown();
+    }
+}
 void original_road_case(SDL_Window* window,SDL_Renderer* renderer) {
     Fixture fixture;
     // Install the authored original-road map before World construction; transport
@@ -413,6 +579,10 @@ int main(int argc,char** argv) {
         if(mode=="all"||mode=="metal"||mode=="preview")preview_case(window,renderer);
         if(mode=="all"||mode=="metal"||mode=="route")route_case(window,renderer);
         if(mode=="original"||mode=="--original-roads-only")original_road_case(window,renderer);
+        if(mode=="--original-road-asset")consistency_case(window,renderer,true);
+        if(mode=="--original-road-mixed")consistency_case(window,renderer,false);
+        if(mode=="--original-road-stale")consistency_case(window,renderer,false,true);
+        if(mode=="--original-road-axis-height")axis_height_case(window,renderer);
         check(oe::WalkerSpriteSet::live_texture_count()==0&&oe::RoadSpriteSet::live_texture_count()==0&&oe::StoredGraphicsRenderer::live_texture_count()==0,"owned session texture leak");
         SDL_DestroyTexture(target);SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
         std::cout<<"Production Road-ground and Cargo-overlay pixels PASS\n";return 0;

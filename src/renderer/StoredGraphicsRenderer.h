@@ -53,6 +53,9 @@ public:
     // submitted once as ground, including Snapshot, never as a spatial body.
     void set_original_road_ground(std::shared_ptr<const simulation::MapPermissions> permissions);
     std::size_t original_road_ground_items() const;
+    bool original_road_ground_item(std::size_t index) const {
+        return index<original_road_ground_.size() && original_road_ground_[index];
+    }
     void set_landscape_mode(LandscapeDebugMode mode);
     LandscapeDebugMode landscape_mode() const { return landscape_mode_; }
     bool elevated() const { return landscape_mode_!=LandscapeDebugMode::Snapshot && plan_.landscape_layers_available; }

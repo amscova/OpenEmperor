@@ -54,6 +54,14 @@ void build_regenerated_map_render_plan(StoredGraphicsPlan& plan,
         groups[slot]={r.layout ? &*r.layout:nullptr};
         images[slot]={r.catalog ? &*r.catalog:nullptr,r.layout ? &*r.layout:nullptr,r.archive_missing};
     }
+    LandscapeVariantResolution road_ground;
+    const auto ground=resolve_landscape_variant({0x61b},0,groups,&road_ground);
+    if(ground && road_ground.group.local_base && road_ground.local_end &&
+        *road_ground.local_end>*road_ground.group.local_base) {
+        const auto old=resolve_graphics_id_hypothesis(ground->value,images);
+        if(old.record)generated->historical_ground_family=RegeneratedMapRenderPlan::HistoricalGroundFamily{
+            old.record->id,*road_ground.local_end-*road_ground.group.local_base};
+    }
     using AssetKey=std::pair<std::string,std::uint32_t>;
     std::map<AssetKey,std::size_t> pool;
     for (std::size_t i=0;i<plan.assets.size();++i) {
