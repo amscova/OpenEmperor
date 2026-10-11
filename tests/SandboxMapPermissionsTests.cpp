@@ -27,6 +27,68 @@ struct Fixture {
 };
 void free_and_protected(){Fixture f;f.legacy[raw(start)]=0;auto p=f.make();check(p->road_allowed({100,110})&&!p->building_allowed({100,110}),"road raw fact independent of legacy/render footprint");auto before=p->canonical_state();f.plan.assets.resize(2);f.plan.assets[0].status=maps::StoredStatus::DecodeFailed;f.plan.landscape_layers_available=false;f.plan.raw_saved_ids.assign(count,0xffffffff);f.plan.raw_candidate_bytes.assign(count,255);check(f.make()->canonical_state()==before,"decode/profile/saved graphic state cannot decide roads or passages");f.legacy[raw(start)]=1;auto e=f.source(start);f.entities.records.push_back(e);p=f.make();check(!p->road_allowed({100,110})&&!p->building_allowed({100,110})&&p->protected_original({100,110})&&p->road_blocker({101,111})==simulation::BuildBlocker::OriginalStructure,"complete original saved square reserved despite grass");check(p->road_allowed({102,112}),"original reservation does not expand beyond source square");Fixture rawbits;for(auto terrain:{4U,0x4080U,0x8088U,0x82U,0x2000080U,0x80080U}){rawbits.map.terrain_raw.values[raw(start)]=terrain;check(!rawbits.make()->road_allowed({100,110})&&!rawbits.make()->building_allowed({100,110}),"water/wall/gate/rock/pinnacle/offmap denied");}rawbits.map.terrain_raw.values[raw(start)]=0x80;rawbits.map.objects_raw.values[raw(start)]=1;check(!rawbits.make()->road_allowed({100,110}),"objects0 required");check(!f.make()->road_allowed({0,0}),"candidate-map border is not road terrain");}
 void road_markings(){Fixture f;f.map.terrain_raw.values[raw(start)]=0xc0;auto p=f.make();check(p->road_allowed({100,110})&&!p->building_allowed({100,110})&&!p->fixed_passage({100,110}),"explicit ground-road raw marking permits paid roads only, not building or fixed road");f.map.objects_raw.values[raw(start)]=1;check(!f.make()->road_allowed({100,110}),"road-marked original objects stay blocked");for(auto value:{0x40U,0xc1U,0x1c0U,0x800c0U}){f.map.objects_raw.values[raw(start)]=0;f.map.terrain_raw.values[raw(start)]=value;check(!f.make()->road_allowed({100,110}),"ground-road whitelist admits no extra bits");}}
+void reswall_occupancy() {
+ for (unsigned schema:{3U,4U}) for (int type:{90,91,231}) for (unsigned policy:{1U,2U}) {
+  Fixture f;auto wall=f.source(start);
+  wall.entity_class=maps::OriginalEntityClass::ResWall;wall.type=std::int16_t(type);
+  wall.footprint_side=1;wall.subindex=0;wall.provenance.base_schema=std::uint16_t(schema);
+  wall.provenance.wrapper_schema=wall.provenance.extended_schema=wall.provenance.class_wrapper_schema=1;
+  f.entities.records.push_back(wall);
+  auto prepare=[&](const Fixture& input) {
+   return maps::make_sandbox_map_permissions(input.map,input.plan,input.geometry,input.legacy,input.entities,policy);
+  };
+  // A typed physical singleton must remain protected even on otherwise
+  // importable raw ground road. Objects is not an ownership-ID oracle.
+  f.map.terrain_raw.values[raw(start)]=0xc0;
+  const auto p=prepare(f);
+  check(p->protected_original({100,110}) && !p->building_allowed({100,110}) &&
+        !p->road_allowed({100,110}) && !p->original_road({100,110}) &&
+        p->road_blocker({100,110})==simulation::BuildBlocker::OriginalStructure &&
+        p->original_road_classification({100,110})==simulation::OriginalRoadClassification::OriginalStructure,
+        "verified ResWall singleton excludes Road-bit import and building permission");
+  check(!p->protected_original({101,110}) && p->road_allowed({101,110}) &&
+        p->building_allowed({101,110}) && p->cell_height({100,110})==-1 && p->gates().empty(),
+        "ResWall protection is exactly one cell with unchanged neighbors, heights and no passages");
+  auto actual=f;actual.map.terrain_raw.values[raw(start)]=0x88;actual.map.objects_raw.values[raw(start)]=4;
+  check(prepare(actual)->protected_original({100,110}),"observed raw structure/object words stay protected independently");
+  auto mutate=[&](auto edit,const char* reason) {auto bad=f;edit(bad.entities.records[0]);rejects([&]{prepare(bad);},reason);};
+  mutate([](auto& e){e.type=232;},"unevidenced ResWall type with positive footprint rejected");
+  mutate([](auto& e){e.status=2;},"unevidenced ResWall active status rejected");
+  mutate([](auto& e){e.status=255;},"unknown status cannot become inactive");
+  mutate([](auto& e){e.subindex=1;},"unevidenced ResWall subindex rejected");
+  mutate([](auto& e){e.footprint_side=0;},"zero-side ResWall is neither free nor implicit one-cell");
+  mutate([](auto& e){e.footprint_side=2;},"generic positive square cannot admit unsupported ResWall geometry");
+  mutate([](auto& e){e.provenance.base_schema=5;},"structurally parsed Base5 does not prove this occupancy state");
+  mutate([](auto& e){e.provenance.wrapper_schema=2;},"unknown ResWall parent wrapper rejected");
+  mutate([](auto& e){e.provenance.extended_schema=2;},"unknown ResWall NonHouse state rejected");
+  mutate([](auto& e){e.provenance.class_wrapper_schema=0;},"Tower wrapper cannot select ResWall occupancy");
+  mutate([](auto& e){++e.serialized_cell_reference;},"ResWall requires matching cell reference");
+  mutate([](auto& e){e.local_x=-1;},"negative ResWall origin rejected");
+  mutate([](auto& e){e.local_y=170;},"ResWall beyond declared extent rejected");
+  mutate([](auto& e){e.original_id.reset();},"ResWall requires original identity");
+  mutate([](auto& e){e.gate_house=maps::OriginalGateHouseState{0};},"ResWall cannot carry typed gate state");
+  auto offmap=f;offmap.map.terrain_raw.values[raw(start)]|=0x80000;
+  rejects([&]{prepare(offmap);},"ResWall on off-map terrain rejected");
+  auto outside=f;outside.entities.records[0].local_x=outside.entities.records[0].local_y=0;
+  outside.entities.records[0].serialized_cell_reference=int(raw({29,29}));
+  rejects([&]{prepare(outside);},"ResWall outside candidate diamond rejected");
+  for (bool first:{false,true}) {
+   auto conflict=f;conflict.entities.records.push_back(f.source(start,8,1));
+   if(first)std::reverse(conflict.entities.records.begin(),conflict.entities.records.end());
+   rejects([&]{prepare(conflict);},"ResWall / foreign physical claim conflicts in either order");
+   for (maps::GridCell claim:{start,maps::GridCell{102,110},maps::GridCell{102,109}}) {
+    Fixture g;g.gate(0);auto e=wall;e.manager_index=1;e.original_id=maps::OriginalEntityId{8};e.serialized_original_id=8;
+    e.local_x=std::int16_t(claim.x-29);e.local_y=std::int16_t(claim.y-29);e.serialized_cell_reference=int(raw(claim));
+    g.entities.records.push_back(e);if(first)std::reverse(g.entities.records.begin(),g.entities.records.end());
+    rejects([&]{prepare(g);},"ResWall conflicts with gate solid, corridor and opening in either order");
+   }
+  }
+  Fixture gate;gate.gate(0);const auto before=prepare(gate)->canonical_state();
+  auto inactive=wall;inactive.status=0;inactive.original_id.reset();inactive.serialized_original_id=-1;
+  inactive.local_x=inactive.local_y=-1;gate.entities.records.push_back(inactive);
+  check(prepare(gate)->canonical_state()==before,"complete inactive ResWall leaves gate geometry exact");
+ }
+}
 void passage_layouts(){for(int layout:{0,1}){Fixture f;f.gate(layout);auto p=f.make();check(p->gates().size()==1&&p->gates()[0].id==simulation::FixedGateId{7},"stable original gate ID is distinct and zero manager index valid");const std::array<simulation::Cell,3> corridor=layout?std::array<simulation::Cell,3>{{{100,112},{101,112},{102,112}}}:std::array<simulation::Cell,3>{{{102,110},{102,111},{102,112}}};const std::array<simulation::Cell,2> openings=layout?std::array<simulation::Cell,2>{{{99,112},{103,112}}}:std::array<simulation::Cell,2>{{{102,109},{102,113}}};check(p->gates()[0].corridor==std::vector(corridor.begin(),corridor.end())&&p->gates()[0].openings==openings,"literal independently authored short-axis corridor and two openings");for(auto c:p->gates()[0].protected_footprint)check(p->protected_original(c)&&!p->building_allowed(c),"all15 protected from buildings");for(unsigned k=0;k<3;++k)check(p->fixed_passage(corridor[k])&&p->road_allowed(corridor[k])&&p->cell_height(corridor[k])==-1,"exactthree corridor cells and signed height retained");check(p->transport_edge_allowed(openings[0],corridor[0])&&p->transport_edge_allowed(corridor[0],openings[0])&&p->transport_edge_allowed(openings[1],corridor[2])&&p->transport_edge_allowed(corridor[2],openings[1]),"both opening directions");check(p->transport_edge_allowed(corridor[0],corridor[1])&&p->transport_edge_allowed(corridor[1],corridor[2]),"ordinary internal neighbor edges");const simulation::Cell side=layout?simulation::Cell{101,111}:simulation::Cell{101,111};check(p->transport_edge_blocker(side,corridor[1])==simulation::BuildBlocker::GateSideEntry,"solid side entry denied");check(!p->road_allowed({100,110})&&p->road_blocker({100,110})==simulation::BuildBlocker::GateSolidPart,"solid gate corner denied independently of corridor");Fixture no_render=f;no_render.plan.height_bytes=f.plan.height_bytes;no_render.legacy.assign(count,0);auto missing=no_render.make();check(missing->gates()[0].corridor==p->gates()[0].corridor&&missing->road_mask()==p->road_mask(),"no render-derived legacy permissions prerequisite for gate/roads");}}
 void markers(){for(int type:{162,163,174,180,185}){Fixture f;auto e=f.source(start);e.entity_class=maps::OriginalEntityClass::Industrial;e.type=std::int16_t(type);e.footprint_side=0;f.entities.records.push_back(e);auto second=e;second.manager_index=1;second.original_id=maps::OriginalEntityId{8};second.serialized_original_id=8;f.entities.records.push_back(second);auto p=f.make();check(p->protected_original({100,110})&&!p->road_allowed({100,110})&&p->road_allowed({101,110}),"bounded marker reserves only exact saved origin; duplicate markers are not duplicate physical claims");}Fixture bad;auto e=bad.source(start);e.entity_class=maps::OriginalEntityClass::Industrial;e.footprint_side=0;e.type=35;bad.entities.records.push_back(e);rejects([&]{bad.make();},"unknown zero-side marker must not free occupancy");Fixture other;other.gate(0);auto marker=other.source(start,8,1);marker.entity_class=maps::OriginalEntityClass::Industrial;marker.footprint_side=0;marker.type=163;other.entities.records.push_back(marker);rejects([&]{other.make();},"marker/gate conflict fail closed");}
 void saved_editor_marker_origins() {
@@ -163,4 +225,4 @@ void standalone_reader(){
 }
 void legacy_contract(){Fixture f;maps::StoredCell c;c.storage=start;c.cell_index=raw(start);c.terrain_raw=0x80;c.objects_raw=0;c.footprint_index=0;c.status=maps::StoredStatus::Rendered;f.plan.cells.push_back(c);maps::PlacedFootprint fp;fp.origin=start;fp.width_cells=fp.height_cells=1;fp.status=maps::StoredStatus::Rendered;f.plan.footprints.push_back(fp);check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==1,"legacy successful1x1 rendered fixture");f.plan.cells[0].status=maps::StoredStatus::DecodeFailed;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy decode dependence remains exact");f.plan.cells[0].status=maps::StoredStatus::Rendered;f.plan.footprints[0].width_cells=2;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy footprint dependence remains exact");}
 }
-int main(){try{free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{reswall_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -32,12 +32,13 @@ Bytes manager(std::string name="",int type=35,unsigned side=0,bool gate=false) {
     auto offset=bytes.size();bytes.resize(offset+6+name.size());
     put16(bytes,offset,0xffff);put16(bytes,offset+4,unsigned(name.size()));
     std::copy(name.begin(),name.end(),bytes.begin()+std::ptrdiff_t(offset+6));
-    offset=bytes.size();bytes.resize(offset+181+(name=="cIndustrialBldg" || gate ? 130U:0U)+(gate ? 2U:0U),0);
+    const bool nonhouse=name=="cIndustrialBldg" || name=="cResWall" || gate;
+    offset=bytes.size();bytes.resize(offset+181+(nonhouse ? 130U:0U)+((gate || name=="cResWall") ? 2U:0U),0);
     put16(bytes,offset,4);bytes[offset+2]=3;bytes[offset+5]=std::uint8_t(side);
     put16(bytes,offset+8,71);put16(bytes,offset+10,81);put32(bytes,offset+12,unsigned(at(100,110)));
     put16(bytes,offset+16,unsigned(type));put32(bytes,offset+161,7);
-    if (name=="cIndustrialBldg" || gate) {put16(bytes,offset+181,1);put16(bytes,offset+183,1);}
-    if (gate) put16(bytes,offset+311,1);
+    if (nonhouse) {put16(bytes,offset+181,1);put16(bytes,offset+183,1);}
+    if (gate || name=="cResWall") put16(bytes,offset+311,1);
     return bytes;
 }
 Bytes logical_map(const Bytes& records,bool gate=false) {
@@ -153,9 +154,9 @@ void unsupported_and_legacy() {
               "rule-3 occupancy must not block old City-v16 rules");
     check(maps::check_map_rules(root.request("unknown.map",simulation::RulesProfile::CityV11,3)).status==maps::MapRulesStatus::MapRulesChecked,
           "rule-3 occupancy must not block a consciously selected older profile");
-    write(root.path/"Cities/class.map",compressed_map(logical_map(manager("cResWall",35,1))));
+    write(root.path/"Cities/class.map",compressed_map(logical_map(manager("cUnknownSyntheticWall",35,1))));
     const auto unknown_class=maps::check_map_rules(root.request("class.map"));
-    check(unknown_class.status==maps::MapRulesStatus::UnsupportedForRules && unknown_class.detail.find("unsupported MFC class 'cResWall'")!=std::string::npos,
+    check(unknown_class.status==maps::MapRulesStatus::UnsupportedForRules && unknown_class.detail.find("unsupported MFC class 'cUnknownSyntheticWall'")!=std::string::npos,
           "unknown class must remain unsupported, not repaired or labelled corrupt input");
     check(unknown_class.detail==producer_failure(root,"class.map"),"preflight and producer must reject the same complete-manager class");
     check(maps::check_map_rules(root.request("class.map",simulation::RulesProfile::CityV10,1)).status==maps::MapRulesStatus::MapRulesChecked,
@@ -216,6 +217,34 @@ void versioned_original_roads() {
     wrong=new_request;wrong.rule_version=5;
     check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"unknown rule must reject");
 }
+void reswall_rules() {
+    Root root;
+    auto raw=logical_map(manager("cResWall",231,1));
+    put32(raw,std::size_t(maps::terrain_logical_offset)+at(100,110)*4,0xc0);
+    write(root.path/"Cities/reswall.map",compressed_map(raw));
+    for (unsigned version:{3U,4U}) {
+        const auto checked=maps::check_map_rules(root.request("reswall.map",simulation::RulesProfile::CityV16,version));
+        check(checked.status==maps::MapRulesStatus::MapRulesChecked,
+              "complete ResWall prerequisites pass normal rule3/4 preflight");
+        const auto p=maps::read_sandbox_map_permissions(root.path,"Cities/reswall.map",Bytes(cells,1),version==3 ? 1:2);
+        check(p->protected_original({100,110}) && !p->original_road({100,110}) &&
+              !p->building_allowed({100,110}) && !p->road_allowed({100,110}) &&
+              p->building_allowed({101,110}),"actual producer protects only the validated ResWall cell");
+    }
+    write(root.path/"Cities/reswall-unknown.map",compressed_map(logical_map(manager("cResWall",231,2))));
+    const auto unknown=maps::check_map_rules(root.request("reswall-unknown.map",simulation::RulesProfile::CityV16,4));
+    check(unknown.status==maps::MapRulesStatus::UnsupportedForRules &&
+          unknown.detail.find("unsupported active original occupancy")!=std::string::npos,
+          "readable ResWall with unproved positive side remains unsupported, not malformed");
+    auto malformed=manager("cResWall",231,1);malformed.pop_back();
+    write(root.path/"Cities/reswall-short.map",compressed_map(logical_map(malformed)));
+    check(maps::check_map_rules(root.request("reswall-short.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::InputError,
+          "truncated ResWall remains an input error after class recognition");
+    auto schema=manager("cResWall",231,1);put16(schema,schema.size()-2,2);
+    write(root.path/"Cities/reswall-schema.map",compressed_map(logical_map(schema)));
+    check(maps::check_map_rules(root.request("reswall-schema.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::UnsupportedForRules,
+          "unproved ResWall wrapper remains unsupported before any policy publication");
+}
 } // namespace
 
 int main() {
@@ -224,7 +253,7 @@ int main() {
               "historic City-v16 rule 3 must keep policy 1");
         check(maps::map_rules_policy_version(simulation::RulesProfile::CityV16,4)==2,
               "City-v16 rule 4 requires policy 2 for original road transport");
-        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();
+        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();
         std::cout<<"Map rules check tests passed\n";return 0;
     }
     catch (const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}

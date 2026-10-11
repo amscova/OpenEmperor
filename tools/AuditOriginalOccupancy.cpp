@@ -184,6 +184,16 @@ json audit_map(const maps::MapCatalogEntry& entry,const fs::path& root,const fs:
     row["manager_status"]="complete";row["manager_records"]=entities.records.size();row["manager_schema"]=entities.manager_schema;
     row["manager_logical_position"]=entities.logical_offset;row["manager_byte_length"]=entities.byte_length;
     const auto heights=container.read_range(0,maps::landscape_height_offset,cells);
+    // Only a complete production parse permits class counts or records beyond
+    // the formerly unknown cResWall. Keep inactive complete payloads separate.
+    row["manager_class_counts"]=json::object();row["reswall_records"]=json::array();
+    for (const auto& record:entities.records) {
+        const auto name=maps::original_entity_class_name(record.entity_class);
+        auto& count=row["manager_class_counts"][name];
+        count=count.is_null() ? 1:count.get<std::size_t>()+1;
+        if (record.entity_class==maps::OriginalEntityClass::ResWall)
+            row["reswall_records"].push_back(source(record,map,geometry,heights));
+    }
     const auto first=check(map,geometry,entities,heights);row["first_preparation_error"]=first;row["first_category"]=category(first);
     maps::OriginalMapEntities probe=entities;probe.records.clear();std::vector<maps::OriginalEntityRecord> supported;
     std::set<std::size_t> unknown_indices;row["active_object_count"]=0;

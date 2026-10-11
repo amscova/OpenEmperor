@@ -90,6 +90,7 @@ std::optional<OriginalEntityClass> known_class(std::string_view name) {
     if (name == "cFerryBldg") return OriginalEntityClass::Ferry;
     if (name == "cGateHouse") return OriginalEntityClass::GateHouse;
     if (name == "cTower") return OriginalEntityClass::Tower;
+    if (name == "cResWall") return OriginalEntityClass::ResWall;
     return std::nullopt;
 }
 enum class ReferenceKind { Null, Class, Object };
@@ -115,6 +116,7 @@ const char* original_entity_class_name(OriginalEntityClass entity_class) {
     case OriginalEntityClass::Ferry: return "cFerryBldg";
     case OriginalEntityClass::GateHouse: return "cGateHouse";
     case OriginalEntityClass::Tower: return "cTower";
+    case OriginalEntityClass::ResWall: return "cResWall";
     }
     return "unknown";
 }
@@ -294,7 +296,8 @@ OriginalMapEntities parse_original_map_entities(std::span<const std::uint8_t> by
         } else if (entity_class == OriginalEntityClass::Industrial ||
                    entity_class == OriginalEntityClass::Ferry ||
                    entity_class == OriginalEntityClass::GateHouse ||
-                   entity_class == OriginalEntityClass::Tower) {
+                   entity_class == OriginalEntityClass::Tower ||
+                   entity_class == OriginalEntityClass::ResWall) {
             // Saved cIndustrialBldg descriptor854438 uses ctor51c140→51c9a0,
             // cNonHouseInfo51c3a0. It is distinct from runtime industrial42d480.
             const auto ext_at = reader.position();
@@ -326,6 +329,15 @@ OriginalMapEntities parse_original_map_entities(std::span<const std::uint8_t> by
             expect_schema(reader, 0, "Tower wrapper schema");
             record.provenance.logical_class_wrapper_offset = logical_offset + class_at;
             record.provenance.class_wrapper_schema = 0;
+        } else if (entity_class == OriginalEntityClass::ResWall) {
+            // Descriptor815f50 / ctor414170 -> vtable7aaab8+8 -> 415ae0
+            // calls51ce00 directly (Building + parent1 + NonHouseInfo1),
+            // then its own schema1 word at88f700 with no additional payload.
+            // Constructor inheritance does not add another serialized wrapper.
+            const auto class_at = reader.position();
+            expect_schema(reader, 1, "ResWall wrapper schema");
+            record.provenance.logical_class_wrapper_offset = logical_offset + class_at;
+            record.provenance.class_wrapper_schema = 1;
         }
         record.provenance.record_byte_length = static_cast<std::uint32_t>(reader.position() - record_at);
         result.records.push_back(record);

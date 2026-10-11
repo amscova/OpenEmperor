@@ -2,6 +2,8 @@
 
 Current rule 4 uses a separate **policy 2 / schema 20** for immutable original ground-road transport. The complete manager, markers, unknown-source rejection and gate contracts below remain mandatory. Policy 1 retains its exact canonical bytes and fingerprints. See [the versioned import and corpus comparison](original-roads.md).
 
+The [2026-10-11 bounded cResWall pass](reverse/reswall-parser-occupancy.md) adds exact Base3/4/5 parsing with parent1/NonHouseInfo1/ResWall1; active occupancy is restricted to status3/type90,91,231/side1/subindex0/base3,4 and complete valid singleton claims. Its fresh corpus still prepares **102/167** maps: four former ResWall failures now reveal unknown `cResGate`, and MP34's complete manager remains blocked by Industrial179/164. All prior policy-1/2 canonical data, masks, gates, edges and fingerprints are byte-identical for the same actual/zero/one legacy inputs. No new playable-map or ResWall-body claim follows. Historical baselines below remain historical.
+
 The subsequent [profile-aware selection pass](map-selection-compatibility.md) exposes these rule prerequisites before graphical session preparation, without changing the occupancy contracts or permissions below.
 
 The later [bounded Industrial type-183 pass](reverse/original-occupancy-pass-next.md) extends exactly one evidenced zero-side point contract. Its fresh 167-map audit prepares **102** policies, versus the historical **93** below, while all 93 prior policies retain exact canonical permissions, gates, edges and fingerprints with their real legacy masks and both explicit mask extremes. The historical baselines and acceptance scope below remain unchanged.

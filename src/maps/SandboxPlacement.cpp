@@ -41,6 +41,22 @@ std::size_t storage(GridCell cell) {return std::size_t(cell.y)*stored_grid_width
 Cell simulation_cell(GridCell cell) {return {int(cell.x),int(cell.y)};}
 enum class OriginalOccupancy { SavedSquare, MarkerOrigin, Unsupported };
 OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
+    // cResWall is checked before the generic saved-square reservation. The
+    // pinned 52f030 restore admits 90/91/231, whose type-table side is one;
+    // 414830 -> 4b72b0 writes that exact singleton owner claim. Saved Base3/4
+    // status3/subindex0/side1 and parent1/NonHouse1/ResWall1 are bounded here.
+    // Raw Objects is not the original runtime owner grid. A Road bit cannot
+    // free this typed physical reservation. Other active states stay unknown.
+    if (entity.entity_class==OriginalEntityClass::ResWall) {
+        const auto& p=entity.provenance;
+        if (entity.status==3 && entity.subindex==0 && entity.footprint_side==1 &&
+            (entity.type==90 || entity.type==91 || entity.type==231) &&
+            (p.base_schema==3 || p.base_schema==4) && p.wrapper_schema==1 &&
+            p.extended_schema==1 && p.class_wrapper_schema==1 &&
+            !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::SavedSquare;
+        return OriginalOccupancy::Unsupported;
+    }
     if (entity.footprint_side>0 && entity.footprint_side<=16)
         return OriginalOccupancy::SavedSquare;
     if (entity.entity_class!=OriginalEntityClass::Industrial || entity.footprint_side!=0)
@@ -161,7 +177,7 @@ OriginalRulePreparation prepare_original_rules(
     // assertion that their complete original model composition is reproduced.
     for (const auto& entity:entities.records) {
         if (!entity.active()) continue;
-        original_rules_require(static_cast<unsigned>(entity.entity_class)<=static_cast<unsigned>(OriginalEntityClass::Tower) &&
+        original_rules_require(static_cast<unsigned>(entity.entity_class)<=static_cast<unsigned>(OriginalEntityClass::ResWall) &&
             (entity.provenance.base_schema==3 || entity.provenance.base_schema==4 || entity.provenance.base_schema==5),
             "unknown active original class/base schema");
         if (entity.entity_class==OriginalEntityClass::GateHouse)

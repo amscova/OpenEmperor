@@ -76,6 +76,16 @@ Bytes tower_record(unsigned schema,std::uint32_t id) {
     auto bytes=base(schema,true,id);put16(bytes,16,131);bytes[5]=1;
     append16(bytes,1);append16(bytes,1);bytes.resize(bytes.size()+126);append16(bytes,0);return bytes;
 }
+Bytes reswall_record(unsigned schema, bool active = true, std::uint32_t id = 1) {
+    auto bytes = base(schema, active, id);
+    bytes[5] = active ? 1 : 0;
+    put16(bytes, 16, 90); put16(bytes, 18, 0);
+    append16(bytes, 1); // NonHouse parent wrapper.
+    append16(bytes, 1); // Embedded fixed-width state, not an MFC object.
+    bytes.insert(bytes.end(), 126, 0xa5);
+    append16(bytes, 1); // ResWall's own payload-free wrapper.
+    return bytes;
+}
 template <class F> void rejects(F action, std::string_view expected) {
     try { action(); }
     catch (const OriginalEntityError& error) {
@@ -121,10 +131,116 @@ void write(const std::filesystem::path& path, const Bytes& bytes) {
     output.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
     check(static_cast<bool>(output), "synthetic container write");
 }
+void reswall_parser_tests() {
+    static_assert(static_cast<int>(OriginalEntityClass::Tower)==6 &&
+                  static_cast<int>(OriginalEntityClass::ResWall)==7);
+    for (unsigned schema : {3U, 4U, 5U}) for (bool active : {false, true}) {
+        auto bytes = header(1); new_class(bytes, "cResWall");
+        append(bytes, reswall_record(schema, active));
+        const auto original = bytes;
+        const unsigned length = schema == 3 ? 179 : schema == 4 ? 181 : 182;
+        const auto manager = parse_original_map_entities(bytes, 170, 1000);
+        const auto& record = manager.records.front();
+        check(std::string_view(original_entity_class_name(record.entity_class)) == "cResWall" &&
+              record.active() == active && bool(record.original_id) == active &&
+              record.type == 90 && record.subindex == 0 && !record.monument && !record.gate_house,
+              "ResWall is a distinct class; inactive records consume the complete state");
+        check(manager.byte_length == 6 + 14 + length + 132 && bytes == original &&
+              record.provenance.record_byte_length == 14 + length + 132 &&
+              record.provenance.logical_base_offset == 1020 &&
+              record.provenance.logical_extended_offset == 1020 + length + 2 &&
+              record.provenance.logical_class_wrapper_offset == 1020 + length + 130 &&
+              record.provenance.base_schema == schema && record.provenance.wrapper_schema == 1 &&
+              record.provenance.extended_schema == 1 && record.provenance.class_wrapper_schema == 1,
+              "independently summed ResWall widths and distinct wrapper provenance");
+        for (std::size_t end = 0; end < original.size(); ++end)
+            rejects([&] { parse_original_map_entities(std::span(original).first(end), 170); }, "truncated");
+        bytes.insert(bytes.end(), {0xde, 0xad, 0xbe, 0xef});
+        check(parse_original_map_entities(bytes, 170).byte_length == original.size() &&
+              std::equal(bytes.end() - 4, bytes.end(), std::array<std::uint8_t,4>{0xde,0xad,0xbe,0xef}.begin()),
+              "manager prefix leaves an independently authored following section unchanged");
+        for (const auto [at, reason] : std::array<std::pair<unsigned, std::string_view>,4>{{
+                 {20, "Building schema"}, {20 + length, "entity wrapper schema"},
+                 {22 + length, "non-house state schema"}, {150 + length, "ResWall wrapper schema"}}}) {
+            auto bad = original; put16(bad, at, 99);
+            try { parse_original_map_entities(bad, 170); }
+            catch (const OriginalEntityUnsupported& e) {
+                check(std::string_view(e.what()).find(reason) != std::string_view::npos,
+                      "unknown ResWall schemas retain Unsupported classification");
+                continue;
+            }
+            throw std::runtime_error("unsupported ResWall schema admitted");
+        }
+        rejects([&] { parse_original_map_entities(original, 170, UINT64_MAX - 2); }, "logical range overflow");
+    }
+    {
+        auto bytes = header(3);
+        new_class(bytes, "Building"); append(bytes, base(3, true, 1));
+        new_class(bytes, "cResWall"); append(bytes, reswall_record(4, true, 2));
+        append16(bytes, 0x8001); append(bytes, base(5, true, 3));
+        const auto manager = parse_original_map_entities(bytes, 170);
+        check(manager.byte_length == 710 && manager.records[1].provenance.logical_record_offset ==
+              original_entities_logical_offset + 199 &&
+              manager.records[2].provenance.logical_record_offset == original_entities_logical_offset + 526 &&
+              manager.records[2].original_id == OriginalEntityId{3} && manager.records[2].type == 257 &&
+              manager.records[2].subindex == 7 && manager.records[2].local_x == 55 &&
+              manager.records[2].provenance.mfc_object_reference == 5,
+              "Building / ResWall / referenced Building has literal boundaries and intact following fields");
+    }
+    {
+        auto bytes = header(3); new_class(bytes, "cResWall"); append(bytes, reswall_record(3));
+        append16(bytes, 0x8001); append(bytes, reswall_record(4, true, 2));
+        new_class(bytes, "cTower"); append(bytes, tower_record(5, 3));
+        const auto manager = parse_original_map_entities(bytes, 170);
+        check(manager.byte_length == 972 && manager.records[1].provenance.record_byte_length == 315 &&
+              manager.records[2].provenance.mfc_object_reference == 5 &&
+              manager.records[2].entity_class == OriginalEntityClass::Tower && manager.records[2].type == 131 &&
+              manager.records[2].original_id == OriginalEntityId{3},
+              "ResWall class reuse advances the shared MFC class/object table exactly");
+        auto bad = bytes; put16(bad, 331, 0x8002);
+        rejects([&] { parse_original_map_entities(bad, 170); }, "class reference");
+        bad = bytes; put16(bad, 331, 2);
+        rejects([&] { parse_original_map_entities(bad, 170); }, "aliased MFC object");
+        bad = bytes; put16(bad, 331, 0x8000);
+        rejects([&] { parse_original_map_entities(bad, 170); }, "class reference");
+        bad = bytes; put32(bad, 333 + 161, 1);
+        rejects([&] { parse_original_map_entities(bad, 170); }, "duplicate active original ID");
+    }
+    {
+        auto bytes = header(3); new_class(bytes, "cGateHouse"); append(bytes, gate_record(3, 2, 0, true, 1));
+        new_class(bytes, "cResWall"); append(bytes, reswall_record(4, true, 2));
+        new_class(bytes, "cIndustrialBldg"); append(bytes, base(5, true, 3));
+        append16(bytes, 1); append16(bytes, 1); bytes.insert(bytes.end(), 126, 0x5a);
+        const auto manager = parse_original_map_entities(bytes, 170);
+        check(manager.byte_length == 1001 && manager.records[1].provenance.logical_record_offset ==
+              original_entities_logical_offset + 341 && manager.records[2].entity_class == OriginalEntityClass::Industrial &&
+              manager.records[2].provenance.mfc_object_reference == 6 && manager.records[2].original_id == OriginalEntityId{3},
+              "GateHouse / ResWall / Industrial preserves later class declaration and fields");
+        auto unknown = header(2); new_class(unknown, "cResWall"); append(unknown, reswall_record(4));
+        new_class(unknown, "cUnknownSyntheticWall"); append(unknown, base(4));
+        rejects([&] { parse_original_map_entities(unknown, 170); }, "unsupported MFC class");
+        auto bad = header(1); new_class(bad, "cResWall"); append(bad, reswall_record(4));
+        put16(bad, 8, 1); rejects([&] { parse_original_map_entities(bad, 170); }, "MFC class schema");
+        bad = header(1); new_class(bad, "cResWall"); append(bad, reswall_record(4));
+        put16(bad, 10, 64); rejects([&] { parse_original_map_entities(bad, 170); }, "class name length");
+        bad = header(4001); rejects([&] { parse_original_map_entities(bad, 170); }, "record count");
+    }
+    {
+        auto bytes=header(4000);new_class(bytes,"cResWall");append(bytes,reswall_record(4,false));
+        for(unsigned n=1;n<4000;++n){append16(bytes,0x8001);append(bytes,reswall_record(4,false));}
+        const auto manager=parse_original_map_entities(bytes,170);
+        check(manager.records.size()==4000 && manager.byte_length==1260018 &&
+              manager.records.back().provenance.mfc_object_reference==4001,
+              "maximum complete ResWall manager fits existing byte and reference budgets");
+        auto short_stream=bytes;short_stream.resize(short_stream.size()-1);
+        rejects([&]{parse_original_map_entities(short_stream,170);},"truncated");
+    }
+}
 }
 
 int main() {
     try {
+        reswall_parser_tests();
         for(const auto bs:{3U,4U,5U}) for(const auto wrapper:{1U,2U}) for(const auto layout:{0,1}) {
             auto bytes=one_gate(bs,wrapper,layout);const auto unchanged=bytes;
             const auto parsed_gate=parse_original_map_entities(bytes,170,1000);const auto& gate=parsed_gate.records.front();
@@ -186,7 +302,7 @@ int main() {
                   "new GateHouse/Tower objects share the existing MFC class/object reference sequence");
             put16(bytes,bytes.size()-2,1);
             rejects([&]{parse_original_map_entities(bytes,170);},"Tower wrapper schema");
-            auto unknown=header(1);new_class(unknown,"cResWall");append(unknown,base(4));
+            auto unknown=header(1);new_class(unknown,"cUnknownSyntheticWall");append(unknown,base(4));
             rejects([&]{parse_original_map_entities(unknown,170);},"unsupported MFC class");
         }
         for (const auto bs : {3U, 4U, 5U}) for (const auto es : {9U, 10U}) {
