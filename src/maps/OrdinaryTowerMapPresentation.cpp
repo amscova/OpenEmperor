@@ -1,4 +1,5 @@
 #include "maps/OrdinaryTowerMapPresentation.h"
+#include "maps/OrdinaryGateMapPresentation.h"
 
 #include <memory>
 #include <set>
@@ -36,6 +37,83 @@ bool tower_schemas_supported(const OriginalEntityRecord& source) {
         p.class_wrapper_schema == 0;
 }
 } // namespace
+
+const char* tower_join_status_name(TowerJoinStatus s) {
+    switch(s) {
+    case TowerJoinStatus::NoJoinRequired:return "NO_JOIN_REQUIRED";
+    case TowerJoinStatus::SupportedJoin:return "SUPPORTED_JOIN";
+    case TowerJoinStatus::UnsupportedContext:return "UNSUPPORTED_CONTEXT";
+    case TowerJoinStatus::InvalidInput:return "INVALID_INPUT";
+    }
+    return "INVALID_INPUT";
+}
+const char* tower_join_phase_name(TowerJoinPhase p) {
+    return p==TowerJoinPhase::AfterBody ? "after_body_108":"after_cell_actors_10c";
+}
+TowerJoinSelection select_ordinary_tower_joins(const OrdinaryTowerPresentation& tower,
+    const std::array<std::optional<TowerJoinNeighbor>,6>& neighbors,unsigned view,bool static_draw) {
+    TowerJoinSelection out;
+    const auto& source=tower.source;
+    if (view!=0 || !static_draw || !tower.fallback.empty() || source.status!=3 || source.type!=131 ||
+        source.entity_class!=OriginalEntityClass::Tower || source.subindex!=0 || source.footprint_side!=2 ||
+        !tower_schemas_supported(source) || tower.components.size()!=1) {
+        out.reason="only validated static cTower body / ordinary camera-zero draw is supported";return out;
+    }
+    const auto fail=[&](const char* why) {out.status=TowerJoinStatus::InvalidInput;out.reason=why;return out;};
+    if (!source.original_id || !source.original_id->value ||
+        source.original_id->value>maximum_original_entity_records ||
+        source.serialized_original_id!=std::int32_t(source.original_id->value) ||
+        source.manager_index>=maximum_original_entity_records ||
+        source.serialized_cell_reference!=std::int32_t(storage(tower.origin)))
+        return fail("invalid stable Tower source identity/reference");
+    constexpr std::array<int,6> dx{1,-1,0,2,2,1},dy{-1,1,2,0,1,2};
+    std::uint8_t present=0;
+    for(unsigned n=0;n<6;++n) {
+        const auto x=std::int64_t(tower.origin.x)+dx[n],y=std::int64_t(tower.origin.y)+dy[n];
+        if(x<0 || y<0 || x>=stored_grid_width || y>=stored_grid_height || !neighbors[n] ||
+            neighbors[n]->cell!=GridCell{unsigned(x),unsigned(y)})
+            return fail("complete exact Tower neighbor cells required; no edge wrapping");
+        out.neighbors[n]=*neighbors[n];const auto& cell=out.neighbors[n];
+        const auto kind=cell.owner.kind;
+        if(kind<TowerJoinOwnerKind::None || kind>TowerJoinOwnerKind::Unresolved ||
+            (kind==TowerJoinOwnerKind::None && cell.owner.id))
+            return fail("invalid typed neighbor ownership fact");
+        if(kind==TowerJoinOwnerKind::Unresolved ||
+            (kind!=TowerJoinOwnerKind::None &&
+             (!cell.owner.id || !cell.owner.id->value || cell.owner.id->value>maximum_original_entity_records ||
+              cell.owner.manager_index>=maximum_original_entity_records)) ||
+            ((cell.terrain&0x8000U) && kind==TowerJoinOwnerKind::None)) {
+            out.reason="Tower/Gate neighbor ownership unsupported or unproved";return out;
+        }
+        // 5daab0 / 5da950 / 5dac10 test 0x4000, then exact type 131/130.
+        if((cell.terrain&0x4000U) || kind==TowerJoinOwnerKind::Tower || kind==TowerJoinOwnerKind::GateHouse)
+            present|=std::uint8_t(1U<<n);
+    }
+    if(!present) {
+        // Scope admission: do not add an isolated tower's cap-only decoration.
+        // The original helpers also have absence branches; their caps accompany
+        // a supported connection here, never establish one themselves.
+        out.status=TowerJoinStatus::NoJoinRequired;out.reason="no relevant wall or validated Tower/Gate neighbor";return out;
+    }
+    const GridCell marker{tower.origin.x,tower.origin.y+1};
+    const auto append=[&](ResourceGroupKey key,unsigned variant,int x,int y,TowerJoinPhase phase,std::uint8_t cells) {
+        out.components.push_back({*source.original_id,source.manager_index,key,variant,tower.origin,marker,marker,x,y,phase,cells,
+            key.value==0x4ca ? "EXE-OBSERVED 5dac10 / ordered presence pairs / 7be4d0":
+            phase==TowerJoinPhase::AfterBody ? "EXE-OBSERVED 5daab0 / absent rear neighbors / 7be4a0":
+            "EXE-OBSERVED 5da950 / absent forward neighbors / 7be4b0"});
+    };
+    constexpr std::array<int,6> px{127,1,1,114,75,39},py{-60,-57,-46,-48,-28,-24};
+    for(unsigned n=0;n<2;++n) if(!(present&(1U<<n)))
+        append({0x4c9},n,px[n],py[n],TowerJoinPhase::AfterBody,std::uint8_t(1U<<n));
+    // Pair 0: forward indices 0,3. Pair 1: 1,2. Additive, not replacement.
+    if(present&0x24U) append({0x4ca},0,28,-71,TowerJoinPhase::AfterBody,0x24);
+    if(present&0x18U) append({0x4ca},1,79,-70,TowerJoinPhase::AfterBody,0x18);
+    for(unsigned n=2;n<6;++n) if(!(present&(1U<<n)))
+        append({0x4c9},n,px[n],py[n],TowerJoinPhase::AfterCellActors,std::uint8_t(1U<<n));
+    out.status=TowerJoinStatus::SupportedJoin;
+    out.reason="EXE-OBSERVED 4709b9/470e67 -> 5da8c0/5da910; complete typed neighbors, static view zero";
+    return out;
+}
 
 OrdinaryTowerMapPresentation prepare_ordinary_tower_presentation(
     const OriginalMapEntities& entities, std::span<const std::uint32_t> terrain,
@@ -141,6 +219,40 @@ OrdinaryTowerMapPresentation prepare_ordinary_tower_presentation(
             }
         }
         out.towers.push_back(std::move(tower));
+    }
+    // Reconstruct only the needed runtime owner facts from complete typed
+    // source claims. The serialized Objects grid is not fc3750's owner table.
+    const auto gates=prepare_ordinary_gate_presentation(entities,terrain);
+    constexpr std::array<int,6> dx{1,-1,0,2,2,1},dy{-1,1,2,0,1,2};
+    for(auto& tower:out.towers) {
+        if(!tower.fallback.empty()) continue;
+        std::array<std::optional<TowerJoinNeighbor>,6> neighbors;
+        for(unsigned n=0;n<6;++n) {
+            const int x=int(tower.origin.x)+dx[n],y=int(tower.origin.y)+dy[n];
+            if(x<0 || y<0 || x>=int(stored_grid_width) || y>=int(stored_grid_height)) continue;
+            const GridCell cell{unsigned(x),unsigned(y)};
+            if(!map.contains(cell)) continue;
+            const auto at=storage(cell);TowerJoinNeighbor fact{cell,terrain[at],objects[at],{}};
+            const OriginalEntityRecord* owner=nullptr;bool ambiguous=false;
+            for(const auto& e:entities.records) if(foreign_reservation_contains(e,cell,map)) {
+                if(owner) ambiguous=true;else owner=&e;
+            }
+            if(ambiguous) fact.owner.kind=TowerJoinOwnerKind::Unresolved;
+            else if(owner) {
+                fact.owner={TowerJoinOwnerKind::Other,owner->original_id,owner->manager_index};
+                if(owner->entity_class==OriginalEntityClass::Tower) {
+                    const auto index=out.tower_by_storage[at];
+                    fact.owner.kind=index && out.towers[*index].source.manager_index==owner->manager_index ?
+                        TowerJoinOwnerKind::Tower:TowerJoinOwnerKind::Unresolved;
+                } else if(owner->entity_class==OriginalEntityClass::GateHouse) {
+                    const auto index=gates.gate_by_storage[at];
+                    fact.owner.kind=index && gates.gates[*index].source.manager_index==owner->manager_index ?
+                        TowerJoinOwnerKind::GateHouse:TowerJoinOwnerKind::Unresolved;
+                }
+            }
+            neighbors[n]=fact;
+        }
+        tower.joins=select_ordinary_tower_joins(tower,neighbors);
     }
     return out;
 }

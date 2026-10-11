@@ -100,6 +100,49 @@ Json ordinary_gate_json(const StoredGraphicsPlan& plan,std::size_t gate_index) {
     }
     return out;
 }
+Json ordinary_tower_join_json(const StoredGraphicsPlan& plan,std::size_t tower_index) {
+    const auto& selected=plan.original_ordinary_towers->towers.at(tower_index).joins;
+    Json out={{"condition",tower_join_status_name(selected.status)},{"reason",selected.reason},
+        {"selected_components",selected.components.size()},{"prepared_components",0},{"active_components",0},
+        {"status",selected.status==TowerJoinStatus::NoJoinRequired ? "no_join_required":"unprepared"},
+        {"fallback",""},{"components",Json::array()},{"neighbors",Json::array()}};
+    for(const auto& cell:selected.neighbors) out["neighbors"].push_back({{"cell",cell_json(cell.cell)},
+        {"terrain",hex(cell.terrain,8)},{"objects_raw",cell.objects},
+        {"typed_owner_kind",int(cell.owner.kind)},
+        {"original_id",cell.owner.id ? Json(cell.owner.id->value):Json(nullptr)},
+        {"manager_index",cell.owner.id ? Json(cell.owner.manager_index):Json(nullptr)}});
+    for(const auto& c:selected.components) out["components"].push_back({{"owner",c.owner.value},
+        {"manager_index",c.manager_index},{"resource_key",hex(c.group.value,3)},{"variant",c.variant},
+        {"phase",tower_join_phase_name(c.phase)},{"condition_cells",c.condition_cells},
+        {"source_cell",cell_json(c.source_cell)},{"anchor_cell",cell_json(c.anchor_cell)},
+        {"height_cell",cell_json(c.height_cell)},{"height_signed",landscape_height(plan,c.height_cell)},
+        {"caller_offset",{c.offset_x,c.offset_y}},{"height_step_pixels",40},{"exclusive_claim_cells",0},
+        {"evidence",c.evidence}});
+    if(!plan.regenerated) return out;
+    const auto prepared=plan.regenerated->tower_join_preparation.find(tower_index);
+    if(prepared==plan.regenerated->tower_join_preparation.end()) return out;
+    const auto& group=prepared->second;
+    out["prepared_components"]=group.attachment_indices.size();
+    if(!group.fallback.empty()) {out["status"]="fallback";out["fallback"]=group.fallback;return out;}
+    if(group.attachment_indices.empty()) return out;
+    std::size_t active=0;
+    for(std::size_t row=0;row<group.attachment_indices.size();++row) {
+        const auto n=group.attachment_indices[row];const auto& join=plan.regenerated->tower_joins.at(n);
+        const auto& asset=plan.assets.at(join.asset_index);
+        const bool ready=n<plan.tower_join_active.size() && plan.tower_join_active[n];
+        active+=ready;
+        out["components"][row]["active"]=ready;
+        out["components"][row]["asset"]={{"archive",asset.record.id.archive_relative_path.generic_string()},
+            {"image_index",asset.record.id.image_index},{"type",asset.record.image_type},
+            {"decode_status",stored_status_name(asset.status)}};
+        if(asset.status==StoredStatus::DecodeFailed) out["fallback"]=asset.error;
+    }
+    out["active_components"]=active;
+    out["status"]=plan.tower_join_active.empty() ? "prepared":active==group.attachment_indices.size() ? "active":"fallback";
+    if(out["status"]=="fallback" && out["fallback"]=="")
+        out["fallback"]="complete optional join activation unavailable; Tower body and walls retained";
+    return out;
+}
 Json ordinary_tower_json(const StoredGraphicsPlan& plan,std::size_t tower_index) {
     const auto& tower=plan.original_ordinary_towers->towers.at(tower_index);
     const auto& source=tower.source;
@@ -124,7 +167,8 @@ Json ordinary_tower_json(const StoredGraphicsPlan& plan,std::size_t tower_index)
         {"selected_components",tower.components.size()},{"components",std::move(components)},
         {"camera_view",0},{"orientation","no stored Tower orientation used"},
         {"selector_evidence","EXE-OBSERVED: standalone cTower restore, type-131 static body"},
-        {"external_wall_attachments","UNRESOLVED: separate 4c9/4ca wall composition"},
+        {"external_wall_attachments",tower.joins.status==TowerJoinStatus::SupportedJoin ? "bounded static view-zero 4c9/4ca attachments; complete original composition UNRESOLVED":"UNRESOLVED beyond the bounded supported join context"},
+        {"wall_joins",ordinary_tower_join_json(plan,tower_index)},
         {"fallback",tower.fallback},{"active_components",0},
         {"preparation_status",tower.fallback.empty() ? "unprepared":"complete_claim_unavailable"}};
     if (!plan.regenerated) return out;
@@ -465,12 +509,27 @@ std::vector<std::string> landscape_inspection_lines(const StoredGraphicsPlan& pl
     GridCell cell, bool elevated, const scene::Camera2D* camera) {
     const auto j=landscape_provenance(plan,cell,elevated,camera);
     std::vector<std::string> lines={"Landscape ("+std::to_string(cell.x)+","+std::to_string(cell.y)+")"};
+    if(j.contains("ordinary_tower") && j["ordinary_tower"].contains("wall_joins")) {
+        const auto& tower=j["ordinary_tower"];const auto& joins=tower["wall_joins"];
+        lines.push_back("Tower owner "+tower["original_id"].dump()+" / manager "+tower["manager_index"].dump());
+        lines.push_back("Body: "+tower["preparation_status"].get<std::string>());
+        lines.push_back("Join: "+joins["condition"].get<std::string>());
+        lines.push_back("Join "+joins["status"].get<std::string>()+": "+joins["active_components"].dump()+"/"+
+            joins["selected_components"].dump());
+        for(const auto& c:joins["components"]) {
+            lines.push_back(c["resource_key"].get<std::string>()+" v"+c["variant"].dump()+" "+c["phase"].get<std::string>());
+        }
+        const auto why=joins["fallback"].get<std::string>().empty() && joins["status"]=="unprepared" ?
+            joins["reason"].get<std::string>():joins["fallback"].get<std::string>();
+        for(std::size_t n=0;n<why.size();n+=48) lines.push_back(why.substr(n,48));
+    }
     for (const auto& key:{"candidate_mask","offmap_bit","terrain_hex","semantic_category","objects_hex",
         "render_source","regenerated","original_entity_reader","original_great_wall","ordinary_gate_reader","ordinary_gate","ordinary_tower_reader","ordinary_tower","variation_byte","variation_logical_offset","variation_semantics",
         "fertility_selector_operand","saved_id","saved_id_hex","candidate_byte_hex","tentative_parts","resource","image",
         "height_available","height_signed","draw_properties_raw","placement","ground_world",
         "screen_ground","painter","status","placement_evidence","composition_evidence"}) {
         if (!j.contains(key)) continue;
+        if(std::string_view(key)=="ordinary_tower" && j[key].contains("wall_joins")) continue;
         const auto text=std::string(key)+": "+j[key].dump();
         // Inspector rows are intentionally bounded and scroll through the existing panel.
         for (std::size_t start=0;start<text.size();start+=48) lines.push_back(text.substr(start,48));
@@ -621,6 +680,8 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
         }
         if (plan.original_ordinary_towers) {
             std::size_t supported_towers=0,prepared_towers=0,active_towers=0;
+            std::size_t join_sources=0,join_prepared=0,join_active=0,no_join=0;
+            std::set<std::size_t> join_assets;
             Json sources=Json::array();std::set<std::size_t> physical_assets;
             for (std::size_t n=0;n<plan.original_ordinary_towers->towers.size();++n) {
                 const auto detail=ordinary_tower_json(plan,n);sources.push_back(detail);
@@ -633,11 +694,24 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
                     physical_assets.insert(plan.regenerated->instances.at(found->second.instance_indices.front()).asset_index);
                 }
                 if (detail["preparation_status"]=="active") ++active_towers;
+                const auto& joins=detail["wall_joins"];
+                join_sources+=tower.joins.status==TowerJoinStatus::SupportedJoin;
+                no_join+=tower.joins.status==TowerJoinStatus::NoJoinRequired;
+                join_prepared+=joins["prepared_components"].get<std::size_t>();
+                join_active+=joins["active_components"].get<std::size_t>();
+                const auto p=plan.regenerated->tower_join_preparation.find(n);
+                if(p!=plan.regenerated->tower_join_preparation.end()) for(const auto j:p->second.attachment_indices)
+                    join_assets.insert(plan.regenerated->tower_joins[j].asset_index);
             }
             std::uint64_t logical_bytes=0;
             for (const auto asset:physical_assets) {
                 const auto& r=plan.assets.at(asset).record;
                 logical_bytes+=std::uint64_t(r.width)*std::uint64_t(r.height)*4U*3U;
+            }
+            std::uint64_t join_bytes=0;
+            for(const auto asset:join_assets) {
+                const auto& r=plan.assets.at(asset).record;
+                join_bytes+=std::uint64_t(r.width)*std::uint64_t(r.height)*4U;
             }
             regeneration["ordinary_tower_rendering"]={{"source_tower_objects",plan.original_ordinary_towers->towers.size()},
                 {"supported_static_tower_objects",supported_towers},{"prepared_complete_tower_objects",prepared_towers},
@@ -645,7 +719,10 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
                 {"active_claim_cells",4U*active_towers},{"fallback_objects",plan.original_ordinary_towers->towers.size()-active_towers},
                 {"unique_body_assets",physical_assets.size()},{"selected_logical_RGBA_bytes",logical_bytes},
                 {"reader_error",plan.original_ordinary_towers->error},{"source_tower_statuses",std::move(sources)},
-                {"full_original_composition_verified",0},{"external_wall_attachments_reproduced",0},
+                {"full_original_composition_verified",0},{"external_wall_attachments_reproduced",join_active},
+                {"join_source_objects",join_sources},{"no_join_required_objects",no_join},
+                {"prepared_join_components",join_prepared},{"active_join_components",join_active},
+                {"unique_join_assets",join_assets.size()},{"selected_join_logical_RGBA_bytes",join_bytes},
                 {"viewport_draw_count","measured per frame separately; active is not in-viewport drawn"}};
         }
     }

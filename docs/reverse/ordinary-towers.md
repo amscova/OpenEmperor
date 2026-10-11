@@ -7,8 +7,9 @@ military simulation, NPC, economy, navigation, policy or save version. Original
 Tower footprints retain their existing protection.
 
 The body is distinct from the original renderer's small external wall-join
-pieces. Those pieces, other Tower states and complete original scene parity
-remain unresolved. A complete visible body does not establish complete original
+pieces. Their bounded static camera-zero connection assembly is now implemented;
+see [Ordinary Tower wall joins](ordinary-tower-wall-joins.md). Other Tower states
+and complete original scene parity remain unresolved. A complete visible body does not establish complete original
 wall/environment composition.
 
 ## Baseline and actual original objects
@@ -149,12 +150,13 @@ through keys `0x4c9` (variants 0–5) and `0x4ca` (0–1). They test neighboring
 ordinary-wall terrain and exact typed Tower/GateHouse ownership. Their graphics
 are small outer wall pieces: five Type-0 and one Type-256 image in the first
 group, two Type-0 images in the second. They are not missing roof or plinth parts
-of the one Type-30 body. Their caller offsets/order and complete environment
-composition remain a separate task; no decoder relaxation or new claims are
-included here.
+of the one Type-30 body. The later [bounded wall-join pass](ordinary-tower-wall-joins.md)
+traces their complete static caller offsets/order and adds them without new
+claims or decoder relaxation. Complete environment composition remains open.
 
 Other Tower states, views/lifecycle, `cResWall`, further Type-256 wall components,
-external wall joins, original height normalization, complete caller anchoring
+wall joins beyond the [bounded static connection pass](ordinary-tower-wall-joins.md),
+original height normalization, complete caller anchoring
 and original Emperor scene parity remain open. Better pixels do not establish
 military or gameplay behavior.
 

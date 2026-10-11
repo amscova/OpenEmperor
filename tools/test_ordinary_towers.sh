@@ -66,17 +66,18 @@ map_sha = hashlib.sha256((pathlib.Path(sys.argv[2]) / "Cities" / sys.argv[3]).re
 print("Selected original-map SHA-256:", map_sha)
 checked = {
     "Kaifeng.map": ("c25855e4db083128d9344b9177dbbc12c2f0fb3f28c25b63d01c93349912e7b3",
-                    "Checked original cTower ID 3: storage (86,120), serialized local (57,91)."),
+                    "Checked Tower ID 3 / manager 3: storage (86,120), local (57,91), height 0.\nJoin: 4c9 variants 0,1,2,3 and 4ca variants 0,1 (six additive pieces)."),
     "Zhengzhou.map": ("d7a212431f25134f7ffc22c888ebbba4a7d82053263ce8338a3990c891427c4c",
-                      "Checked original cTower ID 4: storage (93,82), serialized local (35,24).")
+                      "Checked Tower ID 4 / manager 4: storage (93,82), local (35,24), height 1.\nJoin: 4c9 variants 0,1,2,3 and 4ca variants 0,1 (six additive pieces).")
 }
 expected_sha, location = checked[sys.argv[3]]
 if map_sha == expected_sha:
     print(location)
 else:
     print("This map differs from the checked data revision; F1 reports the loaded original objects.")
-print("F1 inspects Tower provenance; F8 compares layers and Historical Snapshot.")
-print("Zoom and arrows inspect the full body and its adjoining original walls.")
+print("F1 reports Tower owner, join resources/phases and complete activation/fallback.")
+print("F8 compares Wall/Monument layers with the historical body without new joins.")
+print("Zoom and arrows inspect the unchanged Tower body and its external wall connections.")
 PYSETTINGS
 echo "Private settings, saves and recovery: $app_data_dir"
 exec "$build_dir/openemperor" --data "$original_data" --app-root "$app_data_dir" \

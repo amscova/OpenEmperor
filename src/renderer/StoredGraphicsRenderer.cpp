@@ -37,13 +37,26 @@ const char* landscape_debug_mode_name(LandscapeDebugMode mode) {
 void StoredGraphicsRenderer::set_landscape_mode(LandscapeDebugMode mode) {
     landscape_mode_=plan_.landscape_layers_available ? mode:LandscapeDebugMode::Snapshot;
 }
+std::uint8_t StoredGraphicsRenderer::ground_replacement_role(std::size_t index,
+    std::span<const std::uint8_t> replacements,std::size_t width) const {
+    const auto& item=draw_order_.at(index);
+    if(item.regenerated || item.tower_join || !width) return 0;
+    maps::GridCell cell;
+    if(item.footprint) {
+        const auto& footprint=plan_.footprints[item.plan_index];
+        if(footprint.width_cells!=1 || footprint.height_cells!=1) return 0;
+        cell=footprint.origin;
+    } else cell=plan_.cells[item.plan_index].storage;
+    if(cell.x>=width || cell.y>=replacements.size()/width) return 0;
+    return replacements[static_cast<std::size_t>(cell.y)*width+cell.x];
+}
 void StoredGraphicsRenderer::set_original_road_ground(
     std::shared_ptr<const simulation::MapPermissions> permissions) {
     std::vector<bool> prepared(draw_order_.size(),false);
     if (!permissions) {original_road_ground_.swap(prepared);return;}
     for (std::size_t i=0;i<draw_order_.size();++i) {
         const auto& item=draw_order_[i];
-        if (item.regenerated) continue;
+        if (item.regenerated || item.tower_join) continue;
         maps::GridCell cell;
         if (item.footprint) {
             const auto& footprint=plan_.footprints[item.plan_index];
@@ -137,6 +150,24 @@ scene::Point StoredGraphicsRenderer::regenerated_image_origin(
     return maps::regenerated_instance_origin(geometry,plan_.border,
         unsigned(record.width),unsigned(record.height),height);
 }
+bool StoredGraphicsRenderer::tower_join_visible(std::size_t n) const {
+    return landscape_mode_!=LandscapeDebugMode::Snapshot &&
+        landscape_mode_>=LandscapeDebugMode::WallsMonuments &&
+        n<plan_.tower_join_active.size() && plan_.tower_join_active[n];
+}
+scene::Point StoredGraphicsRenderer::tower_join_origin(std::size_t n) const {
+    const auto& join=plan_.regenerated->tower_joins[n];
+    const auto& body=plan_.regenerated->instances[join.body_instance];
+    auto p=regenerated_image_origin(body);
+    // Rectangle writer 4b73ea installs side-two property 1. Normal body draw
+    // 471a91 -> 46b620 -> 4169d0 adds (40,-20), then 5ce9a9 adds
+    // (-40,80-H). Both Tower callbacks receive the *unadjusted* marker caller.
+    // Invert the complete (0,60-H) relation against the unchanged full body.
+    // Marker height is already applied once; plain/Omega blits add no pivot.
+    p.x+=join.geometry.offset_x;
+    p.y+=plan_.assets[body.asset_index].record.height-60+join.geometry.offset_y;
+    return p;
+}
 
 std::size_t StoredGraphicsRenderer::live_texture_count() { return live_textures.load(); }
 
@@ -177,7 +208,7 @@ void StoredGraphicsRenderer::initialize(SDL_Renderer* renderer) {
             record.alpha_length > maps::stored_max_payload_bytes)
             throw std::runtime_error("stored graphics selected payload exceeds 16 MiB read budget");
         if (bytes > maps::stored_max_image_bytes ||
-            bytes*(plan_.landscape_layers_available ? 3U:1U) > maps::stored_max_texture_bytes - plan_.logical_texture_bytes)
+            bytes*(plan_.landscape_layers_available && record.image_type==30 ? 3U:1U) > maps::stored_max_texture_bytes - plan_.logical_texture_bytes)
             throw std::runtime_error("stored graphics logical RGBA texture budget exceeded");
         const auto relative = record.id.archive_relative_path.generic_string();
         auto found = checked_archives.find(relative);
@@ -191,7 +222,7 @@ void StoredGraphicsRenderer::initialize(SDL_Renderer* renderer) {
         const auto uploads_before=plan_.texture_uploads;
         try {
             assets::Sg3ImageRequest request{found->second,record.id.image_index};
-            request.split_isometric=plan_.landscape_layers_available;
+            request.split_isometric=plan_.landscape_layers_available && record.image_type==30;
             auto loaded=assets::load_sg3_image_with_source(request);
             auto& rgba=loaded.rgba;
             if (rgba.width != record.width || rgba.height != record.height ||
@@ -299,6 +330,21 @@ void StoredGraphicsRenderer::initialize(SDL_Renderer* renderer) {
             suppressed_footprints_[f.id]=!f.cell_indices.empty() && suppressed_cells_[f.cell_indices.front()];
     }
     plan_.regenerated_instance_active.assign(regenerated_ready_.begin(),regenerated_ready_.end());
+    plan_.tower_join_active.clear();
+    if(plan_.regenerated) {
+        const auto& generated=*plan_.regenerated;
+        plan_.tower_join_active.assign(generated.tower_joins.size(),0);
+        for(const auto& [tower,group]:generated.tower_join_preparation) {
+            (void)tower;
+            bool complete=!group.attachment_indices.empty() && group.fallback.empty();
+            for(const auto n:group.attachment_indices) {
+                const auto& join=generated.tower_joins.at(n);
+                complete=complete && join.body_instance<regenerated_ready_.size() && regenerated_ready_[join.body_instance] &&
+                    plan_.assets[join.asset_index].status==maps::StoredStatus::Rendered;
+            }
+            if(complete) for(const auto n:group.attachment_indices) plan_.tower_join_active[n]=1;
+        }
+    }
     if (plan_.regenerated) for (std::size_t i=0;i<plan_.regenerated->instances.size();++i) {
         const auto& instance=plan_.regenerated->instances[i];
         if (instance.great_wall_context &&
@@ -329,6 +375,15 @@ void StoredGraphicsRenderer::initialize(SDL_Renderer* renderer) {
         const auto ground=maps::terrain_ground(front,plan_.border);
         draw_order_.push_back({{ground.y,ground.x,scene::WorldVisualLayer::StoredMap,
             plan_.cells.size()+i},false,i,true});
+    }
+    if(plan_.regenerated) for(std::size_t n=0;n<plan_.regenerated->tower_joins.size();++n) {
+        const auto& join=plan_.regenerated->tower_joins[n];
+        const auto& body=plan_.regenerated->instances[join.body_instance].geometry;
+        const auto ground=maps::terrain_ground(*body.depth_cell,plan_.border);
+        const auto layer=join.geometry.phase==maps::TowerJoinPhase::AfterBody ?
+            scene::WorldVisualLayer::StoredMap:scene::WorldVisualLayer::StoredTowerAfterActors;
+        draw_order_.push_back({{ground.y,ground.x,layer,plan_.cells.size()+plan_.regenerated->instances.size()+n},
+            false,n,false,true});
     }
     std::stable_sort(draw_order_.begin(),draw_order_.end(),[](const StoredDrawItem& a,
                                                                 const StoredDrawItem& b) {
@@ -390,7 +445,7 @@ bool StoredGraphicsRenderer::draw_item(std::size_t renderer_index,
     if (landscape_mode_!=LandscapeDebugMode::Snapshot)
         return draw_component(renderer_index,camera,false);
     const auto& item=draw_order_.at(renderer_index);
-    if (item.regenerated) return true; // Historical snapshot is exact old path.
+    if (item.regenerated || item.tower_join) return true; // Historical snapshot is exact old path.
     if (item.footprint) {
         const auto& footprint=plan_.footprints[item.plan_index];
         const auto& record=plan_.assets[footprint.asset_index].record;
@@ -481,6 +536,17 @@ bool StoredGraphicsRenderer::draw_original_road_ground(std::size_t index,const s
 }
 bool StoredGraphicsRenderer::draw_component(std::size_t index, const scene::Camera2D& camera, bool base) {
     const auto& item=draw_order_.at(index);
+    if(item.tower_join) {
+        if(base || !tower_join_visible(item.plan_index)) return true;
+        const auto& join=plan_.regenerated->tower_joins[item.plan_index];
+        const auto& r=plan_.assets[join.asset_index].record;
+        const auto origin=tower_join_origin(item.plan_index);
+        if(!maps::stored_rect_visible(origin,unsigned(r.width),unsigned(r.height),camera)) return true;
+        const auto top=camera.world_to_screen(origin);
+        const SDL_FRect dest{float(top.x),float(top.y),float(r.width*camera.zoom),float(r.height*camera.zoom)};
+        if(!SDL_RenderTexture(renderer_,textures_[join.asset_index],nullptr,&dest)) return false;
+        ++last_texture_draws_;++last_drawn_instances_;return true;
+    }
     if (item.regenerated) {
         if (landscape_mode_==LandscapeDebugMode::Snapshot || !regenerated_ready_[item.plan_index] ||
             (!base && !regenerated_visible(item.plan_index))) return true;
@@ -539,6 +605,17 @@ std::optional<StoredVisualHit> StoredGraphicsRenderer::hit_test_item(scene::Poin
     std::size_t replacement_width) const {
     const auto world=camera.screen_to_world(screen);
     for (auto it=draw_order_.rbegin();it!=draw_order_.rend();++it) {
+        if(it->tower_join) {
+            if(!tower_join_visible(it->plan_index)) continue;
+            const auto& join=plan_.regenerated->tower_joins[it->plan_index];
+            const auto& r=plan_.assets[join.asset_index].record;
+            const auto origin=tower_join_origin(it->plan_index);
+            const int x=int(std::floor(world.x-origin.x)),y=int(std::floor(world.y-origin.y));
+            if(x>=0 && y>=0 && x<r.width && y<r.height &&
+                snapshot_alpha_[join.asset_index][std::size_t(y)*unsigned(r.width)+unsigned(x)])
+                return StoredVisualHit{join.geometry.height_cell,it->key};
+            continue;
+        }
         if (it->regenerated) {
             if (!regenerated_visible(it->plan_index)) continue;
             const auto& instance=plan_.regenerated->instances[it->plan_index];

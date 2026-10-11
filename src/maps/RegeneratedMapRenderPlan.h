@@ -4,6 +4,7 @@
 #include "maps/LandscapeInstances.h"
 #include "maps/StoredGraphicsPlan.h"
 #include "maps/WallTopology.h"
+#include "maps/OrdinaryTowerMapPresentation.h"
 
 namespace openemperor::maps {
 // File-format Base/Overlay components do not determine their scene roles.
@@ -64,6 +65,16 @@ struct OrdinaryTowerPreparationResult {
     LandscapeVariantResolution resource;
     std::string fallback;
 };
+struct PreparedTowerJoin {
+    TowerJoinComponent geometry;
+    PackedGraphicId graphic;
+    std::size_t asset_index = 0, body_instance = 0, tower_index = 0;
+};
+struct TowerJoinPreparationResult {
+    std::vector<std::size_t> attachment_indices;
+    std::vector<LandscapeVariantResolution> resources;
+    std::string fallback;
+};
 // Published const once per load. Historical cells, footprints and buildability
 // remain untouched. Indices refer to the renderer's shared physical asset pool.
 struct RegeneratedMapRenderPlan {
@@ -83,6 +94,8 @@ struct RegeneratedMapRenderPlan {
     std::map<std::size_t,WallTopologySelection> normal_wall_topology;
     std::map<std::size_t,OrdinaryGatePreparationResult> ordinary_gate_preparation;
     std::map<std::size_t,OrdinaryTowerPreparationResult> ordinary_tower_preparation;
+    std::vector<PreparedTowerJoin> tower_joins; // Additive, no exclusive cell claims.
+    std::map<std::size_t,TowerJoinPreparationResult> tower_join_preparation;
     // Load-time refusal reason for a selected original piece that cannot
     // publish a complete image. Provenance only; never grants ownership.
     std::map<std::size_t,std::string> original_wall_fallbacks;

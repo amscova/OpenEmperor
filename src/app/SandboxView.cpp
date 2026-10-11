@@ -2981,19 +2981,8 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     painter_stats_.road_ground_pass=road_ground_pass;
     painter_stats_.road_ground_items=road_ground_count;
     const auto replacement_for=[&](std::size_t i)->std::uint8_t {
-        const auto& item=background_.draw_items()[i];
-        if (item.regenerated) return 0; // Multi-cell landscape never replaces road ground.
-        const auto& plan=background_.plan();
-        maps::GridCell cell;
-        if (item.footprint) {
-            const auto& footprint=plan.footprints[item.plan_index];
-            if (footprint.width_cells!=1 || footprint.height_cells!=1) return 0;
-            cell=footprint.origin;
-        } else cell=plan.cells[item.plan_index].storage;
-        if (cell.x>=static_cast<unsigned>(world_->width()) ||
-            cell.y>=static_cast<unsigned>(world_->height())) return 0;
-        return road_ground_replacements_[static_cast<std::size_t>(cell.y)*
-            static_cast<std::size_t>(world_->width())+cell.x];
+        return background_.ground_replacement_role(i,road_ground_replacements_,
+            static_cast<std::size_t>(world_->width()));
     };
     background_.begin_frame();
     for (std::size_t i=0;i<background_.draw_items().size();++i)

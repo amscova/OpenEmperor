@@ -103,6 +103,7 @@ struct StoredGraphicsPlan {
     // Eager renderer initialization publishes decode/atomic-fallback readiness
     // once, separately from immutable selected geometry. No frame mutation.
     std::vector<std::uint8_t> regenerated_instance_active;
+    std::vector<std::uint8_t> tower_join_active;
     bool landscape_layers_available = false;
     StoredGraphicsProfile profile = StoredGraphicsProfile::Base;
     std::vector<StoredCell> cells; // Exactly one per candidate, in painter order.

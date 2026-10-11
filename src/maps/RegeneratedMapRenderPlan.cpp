@@ -426,7 +426,7 @@ void build_regenerated_map_render_plan(StoredGraphicsPlan& plan,
             }
             // The evidenced static 2x2 body includes structural Base pixels.
             // Its one existing Combined raster belongs at its spatial front
-            // key, once. External 4c9/4ca wall attachments remain unresolved.
+            // key, once. Optional exterior fragments never join this claim.
             if (!append_instance(body,nullptr,nullptr,
                     LandscapeCompositionPolicy::SpatialCombined)) {
                 preparation.fallback="required Tower complete claim, General group/variant, static Type30 geometry or asset budget unavailable; historical preview retained";
@@ -435,6 +435,79 @@ void build_regenerated_map_render_plan(StoredGraphicsPlan& plan,
             const auto id=generated->instances.size()-1;
             generated->instances[id].composition_group=2U*maximum_original_entity_records+tower.source.manager_index;
             preparation.instance_indices.push_back(id);
+        }
+    // Optional attachments are admitted after every body/foreign asset. Their
+    // complete resource set owns no terrain, eligibility or replacement cells.
+    if(plan.original_ordinary_towers && plan.original_ordinary_towers->error.empty())
+        for(std::size_t t=0;t<plan.original_ordinary_towers->towers.size();++t) {
+            const auto& tower=plan.original_ordinary_towers->towers[t];
+            auto& prep=generated->tower_join_preparation[t];
+            if(tower.joins.status!=TowerJoinStatus::SupportedJoin) continue;
+            const auto body=generated->ordinary_tower_preparation.find(t);
+            if(body==generated->ordinary_tower_preparation.end() || body->second.instance_indices.size()!=1) {
+                prep.fallback="join requires its independently prepared complete Tower body";continue;
+            }
+            struct Candidate {TowerJoinComponent geometry;PackedGraphicId graphic;assets::AssetRecord record;};
+            std::vector<Candidate> selected;
+            std::map<AssetKey,assets::AssetRecord> additional;
+            for(const auto& component:tower.joins.components) {
+                const bool valid=(component.group.value==0x4c9 && component.variant<6) ||
+                    (component.group.value==0x4ca && component.variant<2);
+                if(!valid) {prep.fallback="join resource outside evidenced static groups";break;}
+                prep.resources.emplace_back();
+                const auto graphic=resolve_landscape_variant(component.group,component.variant,groups,&prep.resources.back());
+                if(!graphic) {prep.fallback="required join General group/variant unavailable";break;}
+                const auto resolved=resolve_graphics_id_hypothesis(graphic->value,images);
+                const auto* record=resolved.record;
+                // Type 256 is the one bounded Omega-color variant; production
+                // payload/alpha/source validation stays with the shared decoder.
+                const auto expected=component.group.value==0x4c9 && component.variant==5 ? 256U:0U;
+                if(resolved.status!=GraphicsIdStatus::DecodeCandidate || !record || record->image_type!=expected ||
+                    record->width<=0 || record->height<=0 || record->horizontal_mirror_offset || record->animation_sprites ||
+                    !record->metadata_supported || !record->payload_in_bounds || !record->decoder_supported ||
+                    (expected==0 && record->data_length!=std::uint64_t(record->width)*std::uint64_t(record->height)*2U) ||
+                    record->data_length>stored_max_payload_bytes || record->alpha_length>stored_max_payload_bytes ||
+                    std::uint64_t(record->width)*std::uint64_t(record->height)*4U>stored_max_image_bytes) {
+                    prep.fallback="required static unmirrored Type0/Type256 join image or payload unsupported";break;
+                }
+                selected.push_back({component,*graphic,*record});
+                const AssetKey key{record->id.archive_relative_path.generic_string(),record->id.image_index};
+                const auto pooled=pool.find(key);
+                if(pooled==pool.end() || (plan.assets[pooled->second].status!=StoredStatus::DecodePending &&
+                    plan.assets[pooled->second].status!=StoredStatus::Rendered)) additional.emplace(key,*record);
+            }
+            std::uint64_t reserved=std::min(plan.logical_texture_bytes,stored_max_texture_bytes);
+            const auto reserve=[&](const assets::AssetRecord& r) {
+                const auto bytes=std::uint64_t(r.width)*std::uint64_t(r.height)*4U*(r.image_type==30 ? 3U:1U);
+                if(bytes>stored_max_texture_bytes-reserved) return false;
+                reserved+=bytes;return true;
+            };
+            for(const auto& a:plan.assets) if(a.status==StoredStatus::DecodePending &&
+                a.record.width>0 && a.record.height>0 && !reserve(a.record)) {
+                    prep.fallback="optional complete join logical RGBA budget exceeded";break;
+                }
+            std::size_t new_assets=0;
+            for(const auto& [key,r]:additional) {
+                new_assets+=!pool.contains(key);
+                if(!reserve(r)) prep.fallback="optional complete join logical RGBA budget exceeded";
+            }
+            if(plan.assets.size()>stored_max_assets || new_assets>stored_max_assets-plan.assets.size())
+                prep.fallback="optional complete join physical asset budget exceeded";
+            if(!prep.fallback.empty()) continue;
+            for(auto& candidate:selected) {
+                const auto& r=candidate.record;
+                const AssetKey key{r.id.archive_relative_path.generic_string(),r.id.image_index};
+                auto pooled=pool.find(key);
+                if(pooled==pool.end()) {
+                    const auto index=plan.assets.size();
+                    plan.assets.push_back({r,StoredStatus::DecodePending,false,false,{}});
+                    pooled=pool.emplace(key,index).first;
+                } else if(plan.assets[pooled->second].status!=StoredStatus::Rendered)
+                    plan.assets[pooled->second].status=StoredStatus::DecodePending;
+                prep.attachment_indices.push_back(generated->tower_joins.size());
+                generated->tower_joins.push_back({candidate.geometry,candidate.graphic,pooled->second,
+                    body->second.instance_indices.front(),t});
+            }
         }
     generated->build_milliseconds=std::chrono::duration<double,std::milli>(
         std::chrono::steady_clock::now()-start).count();

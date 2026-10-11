@@ -30,6 +30,7 @@ struct StoredDrawItem {
     bool footprint = false;
     std::size_t plan_index = 0;
     bool regenerated = false;
+    bool tower_join = false;
 };
 struct StoredVisualHit {
     maps::GridCell cell;
@@ -49,6 +50,10 @@ public:
     void begin_frame();
     bool draw_item(std::size_t renderer_index, const scene::Camera2D& camera);
     bool draw_ground_item(std::size_t renderer_index, const scene::Camera2D& camera);
+    // Only historical singleton/one-cell items participate in the caller's
+    // road-ground replacement mask. Attachment indices are a separate domain.
+    std::uint8_t ground_replacement_role(std::size_t renderer_index,
+        std::span<const std::uint8_t> replacements,std::size_t width) const;
     // Load-time classification only. The existing singleton road image is
     // submitted once as ground, including Snapshot, never as a spatial body.
     void set_original_road_ground(std::shared_ptr<const simulation::MapPermissions> permissions);
@@ -87,6 +92,8 @@ private:
     bool regenerated_visible(std::size_t instance) const;
     scene::Point regenerated_image_origin(const maps::RegeneratedLandscapeInstance& instance) const;
     bool regenerated_placement_supported(const maps::RegeneratedLandscapeInstance& instance) const;
+    bool tower_join_visible(std::size_t index) const;
+    scene::Point tower_join_origin(std::size_t index) const;
     LandscapeDebugMode landscape_mode_=LandscapeDebugMode::Snapshot;
     std::vector<SDL_Texture*> base_textures_, overlay_textures_;
     std::vector<std::vector<std::uint8_t>> snapshot_alpha_, overlay_alpha_;
