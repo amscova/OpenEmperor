@@ -116,6 +116,20 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
             entity.provenance.class_wrapper_schema==0)
             return OriginalOccupancy::MarkerOrigin;
         break;
+    case 177: case 178:
+        // Independently observed river entry/exit points: editor177 selects
+        // 404f72 and writes c5ce24/26; editor178 selects405039 and writes
+        // c5ce28/2a. Their distinct lookup/undo paths use those same pairs.
+        // Both model sides are zero and52f1d0 skips physical restore. Reserve
+        // each complete saved origin, without replaying river/actor behavior.
+        // Only these Base3/4 states are evidenced; positive squares above keep
+        // their existing contract. See reverse/mp56-industrial177-178-occupancy.
+        if (entity.status==3 && entity.subindex==0 &&
+            (entity.provenance.base_schema==3 || entity.provenance.base_schema==4) &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
     default: break;
     }
     return OriginalOccupancy::Unsupported;

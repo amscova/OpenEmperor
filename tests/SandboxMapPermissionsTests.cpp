@@ -262,6 +262,83 @@ void saved_editor_marker_origins() {
         "inactive records retain the previous non-occupying contract");
  }
 }
+void river_marker_origins() {
+ for (int type:{177,178}) for (unsigned schema:{4U,3U}) for (unsigned policy:{1U,2U}) {
+  Fixture f;auto marker=f.source(start);
+  marker.entity_class=maps::OriginalEntityClass::Industrial;marker.type=std::int16_t(type);
+  marker.footprint_side=0;marker.provenance.base_schema=std::uint16_t(schema);
+  marker.provenance.wrapper_schema=marker.provenance.extended_schema=1;
+  f.entities.records.push_back(marker);f.map.terrain_raw.values[raw(start)]=0x04000004;
+  auto prepare=[&](const Fixture& input) {
+   return maps::make_sandbox_map_permissions(input.map,input.plan,input.geometry,input.legacy,input.entities,policy);
+  };
+  const auto p=prepare(f);
+  check(p->protected_original({100,110}) && !p->road_allowed({100,110}) &&
+        !p->building_allowed({100,110}) && !p->original_road({100,110}) &&
+        p->road_blocker({100,110})==simulation::BuildBlocker::OriginalStructure &&
+        p->building_blocker({100,110})==simulation::BuildBlocker::OriginalStructure &&
+        p->cell_height({100,110})==-1 && p->gates().empty(),
+        "literal river marker origin protected without water transit or physical square");
+  check(p->road_allowed({101,110}) && p->building_allowed({101,110}) &&
+        !p->protected_original({101,110}) && !p->protected_original({100,111}),
+        "river point does not reserve a neighboring region");
+  auto road=f;road.map.terrain_raw.values[raw(start)]=0xc0;
+  check(!prepare(road)->original_road({100,110}) && !prepare(road)->road_allowed({100,110}),
+        "Road bit cannot override river origin protection");
+  auto water=f;water.map.terrain_raw.values[raw({101,110})]=0x04000004;
+  check(!prepare(water)->road_allowed({101,110}) && !prepare(water)->building_allowed({101,110}) &&
+        !prepare(water)->protected_original({101,110}),"neighboring water keeps independent terrain restrictions");
+  // Original coordinates remain meaningful independently of current raw bits.
+  auto changed=f;changed.map.terrain_raw.values[raw(start)]=0x80;changed.map.objects_raw.values[raw(start)]=1;
+  check(prepare(changed)->protected_original({100,110}),"raw Objects is not river marker ownership authority");
+  auto mutate=[&](auto edit,const char* reason) {auto bad=f;edit(bad.entities.records[0]);rejects([&]{prepare(bad);},reason);};
+  for (auto entity_class:{maps::OriginalEntityClass::Building,maps::OriginalEntityClass::Ferry})
+   mutate([entity_class](auto& e){e.entity_class=entity_class;},"river type requires exact Industrial class");
+  for (int unknown:{176,179,164,188})
+   mutate([unknown](auto& e){e.type=std::int16_t(unknown);},"neighboring unknown types remain unsupported");
+  for (std::uint8_t status:std::array<std::uint8_t,4>{1,2,4,255})
+   mutate([status](auto& e){e.status=status;},"unevidenced active river status remains unsupported");
+  mutate([](auto& e){e.subindex=1;},"unevidenced river subindex rejected");
+  mutate([](auto& e){e.provenance.base_schema=5;},"unevidenced zero-side river Base5 rejected");
+  mutate([](auto& e){e.provenance.wrapper_schema=2;},"unevidenced river parent wrapper rejected");
+  mutate([](auto& e){e.provenance.extended_schema=2;},"unevidenced river non-house state rejected");
+  mutate([](auto& e){e.provenance.class_wrapper_schema=1;},"river has no class-specific wrapper");
+  mutate([](auto& e){e.gate_house=maps::OriginalGateHouseState{0};},"river cannot carry GateHouse geometry");
+  mutate([](auto& e){e.original_id.reset();},"river requires original identity");
+  mutate([](auto& e){++e.serialized_cell_reference;},"river requires exact cell reference");
+  mutate([](auto& e){e.local_x=-1;},"negative river origin rejected");
+  mutate([](auto& e){e.local_y=170;},"unbounded river origin rejected");
+  auto outside=f;outside.entities.records[0].local_x=outside.entities.records[0].local_y=0;
+  outside.entities.records[0].serialized_cell_reference=int(raw({29,29}));
+  rejects([&]{prepare(outside);},"river origin outside actual diamond rejected");
+  auto offmap=f;offmap.map.terrain_raw.values[raw(start)]|=0x80000;
+  rejects([&]{prepare(offmap);},"river origin on raw off-map terrain rejected");
+  auto duplicate=f;auto second=marker;second.manager_index=1;
+  second.original_id=maps::OriginalEntityId{8};second.serialized_original_id=8;
+  duplicate.entities.records.push_back(second);
+  check(prepare(duplicate)->canonical_state()==p->canonical_state(),"distinct river markers at same point retain duplicate-marker contract");
+  duplicate.entities.records[1].type=164;
+  rejects([&]{prepare(duplicate);},"valid river prefix cannot hide another unknown active source");
+  for (bool reverse:{false,true}) {
+   auto physical=f;physical.entities.records.push_back(f.source(start,8,1));
+   if(reverse)std::reverse(physical.entities.records.begin(),physical.entities.records.end());
+   rejects([&]{prepare(physical);},"river/physical conflict rejected in both orders");
+   for (maps::GridCell claim:{start,maps::GridCell{102,110},maps::GridCell{102,109}}) {
+    Fixture g;g.gate(0);auto e=marker;e.manager_index=1;e.original_id=maps::OriginalEntityId{8};e.serialized_original_id=8;
+    e.local_x=std::int16_t(claim.x-29);e.local_y=std::int16_t(claim.y-29);e.serialized_cell_reference=int(raw(claim));
+    g.entities.records.push_back(e);if(reverse)std::reverse(g.entities.records.begin(),g.entities.records.end());
+    rejects([&]{prepare(g);},"river cannot claim gate solids, corridor or opening");
+   }
+  }
+  // Preserve the existing positive SavedSquare branch independently of the
+  // new narrow zero-side admission, even with otherwise unevidenced states.
+  auto square=f;square.entities.records[0].footprint_side=2;square.entities.records[0].status=2;
+  square.entities.records[0].provenance.base_schema=5;
+  const auto reserved=prepare(square);
+  check(reserved->protected_original({101,111}) && !reserved->protected_original({102,111}),
+        "existing positive-square contract is unchanged for river types");
+ }
+}
 void invalid_sources(){Fixture f;f.gate(0);auto mutate=[&](auto edit,const char* msg){auto bad=f;edit(bad);rejects([&]{bad.make();},msg);};mutate([](auto&b){b.map.terrain_raw.values[raw({104,112})]&=~8U;},"partial gate claims rejected");mutate([](auto&b){++b.entities.records[0].serialized_cell_reference;},"reference mismatch rejected");mutate([](auto&b){b.entities.records[0].gate_house->layout=2;},"unknown layout rejected");mutate([](auto&b){b.entities.records[0].provenance.class_wrapper_schema=3;},"unknown gate wrapper rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,111})]=0;},"unequal corridor heights rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,109})]=0;},"unequal opening height rejected");mutate([](auto&b){auto e=b.source({102,111},8,1);b.entities.records.push_back(e);},"overlapping original structure rejected");mutate([](auto&b){b.entities.manager_schema=0;},"unknown full manager schema rejected");mutate([](auto&b){b.plan.height_bytes.pop_back();},"truncated heights rejected");rejects([&]{maps::make_sandbox_map_permissions(f.map,f.plan,f.geometry,f.legacy,f.entities,3);},"unknown map policy rejected");Fixture h;h.plan.height_bytes[raw(start)]=128;h.plan.height_bytes[raw({101,110})]=127;auto p=h.make();check(p->cell_height({100,110})==-128&&p->cell_height({101,110})==127&&p->transport_edge_blocker({100,110},{101,110})==simulation::BuildBlocker::UnsupportedHeightTransition,"signed byte extremes do not create steep edges");}
 void standalone_reader(){
  Fixture f;f.gate(1);
@@ -287,4 +364,4 @@ void standalone_reader(){
 }
 void legacy_contract(){Fixture f;maps::StoredCell c;c.storage=start;c.cell_index=raw(start);c.terrain_raw=0x80;c.objects_raw=0;c.footprint_index=0;c.status=maps::StoredStatus::Rendered;f.plan.cells.push_back(c);maps::PlacedFootprint fp;fp.origin=start;fp.width_cells=fp.height_cells=1;fp.status=maps::StoredStatus::Rendered;f.plan.footprints.push_back(fp);check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==1,"legacy successful1x1 rendered fixture");f.plan.cells[0].status=maps::StoredStatus::DecodeFailed;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy decode dependence remains exact");f.plan.cells[0].status=maps::StoredStatus::Rendered;f.plan.footprints[0].width_cells=2;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy footprint dependence remains exact");}
 }
-int main(){try{reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

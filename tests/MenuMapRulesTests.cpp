@@ -66,7 +66,7 @@ Bytes sg3(bool tile) {
     }
     return bytes;
 }
-enum class Manager { Empty, UnknownClass, Truncated, ResWall, ResWallUnknownOccupancy, ResWallTruncated, ResGate, ResGateUnknownOccupancy, ResGateTruncated };
+enum class Manager { Empty, UnknownClass, Truncated, ResWall, ResWallUnknownOccupancy, ResWallTruncated, ResGate, ResGateUnknownOccupancy, ResGateTruncated, River, RiverUnknownOccupancy, RiverTruncated };
 Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0) {
     using namespace openemperor::maps;
     const std::string unknown_class="cUnauditedBuilding";
@@ -83,12 +83,15 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0) {
     }
     if (manager==Manager::ResWall || manager==Manager::ResWallUnknownOccupancy ||
         manager==Manager::ResWallTruncated || manager==Manager::ResGate ||
-        manager==Manager::ResGateUnknownOccupancy || manager==Manager::ResGateTruncated) {
+        manager==Manager::ResGateUnknownOccupancy || manager==Manager::ResGateTruncated ||
+        manager==Manager::River || manager==Manager::RiverUnknownOccupancy || manager==Manager::RiverTruncated) {
         // Authored schema-4 Building + parent1 + fixed 128-byte NonHouseInfo
         // + the selected exact ResWall1/ResGate1 wrapper. The following
         // Industrial179 remains independently unsupported at zero side.
         raw.resize(manager_at+6);
-        u32(raw,manager_at+2,(manager==Manager::ResWallUnknownOccupancy || manager==Manager::ResGateUnknownOccupancy) ? 2:1);
+        const bool river=manager==Manager::River || manager==Manager::RiverUnknownOccupancy || manager==Manager::RiverTruncated;
+        u32(raw,manager_at+2,river ? (manager==Manager::RiverUnknownOccupancy ? 3:2):
+            (manager==Manager::ResWallUnknownOccupancy || manager==Manager::ResGateUnknownOccupancy) ? 2:1);
         const auto append=[&](const std::string& name,unsigned type,unsigned side,unsigned id,int x) {
             const auto tag=raw.size();raw.resize(tag+6+name.size());
             u16(raw,tag,0xffff);u16(raw,tag+4,static_cast<std::uint16_t>(name.size()));
@@ -101,9 +104,11 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0) {
             if ((name=="cResWall" || name=="cResGate")) u16(raw,base+311,1);
         };
         const bool resgate=manager==Manager::ResGate || manager==Manager::ResGateUnknownOccupancy || manager==Manager::ResGateTruncated;
-        append(resgate ? "cResGate":"cResWall",resgate ? 105:231,1,7,28);
+        if (river) {append("cIndustrialBldg",177,0,7,28);append("cIndustrialBldg",178,0,8,30);}
+        else append(resgate ? "cResGate":"cResWall",resgate ? 105:231,1,7,28);
         if (manager==Manager::ResWallUnknownOccupancy || manager==Manager::ResGateUnknownOccupancy) append("cIndustrialBldg",179,0,8,30);
-        if (manager==Manager::ResWallTruncated || manager==Manager::ResGateTruncated) raw.pop_back();
+        if (manager==Manager::RiverUnknownOccupancy) append("cIndustrialBldg",164,0,9,32);
+        if (manager==Manager::ResWallTruncated || manager==Manager::ResGateTruncated || manager==Manager::RiverTruncated) raw.pop_back();
     }
     const std::array<std::uint8_t,8> signature{5,0,0xfe,0xca,0,0,2,0};
     std::copy(signature.begin(),signature.end(),raw.begin());u32(raw,84,84);
@@ -446,6 +451,38 @@ void resgate_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* render
           "Resume or rejected ResGate selection changed city or persistent files");
     menu.shutdown();check(textures()==0,"ResGate menu test leaked textures");
 }
+void river_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
+    write(temp.root/"data-one/Cities/D.map",map_file(Manager::River));
+    write(temp.root/"data-one/Cities/E.map",map_file(Manager::RiverUnknownOccupancy));
+    write(temp.root/"data-one/Cities/F.map",map_file(Manager::RiverTruncated));
+    const auto app=temp.app("river");
+    auto settings=openemperor::menu::read_settings(app).value;
+    settings.last_map="Cities/D.map";openemperor::menu::write_settings(app,settings);
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    key(menu,SDLK_N);accept(menu);check(menu.map_rules_can_start(),"complete river marker map cannot start");
+    key(menu,SDLK_RETURN);finish_load(menu);auto* const retained=menu.sandbox();
+    check(retained && retained->world().rule_version()==4 && retained->world().map_permissions()->policy_version()==2,
+          "river marker session must use current rule4/policy2");
+    for (const openemperor::simulation::Cell cell:std::array{openemperor::simulation::Cell{100,110},openemperor::simulation::Cell{102,110}})
+        check(retained->world().map_permissions()->protected_original(cell) &&
+              !retained->world().map_permissions()->road_allowed(cell),"both river origins must remain protected");
+    const auto snapshot=retained->world().snapshot();const auto policy=retained->world().map_permissions();
+    const auto persisted=files(app);
+    key(menu,SDLK_ESCAPE);key(menu,SDLK_N);accept(menu);key(menu,SDLK_DOWN);accept(menu,Status::UnsupportedForRules);
+    check(menu.map_rules_result().detail.find("type 164")!=std::string::npos && !menu.map_rules_can_start(),
+          "valid river markers must not hide a later unknown source");
+    key(menu,SDLK_RETURN);
+    check(menu.state()==Menu::State::NewSandbox && menu.sandbox()==retained &&
+          retained->world().snapshot()==snapshot && retained->world().map_permissions()==policy,
+          "failed river candidate replaced retained complete session");
+    key(menu,SDLK_DOWN);accept(menu,Status::InputError);key(menu,SDLK_RETURN);
+    check(menu.map_rules_result().detail.find("truncated")!=std::string::npos && !menu.map_rules_can_start(),
+          "truncated river state must remain an input error");
+    key(menu,SDLK_ESCAPE);key(menu,SDLK_RETURN);
+    check(menu.state()==Menu::State::Playing && menu.sandbox()==retained &&
+          retained->world().snapshot()==snapshot && files(app)==persisted,"river rejection/Resume changed previous World or files");
+    menu.shutdown();check(textures()==0,"river menu test leaked textures");
+}
 }
 
 int main() {
@@ -460,6 +497,7 @@ int main() {
         content_retry_and_resume(temp,window,renderer);
         reswall_atomic_preflight(temp,window,renderer);
         resgate_atomic_preflight(temp,window,renderer);
+        river_atomic_preflight(temp,window,renderer);
         check(textures()==0,"map selection tests left prepared textures alive");
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
         std::cout<<"production menu map-rules selection, concurrency, purity, input, retry and Resume checks passed\n";

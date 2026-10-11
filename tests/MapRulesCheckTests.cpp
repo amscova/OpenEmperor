@@ -274,6 +274,29 @@ void resgate_rules() {
     check(maps::check_map_rules(root.request("resgate-schema.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::UnsupportedForRules,
           "unproved ResGate wrapper remains unsupported before any policy publication");
 }
+void river_marker_rules() {
+    Root root;
+    for (int type:{177,178}) {
+        auto raw=logical_map(manager("cIndustrialBldg",type,0));
+        put32(raw,std::size_t(maps::terrain_logical_offset)+at(100,110)*4,0x04000004);
+        write(root.path/"Cities/river.map",compressed_map(raw));
+        for (unsigned version:{3U,4U}) {
+            const auto request=root.request("river.map",simulation::RulesProfile::CityV16,version);
+            check(maps::check_map_rules(request).status==maps::MapRulesStatus::MapRulesChecked,
+                  "complete river marker prerequisites pass selected rule3/4 preflight");
+            const auto p=maps::read_sandbox_map_permissions(root.path,"Cities/river.map",Bytes(cells,1),version==3 ? 1:2);
+            check(p->protected_original({100,110}) && !p->road_allowed({100,110}) &&
+                  !p->building_allowed({100,110}) && !p->original_road({100,110}) &&
+                  p->road_allowed({101,110}) && p->building_allowed({101,110}) && p->gates().empty(),
+                  "production reader protects literal river point and retains free neighbor");
+        }
+        auto unknown=manager("cIndustrialBldg",type,0);
+        unknown[6+6+15+2]=2; // Exact authored class-tag length21, base status+2.
+        write(root.path/"Cities/river.map",compressed_map(logical_map(unknown)));
+        check(maps::check_map_rules(root.request("river.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::UnsupportedForRules,
+              "unevidenced river active state remains unsupported in preflight");
+    }
+}
 } // namespace
 
 int main() {
@@ -282,7 +305,7 @@ int main() {
               "historic City-v16 rule 3 must keep policy 1");
         check(maps::map_rules_policy_version(simulation::RulesProfile::CityV16,4)==2,
               "City-v16 rule 4 requires policy 2 for original road transport");
-        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();resgate_rules();
+        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();resgate_rules();river_marker_rules();
         std::cout<<"Map rules check tests passed\n";return 0;
     }
     catch (const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}

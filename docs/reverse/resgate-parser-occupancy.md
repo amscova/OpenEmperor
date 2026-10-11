@@ -4,6 +4,8 @@ This pass starts from the actual clean HEAD **`4d8f5c75e3e4b6b73663150c8207af72e
 
 **Result:** all four former cResGate parser failures now yield complete managers. The same 167-map corpus prepares **104 policies**, up from 102, with **63 refusals**. **Xiangjun and STGW-Xiangjun** pass normal Empty City menu start, paid production, F5/F9 and process restart. Chang-an Sui and MP56 retain independent bounds/Industrial blockers. **cResGate occupancy supported; passage not implemented.** ResGate body rendering remains unsupported.
 
+The later [Industrial177/178 occupancy pass](mp56-industrial177-178-occupancy.md) resolves MP56's saved point blockers and raises the current census to 121 prepared/46 refused, retaining all 104 policies from this historical pass byte-exact. Its MP56 session evidence and newly exposed MP27 bounds refusal are separate from the ResGate results below. ResGate parsing/protection, unsupported passage/body and the historical 104/63 measurements remain unchanged.
+
 ## Baseline and immutable inputs
 
 The fresh data inventory is **1,464 files / 819,711,091 bytes**, manifest SHA-256 **`dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`**. Encoding is sorted UTF-8 relative path, TAB decimal size, TAB file SHA-256, LF. Baseline/final inventories are equal. The original PE32 EXE is read only, never executed: **4,809,081 bytes**, SHA-256 **`6373328bfc5c4886d9abc9544eb706e89e7d465b18176ea8205fe27aaee53c0e`**, freshly verified before analysis.
