@@ -46,6 +46,7 @@ StoredMapSession load_stored_map_session(const std::filesystem::path& data_root,
     read_ordinary_tower_presentation(plan,container,0);
     add_regenerated_wall_registration(plan,registrations);
     build_regenerated_map_render_plan(plan,registrations);
+    resolve_optional_stored_singletons(plan,registrations);
     return {std::move(map),std::move(plan),input_sha256};
 }
 } // namespace openemperor::maps

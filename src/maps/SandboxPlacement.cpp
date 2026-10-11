@@ -23,6 +23,7 @@ std::vector<std::uint8_t> make_sandbox_buildable_mask(const StoredGraphicsPlan& 
         if (*cell.footprint_index>=plan.footprints.size())
             throw std::invalid_argument("invalid stored footprint for sandbox placement");
         const auto& footprint=plan.footprints[*cell.footprint_index];
+        if (footprint.presentation_only) continue;
         if (geometry.contains(cell.storage) && cell.status==StoredStatus::Rendered &&
             footprint.status==StoredStatus::Rendered &&
             footprint.width_cells==1 && footprint.height_cells==1 &&

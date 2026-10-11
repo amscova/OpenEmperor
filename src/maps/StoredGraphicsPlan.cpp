@@ -1,6 +1,7 @@
 #include "maps/StoredGraphicsPlan.h"
 
 #include "assets/Sg3ImageLoader.h"
+#include "maps/ResourceGroupLookup.h"
 
 #include <algorithm>
 #include <array>
@@ -305,6 +306,82 @@ void place_footprints(StoredGraphicsPlan& plan, const MapGraphicCandidates& cand
     }
 }
 } // namespace
+
+void resolve_optional_stored_singletons(StoredGraphicsPlan& plan,
+    const StoredArchiveRegistrations& registrations) {
+    if (!plan.optional_saved_graphics.empty()) return;
+    const auto found=registrations.find(2U);
+    if (found==registrations.end()) return;
+    const auto& registration=found->second;
+    const std::map<std::uint32_t,GraphicsArchiveRegistration> images{{2U,{
+        registration.catalog ? &*registration.catalog:nullptr,
+        registration.layout ? &*registration.layout:nullptr,registration.archive_missing}}};
+    const std::map<std::uint32_t,GroupRegistration> groups{{2U,{
+        registration.layout ? &*registration.layout:nullptr}}};
+    using Key=std::pair<std::string,std::uint32_t>;
+    std::map<Key,std::size_t> pool;
+    for (std::size_t i=0;i<plan.assets.size();++i)
+        pool.emplace(Key{plan.assets[i].record.id.archive_relative_path.generic_string(),
+            plan.assets[i].record.id.image_index},i);
+    for (std::size_t i=0;i<plan.cells.size();++i) {
+        auto& cell=plan.cells[i];
+        if (cell.slot!=2U || cell.lookup_status!=GraphicsIdStatus::UnregisteredSlot ||
+            cell.footprint_index) continue;
+        auto& diagnostic=plan.optional_saved_graphics[i];
+        const auto resolved=resolve_graphics_id_hypothesis(cell.stored_id,images);
+        diagnostic.status=resolved.status;
+        diagnostic.fallback=registration.optional_error.empty() ?
+            graphics_id_status_name(resolved.status):registration.optional_error;
+        if (resolved.status!=GraphicsIdStatus::DecodeCandidate || !resolved.record) continue;
+        // Identify and validate the actual containing runtime group. This is
+        // saved selection provenance, never a guessed entity resource key.
+        if (!registration.layout) continue;
+        const auto& layout=*registration.layout;
+        for (std::size_t n=0;n<layout.groups.size();++n) {
+            const auto g=resolve_resource_group({2U*512U+unsigned(n)+1U},groups);
+            if (g.status!=GroupLookupStatus::Resolved || !g.local_base) continue;
+            auto end=layout.runtime_image_count;
+            for (const auto& other:layout.groups)
+                if (other.local_base>*g.local_base && other.local_base<end) end=other.local_base;
+            if (cell.local_index>=*g.local_base && cell.local_index<end) {
+                diagnostic.group_key=2U*512U+unsigned(n)+1U;
+                diagnostic.group_local_begin=g.local_base;diagnostic.group_local_end=end;break;
+            }
+        }
+        const auto& record=*resolved.record;
+        if (!diagnostic.group_key || supported_footprint(record)!=StoredStatus::DecodePending ||
+            record.isometric_size_flag!=1 || record.animation_sprites!=0) {
+            diagnostic.fallback="optional saved General requires a bounded group and static unmirrored side-one Type-30 geometry";
+            continue;
+        }
+        const Key key{record.id.archive_relative_path.generic_string(),record.id.image_index};
+        auto pooled=pool.find(key);
+        if (pooled==pool.end()) {
+            if (plan.assets.size()>=stored_max_assets) {
+                diagnostic.fallback="optional saved General asset budget unavailable";continue;
+            }
+            const auto index=plan.assets.size();
+            plan.assets.push_back({record,StoredStatus::DecodePending,false,false,{},true});
+            pooled=pool.emplace(key,index).first;
+        } else if (plan.assets[pooled->second].status!=StoredStatus::DecodePending &&
+                   plan.assets[pooled->second].status!=StoredStatus::Rendered) {
+            diagnostic.fallback="shared General asset unavailable";continue;
+        }
+        PlacedFootprint footprint;
+        footprint.id=plan.footprints.size();footprint.asset_index=pooled->second;
+        footprint.origin=cell.storage;footprint.cell_indices={i};
+        footprint.image_origin=stored_image_origin(cell.world,unsigned(record.width),unsigned(record.height));
+        footprint.rule="optional_saved_general_singleton_preview";footprint.presentation_only=true;
+        cell.asset_index=pooled->second;cell.physical_record=resolved.physical_record_index;
+        cell.lookup_status=resolved.status;cell.system_record_skip=layout.system_record_skip;
+        cell.record_present=true;cell.source_ranges_valid=true;cell.footprint_supported=true;
+        cell.footprint_index=footprint.id;cell.image_origin=footprint.image_origin;
+        cell.status=plan.assets[pooled->second].status;footprint.status=cell.status;
+        plan.status_by_storage[cell.cell_index]=cell.status;
+        plan.footprints.push_back(std::move(footprint));
+        diagnostic.asset_index=pooled->second;diagnostic.fallback.clear();
+    }
+}
 
 std::filesystem::path validate_stored_archive_sources(
     const fs::path& data_root, const fs::path& archive_relative) {

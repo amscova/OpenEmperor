@@ -1,5 +1,10 @@
 # Original map first-draw evidence
 
+The later [MP56 General registration correction](../rendering/mp56-original-structure-fallbacks.md)
+closes nine saved-image fallbacks in the normal app. It preserves this report's
+post-load saved-ID clear and unresolved restored selection/composition boundary;
+historical image resolution is not first-draw reproduction.
+
 The later [ordinary city-wall gate connection pass](ordinary-wall-gates.md) bounds the previously conservative neighbor-gate rejection and adds only the necessary saved GateHouse layout-0/1 producer. Its fresh census, original trace, 15-component atomic activation and acceptance evidence are separate from the historical Pass-3/4 results below. Complete original scene composition, other gate states/views, Tower/ResWall bodies and optional ordinary-wall Type-256 models remain open.
 
 The current bounded study is [Pass 4 — restored Great Wall entities](#pass-4-restored-great-wall-research-and-implementation-boundary-2026-10-04). Its implementation is partial: real-map Great Wall activation remains zero because original restore material depends on unresolved external context. Earlier passes below retain their historical scope.

@@ -1,5 +1,11 @@
 # Graphics-ID investigation (2026-09-17)
 
+The [MP56 General singleton follow-up](../rendering/mp56-original-structure-fallbacks.md)
+fixes a historical registration-order gap. Saved slot2/local203 and216 resolve
+through containing group `0x428` and the existing runtime skip/dummy mapping to
+physical General404/417. It changes neither the original post-load clear nor
+the unresolved restored ResWall/ResGate selectors.
+
 The current [Pass-4 study](#pass-4-great-wall-model-and-selector-evidence-2026-10-04) establishes serialized entities, external Models and the bounded producer/anchor path. Real-map activation remains zero because deserialization recomputes material from unresolved mode/mission/player context. The Pass-3 archive and missing-link statements below retain their historical scope.
 
 ## Pass 3: regenerated Rock, Pinnacle, ordinary Wall and Great Wall boundary

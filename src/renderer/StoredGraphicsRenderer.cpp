@@ -204,12 +204,24 @@ void StoredGraphicsRenderer::initialize(SDL_Renderer* renderer) {
         const auto& record = asset.record;
         const auto bytes = static_cast<std::uint64_t>(record.width) *
                            static_cast<std::uint64_t>(record.height) * 4U;
+        if (asset.optional_presentation &&
+            (record.data_length>maps::stored_max_payload_bytes ||
+             record.alpha_length>maps::stored_max_payload_bytes || bytes>maps::stored_max_image_bytes ||
+             bytes*(plan_.landscape_layers_available ? 3U:1U)>
+                maps::stored_max_texture_bytes-plan_.logical_texture_bytes)) {
+            asset.status=maps::StoredStatus::DecodeFailed;
+            asset.error="optional saved General presentation budget unavailable";
+            continue;
+        }
         if (record.data_length > maps::stored_max_payload_bytes ||
             record.alpha_length > maps::stored_max_payload_bytes)
             throw std::runtime_error("stored graphics selected payload exceeds 16 MiB read budget");
         if (bytes > maps::stored_max_image_bytes ||
             bytes*(plan_.landscape_layers_available && record.image_type==30 ? 3U:1U) > maps::stored_max_texture_bytes - plan_.logical_texture_bytes)
             throw std::runtime_error("stored graphics logical RGBA texture budget exceeded");
+        const auto bytes_before=plan_.logical_texture_bytes;
+        const auto uploads_before=plan_.texture_uploads;
+        try {
         const auto relative = record.id.archive_relative_path.generic_string();
         auto found = checked_archives.find(relative);
         if (found == checked_archives.end()) {
@@ -218,9 +230,6 @@ void StoredGraphicsRenderer::initialize(SDL_Renderer* renderer) {
             found = checked_archives.emplace(relative,checked).first;
         }
         asset.decode_attempted = true;
-        const auto bytes_before=plan_.logical_texture_bytes;
-        const auto uploads_before=plan_.texture_uploads;
-        try {
             assets::Sg3ImageRequest request{found->second,record.id.image_index};
             request.split_isometric=plan_.landscape_layers_available && record.image_type==30;
             auto loaded=assets::load_sg3_image_with_source(request);
@@ -265,6 +274,9 @@ void StoredGraphicsRenderer::initialize(SDL_Renderer* renderer) {
                 overlay_alpha_[i]=retain_alpha(*loaded.overlay);
             }
         } catch (const std::exception& error) {
+            // Required archive preflight retains its previous throwing
+            // contract; a newly optional source race retains diagnostics.
+            if (!asset.optional_presentation && !asset.decode_attempted) throw;
             if (textures_[i]) { SDL_DestroyTexture(textures_[i]); textures_[i]=nullptr; --live_textures; }
             for (auto* list : {&base_textures_, &overlay_textures_})
                 if ((*list)[i]) { SDL_DestroyTexture((*list)[i]); (*list)[i]=nullptr; --live_textures; }

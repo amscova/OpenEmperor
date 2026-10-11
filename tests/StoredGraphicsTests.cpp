@@ -6,6 +6,7 @@
 #include "maps/StoredMapSession.h"
 #include "maps/LandscapeProvenance.h"
 #include "maps/RegeneratedMapRenderPlan.h"
+#include "maps/SandboxPlacement.h"
 #include "assets/Sg3IsometricDecoder.h"
 #include "core/PerformanceDiagnostics.h"
 #include "renderer/StoredGraphicsRenderer.h"
@@ -76,7 +77,7 @@ Bytes tile(std::uint16_t color) {
     return b;
 }
 Bytes stored_map_file(std::uint32_t marker,bool partial=false,std::uint32_t declared_size=84,
-                      bool slot8=false,bool wall4=false,bool landscape=false) {
+                      bool slot8=false,bool wall4=false,bool landscape=false,bool general=false) {
     Bytes raw(static_cast<std::size_t>(maps::objects_logical_offset+maps::grid_byte_length),0);
     const std::array<std::uint8_t,8> signature{5,0,0xfe,0xca,0,0,2,0};
     std::copy(signature.begin(),signature.end(),raw.begin());
@@ -102,6 +103,12 @@ Bytes stored_map_file(std::uint32_t marker,bool partial=false,std::uint32_t decl
         raw[static_cast<std::size_t>(maps::landscape_height_offset)+at]=3;
         raw[static_cast<std::size_t>(maps::landscape_draw_properties_offset)+at]=0x22;
         u32(raw,static_cast<std::size_t>(maps::terrain_logical_offset)+4U*at,0x80080);
+    }
+    if (general) for (const auto x : {114U,117U,120U}) {
+        const auto at=114U*228U+x;
+        u32(raw,static_cast<std::size_t>(maps::candidate_word_logical_offset)+4U*at,0x8000);
+        u32(raw,static_cast<std::size_t>(maps::terrain_logical_offset)+4U*at,x==120 ? 0x80:0x88);
+        raw[static_cast<std::size_t>(maps::landscape_height_offset)+at]=1;
     }
     Bytes file{0xaa,0xba,0xdc,0xfe};
     for (std::size_t at=0;at<raw.size();at+=32768) {
@@ -307,6 +314,103 @@ int main() {
             check_fallback(false,"SG3 symlink outside root");
             fs::remove(general_sg3); fs::remove(general_555);
             fs::remove(temp.path/"GeneralFallback.map");
+        }
+        {
+            // Actual production load, with authored pixels: slot 2 was added
+            // after historical resolution and its singleton stayed brown.
+            write(temp.path/"DATA/China_Terrain.555",tile(0x001f));
+            auto general=sg3(205,201);
+            u16(general,82,201); // group key 0x401 -> runtime local zero
+            record(general,201,0,3205,30,78,54,3200);
+            auto picture=green;
+            picture.insert(picture.end(),front_overlay.begin(),front_overlay.end());
+            write(temp.path/"DATA/China_General.sg3",general);
+            write(temp.path/"DATA/China_General.555",picture);
+            write(temp.path/"GeneralSaved.map",stored_map_file(0x80,false,84,false,false,true,true));
+            auto session=maps::load_stored_map_session(temp.path,"GeneralSaved.map",
+                maps::FootprintPolicy::EdgeByte4x4Preview);
+            auto* surface=SDL_CreateSurface(400,400,SDL_PIXELFORMAT_RGBA32);
+            auto* r=SDL_CreateSoftwareRenderer(surface);
+            openemperor::StoredGraphicsRenderer view(std::move(session.plan));
+            view.initialize(r);view.set_debug_diagnostics(false);
+            view.set_landscape_mode(openemperor::LandscapeDebugMode::Regenerated);
+            scene::Camera2D camera;camera.viewport_width=400;camera.viewport_height=400;
+            camera.center_on(maps::terrain_world({114,114},72));
+            SDL_SetRenderDrawColor(r,0,0,0,255);SDL_RenderClear(r);
+            check(view.render(camera,std::nullopt),"render saved General through production");
+            // Literal fixture geometry: origin (161,146), green diamond below
+            // a red Omega pixel at local (38,0), signed height one = 40px.
+            check(pixel(r,199,146)==std::array<std::uint8_t,4>{255,0,0,255},
+                "late General registration must resolve the saved structural body pixel");
+            check(pixel(r,200,180)==std::array<std::uint8_t,4>{0,255,0,255},
+                "late General registration replaces the actual brown singleton fallback");
+            check(view.hit_test({199.5,146.5},camera)==maps::GridCell{114,114},
+                "saved General body alpha picking uses the same height and anchor");
+            const auto mask=maps::make_sandbox_buildable_mask(view.plan(),maps::MapGeometry{84});
+            check(mask[114U*228U+114U]==0,"historical General cannot acquire legacy buildability");
+            check(mask[114U*228U+120U]==0,
+                "a newly resolved raw 0x80 singleton cannot change the historical legacy mask");
+            const auto first=view.plan().at({114,114}),second=view.plan().at({117,114});
+            check(first && second && first->asset_index==second->asset_index &&
+                first->physical_record==201 && first->system_record_skip==200,
+                "physical pool deduplicates saved General with dummy and skip applied once");
+            check(!view.hit_test({198.5,146.5},camera),"transparent General pixel does not block picking");
+            for (const auto zoom : {1.0,1.5,2.0,4.0}) {
+                camera.zoom=zoom;camera.viewport_width=317;camera.viewport_height=289;
+                camera.offset={100.0-zoom*(-1.0),120.0-zoom*1626.0};
+                SDL_RenderClear(r);check(view.render(camera,std::nullopt),"pan/resize/zoom General render");
+                check(pixel(r,100,120)==std::array<std::uint8_t,4>{255,0,0,255} &&
+                    view.hit_test({100.25,120.25},camera)==maps::GridCell{114,114},
+                    "literal transformed General body and alpha agree at integer/intermediate zoom");
+            }
+            camera.zoom=1;camera.viewport_width=400;camera.viewport_height=400;
+            camera.center_on(maps::terrain_world({114,114},72));
+            view.set_landscape_mode(openemperor::LandscapeDebugMode::Ground);
+            SDL_RenderClear(r);check(view.render(camera,std::nullopt),"F8 Ground hides structural Overlay");
+            check(pixel(r,199,146)!=std::array<std::uint8_t,4>{255,0,0,255} &&
+                !view.hit_test({199.5,146.5},camera),"F8 visible component and alpha layer agree");
+            view.set_landscape_mode(openemperor::LandscapeDebugMode::Snapshot);
+            SDL_RenderClear(r);check(view.render(camera,std::nullopt),"saved selection in Full Snapshot");
+            check(pixel(r,199,186)==std::array<std::uint8_t,4>{255,0,0,255},
+                "Snapshot keeps stored selection and flat anchor without applying saved height");
+            view.shutdown();SDL_DestroyRenderer(r);SDL_DestroySurface(surface);
+            const auto check_unavailable=[&](const Bytes& metadata,const Bytes* payload,const char* message) {
+                write(temp.path/"DATA/China_General.sg3",metadata);
+                if (payload) write(temp.path/"DATA/China_General.555",*payload);
+                else fs::remove(temp.path/"DATA/China_General.555");
+                auto candidate=maps::load_stored_map_session(temp.path,"GeneralSaved.map",
+                    maps::FootprintPolicy::EdgeByte4x4Preview);
+                auto* target=SDL_CreateSurface(400,400,SDL_PIXELFORMAT_RGBA32);
+                auto* output=SDL_CreateSoftwareRenderer(target);
+                openemperor::StoredGraphicsRenderer fallback(std::move(candidate.plan));
+                fallback.initialize(output);fallback.set_debug_diagnostics(false);
+                fallback.set_landscape_mode(openemperor::LandscapeDebugMode::Regenerated);
+                SDL_SetRenderDrawColor(output,0,0,0,255);SDL_RenderClear(output);
+                check(fallback.render(camera,std::nullopt),"optional failure preserves the complete render");
+                check(pixel(output,200,180)==std::array<std::uint8_t,4>{103,94,78,255},message);
+                check(!fallback.hit_test({199.5,146.5},camera),"failed optional source has no invisible alpha hit");
+                check(fallback.plan().assets.front().status==maps::StoredStatus::Rendered,
+                    "optional failure cannot roll back an unrelated required terrain texture");
+                fallback.shutdown();SDL_DestroyRenderer(output);SDL_DestroySurface(target);
+            };
+            check_unavailable(general,nullptr,"missing optional bitmap retains the full brown fallback");
+            auto unsupported=general;u16(unsupported,40680U+201U*64U+50U,1);
+            check_unavailable(unsupported,&picture,"unsupported Type-1 is never treated as Type-30");
+            unsupported=general;u32(unsupported,40680U+201U*64U+16U,8);
+            check_unavailable(unsupported,&picture,"mirrored General cannot bypass format checks");
+            unsupported=general;u16(unsupported,82,0);
+            check_unavailable(unsupported,&picture,"missing runtime group cannot invent a variant");
+            unsupported=general;u32(unsupported,16,200);
+            check_unavailable(unsupported,&picture,"runtime bound cannot admit a reserved physical record");
+            unsupported=general;u32(unsupported,40680U+201U*64U,100000);
+            check_unavailable(unsupported,&picture,"invalid payload range retains complete fallback");
+            auto damaged=green;damaged.push_back(1);unsupported=general;
+            u32(unsupported,40680U+201U*64U+4U,3201);
+            check_unavailable(unsupported,&damaged,"damaged Omega cannot activate half an image");
+            fs::remove(temp.path/"DATA/China_General.sg3");
+            fs::remove(temp.path/"DATA/China_General.555");
+            fs::remove(temp.path/"GeneralSaved.map");
+            write(temp.path/"DATA/China_Terrain.555",bitmap);
         }
         const auto missing_registrations=maps::load_stored_archive_registrations(
             temp.path,extra_candidates,extra_geometry,maps::StoredGraphicsProfile::Slot8);

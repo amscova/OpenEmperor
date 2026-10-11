@@ -1,5 +1,10 @@
 # cResGate: bounded parsing and protected occupancy (2026-10-11)
 
+The later [MP56 presentation fix](../rendering/mp56-original-structure-fallbacks.md)
+resolves MP56's saved General417 image and an independent Xiangjun variant
+through historical singleton registration. This does not change occupancy,
+create a ResGate passage or establish original restored graphic selection.
+
 This pass starts from the actual clean HEAD **`4d8f5c75e3e4b6b73663150c8207af72efdf0ef8`**, matching the requested reference. It adds exact append-only ResGate parsing and independently evidenced singleton protection. City-v16 **rule4 / policy2 / schema20**, older rules/policy1, ResWall, GateHouse passages, Tower bodies/joins, roads, terrain/heights, renderer/input, World/economy and save/recovery implementations retain their contracts. There is no migration, commit or publication.
 
 **Result:** all four former cResGate parser failures now yield complete managers. The same 167-map corpus prepares **104 policies**, up from 102, with **63 refusals**. **Xiangjun and STGW-Xiangjun** pass normal Empty City menu start, paid production, F5/F9 and process restart. Chang-an Sui and MP56 retain independent bounds/Industrial blockers. **cResGate occupancy supported; passage not implemented.** ResGate body rendering remains unsupported.

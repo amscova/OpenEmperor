@@ -15,6 +15,7 @@ if hashlib.sha256(path.read_bytes()).hexdigest() != '96e3bd832b40ae57a6e7526eb86
 print('MP56: City-v16 rule 4 / policy 2 / schema 20; normal menu, Empty City.')
 print('Verified storage origins: type177 (52,93), (54,97), (51,94), (52,93); type178 (117,195).')
 print('These points must remain protected; the complete selected-map check follows.')
+print('Visual check: storage row 96, x 110-123; saved masonry and small gate at (111,96), replacing brown fallbacks.')
 PY
 # Share the existing build, contained-name check, full preflight and private root.
 exec sh "$repo_dir/tools/test_resgate_maps.sh" "$1" MP56

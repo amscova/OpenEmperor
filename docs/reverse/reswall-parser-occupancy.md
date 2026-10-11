@@ -1,5 +1,11 @@
 # cResWall: bounded parser and original occupancy (2026-10-11)
 
+The later [MP56 presentation fix](../rendering/mp56-original-structure-fallbacks.md)
+resolves missing historical General singletons, including MP56's eight type90
+saved images. It does not change this parser/occupancy proof or establish a
+restored ResWall graphics producer. Statements about absent body rendering in
+the historical pass below retain that original scope.
+
 This report preserves the historical ResWall-pass baseline and acceptance. The subsequent [bounded cResGate pass](resgate-parser-occupancy.md) closes its four parser failures, separately proves protected singleton occupancy and raises complete policy preparation to 104/167. ResWall's contract and the MP34 Industrial179/164 refusal remain unchanged.
 
 This pass starts at clean HEAD `c5a3b71b7dac49ca4351b0e602a6ca8a39416a97`. It adds an exact, append-only `ResWall` class and a bounded physical reservation. It adds no wall body, military simulation or other original class. City-v16 **rule 4 / MapPermissions policy 2 / save schema 20**, historical rules/policy 1, roads, gates, Towers/joins, renderer, input, economy and save/recovery implementations remain unchanged.

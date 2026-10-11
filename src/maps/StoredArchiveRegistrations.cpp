@@ -120,7 +120,9 @@ void add_regenerated_wall_registration(const StoredGraphicsPlan& plan,
     StoredArchiveRegistrations& registrations) {
     if (!plan.landscape_layers_available || registrations.contains(2U)) return;
     bool wall=false;
-    for (const auto& cell:plan.cells) if (cell.terrain_raw&0x4000U) {wall=true;break;}
+    for (const auto& cell:plan.cells)
+        if ((cell.terrain_raw&0x4000U) ||
+            (cell.lookup_status==GraphicsIdStatus::UnregisteredSlot && cell.slot==2U)) {wall=true;break;}
     // A validated cTower restore independently requires General slot 2.
     // Saved IDs and surrounding wall bits are not its registration authority.
     if (plan.original_ordinary_towers && plan.original_ordinary_towers->error.empty())

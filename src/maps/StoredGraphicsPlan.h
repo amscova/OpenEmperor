@@ -48,6 +48,7 @@ struct StoredAsset {
     bool decode_attempted = false;
     bool decode_succeeded = false;
     std::string error;
+    bool optional_presentation = false;
 };
 
 struct StoredCell {
@@ -88,6 +89,15 @@ struct PlacedFootprint {
     scene::Point image_origin{};
     const char* rule = "single_cell_geometry";
     StoredStatus status = StoredStatus::DecodePending;
+    // Late saved-ID presentation must never expand old renderer-derived masks.
+    bool presentation_only = false;
+};
+
+struct OptionalStoredResolution {
+    GraphicsIdStatus status = GraphicsIdStatus::UnregisteredSlot;
+    std::optional<std::uint32_t> group_key, group_local_begin, group_local_end;
+    std::optional<std::size_t> asset_index;
+    std::string fallback;
 };
 
 struct StoredGraphicsPlan {
@@ -109,6 +119,7 @@ struct StoredGraphicsPlan {
     std::vector<StoredCell> cells; // Exactly one per candidate, in painter order.
     std::vector<StoredAsset> assets; // Distinct physical AssetIds.
     std::vector<PlacedFootprint> footprints;
+    std::map<std::size_t,OptionalStoredResolution> optional_saved_graphics; // StoredCell index domain.
     bool multi_tile_preview = false;
     FootprintPolicy footprint_policy = FootprintPolicy::Disabled;
     std::size_t marker_deviations = 0;
@@ -145,9 +156,13 @@ StoredArchiveRegistrations load_stored_archive_registrations(
     const std::filesystem::path& data_root, const MapGraphicCandidates& candidates,
     const MapGeometry& geometry, StoredGraphicsProfile profile);
 // Presentation-only optional metadata, added after the historical plan is made.
-// Does not register slot 2 for saved-ID coverage or buildability.
+// Historical General candidates also request this exact optional registration.
 void add_regenerated_wall_registration(const StoredGraphicsPlan& plan,
     StoredArchiveRegistrations& registrations);
+// Append strict static singleton presentation after existing resource selection.
+// Historical IDs remain the selection authority; no restored entity producer.
+void resolve_optional_stored_singletons(StoredGraphicsPlan& plan,
+    const StoredArchiveRegistrations& registrations);
 StoredArchiveRegistration load_regenerated_great_wall_registration(
     const std::filesystem::path& root,std::uint32_t slot,const std::filesystem::path& relative);
 StoredGraphicsPlan make_stored_graphics_plan(

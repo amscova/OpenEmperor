@@ -472,6 +472,33 @@ Json landscape_provenance(const StoredGraphicsPlan& plan, GridCell selected,
         {"lookup_status",graphics_id_status_name(c->lookup_status)}};
     GridCell front=selected;
     std::size_t tie=static_cast<std::size_t>(c-&plan.cells[0]);
+    if (const auto late=plan.optional_saved_graphics.find(tie);
+        late!=plan.optional_saved_graphics.end()) {
+        const auto& selected_image=late->second;
+        Json detail={{"selection","historical saved ID; restored entity selection UNRESOLVED"},
+            {"lookup_status",graphics_id_status_name(selected_image.status)},
+            {"group_key",selected_image.group_key ? Json(hex(*selected_image.group_key,3)):Json(nullptr)},
+            {"runtime_local_begin",selected_image.group_local_begin ? Json(*selected_image.group_local_begin):Json(nullptr)},
+            {"runtime_local_end_exclusive",selected_image.group_local_end ? Json(*selected_image.group_local_end):Json(nullptr)},
+            {"fallback",selected_image.fallback},{"legacy_buildability","unchanged"},
+            {"active_components",0}};
+        if (selected_image.asset_index) {
+            const auto& asset=plan.assets.at(*selected_image.asset_index);
+            bool superseded=false;
+            if (elevated && plan.regenerated && tie<plan.regenerated->cells.size()) {
+                const auto owner=plan.regenerated->cells[tie].instance_index;
+                superseded=owner && *owner<plan.regenerated_instance_active.size() &&
+                    plan.regenerated_instance_active[*owner];
+            }
+            detail["superseded_by_regenerated"]=superseded;
+            detail["physical_asset"]={{"archive",asset.record.id.archive_relative_path.generic_string()},
+                {"image_index",asset.record.id.image_index},{"status",stored_status_name(asset.status)}};
+            detail["active_components"]=asset.status==StoredStatus::Rendered && !superseded ?
+                (elevated && asset.record.data_length>asset.record.uncompressed_length ? 2:1):0;
+            if (asset.status==StoredStatus::DecodeFailed) detail["fallback"]=asset.error;
+        }
+        j["optional_saved_graphic"]=std::move(detail);
+    }
     if (c->asset_index) {
         const auto& r=plan.assets[*c->asset_index].record;
         j["image"]={{"archive",r.id.archive_relative_path.generic_string()},
@@ -499,6 +526,7 @@ Json landscape_provenance(const StoredGraphicsPlan& plan, GridCell selected,
             {"anchor_ground_cell",cell_json(anchor_cell)},
             {"draw_marker",f.draw_cell_candidate ? cell_json(*f.draw_cell_candidate):Json(nullptr)},
             {"rule",f.rule}};
+        if (f.presentation_only) j["placement"]["presentation_only"]=true;
     }
     auto depth=terrain_ground(front,plan.border);
     j["painter"]={{"front_ground_cell",cell_json(front)},{"depth_y",depth.y},
@@ -509,6 +537,13 @@ std::vector<std::string> landscape_inspection_lines(const StoredGraphicsPlan& pl
     GridCell cell, bool elevated, const scene::Camera2D* camera) {
     const auto j=landscape_provenance(plan,cell,elevated,camera);
     std::vector<std::string> lines={"Landscape ("+std::to_string(cell.x)+","+std::to_string(cell.y)+")"};
+    if (j.contains("optional_saved_graphic")) {
+        const auto& detail=j["optional_saved_graphic"];
+        lines.push_back("Saved General: "+detail["active_components"].dump()+" active components");
+        lines.push_back("Historical selection; restored producer unresolved");
+        if (!detail["fallback"].get<std::string>().empty())
+            lines.push_back("Fallback: "+detail["fallback"].get<std::string>());
+    }
     if(j.contains("ordinary_tower") && j["ordinary_tower"].contains("wall_joins")) {
         const auto& tower=j["ordinary_tower"];const auto& joins=tower["wall_joins"];
         lines.push_back("Tower owner "+tower["original_id"].dump()+" / manager "+tower["manager_index"].dump());
