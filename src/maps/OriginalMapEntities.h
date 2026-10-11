@@ -32,7 +32,7 @@ public:
     using OriginalEntityError::OriginalEntityError;
 };
 
-enum class OriginalEntityClass { Building, Monument, Fill, Industrial, Ferry, GateHouse, Tower, ResWall };
+enum class OriginalEntityClass { Building, Monument, Fill, Industrial, Ferry, GateHouse, Tower, ResWall, ResGate };
 const char* original_entity_class_name(OriginalEntityClass entity_class);
 
 enum class OriginalEntityField {

@@ -32,13 +32,14 @@ Bytes manager(std::string name="",int type=35,unsigned side=0,bool gate=false) {
     auto offset=bytes.size();bytes.resize(offset+6+name.size());
     put16(bytes,offset,0xffff);put16(bytes,offset+4,unsigned(name.size()));
     std::copy(name.begin(),name.end(),bytes.begin()+std::ptrdiff_t(offset+6));
-    const bool nonhouse=name=="cIndustrialBldg" || name=="cResWall" || gate;
-    offset=bytes.size();bytes.resize(offset+181+(nonhouse ? 130U:0U)+((gate || name=="cResWall") ? 2U:0U),0);
+    const bool res=name=="cResWall" || name=="cResGate";
+    const bool nonhouse=name=="cIndustrialBldg" || res || gate;
+    offset=bytes.size();bytes.resize(offset+181+(nonhouse ? 130U:0U)+((gate || res) ? 2U:0U),0);
     put16(bytes,offset,4);bytes[offset+2]=3;bytes[offset+5]=std::uint8_t(side);
     put16(bytes,offset+8,71);put16(bytes,offset+10,81);put32(bytes,offset+12,unsigned(at(100,110)));
     put16(bytes,offset+16,unsigned(type));put32(bytes,offset+161,7);
     if (nonhouse) {put16(bytes,offset+181,1);put16(bytes,offset+183,1);}
-    if (gate || name=="cResWall") put16(bytes,offset+311,1);
+    if (gate || res) put16(bytes,offset+311,1);
     return bytes;
 }
 Bytes logical_map(const Bytes& records,bool gate=false) {
@@ -245,6 +246,34 @@ void reswall_rules() {
     check(maps::check_map_rules(root.request("reswall-schema.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::UnsupportedForRules,
           "unproved ResWall wrapper remains unsupported before any policy publication");
 }
+void resgate_rules() {
+    Root root;
+    auto raw=logical_map(manager("cResGate",105,1));
+    put32(raw,std::size_t(maps::terrain_logical_offset)+at(100,110)*4,0xc0);
+    write(root.path/"Cities/resgate.map",compressed_map(raw));
+    for (unsigned version:{3U,4U}) {
+        const auto checked=maps::check_map_rules(root.request("resgate.map",simulation::RulesProfile::CityV16,version));
+        check(checked.status==maps::MapRulesStatus::MapRulesChecked,
+              "complete ResGate prerequisites pass normal rule3/4 preflight");
+        const auto p=maps::read_sandbox_map_permissions(root.path,"Cities/resgate.map",Bytes(cells,1),version==3 ? 1:2);
+        check(p->protected_original({100,110}) && !p->original_road({100,110}) &&
+              !p->building_allowed({100,110}) && !p->road_allowed({100,110}) &&
+              p->building_allowed({101,110}) && p->gates().empty() && !p->fixed_passage({100,110}),"actual producer protects only the validated ResGate cell");
+    }
+    write(root.path/"Cities/resgate-unknown.map",compressed_map(logical_map(manager("cResGate",105,2))));
+    const auto unknown=maps::check_map_rules(root.request("resgate-unknown.map",simulation::RulesProfile::CityV16,4));
+    check(unknown.status==maps::MapRulesStatus::UnsupportedForRules &&
+          unknown.detail.find("unsupported active original occupancy")!=std::string::npos,
+          "readable ResGate with unproved positive side remains unsupported, not malformed");
+    auto malformed=manager("cResGate",105,1);malformed.pop_back();
+    write(root.path/"Cities/resgate-short.map",compressed_map(logical_map(malformed)));
+    check(maps::check_map_rules(root.request("resgate-short.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::InputError,
+          "truncated ResGate remains an input error after class recognition");
+    auto schema=manager("cResGate",105,1);put16(schema,schema.size()-2,2);
+    write(root.path/"Cities/resgate-schema.map",compressed_map(logical_map(schema)));
+    check(maps::check_map_rules(root.request("resgate-schema.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::UnsupportedForRules,
+          "unproved ResGate wrapper remains unsupported before any policy publication");
+}
 } // namespace
 
 int main() {
@@ -253,7 +282,7 @@ int main() {
               "historic City-v16 rule 3 must keep policy 1");
         check(maps::map_rules_policy_version(simulation::RulesProfile::CityV16,4)==2,
               "City-v16 rule 4 requires policy 2 for original road transport");
-        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();
+        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();resgate_rules();
         std::cout<<"Map rules check tests passed\n";return 0;
     }
     catch (const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}

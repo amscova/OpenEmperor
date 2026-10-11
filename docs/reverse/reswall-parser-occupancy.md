@@ -1,5 +1,7 @@
 # cResWall: bounded parser and original occupancy (2026-10-11)
 
+This report preserves the historical ResWall-pass baseline and acceptance. The subsequent [bounded cResGate pass](resgate-parser-occupancy.md) closes its four parser failures, separately proves protected singleton occupancy and raises complete policy preparation to 104/167. ResWall's contract and the MP34 Industrial179/164 refusal remain unchanged.
+
 This pass starts at clean HEAD `c5a3b71b7dac49ca4351b0e602a6ca8a39416a97`. It adds an exact, append-only `ResWall` class and a bounded physical reservation. It adds no wall body, military simulation or other original class. City-v16 **rule 4 / MapPermissions policy 2 / save schema 20**, historical rules/policy 1, roads, gates, Towers/joins, renderer, input, economy and save/recovery implementations remain unchanged.
 
 **Result:** all five former first `cResWall` parser errors are passed, but **zero maps become newly playable**. Four managers now stop atomically at unknown `cResGate`; MP34 has a complete manager and supported ResWall claims, but still fails on unknown Industrial zero-side occupancy. The fresh corpus remains **102 prepared / 65 refused out of 167**. Parser success and physical protection do not establish a reconstructed wall or playable map.

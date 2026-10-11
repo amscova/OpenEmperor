@@ -91,6 +91,7 @@ std::optional<OriginalEntityClass> known_class(std::string_view name) {
     if (name == "cGateHouse") return OriginalEntityClass::GateHouse;
     if (name == "cTower") return OriginalEntityClass::Tower;
     if (name == "cResWall") return OriginalEntityClass::ResWall;
+    if (name == "cResGate") return OriginalEntityClass::ResGate;
     return std::nullopt;
 }
 enum class ReferenceKind { Null, Class, Object };
@@ -117,6 +118,7 @@ const char* original_entity_class_name(OriginalEntityClass entity_class) {
     case OriginalEntityClass::GateHouse: return "cGateHouse";
     case OriginalEntityClass::Tower: return "cTower";
     case OriginalEntityClass::ResWall: return "cResWall";
+    case OriginalEntityClass::ResGate: return "cResGate";
     }
     return "unknown";
 }
@@ -297,7 +299,8 @@ OriginalMapEntities parse_original_map_entities(std::span<const std::uint8_t> by
                    entity_class == OriginalEntityClass::Ferry ||
                    entity_class == OriginalEntityClass::GateHouse ||
                    entity_class == OriginalEntityClass::Tower ||
-                   entity_class == OriginalEntityClass::ResWall) {
+                   entity_class == OriginalEntityClass::ResWall ||
+                   entity_class == OriginalEntityClass::ResGate) {
             // Saved cIndustrialBldg descriptor854438 uses ctor51c140→51c9a0,
             // cNonHouseInfo51c3a0. It is distinct from runtime industrial42d480.
             const auto ext_at = reader.position();
@@ -336,6 +339,15 @@ OriginalMapEntities parse_original_map_entities(std::span<const std::uint8_t> by
             // Constructor inheritance does not add another serialized wrapper.
             const auto class_at = reader.position();
             expect_schema(reader, 1, "ResWall wrapper schema");
+            record.provenance.logical_class_wrapper_offset = logical_offset + class_at;
+            record.provenance.class_wrapper_schema = 1;
+        } else if (entity_class == OriginalEntityClass::ResGate) {
+            // Descriptor815f68 / factory414250 -> ctor416d00 -> vtable7aafb0+8
+            // selects416490, which calls51ce00 directly then schema1 at88f6f0.
+            // No intermediate constructor wrapper, own payload or nested MFC
+            // reference is serialized. This does not establish gate geometry.
+            const auto class_at = reader.position();
+            expect_schema(reader, 1, "ResGate wrapper schema");
             record.provenance.logical_class_wrapper_offset = logical_offset + class_at;
             record.provenance.class_wrapper_schema = 1;
         }

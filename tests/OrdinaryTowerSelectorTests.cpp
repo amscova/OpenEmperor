@@ -123,7 +123,7 @@ void refusals() {
     auto inactive = good; inactive.entities.records.front().status = 0;
     check(inactive.prepare().towers.empty() && no_claims(inactive.prepare()), "inactive tower claims no image");
     for (const auto c : {maps::OriginalEntityClass::Building, maps::OriginalEntityClass::GateHouse,
-        maps::OriginalEntityClass::Monument, maps::OriginalEntityClass::ResWall}) {
+        maps::OriginalEntityClass::Monument, maps::OriginalEntityClass::ResWall, maps::OriginalEntityClass::ResGate}) {
         auto wrong = good; wrong.entities.records.front().entity_class = c;
         check(wrong.prepare().towers.empty() && no_claims(wrong.prepare()), "entity class, not numeric type, establishes cTower");
     }
@@ -141,13 +141,15 @@ void refusals() {
     }
 }
 void conflicts() {
-    for (unsigned kind = 0; kind < 5; ++kind) {
+    for (unsigned kind = 0; kind < 6; ++kind) {
         Input input; auto e = source(4, {101,111}, 12, 8);
         if (kind == 1) e.entity_class = maps::OriginalEntityClass::Building;
         if (kind == 2) {e.entity_class = maps::OriginalEntityClass::GateHouse; e.type = 130;
             e.footprint_side = 1; e.gate_house = maps::OriginalGateHouseState{1};}
         if (kind == 3) {e.entity_class = maps::OriginalEntityClass::Industrial; e.type = 175; e.footprint_side = 0;}
         if (kind == 4) {e.entity_class = maps::OriginalEntityClass::ResWall; e.type = 231;
+            e.footprint_side = 1; e.provenance.class_wrapper_schema = 1;}
+        if (kind == 5) {e.entity_class = maps::OriginalEntityClass::ResGate; e.type = 105;
             e.footprint_side = 1; e.provenance.class_wrapper_schema = 1;}
         input.entities.records.push_back(e); input.mark({101,111});
         const auto p = input.prepare();
@@ -185,6 +187,14 @@ void conflicts() {
     check(beside.towers.size()==1 && beside.towers.front().components.size()==1 &&
           beside.towers.front().joins.status==maps::TowerJoinStatus::NoJoinRequired,
           "ResWall owner beside a Tower is Other and creates no Tower/Gate join or body");
+    input=Input{};
+    auto gate=source(4,{102,111},12,8);gate.entity_class=maps::OriginalEntityClass::ResGate;
+    gate.type=105;gate.footprint_side=1;gate.provenance.class_wrapper_schema=1;
+    input.entities.records.push_back(gate);
+    const auto beside_gate=input.prepare();
+    check(beside_gate.towers.size()==1 && beside_gate.towers.front().components.size()==1 &&
+          beside_gate.towers.front().joins.status==maps::TowerJoinStatus::NoJoinRequired,
+          "ResGate owner beside a Tower is Other and creates no Tower/Gate join or body");
 }
 } // namespace
 

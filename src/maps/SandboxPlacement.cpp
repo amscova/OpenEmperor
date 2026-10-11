@@ -41,6 +41,21 @@ std::size_t storage(GridCell cell) {return std::size_t(cell.y)*stored_grid_width
 Cell simulation_cell(GridCell cell) {return {int(cell.x),int(cell.y)};}
 enum class OriginalOccupancy { SavedSquare, MarkerOrigin, Unsupported };
 OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
+    // cResGate's actual type105/106 restore selects ctor416d00/vtable7aafb0;
+    // 52f030 reads model side1, then4b11f0 -> virtual+100 ->414830 ->4b72b0
+    // writes a complete singleton owner rectangle. This is independent of
+    // GateHouse type130/layout/corridors. Admit only the observed saved states
+    // before generic positive squares; neither zero side nor Road bits free it.
+    if (entity.entity_class==OriginalEntityClass::ResGate) {
+        const auto& p=entity.provenance;
+        if (entity.status==3 && entity.subindex==0 && entity.footprint_side==1 &&
+            (entity.type==105 || entity.type==106) &&
+            (p.base_schema==3 || p.base_schema==4) && p.wrapper_schema==1 &&
+            p.extended_schema==1 && p.class_wrapper_schema==1 &&
+            !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::SavedSquare;
+        return OriginalOccupancy::Unsupported;
+    }
     // cResWall is checked before the generic saved-square reservation. The
     // pinned 52f030 restore admits 90/91/231, whose type-table side is one;
     // 414830 -> 4b72b0 writes that exact singleton owner claim. Saved Base3/4
@@ -177,7 +192,10 @@ OriginalRulePreparation prepare_original_rules(
     // assertion that their complete original model composition is reproduced.
     for (const auto& entity:entities.records) {
         if (!entity.active()) continue;
-        original_rules_require(static_cast<unsigned>(entity.entity_class)<=static_cast<unsigned>(OriginalEntityClass::ResWall) &&
+        // Preserve the old contiguous class set; the new class is admitted
+        // explicitly and still passes its strict state predicate above.
+        original_rules_require((static_cast<unsigned>(entity.entity_class)<=static_cast<unsigned>(OriginalEntityClass::ResWall) ||
+            entity.entity_class==OriginalEntityClass::ResGate) &&
             (entity.provenance.base_schema==3 || entity.provenance.base_schema==4 || entity.provenance.base_schema==5),
             "unknown active original class/base schema");
         if (entity.entity_class==OriginalEntityClass::GateHouse)
