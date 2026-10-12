@@ -1,9 +1,14 @@
 #!/bin/sh
 set -eu
-if [ "$#" -ne 1 ]; then
-    echo 'Usage: sh tools/test_mpwall1_occupancy.sh <original-data-directory>' >&2
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo 'Usage: sh tools/test_mpwall1_occupancy.sh <original-data-directory> [great-wall-presentation]' >&2
     exit 2
 fi
+great_wall_mode=${2:-auto}
+case "$great_wall_mode" in
+    auto|historical|preview-ruined|preview-earthen|preview-stone) ;;
+    *) echo 'Great Wall presentation must be auto, historical, preview-ruined, preview-earthen or preview-stone.' >&2; exit 2 ;;
+esac
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 python3 - "$1" <<'PY'
 import hashlib, pathlib, sys
@@ -30,4 +35,4 @@ print('These saved source points remain protected; no original terrain-flag/edit
 PY
 # Share the existing Release build, exact-name containment, complete preflight
 # and fresh private settings/save/recovery root. Failed preflight launches no app.
-exec sh "$repo_dir/tools/test_resgate_maps.sh" "$1" MPWall1
+exec sh "$repo_dir/tools/test_resgate_maps.sh" "$1" MPWall1 "$great_wall_mode"

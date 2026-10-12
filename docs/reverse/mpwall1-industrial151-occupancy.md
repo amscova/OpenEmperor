@@ -189,3 +189,45 @@ sh tools/test_resgate_maps.sh .local/gog-extracted/app MPWall1_S
 It reports the existing outside-map error above. The full source diagnosis identifies ID101; the primary MPWall1 starter succeeds. Missing/wrong-revision inputs fail before native startup.
 
 The uninstrumented native MPWall1 App is separately opened for user testing. This is launch evidence; technical scripted gameplay/save acceptance above is separate from human native-input/graphics acceptance. **UNRESOLVED:** unevidenced151 states, original edit/landscape lifecycle, the remaining32 refused maps (including MPWall1_S and MP42), whole-corpus gameplay/rendering, complete composition and human acceptance. Stop after151 and the measured corpus effect.
+
+## Great Wall gate placeholders (2026-10-12)
+
+The reported MPWall1 screenshot is reproduced by the current Automatic
+presentation at the central Great Wall gate. Three source Gate components,
+IDs27/28/29, cover12 cells at storage origins(90,118)/(88,121)/(90,121).
+Their historical saved images resolve to present Earthen archive physical
+records229/231/230, Type1,51x51,size0. The map renderer does not support this
+layout, so it draws the existing flat diagnostics. These are supported
+source/occupancy records with unsupported historical image layouts; the
+Type151 occupancy change did not add these gaps.
+
+The existing explicit Earthen selector prepares all53 Great Wall components
+and740 claimed cells, including these three gates. A centered direct
+production software-render comparison reproduces the screenshot's gap in
+Auto and shows the complete gate in `preview-earthen`:12 versus0 visible
+diagnostic cells. Ruined preview also prepares53 components and has0
+diagnostic cells in this view. This is direct rendering evidence, separate
+from native human acceptance and verified original restore context. The
+other40 historical diagnostics elsewhere on the map remain unresolved.
+
+To test the complete Earthen preview through the ordinary sandbox menu:
+
+```sh
+sh tools/test_mpwall1_occupancy.sh .local/gog-extracted/app preview-earthen
+```
+
+Choose **New Sandbox**, then **Start Sandbox**. The setup's Great Wall choice
+is `preview-earthen`; it can also be selected there with the existing G
+control. The complete sandbox-rule preflight remains unchanged. An explicit
+choice receives a separate production headless render check and is passed
+to the fresh private native menu session. Omitting it retains `auto`.
+Unknown choices fail before build or launch. No renderer, source admission,
+World, save, road, material inference or default presentation rule changes.
+Automatic's Type1 historical fallback and original restore context remain
+open.
+
+The exact preview starter was executed: current Release build, complete
+rule4 sandbox check, selected-presentation render check and a fresh native
+menu launch all passed. Seven existing Great Wall/scene/texture cases,
+four invalid-argument checks, shell syntax and `git diff --check` passed.
+Native launch is not human gameplay or visual acceptance.
