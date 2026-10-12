@@ -179,6 +179,19 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
             entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
             return OriginalOccupancy::MarkerOrigin;
         break;
+    case 173:
+        // Independently evidenced indexed invasion points:404d06 writes
+        // signed c5cda4/c5cdc4 pairs;403f5a lookup and53e5de undo use them.
+        // The qualified source builder has zero owner dimensions;52f256
+        // skips physical restore. Protect each observed Base3/4 origin,
+        // without importing slots, invasion/NPC behavior or a region.
+        // See docs/reverse/sa-qufu-industrial173-occupancy.md.
+        if (entity.status==3 && entity.subindex==0 &&
+            (entity.provenance.base_schema==3 || entity.provenance.base_schema==4) &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
     default: break;
     }
     return OriginalOccupancy::Unsupported;
