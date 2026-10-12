@@ -452,7 +452,8 @@ void industrial186_origin() {
   auto mutate=[&](auto edit,const char* message){auto bad=f;edit(bad.entities.records[0]);rejects([&]{prepare(bad);},message);};
   mutate([](auto& source){source.provenance.base_schema=3;},"type186 zero-side Base3 has no evidence");
   mutate([](auto& source){source.footprint_side=17;},"type186 invalid side must not become a marker");
-  for(int unknown:{151,173,176,187,188})
+  mutate([](auto& source){source.type=151;source.provenance.extended_schema=2;},"unevidenced type151 state remains unsupported");
+  for(int unknown:{173,176,187,188})
    mutate([unknown](auto& source){source.type=std::int16_t(unknown);},"unrelated unknown type remains unsupported");
   auto duplicate=f;auto second=e;second.manager_index=1;duplicate.entities.records.push_back(second);
   rejects([&]{prepare(duplicate);},"type186 duplicate original ID rejected");
@@ -464,6 +465,35 @@ void industrial186_origin() {
   check(prepare(marker)->canonical_state()==prepare(f)->canonical_state(),"type186 retains existing allowed distinct-marker overlap");
   auto unknown=marker;unknown.entities.records[1].provenance.extended_schema=2;unknown.entities.records[1].type=186;
   rejects([&]{prepare(unknown);},"valid marker prefix cannot hide conflicting unevidenced type186 state");
+ }
+}
+void industrial151_origin() {
+ // Authored MPWall1-like state. No original bytes, coordinates or admission
+ // oracle: the literal contract is one protected source, not a terrain-flag edit.
+ Fixture f;auto e=f.source(start);e.entity_class=maps::OriginalEntityClass::Industrial;
+ e.type=151;e.footprint_side=0;e.subindex=0;e.provenance.base_schema=4;
+ e.provenance.wrapper_schema=e.provenance.extended_schema=1;f.entities.records.push_back(e);
+ f.map.terrain_raw.values[raw(start)]=0x02000080;f.plan.height_bytes[raw(start)]=0;f.map.objects_raw.values[raw(start)]=8;
+ mp34_origin_contract(f,0); // Same established origin/bounds/conflict contract.
+ for(unsigned policy:{1U,2U}) {
+  auto prepare=[&](const Fixture& input) {
+   return maps::make_sandbox_map_permissions(input.map,input.plan,input.geometry,input.legacy,input.entities,policy);
+  };
+  auto mutate=[&](auto edit,const char* message){auto bad=f;edit(bad.entities.records[0]);rejects([&]{prepare(bad);},message);};
+  mutate([](auto& source){source.provenance.base_schema=3;},"type151 zero-side Base3 has no evidence");
+  mutate([](auto& source){source.footprint_side=17;},"type151 invalid side must not become a marker");
+  for(int unknown:{149,173,176,187,188})
+   mutate([unknown](auto& source){source.type=std::int16_t(unknown);},"unrelated unknown type remains unsupported");
+  auto duplicate=f;auto second=e;second.manager_index=1;duplicate.entities.records.push_back(second);
+  rejects([&]{prepare(duplicate);},"type151 duplicate original ID rejected");
+  second.original_id=maps::OriginalEntityId{8};second.serialized_original_id=8;second.manager_index=e.manager_index;
+  duplicate.entities.records[1]=second;
+  rejects([&]{prepare(duplicate);},"type151 duplicate manager index rejected");
+  auto marker=f;auto other=e;other.type=185;other.manager_index=1;other.original_id=maps::OriginalEntityId{8};other.serialized_original_id=8;
+  marker.entities.records.push_back(other);
+  check(prepare(marker)->canonical_state()==prepare(f)->canonical_state(),"type151 retains existing allowed distinct-marker overlap");
+  auto unknown=marker;unknown.entities.records[1].provenance.extended_schema=2;unknown.entities.records[1].type=151;
+  rejects([&]{prepare(unknown);},"valid marker prefix cannot hide conflicting unevidenced type151 state");
  }
 }
 void invalid_sources(){Fixture f;f.gate(0);auto mutate=[&](auto edit,const char* msg){auto bad=f;edit(bad);rejects([&]{bad.make();},msg);};mutate([](auto&b){b.map.terrain_raw.values[raw({104,112})]&=~8U;},"partial gate claims rejected");mutate([](auto&b){++b.entities.records[0].serialized_cell_reference;},"reference mismatch rejected");mutate([](auto&b){b.entities.records[0].gate_house->layout=2;},"unknown layout rejected");mutate([](auto&b){b.entities.records[0].provenance.class_wrapper_schema=3;},"unknown gate wrapper rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,111})]=0;},"unequal corridor heights rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,109})]=0;},"unequal opening height rejected");mutate([](auto&b){auto e=b.source({102,111},8,1);b.entities.records.push_back(e);},"overlapping original structure rejected");mutate([](auto&b){b.entities.manager_schema=0;},"unknown full manager schema rejected");mutate([](auto&b){b.plan.height_bytes.pop_back();},"truncated heights rejected");rejects([&]{maps::make_sandbox_map_permissions(f.map,f.plan,f.geometry,f.legacy,f.entities,3);},"unknown map policy rejected");Fixture h;h.plan.height_bytes[raw(start)]=128;h.plan.height_bytes[raw({101,110})]=127;auto p=h.make();check(p->cell_height({100,110})==-128&&p->cell_height({101,110})==127&&p->transport_edge_blocker({100,110},{101,110})==simulation::BuildBlocker::UnsupportedHeightTransition,"signed byte extremes do not create steep edges");}
@@ -491,4 +521,4 @@ void standalone_reader(){
 }
 void legacy_contract(){Fixture f;maps::StoredCell c;c.storage=start;c.cell_index=raw(start);c.terrain_raw=0x80;c.objects_raw=0;c.footprint_index=0;c.status=maps::StoredStatus::Rendered;f.plan.cells.push_back(c);maps::PlacedFootprint fp;fp.origin=start;fp.width_cells=fp.height_cells=1;fp.status=maps::StoredStatus::Rendered;f.plan.footprints.push_back(fp);check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==1,"legacy successful1x1 rendered fixture");f.plan.cells[0].status=maps::StoredStatus::DecodeFailed;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy decode dependence remains exact");f.plan.cells[0].status=maps::StoredStatus::Rendered;f.plan.footprints[0].width_cells=2;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy footprint dependence remains exact");}
 }
-int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else throw std::invalid_argument("Unknown focused occupancy test");}else{industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else if(type=="151")industrial151_origin();else throw std::invalid_argument("Unknown focused occupancy test");}else{industrial151_origin();industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

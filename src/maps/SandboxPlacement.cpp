@@ -167,6 +167,18 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
             entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
             return OriginalOccupancy::MarkerOrigin;
         break;
+    case 151:
+        // Independently evidenced terrain-flag editor source: selection4040e2
+        // and brush4b5981 ->4b4c20 toggle02000000 without a positive owner.
+        // Qualified source placement has zero owner dimensions;52f240 skips
+        // physical restore. Separate landscape Pinnacle5x5 uses owner0, never
+        // this source ID. Protect exact observed Base4 origins, without edits.
+        // See docs/reverse/mpwall1-industrial151-occupancy.md.
+        if (entity.status==3 && entity.subindex==0 && entity.provenance.base_schema==4 &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
     default: break;
     }
     return OriginalOccupancy::Unsupported;
