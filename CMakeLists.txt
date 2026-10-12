@@ -701,6 +701,12 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-stored-graphics-tests)
     add_test(NAME stored-graphics-map-preview COMMAND openemperor-stored-graphics-tests)
     set_tests_properties(stored-graphics-map-preview PROPERTIES TIMEOUT 30)
+    add_executable(openemperor-stored-shore-graphics-tests tests/StoredShoreGraphicsTests.cpp
+        src/renderer/StoredGraphicsRenderer.cpp)
+    target_link_libraries(openemperor-stored-shore-graphics-tests PRIVATE openemperor-maps SDL3::SDL3)
+    openemperor_enable_warnings(openemperor-stored-shore-graphics-tests)
+    add_test(NAME stored-shore-landing-visuals COMMAND openemperor-stored-shore-graphics-tests)
+    set_tests_properties(stored-shore-landing-visuals PROPERTIES TIMEOUT 30)
     add_executable(openemperor-ordinary-wall-gate-tests tests/OrdinaryWallGatePresentationTests.cpp
         src/renderer/StoredGraphicsRenderer.cpp)
     target_link_libraries(openemperor-ordinary-wall-gate-tests PRIVATE openemperor-maps SDL3::SDL3)

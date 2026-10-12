@@ -28,6 +28,8 @@ print('MP34: City-v16 rule 4 / policy 2 / schema 20; normal menu, Empty City.')
 print('Verified storage origins: type179 (151,118), (133,156), (129,151), (127,142), (163,127).')
 print('Type164 (110,50), (113,52), (77,146). These saved points remain protected.')
 print('Terrain and neighboring permissions are checked independently; no original fishing/tree function is imported.')
+print('Historical shore landing bodies: Ferry210 origins (118,150), (118,164), (160,101), (159,107).')
+print('The former brown 2x2 areas now show the saved land-side artwork; separate wooden piers remain in place.')
 PY
 # Share the existing build, contained-name check, full preflight and private root.
 exec sh "$repo_dir/tools/test_resgate_maps.sh" "$1" MP34

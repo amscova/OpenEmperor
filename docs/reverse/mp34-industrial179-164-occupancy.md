@@ -1,5 +1,7 @@
 # MP34: bounded Industrial179/164 occupancy support
 
+The later [MP34 shore landing visual pass](../rendering/mp34-shore-landing-visuals.md) resolves the four evidenced saved land-side Ferry images while preserving their independent existing wooden piers. It changes only historical presentation; all occupancy, policy/fingerprint, World and save contracts below remain unchanged. It adds no Ferry or water-transport simulation.
+
 This pass starts at clean HEAD **`5803db65cf3702ef4759d6a8b112d3115b8745c6`**. It addresses only independently evidenced saved Industrial179 and Industrial164 occupancy. City-v16 **rule4 / MapPermissions policy2 / save schema20**, policy1 and older versions remain unchanged, without migration. No original fishing, resource brush, NPC, spawn, production or transit function is imported. Parser, terrain, original roads, gates/walls/Tower presentation, historical saved-General presentation, World/economy, renderer/input and save/recovery retain their existing authority. No commit or publication is performed.
 
 **Validation status: bounded MP34 support complete.** The complete before/after corpus comparison, normal MP34 menu start, paid delivery, persistence/restart and full Debug/Release/ASan+UBSan matrices pass:435/435 registered tests, plus all three direct excluded Xia controls with14/14 full SaveDocuments and complete main facts byte-identical to the prior fixture. Human gameplay/graphics and unevidenced original states remain separately open.

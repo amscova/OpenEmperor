@@ -18,6 +18,8 @@ Only current limitations and outstanding acceptance checks are listed here.
 
 - **Landscape and scene fidelity:** original first-draw occupancy/anchors, height normalization, historical-overlay eligibility and complete elevation/landscape reproduction remain unresolved. Whole-image sorting is approximate for interpenetrating artwork requiring separate front/back components. See [map fidelity](docs/reverse/map-first-draw.md) and [scene composition](docs/rendering/scene-composition.md).
 
+- **Shore-landing limits:** the supported land-side bodies use saved historical General group0x48c variants0/2 with complete canonical 2x2 geometry; existing independent piers remain separate. Other variants/families/states, original Ferry placement/restore/lifecycle and ship/water transport are unresolved or unsupported. Historical artwork is not original Ferry simulation or first-draw parity. Human/native visual acceptance remains open. See [bounded shore landing scope](docs/rendering/mp34-shore-landing-visuals.md).
+
 - **Original visual identities and building states:** building/walker profession mappings, House-stage identity, animation timing and pivots are not fully verified. Original one-cell Well/HealthPost identities for legacy profiles remain unresolved. Original building animation and evolving Wells remain unsupported. See [building visuals](docs/building-visual-profile.md), [presentation research](docs/reverse/original-presentation-correction.md) and [walker profiles](docs/walker-visual-profile.md).
 
 - **SG3 mirror-reference decoding:** original mirror-reference records cannot be decoded directly. See [walker format limits](docs/walker-visual-profile.md).

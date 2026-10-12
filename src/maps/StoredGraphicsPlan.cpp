@@ -7,6 +7,7 @@
 #include <array>
 #include <deque>
 #include <set>
+#include <span>
 #include <stdexcept>
 #include <tuple>
 
@@ -72,11 +73,14 @@ void set_status(StoredGraphicsPlan& plan, std::size_t member, StoredStatus statu
     plan.status_by_storage[plan.cells[member].cell_index]=status;
 }
 
-void place_edge_byte_footprints(StoredGraphicsPlan& plan) {
+void place_edge_byte_footprints(StoredGraphicsPlan& plan,
+                                std::span<const std::size_t> selected={}) {
     using Key = std::tuple<std::uint32_t,std::uint32_t,std::uint32_t,std::uint32_t,std::size_t>;
     std::map<Key,std::vector<std::size_t>> groups;
     const bool extended=plan.footprint_policy==FootprintPolicy::EdgeByte4x4Preview;
-    for (std::size_t i=0;i<plan.cells.size();++i) {
+    const auto count=selected.empty() ? plan.cells.size():selected.size();
+    for (std::size_t candidate=0;candidate<count;++candidate) {
+        const auto i=selected.empty() ? candidate:selected[candidate];
         auto& cell=plan.cells[i];
         if (cell.status!=StoredStatus::MultiTilePlacementUnverified || !cell.asset_index) continue;
         const auto& record=plan.assets[*cell.asset_index].record;
@@ -380,6 +384,81 @@ void resolve_optional_stored_singletons(StoredGraphicsPlan& plan,
         plan.status_by_storage[cell.cell_index]=cell.status;
         plan.footprints.push_back(std::move(footprint));
         diagnostic.asset_index=pooled->second;diagnostic.fallback.clear();
+    }
+}
+
+void resolve_optional_stored_shore_footprints(StoredGraphicsPlan& plan,
+    const StoredArchiveRegistrations& registrations) {
+    if (plan.footprint_policy!=FootprintPolicy::EdgeBytePreview &&
+        plan.footprint_policy!=FootprintPolicy::EdgeByte4x4Preview) return;
+    const auto found=registrations.find(2U);
+    if (found==registrations.end() || !found->second.layout || !found->second.catalog) return;
+    const auto& registration=found->second;
+    const std::map<std::uint32_t,GraphicsArchiveRegistration> images{{2U,{
+        &*registration.catalog,&*registration.layout,registration.archive_missing}}};
+    using Key=std::pair<std::string,std::uint32_t>;
+    std::map<Key,std::size_t> pool;
+    for (std::size_t i=0;i<plan.assets.size();++i)
+        pool.emplace(Key{plan.assets[i].record.id.archive_relative_path.generic_string(),
+            plan.assets[i].record.id.image_index},i);
+    std::vector<std::size_t> selected;
+    for (auto& [index,diagnostic]:plan.optional_saved_graphics) {
+        auto& cell=plan.cells.at(index);
+        if (cell.footprint_index || cell.slot!=2U || cell.lookup_status!=GraphicsIdStatus::UnregisteredSlot ||
+            diagnostic.status!=GraphicsIdStatus::DecodeCandidate || diagnostic.group_key!=0x48cU ||
+            !diagnostic.group_local_begin || !diagnostic.group_local_end) continue;
+        const auto resolved=resolve_graphics_id_hypothesis(cell.stored_id,images);
+        if (resolved.status!=GraphicsIdStatus::DecodeCandidate || !resolved.record) continue;
+        const auto& record=*resolved.record;
+        if (record.width<=78) continue; // Never rewrite an independent singleton refusal.
+        diagnostic.fallback="optional saved shore requires the complete eight-variant group0x48c";
+        if (*diagnostic.group_local_end<*diagnostic.group_local_begin ||
+            *diagnostic.group_local_end-*diagnostic.group_local_begin!=8U ||
+            cell.local_index<*diagnostic.group_local_begin || cell.local_index>=*diagnostic.group_local_end) continue;
+        const auto variant=cell.local_index-*diagnostic.group_local_begin;
+        // These two saved choices and canonical 2x2 part sets are independently
+        // evidenced. Other directions/states retain the named singleton refusal.
+        // A saved picture selects art; it creates no Ferry object or claim.
+        diagnostic.fallback="optional saved shore supports only saved variants0/2 and canonical on-map 2x2 parts";
+        if ((variant!=0U && variant!=2U) || cell.offmap_bit ||
+            (cell.candidate_byte!=0U && cell.candidate_byte!=1U &&
+             cell.candidate_byte!=72U && cell.candidate_byte!=9U)) continue;
+        diagnostic.fallback="optional saved shore requires static unmirrored side-two Type-30 geometry";
+        if (!square_geometry(record,2U) || record.animation_sprites!=0) continue;
+        const Key key{record.id.archive_relative_path.generic_string(),record.id.image_index};
+        auto pooled=pool.find(key);
+        if (pooled==pool.end()) {
+            if (plan.assets.size()>=stored_max_assets) {
+                diagnostic.fallback="optional saved shore asset budget unavailable";continue;
+            }
+            const auto asset=plan.assets.size();
+            plan.assets.push_back({record,StoredStatus::DecodePending,false,false,{},true});
+            pooled=pool.emplace(key,asset).first;
+        } else if (plan.assets[pooled->second].status!=StoredStatus::DecodePending &&
+                   plan.assets[pooled->second].status!=StoredStatus::Rendered) {
+            diagnostic.fallback="shared shore asset unavailable";continue;
+        }
+        cell.asset_index=pooled->second;cell.physical_record=resolved.physical_record_index;
+        cell.lookup_status=resolved.status;cell.system_record_skip=registration.layout->system_record_skip;
+        cell.record_present=true;cell.source_ranges_valid=true;
+        set_status(plan,index,StoredStatus::MultiTilePlacementUnverified);
+        selected.push_back(index);
+    }
+    if (selected.empty()) return;
+    const auto first_footprint=plan.footprints.size();
+    // The existing full-group validator preserves origin/part/marker domains,
+    // bounds, conflicts, atomic placement and one instance per complete square.
+    place_edge_byte_footprints(plan,selected);
+    for (std::size_t i=first_footprint;i<plan.footprints.size();++i) {
+        auto& footprint=plan.footprints[i];
+        footprint.presentation_only=true;
+        footprint.rule="optional_saved_general_shore_2x2_preview";
+    }
+    for (const auto index:selected) {
+        const auto& cell=plan.cells[index];auto& diagnostic=plan.optional_saved_graphics.at(index);
+        if (cell.footprint_index) {
+            diagnostic.asset_index=cell.asset_index;diagnostic.fallback.clear();
+        } else diagnostic.fallback=stored_status_name(cell.status);
     }
 }
 

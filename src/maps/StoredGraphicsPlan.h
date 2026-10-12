@@ -163,6 +163,10 @@ void add_regenerated_wall_registration(const StoredGraphicsPlan& plan,
 // Historical IDs remain the selection authority; no restored entity producer.
 void resolve_optional_stored_singletons(StoredGraphicsPlan& plan,
     const StoredArchiveRegistrations& registrations);
+// Historical General group0x48c variants0/2, static side-two images only.
+// Reuse complete edge-byte placement; independent singleton piers stay intact.
+void resolve_optional_stored_shore_footprints(StoredGraphicsPlan& plan,
+    const StoredArchiveRegistrations& registrations);
 StoredArchiveRegistration load_regenerated_great_wall_registration(
     const std::filesystem::path& root,std::uint32_t slot,const std::filesystem::path& relative);
 StoredGraphicsPlan make_stored_graphics_plan(
