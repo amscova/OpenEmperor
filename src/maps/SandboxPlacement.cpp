@@ -131,6 +131,30 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
             entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
             return OriginalOccupancy::MarkerOrigin;
         break;
+    case 179:
+        // Independently evidenced indexed fishing points: editor404ddd writes
+        // signed c5cd60/c5cd70 pairs; lookup403f79 and undo53e5f0 use those
+        // same pairs. Filter52f25c skips physical restore. Only the observed
+        // Base4 saved state is admitted, after unchanged positive squares.
+        // Protect every saved origin; do not replay original fishing slots.
+        if (entity.status==3 && entity.subindex==0 && entity.provenance.base_schema==4 &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
+    case 164:
+        // Independently evidenced terrain-editor state: explicit164 branch
+        // 4b5896 ->4b5a80 ->4b4860 writes one terrain/resource cell, not an
+        // owner rectangle. A brush/refresh region is not a saved footprint;
+        // filter52f24d skips physical restore. Protect only each complete
+        // saved origin in observed Base3/4 states, without importing the edit.
+        // See docs/reverse/mp34-industrial179-164-occupancy.md for both proofs.
+        if (entity.status==3 && entity.subindex==0 &&
+            (entity.provenance.base_schema==3 || entity.provenance.base_schema==4) &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
     default: break;
     }
     return OriginalOccupancy::Unsupported;

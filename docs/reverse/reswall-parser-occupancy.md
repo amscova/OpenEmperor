@@ -1,5 +1,7 @@
 # cResWall: bounded parser and original occupancy (2026-10-11)
 
+The later [bounded MP34 Industrial179/164 pass](mp34-industrial179-164-occupancy.md) resolves the admitted saved point-source states after independent evidence for each type. MP34 now passes complete policy preparation and normal rule4/policy2 Empty City start. The current corpus prepares130/167 policies; the historical counts and Industrial refusal statements below retain their original scope. ResWall/ResGate parsing, physical protection, presentation limits and absence of a new ResGate passage are unchanged.
+
 The later [MP56 presentation fix](../rendering/mp56-original-structure-fallbacks.md)
 resolves missing historical General singletons, including MP56's eight type90
 saved images. It does not change this parser/occupancy proof or establish a
