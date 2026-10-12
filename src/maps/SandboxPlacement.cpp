@@ -155,6 +155,18 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
             entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
             return OriginalOccupancy::MarkerOrigin;
         break;
+    case 186:
+        // Independently evidenced Copper-Rock editor source: selection40466f
+        // uses821e68; explicit brush4b58cf ->4b48e0 edits one terrain cell.
+        // The qualified saved-source path has zero owner dimensions, and
+        // filter52f263 skips physical restore. Protect only each exact saved
+        // origin in the observed Base4 state; never replay the brush/resource.
+        // See docs/reverse/mp48-industrial186-occupancy.md.
+        if (entity.status==3 && entity.subindex==0 && entity.provenance.base_schema==4 &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
     default: break;
     }
     return OriginalOccupancy::Unsupported;

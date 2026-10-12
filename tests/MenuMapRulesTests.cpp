@@ -66,7 +66,7 @@ Bytes sg3(bool tile) {
     }
     return bytes;
 }
-enum class Manager { Empty, UnknownClass, Truncated, ResWall, ResWallUnknownOccupancy, ResWallTruncated, ResGate, ResGateUnknownOccupancy, ResGateTruncated, River, RiverUnknownOccupancy, RiverTruncated, EditorPoints, EditorPointsUnknownOccupancy, EditorPointsTruncated };
+enum class Manager { Empty, UnknownClass, Truncated, ResWall, ResWallUnknownOccupancy, ResWallTruncated, ResGate, ResGateUnknownOccupancy, ResGateTruncated, River, RiverUnknownOccupancy, RiverTruncated, EditorPoints, EditorPointsUnknownOccupancy, EditorPointsTruncated, CopperPoints, CopperPointsUnknownOccupancy, CopperPointsTruncated };
 Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0) {
     using namespace openemperor::maps;
     const std::string unknown_class="cUnauditedBuilding";
@@ -85,7 +85,8 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0) {
         manager==Manager::ResWallTruncated || manager==Manager::ResGate ||
         manager==Manager::ResGateUnknownOccupancy || manager==Manager::ResGateTruncated ||
         manager==Manager::River || manager==Manager::RiverUnknownOccupancy || manager==Manager::RiverTruncated ||
-        manager==Manager::EditorPoints || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::EditorPointsTruncated) {
+        manager==Manager::EditorPoints || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::EditorPointsTruncated ||
+        manager==Manager::CopperPoints || manager==Manager::CopperPointsUnknownOccupancy || manager==Manager::CopperPointsTruncated) {
         // Authored schema-4 Building + parent1 + fixed 128-byte NonHouseInfo
         // + the selected exact ResWall1/ResGate1 wrapper. The following
         // Unsupported status2 variants of Industrial179/164 remain negative
@@ -93,7 +94,8 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0) {
         raw.resize(manager_at+6);
         const bool river=manager==Manager::River || manager==Manager::RiverUnknownOccupancy || manager==Manager::RiverTruncated;
         const bool editor=manager==Manager::EditorPoints || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::EditorPointsTruncated;
-        u32(raw,manager_at+2,(river || editor) ? ((manager==Manager::RiverUnknownOccupancy || manager==Manager::EditorPointsUnknownOccupancy) ? 3:2):
+        const bool copper=manager==Manager::CopperPoints || manager==Manager::CopperPointsUnknownOccupancy || manager==Manager::CopperPointsTruncated;
+        u32(raw,manager_at+2,(river || editor || copper) ? ((manager==Manager::RiverUnknownOccupancy || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::CopperPointsUnknownOccupancy) ? 3:2):
             (manager==Manager::ResWallUnknownOccupancy || manager==Manager::ResGateUnknownOccupancy) ? 2:1);
         const auto append=[&](const std::string& name,unsigned type,unsigned side,unsigned id,int x,std::uint8_t status=3) {
             const auto tag=raw.size();raw.resize(tag+6+name.size());
@@ -108,12 +110,14 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0) {
         };
         const bool resgate=manager==Manager::ResGate || manager==Manager::ResGateUnknownOccupancy || manager==Manager::ResGateTruncated;
         if (river) {append("cIndustrialBldg",177,0,7,28);append("cIndustrialBldg",178,0,8,30);}
+        else if(copper) {append("cIndustrialBldg",186,0,7,28);append("cIndustrialBldg",186,0,8,30);}
         else if(editor) {append("cIndustrialBldg",179,0,7,28);append("cIndustrialBldg",164,0,8,30);}
         else append(resgate ? "cResGate":"cResWall",resgate ? 105:231,1,7,28);
         if (manager==Manager::ResWallUnknownOccupancy || manager==Manager::ResGateUnknownOccupancy) append("cIndustrialBldg",179,0,8,30,2);
         if (manager==Manager::RiverUnknownOccupancy) append("cIndustrialBldg",164,0,9,32,2);
+        if (manager==Manager::CopperPointsUnknownOccupancy) append("cIndustrialBldg",186,0,9,32,2);
         if (manager==Manager::EditorPointsUnknownOccupancy) append("cIndustrialBldg",188,0,9,32);
-        if (manager==Manager::ResWallTruncated || manager==Manager::ResGateTruncated || manager==Manager::RiverTruncated || manager==Manager::EditorPointsTruncated) raw.pop_back();
+        if (manager==Manager::ResWallTruncated || manager==Manager::ResGateTruncated || manager==Manager::RiverTruncated || manager==Manager::EditorPointsTruncated || manager==Manager::CopperPointsTruncated) raw.pop_back();
     }
     const std::array<std::uint8_t,8> signature{5,0,0xfe,0xca,0,0,2,0};
     std::copy(signature.begin(),signature.end(),raw.begin());u32(raw,84,84);
@@ -456,11 +460,11 @@ void resgate_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* render
           "Resume or rejected ResGate selection changed city or persistent files");
     menu.shutdown();check(textures()==0,"ResGate menu test leaked textures");
 }
-void point_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* renderer,bool editor) {
-    write(temp.root/"data-one/Cities/D.map",map_file(editor ? Manager::EditorPoints:Manager::River));
-    write(temp.root/"data-one/Cities/E.map",map_file(editor ? Manager::EditorPointsUnknownOccupancy:Manager::RiverUnknownOccupancy));
-    write(temp.root/"data-one/Cities/F.map",map_file(editor ? Manager::EditorPointsTruncated:Manager::RiverTruncated));
-    const auto app=temp.app(editor ? "editor-points":"river");
+void point_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* renderer,bool editor,bool copper=false) {
+    write(temp.root/"data-one/Cities/D.map",map_file(copper ? Manager::CopperPoints:editor ? Manager::EditorPoints:Manager::River));
+    write(temp.root/"data-one/Cities/E.map",map_file(copper ? Manager::CopperPointsUnknownOccupancy:editor ? Manager::EditorPointsUnknownOccupancy:Manager::RiverUnknownOccupancy));
+    write(temp.root/"data-one/Cities/F.map",map_file(copper ? Manager::CopperPointsTruncated:editor ? Manager::EditorPointsTruncated:Manager::RiverTruncated));
+    const auto app=temp.app(copper ? "copper-points":editor ? "editor-points":"river");
     auto settings=openemperor::menu::read_settings(app).value;
     settings.last_map="Cities/D.map";openemperor::menu::write_settings(app,settings);
     Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
@@ -474,7 +478,7 @@ void point_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* renderer
     const auto snapshot=retained->world().snapshot();const auto policy=retained->world().map_permissions();
     const auto persisted=files(app);
     key(menu,SDLK_ESCAPE);key(menu,SDLK_N);accept(menu);key(menu,SDLK_DOWN);accept(menu,Status::UnsupportedForRules);
-    check(menu.map_rules_result().detail.find(editor ? "type 188":"type 164")!=std::string::npos && !menu.map_rules_can_start(),
+    check(menu.map_rules_result().detail.find(copper ? "type 186":editor ? "type 188":"type 164")!=std::string::npos && !menu.map_rules_can_start(),
           "valid river markers must not hide a later unknown source");
     key(menu,SDLK_RETURN);
     check(menu.state()==Menu::State::NewSandbox && menu.sandbox()==retained &&
@@ -504,6 +508,7 @@ int main() {
         resgate_atomic_preflight(temp,window,renderer);
         point_atomic_preflight(temp,window,renderer,false);
         point_atomic_preflight(temp,window,renderer,true);
+        point_atomic_preflight(temp,window,renderer,false,true);
         check(textures()==0,"map selection tests left prepared textures alive");
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
         std::cout<<"production menu map-rules selection, concurrency, purity, input, retry and Resume checks passed\n";
