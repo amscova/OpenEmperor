@@ -192,6 +192,72 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
             entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
             return OriginalOccupancy::MarkerOrigin;
         break;
+    case 187:
+        // Independently evidenced Silver-Rock terrain cell:4b58e8→4b48e0.
+        // Qualified Industrial source construction forwards zero owner
+        // dimensions; exact52f1d0 selector skips physical restore. Protect
+        // the complete saved origin only, never replay the editor operation.
+        // See docs/reverse/remaining-occupancy-census.md (Type187 evidence).
+        if (entity.status==3 && entity.subindex==0 && entity.provenance.base_schema==4 &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
+    case 189:
+        // Independently evidenced Marsh terrain cell:4b59a1→4b4a20.
+        // Qualified Industrial source construction forwards zero owner
+        // dimensions; exact52f1d0 selector skips physical restore. Protect
+        // the complete saved origin only, never replay the editor operation.
+        // See docs/reverse/remaining-occupancy-census.md (Type189 evidence).
+        if (entity.status==3 && entity.subindex==0 && entity.provenance.base_schema==4 &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
+    case 138:
+        // Independently evidenced Quarry terrain/auxiliary cell:4b592f→4b4bc0.
+        // Qualified Industrial source construction forwards zero owner
+        // dimensions; exact52f1d0 selector skips physical restore. Protect
+        // the complete saved origin only, never replay the editor operation.
+        // See docs/reverse/remaining-occupancy-census.md (Type138 evidence).
+        if (entity.status==3 && entity.subindex==0 && (entity.provenance.base_schema==3 || entity.provenance.base_schema==4) &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
+    case 181:
+        // Independently evidenced Beach terrain/fertility cell:4b59b8→4b4a90.
+        // Qualified Industrial source construction forwards zero owner
+        // dimensions; exact52f1d0 selector skips physical restore. Protect
+        // the complete saved origin only, never replay the editor operation.
+        // See docs/reverse/remaining-occupancy-census.md (Type181 evidence).
+        if (entity.status==3 && entity.subindex==0 && (entity.provenance.base_schema==3 || entity.provenance.base_schema==4) &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
+    case 188:
+        // Independently evidenced Cliff-Rock terrain cell:4b5901→4b4960.
+        // Qualified Industrial source construction forwards zero owner
+        // dimensions; exact52f1d0 selector skips physical restore. Protect
+        // the complete saved origin only, never replay the editor operation.
+        // See docs/reverse/remaining-occupancy-census.md (Type188 evidence).
+        if (entity.status==3 && entity.subindex==0 && (entity.provenance.base_schema==3 || entity.provenance.base_schema==4) &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
+    case 167:
+        // Independently evidenced Scrub terrain cell:4b5918→4b49c0.
+        // Qualified Industrial source construction forwards zero owner
+        // dimensions; exact52f1d0 selector skips physical restore. Protect
+        // the complete saved origin only, never replay the editor operation.
+        // See docs/reverse/remaining-occupancy-census.md (Type167 evidence).
+        if (entity.status==3 && entity.subindex==0 && entity.provenance.base_schema==4 &&
+            entity.provenance.wrapper_schema==1 && entity.provenance.extended_schema==1 &&
+            entity.provenance.class_wrapper_schema==0 && !entity.monument && !entity.gate_house)
+            return OriginalOccupancy::MarkerOrigin;
+        break;
     default: break;
     }
     return OriginalOccupancy::Unsupported;

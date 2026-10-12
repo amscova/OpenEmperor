@@ -295,7 +295,7 @@ void river_marker_origins() {
   for (auto entity_class:{maps::OriginalEntityClass::Building,maps::OriginalEntityClass::Ferry})
    mutate([entity_class](auto& e){e.entity_class=entity_class;},"river type requires exact Industrial class");
   for (int unknown:{176,188})
-   mutate([unknown](auto& e){e.type=std::int16_t(unknown);},"neighboring unknown types remain unsupported");
+   mutate([unknown](auto& e){e.type=std::int16_t(unknown);if(unknown==138||unknown==167||unknown==181||unknown==187||unknown==188||unknown==189)e.provenance.extended_schema=2;},"neighboring unknown types remain unsupported");
   for (int formerly_unknown:{179,164})
    mutate([formerly_unknown](auto& e){e.type=std::int16_t(formerly_unknown);e.provenance.extended_schema=2;},
           "invalid variants of formerly unknown MP34 types remain unsupported");
@@ -399,7 +399,7 @@ void mp34_origin_contract(const Fixture& f,std::int8_t expected_height) {
   second.original_id=maps::OriginalEntityId{8};second.serialized_original_id=8;
   duplicate.entities.records.push_back(second);
   check(prepare(duplicate)->canonical_state()==p->canonical_state(),"distinct MP34 point records retain allowed marker overlap");
-  duplicate.entities.records[1].type=188;
+  duplicate.entities.records[1].type=188;duplicate.entities.records[1].provenance.extended_schema=2;
   rejects([&]{prepare(duplicate);},"valid MP34 prefix cannot publish policy with later unknown source");
   for (bool reverse:{false,true}) {
    auto physical=f;physical.entities.records.push_back(f.source(start,8,1));
@@ -454,7 +454,7 @@ void industrial186_origin() {
   mutate([](auto& source){source.footprint_side=17;},"type186 invalid side must not become a marker");
   mutate([](auto& source){source.type=151;source.provenance.extended_schema=2;},"unevidenced type151 state remains unsupported");
   for(int unknown:{173,176,187,188})
-   mutate([unknown](auto& source){source.type=std::int16_t(unknown);if(unknown==173)source.provenance.extended_schema=2;},"unevidenced original type/state remains unsupported");
+   mutate([unknown](auto& source){source.type=std::int16_t(unknown);if(unknown==138||unknown==167||unknown==181||unknown==187||unknown==188||unknown==189)source.provenance.extended_schema=2;if(unknown==173)source.provenance.extended_schema=2;},"unevidenced original type/state remains unsupported");
   auto duplicate=f;auto second=e;second.manager_index=1;duplicate.entities.records.push_back(second);
   rejects([&]{prepare(duplicate);},"type186 duplicate original ID rejected");
   second.original_id=maps::OriginalEntityId{8};second.serialized_original_id=8;second.manager_index=e.manager_index;
@@ -483,7 +483,7 @@ void industrial151_origin() {
   mutate([](auto& source){source.provenance.base_schema=3;},"type151 zero-side Base3 has no evidence");
   mutate([](auto& source){source.footprint_side=17;},"type151 invalid side must not become a marker");
   for(int unknown:{149,173,176,187,188})
-   mutate([unknown](auto& source){source.type=std::int16_t(unknown);if(unknown==173)source.provenance.extended_schema=2;},"unevidenced original type/state remains unsupported");
+   mutate([unknown](auto& source){source.type=std::int16_t(unknown);if(unknown==138||unknown==167||unknown==181||unknown==187||unknown==188||unknown==189)source.provenance.extended_schema=2;if(unknown==173)source.provenance.extended_schema=2;},"unevidenced original type/state remains unsupported");
   auto duplicate=f;auto second=e;second.manager_index=1;duplicate.entities.records.push_back(second);
   rejects([&]{prepare(duplicate);},"type151 duplicate original ID rejected");
   second.original_id=maps::OriginalEntityId{8};second.serialized_original_id=8;second.manager_index=e.manager_index;
@@ -515,7 +515,7 @@ void industrial173_origin() {
    mutate([](auto& source){source.original_id=maps::OriginalEntityId{0};source.serialized_original_id=0;},"type173 zero original ID rejected");
    mutate([](auto& source){source.original_id=maps::OriginalEntityId{4001};source.serialized_original_id=4001;},"type173 out-of-range original ID rejected");
    for(int unknown:{149,167,176,181,187,188})
-    mutate([unknown](auto& source){source.type=std::int16_t(unknown);},"unrelated unknown type remains unsupported");
+    mutate([unknown](auto& source){source.type=std::int16_t(unknown);if(unknown==138||unknown==167||unknown==181||unknown==187||unknown==188||unknown==189)source.provenance.extended_schema=2;},"unrelated unknown type remains unsupported");
    auto duplicate=f;auto second=f.entities.records[0];second.manager_index=1;
    duplicate.entities.records.push_back(second);
    rejects([&]{prepare(duplicate);},"type173 duplicate original ID rejected");
@@ -525,6 +525,36 @@ void industrial173_origin() {
    auto marked=f;marked.map.terrain_raw.values[raw(start)]=0xc0;marked.map.objects_raw.values[raw(start)]=1;
    check(prepare(marked)->protected_original({100,110}) && !prepare(marked)->original_road({100,110}),
          "saved invasion point is protected independently of Road and Objects bits");
+  }
+ }
+}
+void remaining_editor_origin(int type,std::initializer_list<std::uint16_t> bases) {
+ // Independently authored source states and literal singleton expectations.
+ // No original bytes or terrain-brush replay; test both complete policies.
+ Fixture f;auto e=f.source(start);e.entity_class=maps::OriginalEntityClass::Industrial;
+ e.type=std::int16_t(type);e.footprint_side=0;e.subindex=0;
+ e.provenance.wrapper_schema=e.provenance.extended_schema=1;
+ f.entities.records.push_back(e);f.plan.height_bytes[raw(start)]=255;
+ for(auto base:bases) {
+  f.entities.records[0].provenance.base_schema=base;
+  mp34_origin_contract(f,-1);
+  for(unsigned policy:{1U,2U}) {
+   auto prepare=[&](const Fixture& input){return maps::make_sandbox_map_permissions(
+       input.map,input.plan,input.geometry,input.legacy,input.entities,policy);};
+   auto mutate=[&](auto edit,const char* reason){auto bad=f;edit(bad.entities.records[0]);rejects([&]{prepare(bad);},reason);};
+   if(bases.size()==1)mutate([](auto& source){source.provenance.base_schema=3;},"unevidenced Base3 source refused");
+   mutate([](auto& source){source.type=149;},"unrelated zero-side type remains unsupported");
+   mutate([](auto& source){source.footprint_side=17;},"invalid source side cannot become marker");
+   mutate([](auto& source){source.original_id=maps::OriginalEntityId{0};source.serialized_original_id=0;},"zero original ID refused");
+   mutate([](auto& source){source.original_id=maps::OriginalEntityId{4001};source.serialized_original_id=4001;},"unbounded original ID refused");
+   auto duplicate=f;auto second=f.entities.records[0];second.manager_index=1;
+   duplicate.entities.records.push_back(second);rejects([&]{prepare(duplicate);},"duplicate source identity refused");
+   second.original_id=maps::OriginalEntityId{8};second.serialized_original_id=8;second.manager_index=f.entities.records[0].manager_index;
+   duplicate.entities.records[1]=second;rejects([&]{prepare(duplicate);},"duplicate manager index refused");
+   auto inactive=f;inactive.entities.records[0].status=0;
+   inactive.entities.records[0].local_x=inactive.entities.records[0].local_y=-1;
+   auto empty=f;empty.entities.records.clear();
+   check(prepare(inactive)->canonical_state()==prepare(empty)->canonical_state(),"inactive source changes no permission");
   }
  }
 }
@@ -553,4 +583,4 @@ void standalone_reader(){
 }
 void legacy_contract(){Fixture f;maps::StoredCell c;c.storage=start;c.cell_index=raw(start);c.terrain_raw=0x80;c.objects_raw=0;c.footprint_index=0;c.status=maps::StoredStatus::Rendered;f.plan.cells.push_back(c);maps::PlacedFootprint fp;fp.origin=start;fp.width_cells=fp.height_cells=1;fp.status=maps::StoredStatus::Rendered;f.plan.footprints.push_back(fp);check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==1,"legacy successful1x1 rendered fixture");f.plan.cells[0].status=maps::StoredStatus::DecodeFailed;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy decode dependence remains exact");f.plan.cells[0].status=maps::StoredStatus::Rendered;f.plan.footprints[0].width_cells=2;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy footprint dependence remains exact");}
 }
-int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else if(type=="151")industrial151_origin();else if(type=="173")industrial173_origin();else throw std::invalid_argument("Unknown focused occupancy test");}else{industrial173_origin();industrial151_origin();industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else if(type=="151")industrial151_origin();else if(type=="173")industrial173_origin();else if(type=="187")remaining_editor_origin(187,{4});else if(type=="189")remaining_editor_origin(189,{4});else if(type=="138")remaining_editor_origin(138,{3,4});else if(type=="181")remaining_editor_origin(181,{3,4});else if(type=="188")remaining_editor_origin(188,{3,4});else if(type=="167")remaining_editor_origin(167,{4});else throw std::invalid_argument("Unknown focused occupancy test");}else{remaining_editor_origin(189,{4});remaining_editor_origin(187,{4});industrial173_origin();industrial151_origin();industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

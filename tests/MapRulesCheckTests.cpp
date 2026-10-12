@@ -276,7 +276,7 @@ void resgate_rules() {
 }
 void river_marker_rules() {
     Root root;
-    for (int type:{177,178,179,164,186,151,173}) {
+    for (int type:{177,178,179,164,186,151,173,187,189,138,181,188,167}) {
         auto raw=logical_map(manager("cIndustrialBldg",type,0));
         put32(raw,std::size_t(maps::terrain_logical_offset)+at(100,110)*4,0x04000004);
         write(root.path/"Cities/river.map",compressed_map(raw));

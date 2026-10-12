@@ -37,15 +37,34 @@ cmake -S "$repo_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
     -DOPENEMPEROR_USE_SYSTEM_SDL3=ON
 cmake --build "$build_dir" --parallel 2 --target openemperor
 
-app_data_dir=$(mktemp -d "$repo_dir/.local/resgate/player-XXXXXX")
+app_root_parent=${OPENEMPEROR_TEST_APP_ROOT_PARENT:-"$repo_dir/.local/resgate"}
+python3 - "$repo_dir" "$app_root_parent" "$original_data" <<'PYROOT'
+import pathlib, sys
+repo, parent, data = map(lambda p: pathlib.Path(p).resolve(strict=True), sys.argv[1:])
+try:
+    parent.relative_to(repo / '.local')
+except ValueError:
+    raise SystemExit('Test app root must be inside this repository .local.')
+if parent == data or data in parent.parents or parent in data.parents:
+    raise SystemExit('Test app root must be separate from original data.')
+PYROOT
+app_data_dir=$(mktemp -d "$app_root_parent/player-XXXXXX")
 echo "Checking $map_relative with current City-v16 rule 4 / policy 2."
 echo "Great Wall presentation: $great_wall_mode (session only; previews are not verified original restore)."
 # Reuse the production CLI: complete manager/permissions, assets and the
 # ordinary paid starter are prepared and checked headlessly before any menu.
 # A failed check never launches another map or falls back to legacy rules.
-if "$build_dir/openemperor" --data "$original_data" --sandbox "$map_relative" \
-    --sandbox-rules sandbox-city-v16 --sandbox-check --report-json \
-    > "$app_data_dir/check.json" 2> "$app_data_dir/check.stderr"; then
+preflight_map() {
+    if [ -n "${OPENEMPEROR_TEST_EMPTY_MAP_PREFLIGHT:-}" ]; then
+        # Explicit remaining-occupancy runner uses the same complete producer
+        # with Empty City; the historical paid-demo check stays the default.
+        "$OPENEMPEROR_TEST_EMPTY_MAP_PREFLIGHT" "$original_data" "$map_relative"
+    else
+        "$build_dir/openemperor" --data "$original_data" --sandbox "$map_relative" \
+            --sandbox-rules sandbox-city-v16 --sandbox-check --report-json
+    fi
+}
+if preflight_map > "$app_data_dir/check.json" 2> "$app_data_dir/check.stderr"; then
     python3 - "$app_data_dir/check.json" <<'PY'
 import json, sys
 report = json.load(open(sys.argv[1]))

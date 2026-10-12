@@ -22,6 +22,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #if defined(__APPLE__) || defined(__unix__)
 #include <sys/resource.h>
 #endif
@@ -30,6 +31,7 @@ namespace fs=std::filesystem;
 using json=nlohmann::json;
 using namespace openemperor;
 namespace {
+bool summary_only=false;
 constexpr std::size_t cells=maps::stored_grid_width*maps::stored_grid_height;
 constexpr std::size_t maximum_interaction_pairs=65536;
 
@@ -136,6 +138,16 @@ std::vector<std::size_t> interaction_cells(const maps::OriginalEntityRecord& e,c
     std::sort(result.begin(),result.end());result.erase(std::unique(result.begin(),result.end()),result.end());return result;
 }
 json save_permissions(const simulation::MapPermissions& p,const fs::path& directory,const std::string& map_sha,std::span<const std::uint8_t> legacy) {
+    if (summary_only) {
+        const auto canonical=p.canonical_state();
+        return {{"policy_version",p.policy_version()},
+            {"policy_fingerprint",persistence::map_permissions_fingerprint(p,map_sha)},
+            {"canonical_sha256",digest(canonical)},{"canonical_bytes",canonical.size()},
+            {"legacy_mask_sha256",digest(legacy)},
+            {"roads",std::count(p.road_mask().begin(),p.road_mask().end(),std::uint8_t(1))},
+            {"buildings",std::count(p.building_mask().begin(),p.building_mask().end(),std::uint8_t(1))},
+            {"gate_count",p.gates().size()}};
+    }
     fs::create_directories(directory);write_text(directory/"canonical.txt",p.canonical_state());
     write_text(directory/"legacy_mask.bin",std::string(reinterpret_cast<const char*>(legacy.data()),legacy.size()));
     const std::array<std::string,6> names={"roads","buildings","protected","signed_heights","road_blockers","building_blockers"};
@@ -255,6 +267,13 @@ json audit_map(const maps::MapCatalogEntry& entry,const fs::path& root,const fs:
         const auto maximal=maps::prepare_sandbox_map_permissions(map,geometry,one,entities,heights);
         row["policy_prepared"]=true;row["policies"]={{"zero_legacy",save_permissions(*minimal,directory/"zero-legacy",row["input_sha256"],zero)},
             {"maximal_legacy",save_permissions(*maximal,directory/"maximal-legacy",row["input_sha256"],one)}};
+        if (summary_only) {
+            const auto version=simulation::kOriginalRoadsMapPermissionsPolicyVersion;
+            const auto pzero=maps::prepare_sandbox_map_permissions(map,geometry,zero,entities,heights,version);
+            const auto pone=maps::prepare_sandbox_map_permissions(map,geometry,one,entities,heights,version);
+            row["policy2"]={{"zero_legacy",save_permissions(*pzero,directory/"policy2-zero",row["input_sha256"],zero)},
+                {"maximal_legacy",save_permissions(*pone,directory/"policy2-one",row["input_sha256"],one)}};
+        }
     }
     return row;
 }
@@ -304,7 +323,9 @@ json priorities(const json& rows) {
 
 int main(int argc,char** argv) {
     try {
-        if (argc!=3) throw std::invalid_argument("usage: openemperor-audit-original-occupancy DATA-ROOT .local/OUTPUT-ROOT");
+        if (argc!=3 && !(argc==4 && std::string_view(argv[3])=="--summary-only"))
+            throw std::invalid_argument("usage: openemperor-audit-original-occupancy DATA-ROOT .local/OUTPUT-ROOT [--summary-only]");
+        summary_only=argc==4;
         const auto root=fs::canonical(argv[1]);const auto output=fs::weakly_canonical(argv[2]);
         const auto private_root=fs::canonical(fs::current_path()/".local");
         if (!beneath(output,private_root) || beneath(output,root) || output==private_root || (fs::exists(output) && !fs::is_empty(output)))
@@ -318,6 +339,7 @@ int main(int argc,char** argv) {
             {"candidate_probe_semantics","Conditional conservative MarkerOrigin impact only: a copied unknown Class/Type group is replaced with existing Industrial162 solely for validate_sandbox_original_map_rules. All other records and input fields retained; no policy is published and no original semantics or actual support is claimed."},
             {"legacy_mask_semantics","Zero and one explicit extremes plus real normal-session mask after EdgeByte4x4Preview/Slot8/Automatic preparation through StoredGraphicsRenderer under dummy/software; real mask is not guessed."}};
         std::map<std::string,std::size_t> counts;
+        if (summary_only) report["permission_report_storage"]="canonical SHA-256/fingerprint/counts only; both policies, no canonical/component files";
         for (const auto& entry:catalog.entries) if (entry.map_profile) {
             auto row=audit_map(entry,root,output);counts[row["first_category"].get<std::string>()]++;
             std::cerr<<entry.relative_path.generic_string()<<": "<<row["first_category"].get<std::string>()<<'\n';report["maps"].push_back(std::move(row));
@@ -341,6 +363,11 @@ int main(int argc,char** argv) {
                 const auto mask=maps::make_sandbox_buildable_mask(background.plan(),geometry);
                 const auto policy=maps::load_sandbox_map_permissions(session.map,background.plan(),geometry,mask,simulation::kMapPermissionsPolicyVersion,row["input_sha256"]);
                 row["policies"]["production_legacy"]=save_permissions(*policy,output/"permissions"/relative/"production-legacy",row["input_sha256"],mask);
+                if (summary_only) {
+                    const auto policy2=maps::load_sandbox_map_permissions(session.map,background.plan(),geometry,mask,
+                        simulation::kOriginalRoadsMapPermissionsPolicyVersion,row["input_sha256"]);
+                    row["policy2"]["production_legacy"]=save_permissions(*policy2,output/"permissions"/relative/"policy2-production",row["input_sha256"],mask);
+                }
                 row["production_legacy_prepared"]=true;row["presentation_preparation"]={{"decoded_assets",background.plan().decoded_assets},{"texture_uploads",background.plan().texture_uploads},{"logical_texture_bytes",background.plan().logical_texture_bytes}};
                 std::cerr<<relative.generic_string()<<": production legacy mask prepared\n";
             } catch (const std::exception& error) {
