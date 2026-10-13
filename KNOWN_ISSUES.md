@@ -2,7 +2,9 @@
 
 Only current limitations and outstanding acceptance checks are listed here.
 
-- **Human acceptance:** the Xia/Handan checklist remains incomplete for pointer selection, road dragging, modal focus/resize handling and external-display interaction. Human original-map/Road playtests and full-city profitability are also unverified. Scripted checks do not close these acceptance items. See [the input checklist](docs/testing-input-acceptance.md), [multi-map acceptance](docs/map-playability-acceptance.md) and [original roads](docs/original-roads.md).
+- **Human acceptance:** the Xia/Handan checklist remains incomplete for pointer selection, road dragging, modal focus/resize handling and external-display interaction. Human original-map/Road and full-city long-play acceptance remain unverified. Scripted checks do not close these acceptance items. See [the input checklist](docs/testing-input-acceptance.md), [multi-map acceptance](docs/map-playability-acceptance.md), [original roads](docs/original-roads.md) and [bounded technical long-play](docs/city-v16-longplay-stability.md).
+
+- **Player population report:** the exact reported18-House/60-resident state and current Service8/Pottery11 causes remain unresolved without an explicitly authorized player SaveDocument. Scenario A was NOT RUN. The separate reconstructed Service outage/recovery does not establish the player's cause; its recovered18-House layout still has some Service deadline misses despite holding the goal. See [population and workforce evidence](docs/city-v16-longplay-stability.md).
 
 - **Unresolved player reports:** Oliver's exact Chang-an save/actions/selected cell, Anyang file identity, Handan-versus-Handan_S identity and Handan/Badaling start or loaded-save choice remain unverified. The separately reported Food gap has no established cause in his actual state. See [the multi-map acceptance report](docs/map-playability-acceptance.md) and [map-variant evidence](docs/original-roads.md#bounded-classification).
 

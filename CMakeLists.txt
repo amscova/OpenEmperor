@@ -1104,6 +1104,15 @@ target_link_libraries(openemperor-city-v16-playthrough-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-city-v16-playthrough-fixture)
 
+# Explicit original-data long-play adapter; excluded from normal CTest/package.
+get_target_property(city_v16_fixture_sources openemperor-city-v16-playthrough-fixture SOURCES)
+list(REMOVE_ITEM city_v16_fixture_sources tools/CityV16PlaythroughFixture.cpp)
+add_executable(openemperor-city-v16-longplay-fixture EXCLUDE_FROM_ALL
+    tools/CityV16LongplayFixture.cpp ${city_v16_fixture_sources})
+target_link_libraries(openemperor-city-v16-longplay-fixture PRIVATE
+    openemperor-recovery SDL3::SDL3 openemperor-version)
+openemperor_enable_warnings(openemperor-city-v16-longplay-fixture)
+
 # On-demand read-only original-map corpus diagnosis. Reports and proprietary
 # inputs stay under the user's ignored local workspace, outside test fixtures.
 add_executable(openemperor-audit-original-occupancy EXCLUDE_FROM_ALL

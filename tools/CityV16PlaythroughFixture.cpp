@@ -1,5 +1,6 @@
 // On-demand technical replay of normally paid commands on the user's real Xia.
 // This is scripted simulation evidence, not a human construction playthrough.
+#include "CityV16PlaythroughRecipe.h"
 #include "app/MenuStorage.h"
 #include "app/ResourceLocator.h"
 #include "app/SandboxView.h"
@@ -162,44 +163,8 @@ void invariants(const sim::World& w) {
         w.navigation_valid() && w.population_valid() && w.service_state_valid() &&
         w.health_state_valid() && w.fire_state_valid(), "Playthrough invariant failure.");
 }
-struct Action {
-    std::uint64_t tick;
-    sim::CommandType type;
-    sim::Cell cell;
-    const char* name;
-};
-std::vector<Action> recipe() {
-    std::vector<Action> a;
-    const auto add = [&](std::uint64_t t, sim::CommandType type, int x, int y, const char* name) {
-        a.push_back({t, type, {x,y}, name});
-    };
-    const auto road = [&](std::uint64_t t, int x, int y) { add(t,sim::CommandType::PlaceRoad,x,y,"road"); };
-    add(800,sim::CommandType::PlaceWell,114,116,"well");
-    add(1200,sim::CommandType::PlaceHousehold,116,113,"house");
-    road(1200,118,115); road(1200,119,115);
-    add(1600,sim::CommandType::PlaceHousehold,119,113,"house");
-    add(2000,sim::CommandType::PlaceMarket,118,116,"market");
-    road(2000,120,115);
-    for (int y=115;y<=119;++y) road(2000,121,y);
-    for (int x=112;x<=124;++x) if (x!=121) road(2000,x,119);
-    road(2000,117,120); road(2000,117,121);
-    add(2400,sim::CommandType::PlaceServicePost,117,122,"service");
-    add(2400,sim::CommandType::PlaceFireWatch,111,114,"fire_watch");
-    for (int y=116;y<=122;++y) road(2400,105,y);
-    for (int x=103;x<=104;++x) { road(2400,x,119); road(2400,x,122); }
-    add(2800,sim::CommandType::PlaceClaySource,103,120,"clay");
-    add(3200,sim::CommandType::PlacePottery,103,123,"pottery");
-    add(3200,sim::CommandType::PlaceWell,112,120,"well");
-    add(3600,sim::CommandType::PlaceWell,122,113,"well");
-    add(3600,sim::CommandType::PlaceHousehold,119,116,"house");
-    add(4000,sim::CommandType::PlaceHousehold,122,116,"house");
-    add(4000,sim::CommandType::PlaceHousehold,115,120,"house");
-    add(4400,sim::CommandType::PlaceHousehold,118,120,"house");
-    for (int y=120;y<=122;++y) road(4400,114,y);
-    add(4400,sim::CommandType::PlaceHealthPost,114,123,"health");
-    add(4800,sim::CommandType::PlaceWell,114,113,"well");
-    return a;
-}
+using Action=oe::city_playthrough::Action;
+std::vector<Action> recipe() { return oe::city_playthrough::expansion_recipe({103,113}); }
 Json events(const sim::WorldSnapshot& before, const sim::World& w) {
     Json out = Json::array();
     for (const auto& c : w.couriers()) {
