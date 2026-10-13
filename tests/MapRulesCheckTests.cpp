@@ -321,6 +321,38 @@ void dirt_ferry_rules() {
  check(maps::check_map_rules(root.request("association.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::UnsupportedForRules,
        "valid relation cannot publish partial preflight before later unknown state");
 }
+void outside_source_rules() {
+    Root root;
+    for(int type:{163,164,165,185,187,162}) {
+        auto records=manager("cIndustrialBldg",type,0);
+        const auto base=6U+6U+std::string("cIndustrialBldg").size();
+        if(type==162) {records.erase(records.begin()+std::ptrdiff_t(base+159),records.begin()+std::ptrdiff_t(base+161));put16(records,base,3);}
+        put16(records,base+8,138);put16(records,base+10,117);put32(records,base+12,33455);
+        auto raw=logical_map(records);put32(raw,std::size_t(maps::terrain_logical_offset)+at(167,146)*4,0x80005);
+        write(root.path/"Cities/outside.map",compressed_map(raw));
+        for(unsigned version:{3U,4U}) {
+            const auto result=maps::check_map_rules(root.request("outside.map",simulation::RulesProfile::CityV16,version));
+            check(result.status==maps::MapRulesStatus::MapRulesChecked,"exact outside source must pass whole-map preflight");
+            const auto permissions=maps::read_sandbox_map_permissions(root.path,"Cities/outside.map",Bytes(cells,1),version==3?1:2);
+            check(!permissions->protected_original({167,146}) && !permissions->road_allowed({167,146}) &&
+                  !permissions->building_allowed({167,146}) && permissions->road_blocker({167,146})==simulation::BuildBlocker::OutsideMap,
+                  "preflight cannot create playable outside claims");
+        }
+        // Append a second complete MFC reference with a distinct ID and a late
+        // unsupported state. Exact first-source admission cannot hide it.
+        auto late=records;put32(late,2,2);const auto second=late.size();late.resize(second+2);put16(late,second,0x8001);
+        late.insert(late.end(),records.begin()+std::ptrdiff_t(base),records.end());
+        late[second+4]=2;put16(late,second+2+16,138);put32(late,second+2+(type==162?159:161),8);
+        write(root.path/"Cities/late.map",compressed_map(logical_map(late)));
+        const auto refused=maps::check_map_rules(root.request("late.map",simulation::RulesProfile::CityV16,4));
+        check(refused.status==maps::MapRulesStatus::UnsupportedForRules && refused.detail==producer_failure(root,"late.map"),
+              "outside source cannot publish a partial preflight before later unsupported state");
+        records.pop_back();write(root.path/"Cities/short.map",compressed_map(logical_map(records)));
+        check(maps::check_map_rules(root.request("short.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::InputError,
+              "outside source retains complete-manager truncation refusal");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -329,7 +361,7 @@ int main() {
               "historic City-v16 rule 3 must keep policy 1");
         check(maps::map_rules_policy_version(simulation::RulesProfile::CityV16,4)==2,
               "City-v16 rule 4 requires policy 2 for original road transport");
-        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();resgate_rules();river_marker_rules();dirt_ferry_rules();
+        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();resgate_rules();river_marker_rules();dirt_ferry_rules();outside_source_rules();
         std::cout<<"Map rules check tests passed\n";return 0;
     }
     catch (const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}

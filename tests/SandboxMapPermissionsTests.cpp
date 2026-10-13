@@ -660,6 +660,106 @@ void dirt_ferry_association() {
          !world.validate({simulation::CommandType::PlaceRoad,c}).accepted,"ordinary House/Road validation retains complete protection");
  }
 }
+Fixture outside_source_fixture(int type,unsigned schema) {
+ Fixture f;using Bytes=std::vector<std::uint8_t>;
+ auto put16=[](Bytes& b,std::size_t at,unsigned value){b.at(at)=std::uint8_t(value);b.at(at+1)=std::uint8_t(value>>8);};
+ auto put32=[&](Bytes& b,std::size_t at,unsigned value){put16(b,at,value);put16(b,at+2,value>>16);};
+ Bytes bytes(6,0);put16(bytes,0,1);put32(bytes,2,1);
+ const std::string name="cIndustrialBldg";const auto tag=bytes.size();bytes.resize(tag+6+name.size());
+ put16(bytes,tag,0xffff);put16(bytes,tag+4,unsigned(name.size()));
+ std::copy(name.begin(),name.end(),bytes.begin()+std::ptrdiff_t(tag+6));
+ const auto base=bytes.size();const auto length=schema==3 ? 179U:181U;bytes.resize(base+length+130,0);
+ put16(bytes,base,schema);bytes[base+2]=3;bytes[base+5]=0;
+ // Independently authored local/storage relation:170 map, border29.
+ put16(bytes,base+8,138);put16(bytes,base+10,117);put32(bytes,base+12,33455);
+ put16(bytes,base+16,unsigned(type));put32(bytes,base+length-20,7);
+ put16(bytes,base+length,1);put16(bytes,base+length+2,1);
+ f.entities=maps::parse_original_map_entities(bytes,170);
+ f.map.terrain_raw.values[raw({167,146})]=0x80005U;
+ bool truncated=false;bytes.pop_back();try {maps::parse_original_map_entities(bytes,170);}catch(const maps::OriginalEntityError&){truncated=true;}
+ check(truncated,"external source still requires a complete original archive");return f;
+}
+void outside_editor_source(int type) {
+ const unsigned schema=type==162 ? 3U:4U;const auto source=outside_source_fixture(type,schema);
+ const auto& original=source.entities.records.front();
+ check(source.entities.records.size()==1 && original.original_id->value==7 && original.manager_index==0 &&
+       original.local_x==138 && original.local_y==117 && original.serialized_cell_reference==33455,
+       "authored complete source identity/origin/reference retained");
+ for(unsigned policy:{1U,2U}) for(bool offmap:{false,true}) {
+  auto f=source;if(!offmap)f.map.terrain_raw.values[raw({167,146})]=0x80;
+  auto control=f;control.entities.records.clear();
+  auto prepare=[&](const Fixture& value){return maps::make_sandbox_map_permissions(value.map,value.plan,value.geometry,value.legacy,value.entities,policy);};
+  const auto expected=prepare(control);const auto actual=prepare(f);
+  check(actual->canonical_state()==expected->canonical_state(),
+        "evidenced outside nonphysical source has no playable claim and leaves the full policy unchanged");
+  check(!actual->protected_original({167,146}) && !actual->road_allowed({167,146}) &&
+        !actual->building_allowed({167,146}) && actual->road_blocker({167,146})==simulation::BuildBlocker::OutsideMap,
+        "storage-only source creates no outside playable cell");
+  check(f.entities.records.front().original_id==original.original_id && f.entities.records.front().local_x==138 &&
+        f.entities.records.front().local_y==117 && f.entities.records.front().serialized_cell_reference==33455,
+        "preparation never deletes, merges or repairs the original source");
+  simulation::World world(actual,simulation::RulesProfile::CityV16,policy==1?3:4);
+  check(world.buildings().empty() && world.couriers().empty() &&
+        !world.validate({simulation::CommandType::PlaceHousehold,{167,146}}).accepted &&
+        !world.validate({simulation::CommandType::PlaceRoad,{167,146}}).accepted,
+        "outside metadata creates no World owner or construction permission");
+  auto in=f;in.entities.records[0].local_x=71;in.entities.records[0].local_y=81;
+  in.entities.records[0].serialized_cell_reference=int(raw(start));
+  check(prepare(in)->protected_original({100,110}),"same valid in-map source retains its old origin protection");
+  in.map.terrain_raw.values[raw(start)]|=0x80000U;
+  rejects([&]{prepare(in);},"inside-diamond offmap origin remains a strict failure");
+  auto mutate=[&](auto edit,const char* reason){auto bad=f;edit(bad.entities.records[0]);rejects([&]{prepare(bad);},reason);};
+  mutate([](auto& e){e.status=2;},"other active source status cannot exempt bounds");
+  mutate([](auto& e){e.subindex=1;},"other source subindex cannot exempt bounds");
+  mutate([](auto& e){e.footprint_side=1;},"physical side-one source outside remains forbidden");
+  mutate([](auto& e){e.footprint_side=17;},"oversized positive claim stays unsupported");
+  mutate([](auto& e){e.entity_class=maps::OriginalEntityClass::Building;},"foreign class does not gain a storage-only contract");
+  mutate([&](auto& e){e.provenance.base_schema=std::uint16_t(schema==3?4:3);},"unevidenced outside Base family is refused");
+  mutate([](auto& e){e.provenance.wrapper_schema=2;},"outside source keeps parent schema checks");
+  mutate([](auto& e){e.provenance.extended_schema=2;},"outside source keeps NonHouse schema checks");
+  mutate([](auto& e){e.provenance.class_wrapper_schema=1;},"outside source keeps absent own wrapper");
+  mutate([](auto& e){e.provenance.logical_class_wrapper_offset=1;},"outside source cannot have an unproved class wrapper");
+  mutate([](auto& e){e.monument=maps::OriginalMonumentState{};},"outside source cannot carry Monument state");
+  mutate([](auto& e){e.gate_house=maps::OriginalGateHouseState{};},"outside source cannot carry Gate state");
+  mutate([](auto& e){e.original_id.reset();},"outside source still needs an original identity");
+  mutate([](auto& e){++e.serialized_cell_reference;},"outside source still needs the exact reference");
+  mutate([](auto& e){e.local_x=-1;},"negative local origin stays forbidden");
+  mutate([](auto& e){e.local_x=32767;},"outside storage must fail before any cell lookup");
+  mutate([](auto& e){e.local_x=2;e.serialized_cell_reference=int(raw({31,146}));},"original zero-area placement margin is retained");
+  mutate([](auto& e){e.local_x=168;e.serialized_cell_reference=int(raw({197,146}));},"original upper rectangle margin is retained");
+  mutate([](auto& e){e.type=151;},"another normal marker has no unproved outside exemption");
+  for(bool reverse:{false,true}) {
+   auto mixed=f;auto physical=f.source(start,8,1);mixed.entities.records.push_back(physical);
+   auto expected_mixed=mixed;expected_mixed.entities.records.erase(expected_mixed.entities.records.begin());
+   if(reverse)std::reverse(mixed.entities.records.begin(),mixed.entities.records.end());
+   check(prepare(mixed)->canonical_state()==prepare(expected_mixed)->canonical_state(),
+         "source order does not alter a valid foreign physical claim or its protection");
+   auto duplicate=f;duplicate.entities.records.push_back(duplicate.entities.records.front());
+   duplicate.entities.records.back().manager_index=1;
+   rejects([&]{prepare(duplicate);},"outside source cannot hide a duplicate original ID");
+   duplicate.entities.records.back().original_id=maps::OriginalEntityId{8};duplicate.entities.records.back().serialized_original_id=8;
+   duplicate.entities.records.back().manager_index=0;
+   rejects([&]{prepare(duplicate);},"outside source cannot hide a duplicate manager identity");
+   auto late=f;auto unknown=physical;unknown.type=32767;unknown.entity_class=maps::OriginalEntityClass::Industrial;unknown.footprint_side=0;
+   late.entities.records.push_back(unknown);if(reverse)std::reverse(late.entities.records.begin(),late.entities.records.end());
+   rejects([&]{prepare(late);},"later unknown record still refuses the entire manager");
+   auto solid=f;solid.gate(0);
+   auto& gate=solid.entities.records.back();gate.original_id=maps::OriginalEntityId{8};
+   gate.serialized_original_id=8;gate.manager_index=1;
+   check(prepare(solid)->gates().size()==1,"outside source leaves a distinct valid Gate fully prepared");
+   auto annotation=solid.source({102,110},9,2);annotation.entity_class=maps::OriginalEntityClass::Industrial;
+   annotation.type=std::int16_t(type);annotation.provenance=f.entities.records.front().provenance;
+   solid.entities.records.push_back(annotation);
+   if(reverse)std::reverse(solid.entities.records.begin(),solid.entities.records.end());
+   bool gate_conflict=false;
+   try{prepare(solid);}catch(const std::invalid_argument& error){gate_conflict=std::string(error.what()).find("conflicting complete original occupancy")!=std::string::npos;}
+   check(gate_conflict,"outside contract cannot excuse an independent Gate solid conflict");
+   auto foreign=f;foreign.entities.records.push_back(foreign.source({167,146},8,1));
+   if(reverse)std::reverse(foreign.entities.records.begin(),foreign.entities.records.end());
+   rejects([&]{prepare(foreign);},"a physical outside claim cannot borrow a nonphysical source contract");
+  }
+ }
+}
 void invalid_sources(){Fixture f;f.gate(0);auto mutate=[&](auto edit,const char* msg){auto bad=f;edit(bad);rejects([&]{bad.make();},msg);};mutate([](auto&b){b.map.terrain_raw.values[raw({104,112})]&=~8U;},"partial gate claims rejected");mutate([](auto&b){++b.entities.records[0].serialized_cell_reference;},"reference mismatch rejected");mutate([](auto&b){b.entities.records[0].gate_house->layout=2;},"unknown layout rejected");mutate([](auto&b){b.entities.records[0].provenance.class_wrapper_schema=3;},"unknown gate wrapper rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,111})]=0;},"unequal corridor heights rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,109})]=0;},"unequal opening height rejected");mutate([](auto&b){auto e=b.source({102,111},8,1);b.entities.records.push_back(e);},"overlapping original structure rejected");mutate([](auto&b){b.entities.manager_schema=0;},"unknown full manager schema rejected");mutate([](auto&b){b.plan.height_bytes.pop_back();},"truncated heights rejected");rejects([&]{maps::make_sandbox_map_permissions(f.map,f.plan,f.geometry,f.legacy,f.entities,3);},"unknown map policy rejected");Fixture h;h.plan.height_bytes[raw(start)]=128;h.plan.height_bytes[raw({101,110})]=127;auto p=h.make();check(p->cell_height({100,110})==-128&&p->cell_height({101,110})==127&&p->transport_edge_blocker({100,110},{101,110})==simulation::BuildBlocker::UnsupportedHeightTransition,"signed byte extremes do not create steep edges");}
 void standalone_reader(){
  Fixture f;f.gate(1);
@@ -685,4 +785,4 @@ void standalone_reader(){
 }
 void legacy_contract(){Fixture f;maps::StoredCell c;c.storage=start;c.cell_index=raw(start);c.terrain_raw=0x80;c.objects_raw=0;c.footprint_index=0;c.status=maps::StoredStatus::Rendered;f.plan.cells.push_back(c);maps::PlacedFootprint fp;fp.origin=start;fp.width_cells=fp.height_cells=1;fp.status=maps::StoredStatus::Rendered;f.plan.footprints.push_back(fp);check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==1,"legacy successful1x1 rendered fixture");f.plan.cells[0].status=maps::StoredStatus::DecodeFailed;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy decode dependence remains exact");f.plan.cells[0].status=maps::StoredStatus::Rendered;f.plan.footprints[0].width_cells=2;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy footprint dependence remains exact");}
 }
-int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else if(type=="151")industrial151_origin();else if(type=="173")industrial173_origin();else if(type=="187")remaining_editor_origin(187,{4});else if(type=="189")remaining_editor_origin(189,{4});else if(type=="138")remaining_editor_origin(138,{3,4});else if(type=="181")remaining_editor_origin(181,{3,4});else if(type=="188")remaining_editor_origin(188,{3,4});else if(type=="167")remaining_editor_origin(167,{4});else if(type=="dirt-ferry")dirt_ferry_association();else throw std::invalid_argument("Unknown focused occupancy test");}else{dirt_ferry_association();remaining_editor_origin(189,{4});remaining_editor_origin(187,{4});industrial173_origin();industrial151_origin();industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type.rfind("outside-",0)==0)outside_editor_source(std::stoi(type.substr(8)));else if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else if(type=="151")industrial151_origin();else if(type=="173")industrial173_origin();else if(type=="187")remaining_editor_origin(187,{4});else if(type=="189")remaining_editor_origin(189,{4});else if(type=="138")remaining_editor_origin(138,{3,4});else if(type=="181")remaining_editor_origin(181,{3,4});else if(type=="188")remaining_editor_origin(188,{3,4});else if(type=="167")remaining_editor_origin(167,{4});else if(type=="dirt-ferry")dirt_ferry_association();else throw std::invalid_argument("Unknown focused occupancy test");}else{for(int type:{163,164,165,185,187,162})outside_editor_source(type);dirt_ferry_association();remaining_editor_origin(189,{4});remaining_editor_origin(187,{4});industrial173_origin();industrial151_origin();industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

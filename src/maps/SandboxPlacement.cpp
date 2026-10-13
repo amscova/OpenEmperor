@@ -262,6 +262,28 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
     }
     return OriginalOccupancy::Unsupported;
 }
+// These exact saved editor sources have independently evidenced zero-area
+// construction/ownership and no standalone physical restore. Their original
+// preflight retains a rectangular three-cell margin but does not enter its
+// Diamond/terrain loop. This is a source contract, never a side-zero exemption.
+// Inside the playable Diamond the existing conservative marker remains exact.
+// See docs/reverse/original-bounds-compatibility.md.
+bool storage_only_editor_source(const OriginalEntityRecord& entity) {
+    const auto& p=entity.provenance;
+    if(entity.entity_class!=OriginalEntityClass::Industrial || entity.status!=3 ||
+       entity.footprint_side!=0 || entity.subindex!=0 || p.wrapper_schema!=1 ||
+       p.extended_schema!=1 || p.class_wrapper_schema!=0 || p.logical_class_wrapper_offset ||
+       entity.monument || entity.gate_house) return false;
+    switch(entity.type) {
+    case 162: return p.base_schema==3;
+    case 163: return p.base_schema==4;
+    case 164: return p.base_schema==4;
+    case 165: return p.base_schema==4;
+    case 185: return p.base_schema==4;
+    case 187: return p.base_schema==4;
+    default: return false;
+    }
+}
 // A narrowly evidenced non-owning terrain annotation at a Ferry's exact
 // anchor. Dirt162's qualified source writes zero owner dimensions; standalone
 // restore excludes it, while Ferry210 restores its own exclusive owner. This
@@ -398,7 +420,16 @@ OriginalRulePreparation prepare_original_rules(
                 (entity.gate_house->layout==0 || entity.gate_house->layout==1),"unsupported original GateHouse type/layout");
             width=entity.gate_house->layout==0 ? 5U:3U;height=entity.gate_house->layout==0 ? 3U:5U;
             gates.push_back(&entity);
-        } else if (marker) width=height=1;
+        } else if (marker) {
+            const bool source_contract=storage_only_editor_source(entity) &&
+                entity.local_x>=3 && entity.local_y>=3 &&
+                entity.local_x<=std::int32_t(map.declared_map_size)-3 &&
+                entity.local_y<=std::int32_t(map.declared_map_size)-3;
+            // Retain every source/identity/reference; a validated zero-area
+            // storage source outside the Diamond contributes no playable cell.
+            // No original editor work is replayed and no coordinate is repaired.
+            width=height=source_contract && !geometry.contains(origin) ? 0U:1U;
+        }
         else if (occupancy==OriginalOccupancy::Unsupported) unsupported_occupancy(entity,origin,map);
         for (unsigned dy=0;dy<height;++dy) for (unsigned dx=0;dx<width;++dx) {
             const GridCell cell{origin.x+dx,origin.y+dy};

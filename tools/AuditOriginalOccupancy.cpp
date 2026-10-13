@@ -33,6 +33,7 @@ using namespace openemperor;
 namespace {
 bool summary_only=false;
 bool detailed_conflicts=false;
+bool detailed_bounds=false;
 constexpr std::size_t cells=maps::stored_grid_width*maps::stored_grid_height;
 constexpr std::size_t maximum_interaction_pairs=65536;
 
@@ -127,6 +128,31 @@ json source(const maps::OriginalEntityRecord& e,const maps::ParsedEmperorMap& ma
         result["signed_height"]=heights[at]<128 ? int(heights[at]):int(heights[at])-256;
         result["geometry_on_map"]=geometry.contains({unsigned(x),unsigned(y)});
     }
+    if(detailed_bounds) {
+        const bool local=e.local_x>=0 && e.local_y>=0 && e.local_x<int(geometry.declared_size) && e.local_y<int(geometry.declared_size);
+        const bool storage=x>=0 && y>=0 && x<int(maps::stored_grid_width) && y<int(maps::stored_grid_height);
+        const bool diamond=storage && geometry.contains({unsigned(x),unsigned(y)});
+        const bool reference=storage && e.serialized_cell_reference==y*int(maps::stored_grid_width)+x;
+        const bool offmap=storage && (map.terrain_raw.values[std::size_t(y)*maps::stored_grid_width+std::size_t(x)]&0x80000U)!=0;
+        unsigned width=e.footprint_side,height=width;
+        if(e.gate_house) {width=e.gate_house->layout==0?5U:3U;height=e.gate_house->layout==0?3U:5U;}
+        else if(width==0) width=height=1; // Raw diagnostic candidate, never admission.
+        bool complete=width<=16 && height<=16;
+        if(complete) for(unsigned dy=0;dy<height;++dy) for(unsigned dx=0;dx<width;++dx) {
+            const int cx=x+int(dx),cy=y+int(dy);
+            if(cx<0 || cy<0 || cx>=int(maps::stored_grid_width) || cy>=int(maps::stored_grid_height) ||
+               !geometry.contains({unsigned(cx),unsigned(cy)})) complete=false;
+        }
+        result["spatial_facts"]={{"valid_local_origin",local},{"inside_fixed_storage",storage},
+            {"origin_inside_diamond",diamond},{"offmap_terrain",offmap},{"reference_matches_origin",reference},
+            {"complete_candidate_inside_diamond",complete}};
+        result["diagnostic_categories"]=json::array();
+        if(!local) result["diagnostic_categories"].push_back("INVALID_LOCAL_ORIGIN");
+        if(!reference) result["diagnostic_categories"].push_back("INVALID_SERIALIZED_REFERENCE");
+        if(!diamond) result["diagnostic_categories"].push_back("OUTSIDE_DIAMOND");
+        if(offmap) result["diagnostic_categories"].push_back("OFFMAP_TERRAIN");
+        if(diamond && !complete) result["diagnostic_categories"].push_back("PARTIAL_OUTSIDE_FOOTPRINT");
+    }
     return result;
 }
 std::string check(const maps::ParsedEmperorMap& map,const maps::MapGeometry& g,const maps::OriginalMapEntities& entities,std::span<const std::uint8_t> heights) {
@@ -165,6 +191,15 @@ void add_claim_diagnostics(json& row,const maps::ParsedEmperorMap& map,const map
     for(const auto& record:entities.records) if(record.active()) {
         auto value=source(record,map,geometry,heights);maps::OriginalMapEntities single=entities;single.records={record};
         value["single_source_error"]=check(map,geometry,single,heights);
+        if(detailed_bounds) {
+            const bool accepted=value["single_source_error"]=="";
+            if(!accepted && value["diagnostic_categories"].empty())value["diagnostic_categories"].push_back("OTHER_INVALID_SOURCE");
+            value["production_classification"]=!accepted ? "REFUSED_SOURCE":
+                record.footprint_side==0 && !record.gate_house ?
+                (value["spatial_facts"]["origin_inside_diamond"].get<bool>() ? "VALIDATED_PROTECTED_MARKER_ORIGIN":"VALIDATED_OUTSIDE_NONPHYSICAL_SOURCE"):
+                "VALIDATED_PHYSICAL_CLAIM";
+            value["classification_authority"]="Existing production validator over the parsed exact source; whole-manager readiness is separate. Geometry categories describe raw facts, never a second admission engine.";
+        }
         std::vector<std::size_t> shape;
         // An invalid extent is not expanded or clamped into an accepted claim.
         if(record.footprint_side<=16) shape=interaction_cells(record,geometry);
@@ -411,9 +446,9 @@ json priorities(const json& rows) {
 int main(int argc,char** argv) {
     try {
         if (argc!=3 && !(argc==4 && std::string_view(argv[3])=="--summary-only") &&
-            !(argc==5 && std::string_view(argv[3])=="--conflicts"))
-            throw std::invalid_argument("usage: openemperor-audit-original-occupancy DATA-ROOT .local/OUTPUT-ROOT [--summary-only | --conflicts Cities/exact.map]");
-        summary_only=argc>=4;detailed_conflicts=argc==5;
+            !(argc==5 && (std::string_view(argv[3])=="--conflicts" || std::string_view(argv[3])=="--bounds")))
+            throw std::invalid_argument("usage: openemperor-audit-original-occupancy DATA-ROOT .local/OUTPUT-ROOT [--summary-only | --conflicts Cities/exact.map | --bounds Cities/exact.map]");
+        summary_only=argc>=4;detailed_conflicts=argc==5;detailed_bounds=argc==5 && std::string_view(argv[3])=="--bounds";
         const auto root=fs::canonical(argv[1]);const auto output=fs::weakly_canonical(argv[2]);
         const auto private_root=fs::canonical(fs::current_path()/".local");
         if (!beneath(output,private_root) || beneath(output,root) || output==private_root || (fs::exists(output) && !fs::is_empty(output)))
@@ -432,7 +467,7 @@ int main(int argc,char** argv) {
             const fs::path selected=argv[4];
             const auto matches=std::count_if(catalog.entries.begin(),catalog.entries.end(),[&](const auto& entry){return entry.map_profile && entry.relative_path==selected;});
             if(matches!=1)throw std::invalid_argument("Require one exact standalone production MapCatalog path");
-            report["selected_conflict_diagnosis_map"]=selected.generic_string();
+            report[detailed_bounds?"selected_bounds_diagnosis_map":"selected_conflict_diagnosis_map"]=selected.generic_string();
         }
         for (const auto& entry:catalog.entries) if (entry.map_profile && (!detailed_conflicts || entry.relative_path==fs::path(argv[4]))) {
             auto row=audit_map(entry,root,output);counts[row["first_category"].get<std::string>()]++;
