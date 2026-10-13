@@ -1,4 +1,5 @@
 #include "maps/RegeneratedMapRenderPlan.h"
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -74,6 +75,53 @@ int main() {try {
     terrain.assign(count,0);terrain[228]=4;
     check(!terrain_neighborhood(terrain,{227,0},4).e,"neighbour probe cannot wrap into another storage row");
     check(select_landscape(input,{228,0}).evidence==SelectorEvidence::Unresolved,"outside storage fails closed");
+    // Independent boundary truth set from the pinned 32-row quarry semantics,
+    // after first-row priority. It excludes sparse and unmatched neighborhoods.
+    constexpr std::array<unsigned,84> quarry_boundaries{
+        0x07,0x0f,0x17,0x1c,0x1d,0x1e,0x1f,0x27,0x2f,0x37,0x3c,0x3d,0x3e,0x3f,
+        0x47,0x4f,0x5c,0x5e,0x67,0x6f,0x70,0x71,0x72,0x73,0x74,0x76,0x78,0x79,
+        0x7a,0x7b,0x7c,0x7e,0x7f,0x87,0x8f,0x97,0x9c,0x9d,0x9e,0x9f,0xa7,0xaf,
+        0xb7,0xbc,0xbd,0xbe,0xbf,0xc1,0xc3,0xc5,0xc7,0xc9,0xcb,0xcd,0xcf,0xd1,0xd3,
+        0xd9,0xdb,0xdc,0xde,0xdf,0xe1,0xe3,0xe5,0xe7,0xe9,0xeb,0xed,0xef,0xf0,0xf1,
+        0xf2,0xf3,0xf4,0xf6,0xf7,0xf8,0xf9,0xfa,0xfb,0xfc,0xfd,0xfe};
+    constexpr std::array<int,8> nx{0,1,1,1,0,-1,-1,-1},ny{-1,-1,0,1,1,1,0,-1};
+    constexpr std::array<unsigned,59> quarry_unmatched{
+        0x05,0x0d,0x14,0x15,0x16,0x25,0x2d,0x34,0x35,0x36,0x41,0x43,0x45,0x49,0x4b,
+        0x4d,0x50,0x51,0x52,0x53,0x54,0x55,0x56,0x57,0x58,0x59,0x5a,0x5b,0x5d,0x5f,
+        0x61,0x63,0x65,0x69,0x6b,0x6d,0x75,0x77,0x7d,0x85,0x8d,0x94,0x95,0x96,0xa5,
+        0xad,0xb4,0xb5,0xb6,0xd0,0xd2,0xd4,0xd5,0xd6,0xd7,0xd8,0xda,0xdd,0xf5};
+    terrain.assign(count,0);objects.assign(count,0);
+    terrain[cell_index]=0x20000;
+    for(unsigned mask=0;mask<256;++mask) {
+        for(unsigned d=0;d<8;++d)
+            terrain[std::size_t(114+ny[d])*stored_grid_width+std::size_t(114+nx[d])]=
+                mask&(1U<<d) ? 0x20080U:0;
+        const bool boundary=std::find(quarry_boundaries.begin(),quarry_boundaries.end(),mask)!=quarry_boundaries.end();
+        for(unsigned orientation=0;orientation<4;++orientation) for(unsigned v=0;v<256;++v) {
+            input.orientation=orientation;variation[cell_index]=static_cast<std::uint8_t>(v);
+            selection=select_landscape(input,center);
+            check((selection.evidence==SelectorEvidence::Verified)==boundary,
+                "only the observed quarry boundary truth set has verified identity");
+            if(boundary) check(selection.group.value==0x603 && selection.variant==(v&7U),
+                "quarry boundary normalization uses dry ground and original variation, not row modulo");
+            else if(std::find(quarry_unmatched.begin(),quarry_unmatched.end(),mask)!=quarry_unmatched.end())
+                check(selection.evidence==SelectorEvidence::Unresolved && selection.group.value==0,
+                    "unmatched quarry topology cannot inherit another cell's selector state");
+            else check(selection.evidence==SelectorEvidence::Preview &&
+                selection.group.value==0x628 && selection.variant==v%6,
+                "bounded quarry reset-depth preview uses six variants and never claims restored context");
+        }
+    }
+    input.orientation=0;variation[cell_index]=155;
+    check(select_landscape(input,center).variant==5,"full quarry interior retains modulo six");
+    terrain[cell_index]=0x20080;objects[cell_index]=0xffffffff;fertility[cell_index]=255;
+    input.flood_context.reset();
+    check(select_landscape(input,center).variant==5 && select_landscape(input,center).group.value==0x628,
+        "quarry preview does not infer state from objects, fertility or unknown transient context");
+    terrain[cell_index]|=0x80000;
+    check(select_landscape(input,center).evidence==SelectorEvidence::Unresolved,
+        "quarry cannot bypass original early exclusions");
+    input.flood_context=false;
     RuntimeArchiveLayout layout;layout.slot=3;layout.verified_registration=true;layout.sg3_version=213;
     layout.runtime_image_count=300;layout.groups={{0,80,20,20},{1,82,92,92}};
     std::map<std::uint32_t,GroupRegistration> groups{{3,{&layout}}};
@@ -119,5 +167,43 @@ int main() {try {
         "identity independent of saved IDs, candidate byte and height; elevation remains separate");
     const auto published=plan.regenerated;build_regenerated_map_render_plan(plan,registrations);
     check(plan.regenerated==published && plan.assets.size()==2,"published plan never rebuilt or duplicated");
+    auto quarry_registration=registration;
+    auto& quarry_layout=*quarry_registration.layout;
+    quarry_layout.groups.resize(41);
+    for(unsigned i=6;i<39;++i) quarry_layout.groups[i]={i,0,1,1};
+    quarry_layout.groups[39]={39,0,80,80}; // 628 has exactly six variants.
+    quarry_layout.groups[40]={40,0,86,86};
+    const StoredArchiveRegistrations quarry_registrations{{3,quarry_registration}};
+    auto quarry_plan=plan;quarry_plan.regenerated.reset();quarry_plan.assets.resize(1);
+    quarry_plan.raw_terrain.assign(count,0);
+    for(int y=-1;y<=1;++y) for(int x=-1;x<=2;++x)
+        quarry_plan.raw_terrain[std::size_t(114+y)*stored_grid_width+std::size_t(114+x)]=0x20000;
+    quarry_plan.variation_bytes.assign(count,155);
+    auto c2=c;c2.storage.x++;c2.cell_index++;c2.footprint_index=1;c2.stored_id=999999;
+    quarry_plan.cells.push_back(c2);auto f2=f;f2.id=1;f2.origin=c2.storage;f2.cell_indices={1};
+    quarry_plan.footprints.push_back(f2);
+    const auto quarry_before=quarry_plan;
+    build_regenerated_map_render_plan(quarry_plan,quarry_registrations);
+    const auto& quarry_cells=quarry_plan.regenerated->cells;
+    check(quarry_cells[0].asset_index && quarry_cells[0].asset_index==quarry_cells[1].asset_index &&
+        quarry_plan.assets.size()==2 && quarry_plan.assets[*quarry_cells[0].asset_index].record.id.image_index==86,
+        "quarry group resolves bounded physical identity and deduplicates across different saved IDs");
+    check(quarry_plan.raw_terrain==quarry_before.raw_terrain && quarry_plan.raw_objects==quarry_before.raw_objects &&
+        quarry_plan.raw_saved_ids==quarry_before.raw_saved_ids && quarry_plan.raw_candidate_bytes==quarry_before.raw_candidate_bytes &&
+        quarry_plan.height_bytes==quarry_before.height_bytes && quarry_plan.footprints[0].asset_index==0 &&
+        quarry_plan.footprints[1].asset_index==0 && quarry_plan.cells[1].stored_id==999999,
+        "quarry presentation preserves raw map, historical ownership and all buildability inputs");
+    auto missing_quarry=quarry_before;
+    build_regenerated_map_render_plan(missing_quarry,registrations);
+    check(!missing_quarry.regenerated->cells[0].asset_index && missing_quarry.assets.size()==1,
+        "missing quarry group preserves historical preview without a substitute sprite");
+    auto narrow=quarry_registrations;narrow.at(3).layout->groups[40].local_base=85;
+    auto rejected_quarry=quarry_before;build_regenerated_map_render_plan(rejected_quarry,narrow);
+    check(!rejected_quarry.regenerated->cells[0].asset_index && rejected_quarry.assets.size()==1,
+        "quarry variant cannot cross the exact resource-group boundary");
+    auto mirrored=quarry_registrations;mirrored.at(3).catalog->records[86].horizontal_mirror_offset=1;
+    rejected_quarry=quarry_before;build_regenerated_map_render_plan(rejected_quarry,mirrored);
+    check(!rejected_quarry.regenerated->cells[0].asset_index && rejected_quarry.assets.size()==1,
+        "unsupported quarry geometry retains historical graphics atomically");
     std::cout<<"landscape selectors passed\n";return 0;
 } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}}

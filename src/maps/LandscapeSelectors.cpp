@@ -61,6 +61,50 @@ constexpr std::array<ShoreRule,46> shore_rules{{
     {0x20,0xdf,{42,45,44,43},1}, // row 45
     {0x80,0x7f,{43,42,45,44},1}, // row 46
 }};
+struct QuarryRule {
+    std::uint8_t required_absent, required_quarry;
+    std::array<std::uint8_t,4> offsets;
+    std::uint8_t variants;
+};
+// Independently interpreted 53f840 primary topology, in storage directions.
+// The original normalizes nonzero offsets 6..33 to 603 / (variation & 7).
+// Offset-zero rows need mode/depth context: only their depth-255 static preview
+// is used here, explicitly distinct from verified restored identity.
+// See docs/reverse/quarry-presentation.md. No saved-ID or pixel classification.
+constexpr std::array<QuarryRule,32> quarry_rules{{
+    {0x55,0x00,{0,0,0,0},6},
+    {0x15,0x40,{0,0,0,0},6},
+    {0x54,0x01,{0,0,0,0},6},
+    {0x51,0x04,{0,0,0,0},6},
+    {0x45,0x10,{0,0,0,0},6},
+    {0x11,0x44,{0,0,0,0},6},
+    {0x44,0x11,{0,0,0,0},6},
+    {0x15,0x40,{0,0,0,0},6},
+    {0x54,0x01,{0,0,0,0},6},
+    {0x51,0x04,{0,0,0,0},6},
+    {0x45,0x10,{0,0,0,0},6},
+    {0x05,0x70,{10,6,18,14},1},
+    {0x14,0xc1,{14,10,6,18},1},
+    {0x50,0x07,{18,14,10,6},1},
+    {0x41,0x1c,{6,18,14,10},1},
+    {0x01,0x7c,{7,19,15,11},3},
+    {0x04,0xf1,{11,7,19,15},3},
+    {0x10,0xc7,{15,11,7,19},3},
+    {0x40,0x1f,{19,15,11,7},3},
+    {0x09,0x74,{26,33,30,29},1},
+    {0x24,0xd1,{29,26,33,30},1},
+    {0x90,0x47,{30,29,26,33},1},
+    {0x42,0x1d,{33,30,29,26},1},
+    {0x21,0x5c,{27,32,31,28},1},
+    {0x84,0x71,{28,27,32,31},1},
+    {0x12,0xc5,{31,28,27,32},1},
+    {0x48,0x17,{32,31,28,27},1},
+    {0x02,0xfd,{23,22,25,24},1},
+    {0x08,0xf7,{24,23,22,25},1},
+    {0x20,0xdf,{25,24,23,22},1},
+    {0x80,0x7f,{22,25,24,23},1},
+    {0x00,0xff,{0,0,0,0},6},
+}};
 constexpr std::array<int,8> dx{0,1,1,1,0,-1,-1,-1};
 constexpr std::array<int,8> dy{-1,-1,0,1,1,1,0,-1};
 std::uint32_t raw(std::span<const std::uint32_t> terrain,int x,int y) {
@@ -119,7 +163,8 @@ const char* landscape_family_name(LandscapeFamily f) {
     case LandscapeFamily::Mountain:return "mountain";case LandscapeFamily::Wall:return "normal_wall";
     case LandscapeFamily::GreatWall:return "great_wall";case LandscapeFamily::Preserved:return "preserved";
     case LandscapeFamily::OrdinaryGate:return "ordinary_gate";
-    case LandscapeFamily::OrdinaryTower:return "ordinary_tower";}return "invalid";
+    case LandscapeFamily::OrdinaryTower:return "ordinary_tower";
+    case LandscapeFamily::Quarry:return "quarry";}return "invalid";
 }
 bool LandscapeSelection::operator==(const LandscapeSelection& r) const {
     return family==r.family && evidence==r.evidence && std::string_view(selector)==r.selector &&
@@ -169,6 +214,25 @@ LandscapeSelection select_landscape(const LandscapeSelectorInput& in,GridCell ce
         return result(LandscapeFamily::Rock,"53f660 rock",key,v&7U,
             possible_rock_square(in.terrain,cell,rock)?SelectorEvidence::Unresolved:SelectorEvidence::Verified,
             possible_rock_square(in.terrain,cell,rock)?"2x2/3x3 occupancy packing unresolved; historical footprint retained":"larger rock rectangles rejected by raw terrain; singleton selector");
+    }
+    if (t&0x20000U) {
+        const auto quarry=terrain_neighborhood(in.terrain,cell,0x20000).mask();
+        const auto absent=static_cast<std::uint8_t>(~quarry);
+        for (const auto& row:quarry_rules) {
+            if ((absent&row.required_absent)!=row.required_absent ||
+                (quarry&row.required_quarry)!=row.required_quarry) continue;
+            const auto offset=row.offsets[in.orientation];
+            const unsigned variant=offset+v%row.variants;
+            if (offset!=0 && variant>=6 && variant<=33)
+                return result(LandscapeFamily::Ground,"53f840 quarry boundary normalization",0x603,v&7U);
+            if (offset==0)
+                return result(LandscapeFamily::Quarry,"53f840 quarry reset-depth preview",0x628,variant,
+                    SelectorEvidence::Preview,
+                    "OpenEmperor static depth-255 quarry preview; original mode/depth restoration unresolved");
+            break;
+        }
+        return result(LandscapeFamily::Quarry,"53f840 quarry topology",0,0,
+            SelectorEvidence::Unresolved,"no supported quarry row; historical preview preserved");
     }
     if (t&0x2000000U) return result(LandscapeFamily::Mountain,"53fa20 pinnacle",0,0,
         SelectorEvidence::Unresolved,"pinnacle needs canonical five-cell origin and ownership");

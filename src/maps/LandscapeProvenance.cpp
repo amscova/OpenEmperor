@@ -620,9 +620,10 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
     Json regeneration={{"available",bool(plan.regenerated)},{"verified_identity",0},
         {"preview_identity",0},{"historical_preview",plan.cells.size()},
         {"water_selector",0},{"ground_selector",0},{"decoration_selector",0},
+        {"quarry_preview_selector",0},
         {"unresolved_selector",plan.cells.size()},{"full_original_composition_verified",0}};
     if (plan.regenerated) {
-        std::size_t verified=0,preview=0,water=0,ground=0,decor=0,unresolved=0;
+        std::size_t verified=0,preview=0,water=0,ground=0,decor=0,quarry_preview=0,unresolved=0;
         for (const auto& c:plan.regenerated->cells) {
             if (c.selection.evidence==SelectorEvidence::Unresolved) ++unresolved;
             if (!c.asset_index || plan.assets[*c.asset_index].status!=StoredStatus::Rendered ||
@@ -631,6 +632,7 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
             if (c.selection.evidence==SelectorEvidence::Verified) ++verified;else ++preview;
             switch(c.selection.family) {case LandscapeFamily::Water:++water;break;
             case LandscapeFamily::Ground:++ground;break;case LandscapeFamily::Decoration:++decor;break;
+            case LandscapeFamily::Quarry:++quarry_preview;break;
             case LandscapeFamily::Rock:case LandscapeFamily::Mountain:case LandscapeFamily::Wall:
             case LandscapeFamily::GreatWall:case LandscapeFamily::OrdinaryGate:case LandscapeFamily::OrdinaryTower:break;
             case LandscapeFamily::Preserved:break;}
@@ -638,6 +640,7 @@ Json landscape_fidelity_report(const StoredGraphicsPlan& plan) {
         regeneration.update({{"verified_identity",verified},{"preview_identity",preview},
             {"historical_preview",plan.cells.size()-verified-preview},{"water_selector",water},
             {"ground_selector",ground},{"decoration_selector",decor},{"unresolved_selector",unresolved},
+            {"quarry_preview_selector",quarry_preview},
             {"load_plan_milliseconds",plan.regenerated->build_milliseconds},
             {"historical_physical_assets",plan.regenerated->historical_asset_count},
             {"shared_physical_assets",plan.assets.size()}});
