@@ -36,10 +36,10 @@ No graphic is chosen by map name, coordinate, saved image ID, numeral or pixel c
 
 A fresh direct production software capture of the same centered viewport shows the continuous stone-strewn quarry ground with **zero numbered cells**, and all non-quarry selector results are unchanged. This is direct-render evidence, not native input or human acceptance. Ignored before/after captures, all-cell metadata, independent table prediction and check results live under `.local/quarry-selector/`; no original pixels are committed. All146 Release tests pass; the landscape-selector and stored-graphics renderer tests also pass with ASan/UBSan.
 
-Rebuild and open the tested map from the repository root:
+Rebuild and open the tested map from the repository root. The explicit Earthen choice also displays the Great Wall gate above the quarry; omission retains Automatic historical wall fallback:
 
 ```sh
-sh tools/test_remaining_occupancy.sh .local/gog-extracted/app --map MPWall1_S
+sh tools/test_remaining_occupancy.sh .local/gog-extracted/app --map MPWall1_S preview-earthen
 ```
 
 Complete original quarry extraction/stage rendering and mode-1 graphics remain open. The40 unregistered slot5 cells and12 unsupported Type1 Great Wall cells elsewhere are separate limitations; this correction makes no claim to fix them.

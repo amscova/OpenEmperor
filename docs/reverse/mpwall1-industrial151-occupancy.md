@@ -231,3 +231,24 @@ rule4 sandbox check, selected-presentation render check and a fresh native
 menu launch all passed. Seven existing Great Wall/scene/texture cases,
 four invalid-argument checks, shell syntax and `git diff --check` passed.
 Native launch is not human gameplay or visual acceptance.
+
+
+## MPWall1_S gate preview starter (2026-10-13)
+
+Oliver's17:02 screenshot exposes the same three Great Wall Gate components on MPWall1_S, independently of the corrected quarry below. Starting clean HEAD: `6abfaa66b600746c4bc6d507d890d03f5f7e3743`. The exact map SHA-256 remains `2d0eeccb89ab22cfda9b0311aeb39ed4ad4846da1444005aac554d0175b19eae`. The12 unsupported historical Type1 cells occupy the same three origins(90,118)/(88,121)/(90,121); the inspected first source is original ID/manager27, with saved signed height4 at its existing height cell(90,119).
+
+Fresh direct production software captures centered on this gate reproduce the brown fields in Automatic: **12 visible diagnostic cells**. Explicit `preview-earthen` has **zero visible diagnostic cells**, showing the complete gate and adjoining wall. All53 selected Great Wall components/740 cells activate atomically, while verified original-context instances remain zero. F1 reports `explicit_preview`, the active component and the original-context limitation. The quarry correction remains active. Unrelated historical diagnostics elsewhere are separate limitations.
+
+The generic remaining-occupancy starter previously forwarded only `auto` and rejected a fourth argument. It now accepts the existing five presentation choices as an optional fourth argument for `--map`, forwarding that exact choice to the shared starter. Omission still selects `auto`; audit/conflict/bounds modes do not accept the extra argument. Unknown/empty choices and invalid argument counts fail before hashing, building or launching. This changes only the wrapper; no renderer, selector, World, rules, policy, save or inferred original mode changes.
+
+The tested command for the screenshot's map is:
+
+```sh
+sh tools/test_remaining_occupancy.sh .local/gog-extracted/app --map MPWall1_S preview-earthen
+```
+
+Choose **New Sandbox → Start Sandbox**. The explicit Earthen choice is session presentation, not verified original restoration. Existing personal settings/saves are untouched.
+
+Both this exact preview invocation and the omitted-choice/default invocation completed the actual build and full rule4/policy2 Empty City preflight, then launched separate owned native menu processes with the correct exact map, isolated app roots and CLI mode. The preview also passed the production headless presentation render check. Only those newly owned test processes were closed; no UI input was delivered and no human PASS is claimed. The policy fingerprint remains `65019ba395e125384f0b18813c4d1139b309905ffe31bb5d7a5eaa6415332e60` in both runs. Eight invalid-argument checks, seven focused production Great Wall/scene/texture tests, shell syntax and whitespace checks passed.
+
+An initial private harness tried to force SDL's dummy driver through environment variables and conflicted with the Empty City check's explicit hint priority. That harness launch failed before any app opened. Repeating with clean normal-launch environment passed; no production behavior or timeout was changed to mask the harness failure. Local captures, F1 reports, preflight/launch evidence and logs remain ignored under `.local/mpwall1-s-gate-launch/`. Automatic historical fallback, complete restored Great Wall fidelity and native human acceptance remain open.

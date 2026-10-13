@@ -1,11 +1,16 @@
 #!/bin/sh
 set -eu
-if [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
-    echo 'Usage: sh tools/test_remaining_occupancy.sh DATA --audit | DATA --map "exact-map-stem" | DATA --conflicts "exact-map-stem" | DATA --bounds "exact-map-stem"' >&2
+if [ "$#" -lt 2 ] || [ "$#" -gt 4 ]; then
+    echo 'Usage: sh tools/test_remaining_occupancy.sh DATA --audit | DATA --map "exact-map-stem" [great-wall-presentation] | DATA --conflicts "exact-map-stem" | DATA --bounds "exact-map-stem"' >&2
     exit 2
 fi
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-case "$2:$#" in --audit:2|--map:3|--conflicts:3|--bounds:3) ;; *) echo 'Use --audit, --map, --conflicts or --bounds with one exact map stem.' >&2; exit 2 ;; esac
+case "$2:$#" in --audit:2|--map:3|--map:4|--conflicts:3|--bounds:3) ;; *) echo 'Use --audit, --map, --conflicts or --bounds with one exact map stem; only --map accepts a presentation choice.' >&2; exit 2 ;; esac
+great_wall_mode=${4-auto}
+case "$great_wall_mode" in
+    auto|historical|preview-ruined|preview-earthen|preview-stone) ;;
+    *) echo 'Great Wall presentation must be auto, historical, preview-ruined, preview-earthen or preview-stone.' >&2; exit 2 ;;
+esac
 original_data=$(CDPATH= cd -- "$1" && pwd -P)
 # Pin the complete local original revision, not just one convenient map.
 python3 - "$original_data" <<'PY'
@@ -65,4 +70,4 @@ fi
 # Empty City instead of requiring an unrelated fixed paid-demo arrangement.
 python3 "$repo_dir/tools/build_empty_map_preflight.py" "$repo_dir" "$build_dir" "$run_dir"
 OPENEMPEROR_TEST_EMPTY_MAP_PREFLIGHT="$run_dir/empty-map-preflight" \
-OPENEMPEROR_TEST_APP_ROOT_PARENT="$run_dir" exec sh "$repo_dir/tools/test_resgate_maps.sh" "$original_data" "$map_name"
+OPENEMPEROR_TEST_APP_ROOT_PARENT="$run_dir" exec sh "$repo_dir/tools/test_resgate_maps.sh" "$original_data" "$map_name" "$great_wall_mode"
