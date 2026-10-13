@@ -1,5 +1,7 @@
 # MP34 shore landing visuals: bounded historical General resolution
 
+The [2026-10-13 Guangzhou follow-up](guangzhou-shore-landing-visuals.md) additionally validates saved body variants1/3 through the same strict presentation-only path. This report's0/2 research, baseline, tests and counts remain historical; its previous1/3 refusal is superseded only for the newly evidenced complete valid body groups.
+
 The pass starts at clean HEAD **`6bf2ee620382ac6cb9c65fdd50e9edf231ed43c9`**. It closes the four evidenced brown land-side landing areas on MP34 through saved historical artwork. It adds no Ferry producer, ship, route, bridge, ramp, NPC, building option or World object. City-v16 rule4 / MapPermissions policy2 / save schema20, old versions, complete original occupancy, original roads, gates/walls/Tower joins, economy, input, save/recovery and TextureCompatibility retain their existing contracts. No commit or publication is performed.
 
 **Validation status: bounded MP34 shore fix complete.** Authored RED-before-fix and corrected production pixels, all four controlled direct/normal-App views, F5/F9/new-process comparisons, 20 focused regressions, the fresh complete corpus comparison, all438 registered tests, all three direct excluded Xia controls and the updated starter pass. Native launch is recorded separately from scripted technical evidence; human/native visual acceptance and original Ferry restoration parity remain open.

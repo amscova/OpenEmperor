@@ -416,11 +416,11 @@ void resolve_optional_stored_shore_footprints(StoredGraphicsPlan& plan,
             *diagnostic.group_local_end-*diagnostic.group_local_begin!=8U ||
             cell.local_index<*diagnostic.group_local_begin || cell.local_index>=*diagnostic.group_local_end) continue;
         const auto variant=cell.local_index-*diagnostic.group_local_begin;
-        // These two saved choices and canonical 2x2 part sets are independently
-        // evidenced. Other directions/states retain the named singleton refusal.
+        // All four saved land-body choices and canonical 2x2 part sets are
+        // evidenced; variants4..7 belong to the separate singleton pier path.
         // A saved picture selects art; it creates no Ferry object or claim.
-        diagnostic.fallback="optional saved shore supports only saved variants0/2 and canonical on-map 2x2 parts";
-        if ((variant!=0U && variant!=2U) || cell.offmap_bit ||
+        diagnostic.fallback="optional saved shore supports only saved land-body variants0..3 and canonical on-map 2x2 parts";
+        if (variant>3U || cell.offmap_bit ||
             (cell.candidate_byte!=0U && cell.candidate_byte!=1U &&
              cell.candidate_byte!=72U && cell.candidate_byte!=9U)) continue;
         diagnostic.fallback="optional saved shore requires static unmirrored side-two Type-30 geometry";

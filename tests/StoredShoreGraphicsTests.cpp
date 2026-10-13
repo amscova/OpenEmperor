@@ -221,6 +221,39 @@ void positive() {
     check(pixel(renderer,151,200)==std::array<std::uint8_t,4>{255,255,0,255},"later scene item covers body normally");
     view.shutdown();SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);
 }
+void opposite_saved_variants() {
+    // Independently authored saved1/3 squares: literal pixels and physical IDs,
+    // no source-object, terrain, map-name or production selector oracle.
+    for(unsigned variant:{1U,3U}) {
+        Fixture f;sources(f);auto raw=map_bytes();square(raw,114,114,139+variant);
+        square(raw,121,114,139+variant);write(f.root/"Shore.map",compressed(raw));
+        auto session=maps::load_stored_map_session(f.root,"Shore.map",maps::FootprintPolicy::EdgeByte4x4Preview);
+        auto* surface=SDL_CreateSurface(420,400,SDL_PIXELFORMAT_RGBA32);
+        auto* renderer=SDL_CreateSoftwareRenderer(surface);
+        openemperor::StoredGraphicsRenderer view(std::move(session.plan));view.initialize(renderer);
+        view.set_debug_diagnostics(false);view.set_landscape_mode(openemperor::LandscapeDebugMode::Regenerated);
+        openemperor::scene::Camera2D camera;camera.viewport_width=420;camera.viewport_height=400;camera.offset={200,-1380};
+        SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
+        check(view.render(camera,{}),"saved1/3 production render");
+        check(pixel(renderer,200,240)==std::array<std::uint8_t,4>{0,255,0,255},
+              "saved opposite landing variant replaces brown diagnostic with its own authored base");
+        check(pixel(renderer,151,200)==std::array<std::uint8_t,4>{255,0,0,255} &&
+              pixel(renderer,214,200)==std::array<std::uint8_t,4>{255,0,255,255},
+              "saved1/3 keeps full asymmetric upper image and existing side-two anchor");
+        check(pixel(renderer,141,260)==std::array<std::uint8_t,4>{255,255,0,255},
+              "saved1/3 never moves or removes the independent pier");
+        const auto& plan=view.plan();const auto* first=plan.at({114,114});const auto* duplicate=plan.at({121,114});
+        check(first->physical_record==340+variant && first->footprint_index && duplicate->footprint_index &&
+              first->asset_index==duplicate->asset_index && first->footprint_index!=duplicate->footprint_index,
+              "saved1/3 resolves exact original choice and deduplicates assets without merging sites");
+        const auto& fp=plan.footprints[*first->footprint_index];
+        check(fp.presentation_only && fp.width_cells==2 && fp.height_cells==2 && fp.cell_indices.size()==4,
+              "saved1/3 retains complete presentation-only square");
+        check(view.hit_test({151.5,200.5},camera)==maps::GridCell{114,115},
+              "saved1/3 upper pixels and alpha hit share the same marker");
+        view.shutdown();SDL_DestroyRenderer(renderer);SDL_DestroySurface(surface);
+    }
+}
 void shared_instances() {
     Fixture f;sources(f);auto raw=map_bytes();square(raw,121,114,139);square(raw,114,123,141);
     write(f.root/"Shore.map",compressed(raw));
@@ -282,8 +315,19 @@ void negatives() {
     refused(metadata,raw,&payload,"wrong containing group cannot select shore art");
     metadata=original;u16(metadata,80U+140U*2U,347);
     refused(metadata,raw,&payload,"incomplete runtime family retains fallback");
-    for(unsigned variant:{1U,3U}) {auto different=raw;square(different,114,114,139+variant);
-        refused(original,different,&payload,"unreviewed direction/variant stays unsupported");}
+    for(unsigned variant:{1U,3U}) {
+        auto different=raw;square(different,114,114,139+variant);
+        different[std::size_t(maps::candidate_byte_logical_offset)+115U*228U+115U]=0x89;
+        refused(original,different,&payload,"saved1/3 still rejects an unknown part state");
+    }
+    for(unsigned variant=4;variant<8;++variant) {
+        auto different=raw;square(different,114,114,139+variant);metadata=original;
+        // Even forged valid side-two metadata cannot turn a pier variant into
+        // a land body. Variant4 also changes the independent authored pier.
+        std::copy_n(original.begin()+static_cast<std::ptrdiff_t>(body),64,
+                    metadata.begin()+static_cast<std::ptrdiff_t>(40680U+(340U+variant)*64U));
+        refused(metadata,different,&payload,"pier-family variants cannot select a land body",variant!=4);
+    }
     metadata=original;u32(metadata,body+16,1);refused(metadata,raw,&payload,"mirror reference remains unsupported");
     metadata=original;u16(metadata,body+30,1);refused(metadata,raw,&payload,"animation cannot become a static shore image");
     metadata=original;u16(metadata,body+50,1);refused(metadata,raw,&payload,"wrong format cannot bypass the decoder contract");
@@ -370,7 +414,7 @@ void asset_limit_and_legacy() {
 } // namespace
 int main(){try {
     check(SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy") && SDL_Init(SDL_INIT_VIDEO),"SDL dummy init");
-    positive();shared_instances();signed_marker_height();negatives();asset_limit_and_legacy();
+    positive();opposite_saved_variants();shared_instances();signed_marker_height();negatives();asset_limit_and_legacy();
     check(openemperor::StoredGraphicsRenderer::live_texture_count()==0,"shore texture shutdown");
     SDL_Quit();std::cout<<"Stored shoreline presentation tests passed\n";return 0;
 }catch(const std::exception& error){std::cerr<<error.what()<<'\n';SDL_Quit();return 1;}}
