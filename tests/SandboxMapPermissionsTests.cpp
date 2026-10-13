@@ -1,4 +1,5 @@
 #include "maps/SandboxPlacement.h"
+#include "simulation/World.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -558,6 +559,107 @@ void remaining_editor_origin(int type,std::initializer_list<std::uint16_t> bases
   }
  }
 }
+Fixture dirt_ferry_fixture(unsigned ferry_schema=1) {
+ // Independently authored complete archive records. The real reader enforces
+ // Ferry's additional schema1/2008-byte state before any claim decision.
+ Fixture f;using Bytes=std::vector<std::uint8_t>;Bytes bytes(6,0);
+ auto put16=[](Bytes& b,std::size_t at,unsigned value){b.at(at)=std::uint8_t(value);b.at(at+1)=std::uint8_t(value>>8);};
+ auto put32=[&](Bytes& b,std::size_t at,unsigned value){put16(b,at,value);put16(b,at+2,value>>16);};
+ put16(bytes,0,1);put32(bytes,2,2);
+ auto append=[&](const std::string& name,unsigned type,unsigned side,unsigned id,bool ferry){
+  const auto tag=bytes.size();bytes.resize(tag+6+name.size(),0);
+  put16(bytes,tag,0xffff);put16(bytes,tag+4,unsigned(name.size()));
+  std::copy(name.begin(),name.end(),bytes.begin()+std::ptrdiff_t(tag+6));
+  const auto base=bytes.size();bytes.resize(base+311+(ferry?2010:0),0);
+  put16(bytes,base,4);bytes[base+2]=3;bytes[base+5]=std::uint8_t(side);
+  put16(bytes,base+8,71);put16(bytes,base+10,81);put32(bytes,base+12,unsigned(raw(start)));
+  put16(bytes,base+16,type);put32(bytes,base+161,id);put16(bytes,base+181,1);put16(bytes,base+183,1);
+  if(ferry)put16(bytes,base+311,ferry_schema);
+ };
+ append("cIndustrialBldg",162,0,7,false);append("cFerryBldg",210,2,8,true);
+ f.entities=maps::parse_original_map_entities(bytes,170);return f;
+}
+void dirt_ferry_association() {
+ const auto f=dirt_ferry_fixture();
+ for(unsigned policy:{1U,2U}) {
+  auto prepare=[&](const Fixture& input){return maps::make_sandbox_map_permissions(
+      input.map,input.plan,input.geometry,input.legacy,input.entities,policy);};
+  const auto permissions=prepare(f);
+  // Literal union: complete2x2 Ferry reservation plus a coincident non-owning
+  // terrain source. Both identities persist; no road/passage is created.
+  for(simulation::Cell c:std::array<simulation::Cell,4>{{{100,110},{101,110},{100,111},{101,111}}})
+   check(permissions->protected_original(c)&&!permissions->road_allowed(c)&&!permissions->building_allowed(c)&&
+         permissions->road_blocker(c)==simulation::BuildBlocker::OriginalStructure&&
+         permissions->building_blocker(c)==simulation::BuildBlocker::OriginalStructure&&
+         permissions->cell_height(c)==-1,"exact Ferry union remains protected");
+  for(simulation::Cell c:std::array<simulation::Cell,4>{{{99,110},{102,110},{100,109},{100,112}}})
+   check(permissions->road_allowed(c)&&permissions->building_allowed(c)&&!permissions->protected_original(c),
+         "association claims no extra neighbor");
+  check(f.entities.records.size()==2&&f.entities.records[0].serialized_original_id==7&&
+        f.entities.records[1].serialized_original_id==8,"both original sources retained");
+  auto reversed=f;std::reverse(reversed.entities.records.begin(),reversed.entities.records.end());
+  check(prepare(reversed)->canonical_state()==permissions->canonical_state(),"association independent of record order");
+  auto body=f;body.entities.records.erase(body.entities.records.begin());
+  check(prepare(body)->canonical_state()==permissions->canonical_state(),"annotation changes no physical permissions");
+  auto marked=f;marked.map.terrain_raw.values[raw(start)]=0xc0;
+  auto marked_body=marked;marked_body.entities.records.erase(marked_body.entities.records.begin());
+  check(prepare(marked)->canonical_state()==prepare(marked_body)->canonical_state()&&
+        !prepare(marked)->original_road({100,110}),"association creates no road under Road bit");
+  auto mutate=[&](unsigned index,auto edit,const char* reason){auto bad=f;edit(bad.entities.records[index]);
+   for(bool reverse:{false,true}){auto ordered=bad;if(reverse)std::reverse(ordered.entities.records.begin(),ordered.entities.records.end());
+    rejects([&]{prepare(ordered);},reason);}};
+  mutate(0,[](auto& e){e.type=163;},"same geometry with a different marker relation refused");
+  mutate(0,[](auto& e){e.entity_class=maps::OriginalEntityClass::Building;},"wrong marker class refused");
+  mutate(1,[](auto& e){e.entity_class=maps::OriginalEntityClass::Building;},"same geometry without typed Ferry refused");
+  mutate(1,[](auto& e){e.type=211;},"another physical type refused");
+  for(unsigned index:{0U,1U}) {
+   mutate(index,[](auto& e){e.status=2;},"unevidenced association status refused");
+   mutate(index,[](auto& e){e.subindex=1;},"unevidenced association subindex refused");
+   mutate(index,[](auto& e){e.provenance.base_schema=3;},"unevidenced association Base3 refused");
+   mutate(index,[](auto& e){e.provenance.base_schema=5;},"unevidenced association Base5 refused");
+   mutate(index,[](auto& e){e.provenance.wrapper_schema=2;},"wrong parent wrapper refused");
+   mutate(index,[](auto& e){e.provenance.extended_schema=2;},"wrong NonHouse state refused");
+   mutate(index,[](auto& e){e.provenance.class_wrapper_schema=1;},"unexpected class wrapper refused");
+   mutate(index,[](auto& e){e.monument=maps::OriginalMonumentState{};},"unproved composite parent state refused");
+   mutate(index,[](auto& e){e.gate_house=maps::OriginalGateHouseState{0};},"unproved Gate state refused");
+   mutate(index,[](auto& e){e.original_id.reset();},"association identity required");
+   mutate(index,[](auto& e){e.serialized_original_id+=1;},"wrong source/physical owner identity refused");
+   mutate(index,[](auto& e){++e.serialized_cell_reference;},"association reference must be exact");
+  }
+  mutate(0,[](auto& e){e.footprint_side=1;},"physical source cannot be relabeled annotation");
+  mutate(1,[](auto& e){e.footprint_side=1;},"wrong physical area refused");
+  mutate(0,[](auto& e){++e.local_x;++e.serialized_cell_reference;},"interior point is not the evidenced Ferry anchor");
+  auto other=f;auto second=other.entities.records[0];second.original_id=maps::OriginalEntityId{9};
+  second.serialized_original_id=9;second.manager_index=2;other.entities.records.push_back(second);
+  check(prepare(other)->canonical_state()==permissions->canonical_state()&&other.entities.records.size()==3,
+        "distinct valid Dirt annotations are retained, not merged or duplicate-ID owners");
+  for(bool reverse:{false,true}) {
+   auto mixed=other;mixed.entities.records.back().type=185;
+   auto exclusive=other;exclusive.entities.records.back()=f.source(start,9,2);
+   auto late=other;late.entities.records.back().type=138;late.entities.records.back().provenance.extended_schema=2;
+   auto duplicate_id=other;duplicate_id.entities.records.back().original_id=maps::OriginalEntityId{7};duplicate_id.entities.records.back().serialized_original_id=7;
+   auto duplicate_index=other;duplicate_index.entities.records.back().manager_index=0;
+   auto offmap=f;offmap.map.terrain_raw.values[raw({101,111})]|=0x80000U;
+   auto outside=f;for(auto& e:outside.entities.records){e.local_x=e.local_y=0;e.serialized_cell_reference=int(raw({29,29}));}
+   for(auto* input:{&mixed,&exclusive,&late,&duplicate_id,&duplicate_index,&offmap,&outside}) {
+    if(reverse)std::reverse(input->entities.records.begin(),input->entities.records.end());
+    rejects([&]{prepare(*input);},"mixed marker/competing owner/late unknown/identity/bounds remain atomic failures");
+   }
+   Fixture gate;gate.gate(0);gate.entities.records[0].original_id=maps::OriginalEntityId{8};gate.entities.records[0].serialized_original_id=8;
+   auto annotation=f.entities.records[0];annotation.manager_index=1;annotation.local_x=73;
+   annotation.serialized_cell_reference=int(raw({102,110}));gate.entities.records.push_back(annotation);
+   if(reverse)std::reverse(gate.entities.records.begin(),gate.entities.records.end());
+   rejects([&]{prepare(gate);},"Dirt marker cannot free a Gate corridor");
+  }
+  bool invalid_ferry_state=false;
+  try {dirt_ferry_fixture(2);}catch(const maps::OriginalEntityError&){invalid_ferry_state=true;}
+  check(invalid_ferry_state,"Ferry's own unevidenced archive state rejected by complete reader");
+  simulation::World world(permissions,simulation::RulesProfile::CityV16,policy==1?3:4);
+  for(simulation::Cell c:std::array<simulation::Cell,4>{{{100,110},{101,110},{100,111},{101,111}}})
+   check(!world.validate({simulation::CommandType::PlaceHousehold,c}).accepted&&
+         !world.validate({simulation::CommandType::PlaceRoad,c}).accepted,"ordinary House/Road validation retains complete protection");
+ }
+}
 void invalid_sources(){Fixture f;f.gate(0);auto mutate=[&](auto edit,const char* msg){auto bad=f;edit(bad);rejects([&]{bad.make();},msg);};mutate([](auto&b){b.map.terrain_raw.values[raw({104,112})]&=~8U;},"partial gate claims rejected");mutate([](auto&b){++b.entities.records[0].serialized_cell_reference;},"reference mismatch rejected");mutate([](auto&b){b.entities.records[0].gate_house->layout=2;},"unknown layout rejected");mutate([](auto&b){b.entities.records[0].provenance.class_wrapper_schema=3;},"unknown gate wrapper rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,111})]=0;},"unequal corridor heights rejected");mutate([](auto&b){b.plan.height_bytes[raw({102,109})]=0;},"unequal opening height rejected");mutate([](auto&b){auto e=b.source({102,111},8,1);b.entities.records.push_back(e);},"overlapping original structure rejected");mutate([](auto&b){b.entities.manager_schema=0;},"unknown full manager schema rejected");mutate([](auto&b){b.plan.height_bytes.pop_back();},"truncated heights rejected");rejects([&]{maps::make_sandbox_map_permissions(f.map,f.plan,f.geometry,f.legacy,f.entities,3);},"unknown map policy rejected");Fixture h;h.plan.height_bytes[raw(start)]=128;h.plan.height_bytes[raw({101,110})]=127;auto p=h.make();check(p->cell_height({100,110})==-128&&p->cell_height({101,110})==127&&p->transport_edge_blocker({100,110},{101,110})==simulation::BuildBlocker::UnsupportedHeightTransition,"signed byte extremes do not create steep edges");}
 void standalone_reader(){
  Fixture f;f.gate(1);
@@ -583,4 +685,4 @@ void standalone_reader(){
 }
 void legacy_contract(){Fixture f;maps::StoredCell c;c.storage=start;c.cell_index=raw(start);c.terrain_raw=0x80;c.objects_raw=0;c.footprint_index=0;c.status=maps::StoredStatus::Rendered;f.plan.cells.push_back(c);maps::PlacedFootprint fp;fp.origin=start;fp.width_cells=fp.height_cells=1;fp.status=maps::StoredStatus::Rendered;f.plan.footprints.push_back(fp);check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==1,"legacy successful1x1 rendered fixture");f.plan.cells[0].status=maps::StoredStatus::DecodeFailed;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy decode dependence remains exact");f.plan.cells[0].status=maps::StoredStatus::Rendered;f.plan.footprints[0].width_cells=2;check(maps::make_sandbox_buildable_mask(f.plan,f.geometry)[raw(start)]==0,"legacy footprint dependence remains exact");}
 }
-int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else if(type=="151")industrial151_origin();else if(type=="173")industrial173_origin();else if(type=="187")remaining_editor_origin(187,{4});else if(type=="189")remaining_editor_origin(189,{4});else if(type=="138")remaining_editor_origin(138,{3,4});else if(type=="181")remaining_editor_origin(181,{3,4});else if(type=="188")remaining_editor_origin(188,{3,4});else if(type=="167")remaining_editor_origin(167,{4});else throw std::invalid_argument("Unknown focused occupancy test");}else{remaining_editor_origin(189,{4});remaining_editor_origin(187,{4});industrial173_origin();industrial151_origin();industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(int argc,char** argv){try{if(argc==2){const std::string type=argv[1];if(type=="179")industrial179_origin();else if(type=="164")industrial164_origin();else if(type=="186")industrial186_origin();else if(type=="151")industrial151_origin();else if(type=="173")industrial173_origin();else if(type=="187")remaining_editor_origin(187,{4});else if(type=="189")remaining_editor_origin(189,{4});else if(type=="138")remaining_editor_origin(138,{3,4});else if(type=="181")remaining_editor_origin(181,{3,4});else if(type=="188")remaining_editor_origin(188,{3,4});else if(type=="167")remaining_editor_origin(167,{4});else if(type=="dirt-ferry")dirt_ferry_association();else throw std::invalid_argument("Unknown focused occupancy test");}else{dirt_ferry_association();remaining_editor_origin(189,{4});remaining_editor_origin(187,{4});industrial173_origin();industrial151_origin();industrial186_origin();industrial179_origin();industrial164_origin();river_marker_origins();reswall_occupancy();resgate_occupancy();free_and_protected();road_markings();passage_layouts();markers();saved_editor_marker_origins();invalid_sources();standalone_reader();legacy_contract();}std::cout<<"Sandbox map permission tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

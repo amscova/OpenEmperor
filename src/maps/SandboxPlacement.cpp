@@ -262,6 +262,36 @@ OriginalOccupancy original_occupancy(const OriginalEntityRecord& entity) {
     }
     return OriginalOccupancy::Unsupported;
 }
+// A narrowly evidenced non-owning terrain annotation at a Ferry's exact
+// anchor. Dirt162's qualified source writes zero owner dimensions; standalone
+// restore excludes it, while Ferry210 restores its own exclusive owner. This
+// does not replay Dirt (which can clear old owners), admit interior annotations,
+// or establish a Parent/Child/Ferry-route relation. See original-occupancy-conflicts.
+bool dirt_anchor_source(const OriginalEntityRecord& e) {
+    const auto& p=e.provenance;
+    return e.entity_class==OriginalEntityClass::Industrial && e.type==162 &&
+        e.status==3 && e.subindex==0 && e.footprint_side==0 && p.base_schema==4 &&
+        p.wrapper_schema==1 && p.extended_schema==1 && p.class_wrapper_schema==0 &&
+        !e.monument && !e.gate_house;
+}
+bool ferry_anchor_source(const OriginalEntityRecord& e) {
+    const auto& p=e.provenance;
+    // The existing complete reader additionally enforces Ferry schema1 and its
+    // entire2008-byte payload; no new Ferry state or SavedSquare admission.
+    return e.entity_class==OriginalEntityClass::Ferry && e.type==210 &&
+        e.status==3 && e.subindex==0 && e.footprint_side==2 && p.base_schema==4 &&
+        p.wrapper_schema==1 && p.extended_schema==1 && p.class_wrapper_schema==0 &&
+        !e.monument && !e.gate_house;
+}
+bool dirt_ferry_anchor(const OriginalEntityRecord& dirt,const OriginalEntityRecord& ferry) {
+    return dirt_anchor_source(dirt) && ferry_anchor_source(ferry) &&
+        dirt.local_x==ferry.local_x && dirt.local_y==ferry.local_y &&
+        dirt.serialized_cell_reference==ferry.serialized_cell_reference;
+}
+// Existing per-cell marker storage records eligibility of every marker at the
+// point. Distinct duplicates remain distinct sources; any unrelated marker
+// makes the physical association forbidden, regardless of record order.
+constexpr std::uint8_t dirt_markers_only=1, other_marker_present=2;
 void permission_require(bool condition,const char* reason) {
     if (!condition) throw std::invalid_argument(std::string("map permissions: ")+reason);
 }
@@ -326,7 +356,7 @@ OriginalRulePreparation prepare_original_rules(
         }
     }
     std::set<std::uint32_t> ids,manager_indices;
-    std::vector<std::optional<std::uint32_t>> owner(permission_cells);
+    std::vector<const OriginalEntityRecord*> owner(permission_cells,nullptr);
     std::vector<std::uint8_t> marker_reserved(permission_cells,0);
     std::vector<const OriginalEntityRecord*> gates;
     // Reserve all complete original occupancy before admitting any passage.
@@ -375,9 +405,16 @@ OriginalRulePreparation prepare_original_rules(
             permission_require(geometry.contains(cell),"active original footprint outside map");
             const auto at=storage(cell);
             permission_require(!(map.terrain_raw.values[at]&offmap),"active original footprint on off-map terrain");
-            original_rules_require(!owner[at] && (marker || !marker_reserved[at]),"conflicting complete original occupancy");
-            if (marker) marker_reserved[at]=1;
-            else owner[at]=entity.original_id->value;
+            const bool allowed_annotation=marker && owner[at] && dirt_ferry_anchor(entity,*owner[at]);
+            const bool allowed_body=!marker && !owner[at] && marker_reserved[at]==dirt_markers_only &&
+                cell==origin && ferry_anchor_source(entity);
+            original_rules_require((!owner[at] || allowed_annotation) &&
+                (marker || !marker_reserved[at] || allowed_body),"conflicting complete original occupancy");
+            if (marker) {
+                if (!dirt_anchor_source(entity) || marker_reserved[at]==other_marker_present)
+                    marker_reserved[at]=other_marker_present;
+                else marker_reserved[at]=dirt_markers_only;
+            } else owner[at]=&entity;
             if (gate) permission_require((map.terrain_raw.values[at]&0x8008U)==0x8008U &&
                 !(map.terrain_raw.values[at]&0x4000U),"incomplete/conflicting original GateHouse raw footprint");
             auto& out=cells[at];out.protected_original=true;out.road_allowed=out.building_allowed=false;

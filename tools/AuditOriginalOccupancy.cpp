@@ -32,6 +32,7 @@ using json=nlohmann::json;
 using namespace openemperor;
 namespace {
 bool summary_only=false;
+bool detailed_conflicts=false;
 constexpr std::size_t cells=maps::stored_grid_width*maps::stored_grid_height;
 constexpr std::size_t maximum_interaction_pairs=65536;
 
@@ -104,6 +105,22 @@ json source(const maps::OriginalEntityRecord& e,const maps::ParsedEmperorMap& ma
     if (p.logical_extended_offset) result["logical_extended_position"]=*p.logical_extended_offset;
     if (p.logical_class_wrapper_offset) result["logical_class_wrapper_position"]=*p.logical_class_wrapper_offset;
     if (e.gate_house) result["gate_layout"]=e.gate_house->layout;
+    if(e.monument) result["monument"]={{"phase",e.monument->phase},{"serialized_material",e.monument->serialized_material},
+        {"height",e.monument->height},{"orientation",e.monument->orientation}};
+    if(detailed_conflicts) {
+        result["field_sources"]=json::object();
+        for(const auto [field,name]:std::array<std::pair<maps::OriginalEntityField,const char*>,13>{{
+            {maps::OriginalEntityField::Status,"status"},{maps::OriginalEntityField::FootprintSide,"footprint_side"},
+            {maps::OriginalEntityField::LocalX,"local_x"},{maps::OriginalEntityField::LocalY,"local_y"},
+            {maps::OriginalEntityField::SerializedCellReference,"serialized_cell_reference"},{maps::OriginalEntityField::Type,"type"},
+            {maps::OriginalEntityField::Subindex,"subindex"},{maps::OriginalEntityField::OriginalId,"original_id"},
+            {maps::OriginalEntityField::MonumentPhase,"monument_phase"},{maps::OriginalEntityField::SerializedMaterial,"serialized_material"},
+            {maps::OriginalEntityField::MonumentHeight,"monument_height"},{maps::OriginalEntityField::MonumentOrientation,"monument_orientation"},
+            {maps::OriginalEntityField::GateLayout,"gate_layout"}}}) {
+            if(const auto f=e.field_source(field)) result["field_sources"][name]={{"logical_offset",f->logical_offset},
+                {"record_relative_offset",f->record_relative_offset},{"byte_width",f->byte_width},{"signed",f->signed_value}};
+        }
+    }
     if (x>=0 && y>=0 && x<int(maps::stored_grid_width) && y<int(maps::stored_grid_height)) {
         const auto at=std::size_t(y)*maps::stored_grid_width+std::size_t(x);
         result["raw_terrain"]=map.terrain_raw.values[at];result["raw_objects"]=map.objects_raw.values[at];
@@ -136,6 +153,75 @@ std::vector<std::size_t> interaction_cells(const maps::OriginalEntityRecord& e,c
         if (e.gate_house->layout==0) {add(x+2,y-1);add(x+2,y+3);} else {add(x-1,y+2);add(x+3,y+2);}
     }
     std::sort(result.begin(),result.end());result.erase(std::unique(result.begin(),result.end()),result.end());return result;
+}
+// Geometry only enumerates spatial candidates; the unchanged production
+// producer decides every source and pair. No permissive diagnostic authority.
+void add_claim_diagnostics(json& row,const maps::ParsedEmperorMap& map,const maps::MapGeometry& geometry,
+    const maps::OriginalMapEntities& entities,std::span<const std::uint8_t> heights) {
+    row["claim_diagnostic_semantics"]="Complete original manager first; raw candidate shapes, single-source and both-order pair decisions through production only. No subset policy or World published; no playable buildability inferred.";
+    row["active_source_records"]=json::array();row["all_spatial_claim_pairs"]=json::array();
+    std::vector<const maps::OriginalEntityRecord*> active;
+    std::vector<std::vector<std::size_t>> shapes;
+    for(const auto& record:entities.records) if(record.active()) {
+        auto value=source(record,map,geometry,heights);maps::OriginalMapEntities single=entities;single.records={record};
+        value["single_source_error"]=check(map,geometry,single,heights);
+        std::vector<std::size_t> shape;
+        // An invalid extent is not expanded or clamped into an accepted claim.
+        if(record.footprint_side<=16) shape=interaction_cells(record,geometry);
+        value["candidate_cells"]=json::array();
+        for(auto at:shape)value["candidate_cells"].push_back({at%maps::stored_grid_width,at/maps::stored_grid_width});
+        value["claim_kind"]=record.footprint_side==0&&!record.gate_house ? "NONPHYSICAL_MARKER_CANDIDATE":"PHYSICAL_CLAIM_CANDIDATE";
+        row["active_source_records"].push_back(std::move(value));active.push_back(&record);shapes.push_back(std::move(shape));
+    }
+    std::map<std::size_t,std::vector<std::size_t>> buckets;std::set<std::pair<std::size_t,std::size_t>> pairs;
+    std::shared_ptr<const simulation::MapPermissions> complete;
+    std::string complete_error;
+    try {
+        complete=maps::prepare_sandbox_map_permissions(map,geometry,
+            std::vector<std::uint8_t>(cells,1),entities,heights,
+            simulation::kOriginalRoadsMapPermissionsPolicyVersion);
+    } catch(const std::exception& error) {complete_error=error.what();}
+    row["intersection_permission_semantics"]="Full complete-manager policy2 with explicit all-one legacy upper bound; protection/blockers use production only. A refused map has no current partial policy.";
+    row["complete_policy_error"]=complete_error;
+    bool limit=false;
+    for(std::size_t i=0;i<shapes.size()&&!limit;++i)for(auto at:shapes[i]) {
+        auto& previous=buckets[at];
+        for(auto j:previous){const auto pair=std::make_pair(j,i);
+            if(!pairs.contains(pair)&&pairs.size()==maximum_interaction_pairs){limit=true;break;}
+            pairs.insert(pair);
+        }
+        if(limit)break;
+        previous.push_back(i);
+    }
+    row["all_spatial_pair_diagnosis_complete"]=!limit;
+    for(const auto [a,b]:pairs) {
+        maps::OriginalMapEntities pair=entities;pair.records={*active[a],*active[b]};
+        const auto reason=check(map,geometry,pair,heights);std::reverse(pair.records.begin(),pair.records.end());
+        json value={{"first_original_id",active[a]->serialized_original_id},{"second_original_id",active[b]->serialized_original_id},
+            {"first_manager_index",active[a]->manager_index},{"second_manager_index",active[b]->manager_index},
+            {"production_error",reason},{"reverse_production_error",check(map,geometry,pair,heights)},
+            {"individual_sources_valid",row["active_source_records"][a]["single_source_error"]=="" && row["active_source_records"][b]["single_source_error"]==""},
+            {"intersection_cells",json::array()}};
+        for(auto at:shapes[a])if(std::binary_search(shapes[b].begin(),shapes[b].end(),at)) {
+            const unsigned x=unsigned(at%maps::stored_grid_width),y=unsigned(at/maps::stored_grid_width);
+            json cell={{"storage_coordinates",{x,y}},{"raw_terrain",map.terrain_raw.values[at]},{"raw_objects",map.objects_raw.values[at]},
+                {"signed_height",heights[at]<128?int(heights[at]):int(heights[at])-256},
+                {"geometry_on_map",geometry.contains({x,y})},{"all_candidate_source_ids",json::array()},
+                {"terrain_logical_offset",map.terrain_cell_offset(x,y)},{"objects_logical_offset",map.object_cell_offset(x,y)},
+                {"height_logical_offset",maps::landscape_height_offset+at}};
+            if(complete) {
+                const simulation::Cell location{int(x),int(y)};
+                cell["complete_policy2"]={{"protected_original",complete->protected_original(location)},
+                    {"road_allowed",complete->road_allowed(location)},{"building_allowed",complete->building_allowed(location)},
+                    {"road_blocker",simulation::build_blocker_name(complete->road_blocker(location))},
+                    {"building_blocker",simulation::build_blocker_name(complete->building_blocker(location))}};
+            } else cell["complete_policy2"]=nullptr;
+            for(auto index:buckets[at])cell["all_candidate_source_ids"].push_back(active[index]->serialized_original_id);
+            std::sort(cell["all_candidate_source_ids"].begin(),cell["all_candidate_source_ids"].end());
+            value["intersection_cells"].push_back(std::move(cell));
+        }
+        row["all_spatial_claim_pairs"].push_back(std::move(value));
+    }
 }
 json save_permissions(const simulation::MapPermissions& p,const fs::path& directory,const std::string& map_sha,std::span<const std::uint8_t> legacy) {
     if (summary_only) {
@@ -208,6 +294,7 @@ json audit_map(const maps::MapCatalogEntry& entry,const fs::path& root,const fs:
         if (record.entity_class==maps::OriginalEntityClass::ResGate)
             row["resgate_records"].push_back(source(record,map,geometry,heights));
     }
+    if(detailed_conflicts)add_claim_diagnostics(row,map,geometry,entities,heights);
     const auto first=check(map,geometry,entities,heights);row["first_preparation_error"]=first;row["first_category"]=category(first);
     maps::OriginalMapEntities probe=entities;probe.records.clear();std::vector<maps::OriginalEntityRecord> supported;
     std::set<std::size_t> unknown_indices;row["active_object_count"]=0;
@@ -323,9 +410,10 @@ json priorities(const json& rows) {
 
 int main(int argc,char** argv) {
     try {
-        if (argc!=3 && !(argc==4 && std::string_view(argv[3])=="--summary-only"))
-            throw std::invalid_argument("usage: openemperor-audit-original-occupancy DATA-ROOT .local/OUTPUT-ROOT [--summary-only]");
-        summary_only=argc==4;
+        if (argc!=3 && !(argc==4 && std::string_view(argv[3])=="--summary-only") &&
+            !(argc==5 && std::string_view(argv[3])=="--conflicts"))
+            throw std::invalid_argument("usage: openemperor-audit-original-occupancy DATA-ROOT .local/OUTPUT-ROOT [--summary-only | --conflicts Cities/exact.map]");
+        summary_only=argc>=4;detailed_conflicts=argc==5;
         const auto root=fs::canonical(argv[1]);const auto output=fs::weakly_canonical(argv[2]);
         const auto private_root=fs::canonical(fs::current_path()/".local");
         if (!beneath(output,private_root) || beneath(output,root) || output==private_root || (fs::exists(output) && !fs::is_empty(output)))
@@ -340,7 +428,13 @@ int main(int argc,char** argv) {
             {"legacy_mask_semantics","Zero and one explicit extremes plus real normal-session mask after EdgeByte4x4Preview/Slot8/Automatic preparation through StoredGraphicsRenderer under dummy/software; real mask is not guessed."}};
         std::map<std::string,std::size_t> counts;
         if (summary_only) report["permission_report_storage"]="canonical SHA-256/fingerprint/counts only; both policies, no canonical/component files";
-        for (const auto& entry:catalog.entries) if (entry.map_profile) {
+        if(detailed_conflicts) {
+            const fs::path selected=argv[4];
+            const auto matches=std::count_if(catalog.entries.begin(),catalog.entries.end(),[&](const auto& entry){return entry.map_profile && entry.relative_path==selected;});
+            if(matches!=1)throw std::invalid_argument("Require one exact standalone production MapCatalog path");
+            report["selected_conflict_diagnosis_map"]=selected.generic_string();
+        }
+        for (const auto& entry:catalog.entries) if (entry.map_profile && (!detailed_conflicts || entry.relative_path==fs::path(argv[4]))) {
             auto row=audit_map(entry,root,output);counts[row["first_category"].get<std::string>()]++;
             std::cerr<<entry.relative_path.generic_string()<<": "<<row["first_category"].get<std::string>()<<'\n';report["maps"].push_back(std::move(row));
         }

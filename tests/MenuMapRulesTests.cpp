@@ -66,7 +66,7 @@ Bytes sg3(bool tile) {
     }
     return bytes;
 }
-enum class Manager { Empty, UnknownClass, Truncated, ResWall, ResWallUnknownOccupancy, ResWallTruncated, ResGate, ResGateUnknownOccupancy, ResGateTruncated, River, RiverUnknownOccupancy, RiverTruncated, EditorPoints, EditorPointsUnknownOccupancy, EditorPointsTruncated, CopperPoints, CopperPointsUnknownOccupancy, CopperPointsTruncated, TerrainFlagPoints, TerrainFlagPointsUnknownOccupancy, TerrainFlagPointsTruncated, InvasionPoints, InvasionPointsUnknownOccupancy, InvasionPointsTruncated, RemainingPoints, RemainingPointsUnknownOccupancy, RemainingPointsTruncated };
+enum class Manager { Empty, UnknownClass, Truncated, ResWall, ResWallUnknownOccupancy, ResWallTruncated, ResGate, ResGateUnknownOccupancy, ResGateTruncated, River, RiverUnknownOccupancy, RiverTruncated, EditorPoints, EditorPointsUnknownOccupancy, EditorPointsTruncated, CopperPoints, CopperPointsUnknownOccupancy, CopperPointsTruncated, TerrainFlagPoints, TerrainFlagPointsUnknownOccupancy, TerrainFlagPointsTruncated, InvasionPoints, InvasionPointsUnknownOccupancy, InvasionPointsTruncated, RemainingPoints, RemainingPointsUnknownOccupancy, RemainingPointsTruncated, DirtFerry, DirtFerryUnknownOccupancy, DirtFerryTruncated };
 Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0,int source_type=0) {
     using namespace openemperor::maps;
     const std::string unknown_class="cUnauditedBuilding";
@@ -88,7 +88,7 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0,int source_t
         manager==Manager::EditorPoints || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::EditorPointsTruncated ||
         manager==Manager::CopperPoints || manager==Manager::CopperPointsUnknownOccupancy || manager==Manager::CopperPointsTruncated ||
         manager==Manager::TerrainFlagPoints || manager==Manager::TerrainFlagPointsUnknownOccupancy || manager==Manager::TerrainFlagPointsTruncated ||
-        manager==Manager::InvasionPoints || manager==Manager::InvasionPointsUnknownOccupancy || manager==Manager::InvasionPointsTruncated || manager==Manager::RemainingPoints || manager==Manager::RemainingPointsUnknownOccupancy || manager==Manager::RemainingPointsTruncated) {
+        manager==Manager::InvasionPoints || manager==Manager::InvasionPointsUnknownOccupancy || manager==Manager::InvasionPointsTruncated || manager==Manager::RemainingPoints || manager==Manager::RemainingPointsUnknownOccupancy || manager==Manager::RemainingPointsTruncated || manager==Manager::DirtFerry || manager==Manager::DirtFerryUnknownOccupancy || manager==Manager::DirtFerryTruncated) {
         // Authored schema-4 Building + parent1 + fixed 128-byte NonHouseInfo
         // + the selected exact ResWall1/ResGate1 wrapper. The following
         // Unsupported status2 variants of Industrial179/164 remain negative
@@ -98,23 +98,26 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0,int source_t
         const bool editor=manager==Manager::EditorPoints || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::EditorPointsTruncated;
         const bool copper=manager==Manager::CopperPoints || manager==Manager::CopperPointsUnknownOccupancy || manager==Manager::CopperPointsTruncated;
         const bool flag=manager==Manager::TerrainFlagPoints || manager==Manager::TerrainFlagPointsUnknownOccupancy || manager==Manager::TerrainFlagPointsTruncated;
+        const bool association=manager==Manager::DirtFerry || manager==Manager::DirtFerryUnknownOccupancy || manager==Manager::DirtFerryTruncated;
         const bool remaining=manager==Manager::RemainingPoints || manager==Manager::RemainingPointsUnknownOccupancy || manager==Manager::RemainingPointsTruncated;
         const bool invasion=manager==Manager::InvasionPoints || manager==Manager::InvasionPointsUnknownOccupancy || manager==Manager::InvasionPointsTruncated;
-        u32(raw,manager_at+2,(river || editor || copper || flag || invasion || remaining) ? ((manager==Manager::RiverUnknownOccupancy || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::CopperPointsUnknownOccupancy || manager==Manager::TerrainFlagPointsUnknownOccupancy || manager==Manager::InvasionPointsUnknownOccupancy || manager==Manager::RemainingPointsUnknownOccupancy) ? 3:2):
+        u32(raw,manager_at+2,(river || editor || copper || flag || invasion || remaining || association) ? ((manager==Manager::RiverUnknownOccupancy || manager==Manager::EditorPointsUnknownOccupancy || manager==Manager::CopperPointsUnknownOccupancy || manager==Manager::TerrainFlagPointsUnknownOccupancy || manager==Manager::InvasionPointsUnknownOccupancy || manager==Manager::RemainingPointsUnknownOccupancy || manager==Manager::DirtFerryUnknownOccupancy) ? 3:2):
             (manager==Manager::ResWallUnknownOccupancy || manager==Manager::ResGateUnknownOccupancy) ? 2:1);
         const auto append=[&](const std::string& name,unsigned type,unsigned side,unsigned id,int x,std::uint8_t status=3) {
             const auto tag=raw.size();raw.resize(tag+6+name.size());
             u16(raw,tag,0xffff);u16(raw,tag+4,static_cast<std::uint16_t>(name.size()));
             std::copy(name.begin(),name.end(),raw.begin()+static_cast<std::ptrdiff_t>(tag+6));
-            const auto base=raw.size();raw.resize(base+311+((name=="cResWall" || name=="cResGate") ? 2:0),0);
+            const auto base=raw.size();raw.resize(base+311+((name=="cResWall" || name=="cResGate") ? 2:0)+(name=="cFerryBldg"?2010:0),0);
             u16(raw,base,4);raw[base+2]=status;raw[base+5]=static_cast<std::uint8_t>(side);
             u16(raw,base+8,static_cast<std::uint16_t>(x));u16(raw,base+10,38);
             u32(raw,base+12,110U*228U+72U+static_cast<unsigned>(x));u16(raw,base+16,static_cast<std::uint16_t>(type));
             u32(raw,base+161,id);u16(raw,base+181,1);u16(raw,base+183,1);
+            if(name=="cFerryBldg")u16(raw,base+311,1);
             if ((name=="cResWall" || name=="cResGate")) u16(raw,base+311,1);
         };
         const bool resgate=manager==Manager::ResGate || manager==Manager::ResGateUnknownOccupancy || manager==Manager::ResGateTruncated;
-        if (remaining) {append("cIndustrialBldg",unsigned(source_type),0,7,28);append("cIndustrialBldg",unsigned(source_type),0,8,30);}
+        if(association){append("cIndustrialBldg",162,0,7,28);append("cFerryBldg",210,2,8,28);}
+        else if (remaining) {append("cIndustrialBldg",unsigned(source_type),0,7,28);append("cIndustrialBldg",unsigned(source_type),0,8,30);}
         else if (river) {append("cIndustrialBldg",177,0,7,28);append("cIndustrialBldg",178,0,8,30);}
         else if(invasion) {append("cIndustrialBldg",173,0,7,28);append("cIndustrialBldg",173,0,8,30);}
         else if(flag) {append("cIndustrialBldg",151,0,7,28);append("cIndustrialBldg",151,0,8,30);}
@@ -123,12 +126,13 @@ Bytes map_file(Manager manager=Manager::Empty,std::uint8_t height=0,int source_t
         else append(resgate ? "cResGate":"cResWall",resgate ? 105:231,1,7,28);
         if (manager==Manager::ResWallUnknownOccupancy || manager==Manager::ResGateUnknownOccupancy) append("cIndustrialBldg",179,0,8,30,2);
         if (manager==Manager::RiverUnknownOccupancy) append("cIndustrialBldg",164,0,9,32,2);
+        if(manager==Manager::DirtFerryUnknownOccupancy)append("cIndustrialBldg",138,0,9,32,2);
         if (manager==Manager::RemainingPointsUnknownOccupancy) append("cIndustrialBldg",unsigned(source_type),0,9,32,2);
         if (manager==Manager::InvasionPointsUnknownOccupancy) append("cIndustrialBldg",173,0,9,32,2);
         if (manager==Manager::TerrainFlagPointsUnknownOccupancy) append("cIndustrialBldg",151,0,9,32,2);
         if (manager==Manager::CopperPointsUnknownOccupancy) append("cIndustrialBldg",186,0,9,32,2);
         if (manager==Manager::EditorPointsUnknownOccupancy) append("cIndustrialBldg",188,0,9,32,2);
-        if (manager==Manager::ResWallTruncated || manager==Manager::ResGateTruncated || manager==Manager::RiverTruncated || manager==Manager::EditorPointsTruncated || manager==Manager::CopperPointsTruncated || manager==Manager::TerrainFlagPointsTruncated || manager==Manager::InvasionPointsTruncated || manager==Manager::RemainingPointsTruncated) raw.pop_back();
+        if (manager==Manager::ResWallTruncated || manager==Manager::ResGateTruncated || manager==Manager::RiverTruncated || manager==Manager::EditorPointsTruncated || manager==Manager::CopperPointsTruncated || manager==Manager::TerrainFlagPointsTruncated || manager==Manager::InvasionPointsTruncated || manager==Manager::RemainingPointsTruncated || manager==Manager::DirtFerryTruncated) raw.pop_back();
     }
     const std::array<std::uint8_t,8> signature{5,0,0xfe,0xca,0,0,2,0};
     std::copy(signature.begin(),signature.end(),raw.begin());u32(raw,84,84);
@@ -503,6 +507,38 @@ void point_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* renderer
           retained->world().snapshot()==snapshot && files(app)==persisted,"river rejection/Resume changed previous World or files");
     menu.shutdown();check(textures()==0,"river menu test leaked textures");
 }
+void association_atomic_preflight(Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
+    write(temp.root/"data-one/Cities/D.map",map_file(Manager::DirtFerry));
+    write(temp.root/"data-one/Cities/E.map",map_file(Manager::DirtFerryUnknownOccupancy));
+    write(temp.root/"data-one/Cities/F.map",map_file(Manager::DirtFerryTruncated));
+    const auto app=temp.app("dirt-ferry-association");
+    auto settings=openemperor::menu::read_settings(app).value;
+    settings.last_map="Cities/D.map";openemperor::menu::write_settings(app,settings);
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    key(menu,SDLK_N);accept(menu);check(menu.map_rules_can_start(),"complete river marker map cannot start");
+    key(menu,SDLK_RETURN);finish_load(menu);auto* const retained=menu.sandbox();
+    check(retained && retained->world().rule_version()==4 && retained->world().map_permissions()->policy_version()==2,
+          "river marker session must use current rule4/policy2");
+    for (const openemperor::simulation::Cell cell:std::array{openemperor::simulation::Cell{100,110},openemperor::simulation::Cell{101,111}})
+        check(retained->world().map_permissions()->protected_original(cell) &&
+              !retained->world().map_permissions()->road_allowed(cell),"both river origins must remain protected");
+    const auto snapshot=retained->world().snapshot();const auto policy=retained->world().map_permissions();
+    const auto persisted=files(app);
+    key(menu,SDLK_ESCAPE);key(menu,SDLK_N);accept(menu);key(menu,SDLK_DOWN);accept(menu,Status::UnsupportedForRules);
+    check(menu.map_rules_result().detail.find("type 138")!=std::string::npos && !menu.map_rules_can_start(),
+          "valid river markers must not hide a later unknown source");
+    key(menu,SDLK_RETURN);
+    check(menu.state()==Menu::State::NewSandbox && menu.sandbox()==retained &&
+          retained->world().snapshot()==snapshot && retained->world().map_permissions()==policy,
+          "failed river candidate replaced retained complete session");
+    key(menu,SDLK_DOWN);accept(menu,Status::InputError);key(menu,SDLK_RETURN);
+    check(menu.map_rules_result().detail.find("truncated")!=std::string::npos && !menu.map_rules_can_start(),
+          "truncated river state must remain an input error");
+    key(menu,SDLK_ESCAPE);key(menu,SDLK_RETURN);
+    check(menu.state()==Menu::State::Playing && menu.sandbox()==retained &&
+          retained->world().snapshot()==snapshot && files(app)==persisted,"river rejection/Resume changed previous World or files");
+    menu.shutdown();check(textures()==0,"river menu test leaked textures");
+}
 }
 
 int main() {
@@ -524,6 +560,7 @@ int main() {
         point_atomic_preflight(temp,window,renderer,false,false,false,true);
         for(int source_type:{187,189,138,181,188,167})
             point_atomic_preflight(temp,window,renderer,false,false,false,false,source_type);
+        association_atomic_preflight(temp,window,renderer);
         check(textures()==0,"map selection tests left prepared textures alive");
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
         std::cout<<"production menu map-rules selection, concurrency, purity, input, retry and Resume checks passed\n";

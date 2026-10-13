@@ -297,6 +297,30 @@ void river_marker_rules() {
               "unevidenced river active state remains unsupported in preflight");
     }
 }
+void dirt_ferry_rules() {
+ Root root;
+ auto records=manager("cIndustrialBldg",162,0);auto ferry=manager("cIndustrialBldg",210,2);
+ // Independent authored class-tag and fixed schema1 Ferry extension.
+ const std::string name="cFerryBldg";const auto base=6U+6U+15U;
+ Bytes physical(6+6+name.size(),0);put16(physical,0,1);put32(physical,2,1);
+ put16(physical,6,0xffff);put16(physical,10,unsigned(name.size()));std::copy(name.begin(),name.end(),physical.begin()+12);
+ physical.insert(physical.end(),ferry.begin()+base,ferry.end());
+ const auto own=physical.size();physical.resize(own+2010,0);put16(physical,own,1);
+ put32(physical,12+name.size()+161,8);put32(records,2,2);records.insert(records.end(),physical.begin()+6,physical.end());
+ write(root.path/"Cities/association.map",compressed_map(logical_map(records)));
+ for(unsigned rule:{3U,4U}) {
+  check(maps::check_map_rules(root.request("association.map",simulation::RulesProfile::CityV16,rule)).status==maps::MapRulesStatus::MapRulesChecked,
+        "full typed Dirt/Ferry manager passes both current and prior selected preflight");
+  const auto p=maps::read_sandbox_map_permissions(root.path,"Cities/association.map",Bytes(cells,1),rule==3?1:2);
+  for(simulation::Cell c:std::array<simulation::Cell,4>{{{100,110},{101,110},{100,111},{101,111}}})
+   check(p->protected_original(c)&&!p->road_allowed(c)&&!p->building_allowed(c),"reader preserves whole protected union");
+ }
+ auto late=manager("cIndustrialBldg",138,0);put32(late,base+161,9);late[base+2]=2;
+ auto bad=records;put32(bad,2,3);bad.insert(bad.end(),late.begin()+6,late.end());
+ write(root.path/"Cities/association.map",compressed_map(logical_map(bad)));
+ check(maps::check_map_rules(root.request("association.map",simulation::RulesProfile::CityV16,4)).status==maps::MapRulesStatus::UnsupportedForRules,
+       "valid relation cannot publish partial preflight before later unknown state");
+}
 } // namespace
 
 int main() {
@@ -305,7 +329,7 @@ int main() {
               "historic City-v16 rule 3 must keep policy 1");
         check(maps::map_rules_policy_version(simulation::RulesProfile::CityV16,4)==2,
               "City-v16 rule 4 requires policy 2 for original road transport");
-        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();resgate_rules();river_marker_rules();
+        positive_and_identity();unsupported_and_legacy();input_failures();versioned_original_roads();reswall_rules();resgate_rules();river_marker_rules();dirt_ferry_rules();
         std::cout<<"Map rules check tests passed\n";return 0;
     }
     catch (const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}
