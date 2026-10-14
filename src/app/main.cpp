@@ -71,7 +71,7 @@ void print_usage(const char* executable) {
               << " [--multi-tile-preview [--footprint-policy isolated|edge-byte|edge-byte-4x4]]"
               << " --render-check --report-json\n";
     std::cerr << "       " << executable << " --data <directory> --sandbox <relative.map>"
-              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16] [--sandbox-bridges|--sandbox-ramps]"
+              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16] [--sandbox-bridges|--sandbox-ramps] [--authored-terrain-sides]"
               << " [--sandbox-demo] [--sandbox-visuals <walker-profile.json>]"
               << " [--building-visuals <building-profile.json>]"
               << " [--road-visuals <road-profile.json>]"
@@ -123,6 +123,7 @@ int main(int argc, char* argv[]) {
     bool sandbox_rules_supplied = false;
     bool sandbox_bridges = false;
     bool sandbox_ramps = false;
+    bool authored_terrain_sides=false;
     bool sandbox_save_supplied = false;
     bool load_sandbox_supplied = false;
     bool performance_diagnostics = false;
@@ -183,6 +184,8 @@ int main(int argc, char* argv[]) {
             sandbox_resume_check=true;
         } else if (argument == "--sandbox-routing-check" && !sandbox_routing_check) {
             sandbox_routing_check=true;
+        } else if (argument == "--authored-terrain-sides" && !authored_terrain_sides) {
+            authored_terrain_sides=true;
         } else if (argument == "--report-json" && !report_json) {
             report_json = true;
         } else if (argument == "--multi-tile-preview" && !multi_tile_preview) {
@@ -410,6 +413,9 @@ int main(int argc, char* argv[]) {
         return 2;
     }
 
+    if(authored_terrain_sides&&((!sandbox_supplied&&!load_sandbox_supplied)||sandbox_check||sandbox_routing_check)) {
+        print_usage(argv[0]);return 2;
+    }
     const bool menu_start=!sandbox_supplied && !load_sandbox_supplied && !preview_supplied &&
         !sg3_supplied && !browse_assets && !road_atlas_supplied && !scene_supplied &&
         !browse_maps && !map_debug_supplied &&
@@ -506,6 +512,7 @@ int main(int argc, char* argv[]) {
                 openemperor::maps::StoredGraphicsProfile::Slot8,great_wall_mode);
             sandbox_view=std::make_unique<openemperor::SandboxView>(std::move(session),sandbox_demo,
                                                                     sandbox_rules,active_rule_version);
+            sandbox_view->set_authored_terrain_sides(authored_terrain_sides);
             sandbox_view->configure_save(data_directory,sandbox_path,sandbox_save_path,std::move(initial));
             const auto& visuals=*sandbox_visual_selection;
             sandbox_view->set_compatibility(visuals.compatibility.compatible() ?

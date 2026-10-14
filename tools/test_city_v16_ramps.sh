@@ -15,7 +15,7 @@ build_dir="$repo_dir/.local/reswall/release-build"
 cmake -S "$repo_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release -DOPENEMPEROR_USE_SYSTEM_SDL3=ON
 cmake --build "$build_dir" --parallel 2 --target openemperor openemperor-original-height-audit \
     openemperor-audit-original-occupancy openemperor-city-v16-ramps-fixture \
-    openemperor-ramp-transport-tests openemperor-ramp-rendering-tests openemperor-sandbox-view-tests \
+    openemperor-authored-terrain-side-tests openemperor-ramp-transport-tests openemperor-ramp-rendering-tests openemperor-sandbox-view-tests \
     openemperor-original-bridge-audit openemperor-city-v16-bridges-fixture \
     openemperor-city-v16-playthrough-fixture openemperor-city-v16-longplay-fixture \
     openemperor-bridge-transport-tests openemperor-bridge-rendering-tests
@@ -26,5 +26,5 @@ if [ "$mode" = --ui ]; then
     echo 'Continue starts actual climbing Clay transport and return through the Ramp and existing Bridge. F5 saves; F9 loads paused.'
     echo 'Original-map Ramp acceptance remains unavailable; original heights/permissions are unchanged.'
     exec "$build_dir/openemperor" --data "$run_dir/authored-data" \
-        --load-sandbox "$run_dir/player-app/saves/01-build-ramp.json"
+        --load-sandbox "$run_dir/player-app/saves/01-build-ramp.json" --authored-terrain-sides
 fi

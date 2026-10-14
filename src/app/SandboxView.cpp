@@ -322,6 +322,10 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         world_=std::make_unique<simulation::World>(std::move(permissions),rules_,active_version);
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,
         buildable_mask_,rules_,active_version);
+    if(authored_terrain_sides_enabled_) {
+        if(!world_->ramps_supported())throw std::invalid_argument("Authored terrain sides require explicit City-v16 rule6");
+        authored_terrain_sides_.prepare(background_.plan(),geometry_,*world_->map_permissions());
+    }
     background_.set_original_road_ground(world_->map_permissions());
     prepare_original_road_visuals();
     reset_camera();
@@ -357,6 +361,7 @@ void SandboxView::shutdown() {
     fire_profile_.reset();
     fire_frames_drawn_.fill(false);
     fire_draws_=fire_fallback_draws_=0;
+    authored_terrain_sides_.clear();
     background_.shutdown();
     world_.reset();
     window_=nullptr;
@@ -3154,6 +3159,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         return background_.ground_replacement_role(i,road_ground_replacements_,
             static_cast<std::size_t>(world_->width()));
     };
+    if(authored_terrain_sides_enabled_&&world_->ramps_supported()&&background_.elevated()&&
+       background_.landscape_mode()!=LandscapeDebugMode::Snapshot)
+        if(!authored_terrain_sides_.draw(renderer_,render_camera))return false;
     background_.begin_frame();
     for (std::size_t i=0;i<background_.draw_items().size();++i)
         if (replacement_for(i)!=1 && !background_.draw_ground_item(i,render_camera)) return false;

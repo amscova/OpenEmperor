@@ -3,6 +3,7 @@
 #include "maps/StoredMapSession.h"
 #include "maps/MapGeometry.h"
 #include "renderer/StoredGraphicsRenderer.h"
+#include "renderer/AuthoredTerrainSides.h"
 #include "simulation/World.h"
 #include "simulation/CityStartGuidance.h"
 #include "simulation/RoadConnectivity.h"
@@ -61,6 +62,8 @@ public:
                          std::uint32_t rule_version=0);
     ~SandboxView();
     void initialize(SDL_Window* window, SDL_Renderer* renderer);
+    void set_authored_terrain_sides(bool enabled) { authored_terrain_sides_enabled_=enabled; }
+    std::size_t authored_terrain_side_count() const { return authored_terrain_sides_.size(); }
     void shutdown();
     void handle_event(const SDL_Event& event, bool& running);
     void update(double frame_seconds);
@@ -409,6 +412,8 @@ private:
     std::optional<std::size_t> original_road_visual_index(simulation::Cell cell) const;
     bool original_road_dynamic(const OriginalRoadVisual& road) const;
     std::optional<simulation::Cell> road_start_;
+    bool authored_terrain_sides_enabled_=false; // Explicit preview; absent from saves/settings.
+    AuthoredTerrainSides authored_terrain_sides_;
     std::optional<simulation::Cell> ramp_start_;
     simulation::RampValidation ramp_preview_{};
     std::optional<simulation::Cell> bridge_start_;

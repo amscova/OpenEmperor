@@ -1440,7 +1440,12 @@ maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vect
     write(temp.path/"Cities/Synthetic.map",packed);
     session.map=maps::read_emperor_map(maps::EmperorContainer::open(temp.path/"Cities/Synthetic.map"),0);
     session.plan.map_relative="Cities/Synthetic.map";session.plan.height_bytes.assign(228U*228U,0);
-    if(ramps){session.plan.landscape_layers_available=true;for(unsigned y=0;y<228;++y)for(unsigned x=0;x<104;++x)session.plan.height_bytes[y*228U+x]=1;}
+    if(ramps){
+        session.plan.landscape_layers_available=true;
+        session.plan.raw_terrain=session.map.terrain_raw.values;
+        session.plan.raw_objects=session.map.objects_raw.values;
+        for(unsigned y=0;y<228;++y)for(unsigned x=0;x<104;++x)session.plan.height_bytes[y*228U+x]=1;
+    }
     if (original_roads) for (unsigned x=100;x<=110;++x) if (x!=104) {
         const auto cell=session.plan.cell_by_storage[103U*228U+x];
         if (cell) session.plan.cells[*cell].terrain_raw=0xc0;
@@ -1451,11 +1456,13 @@ void ramp_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer
     namespace perf=openemperor::performance;using s=simulation::CommandType;
     check(SDL_SetWindowSize(window,1100,700),"ramp test resize");SDL_PumpEvents();
     std::vector<std::uint8_t> mask;openemperor::SandboxView view(road_connectivity_view_fixture(temp,mask,false,false,true),false,simulation::RulesProfile::CityV16,6);
+    view.set_authored_terrain_sides(true);
     const auto save=temp.path.parent_path()/(temp.path.filename().string()+"-viewer-save.json");
     view.set_walker_visuals(walker_fixture(temp));
     view.configure_save(temp.path,"Cities/Synthetic.map",save);view.initialize(window,renderer);bool running=true;
     if(!view.paused())view.handle_event(key(SDLK_SPACE),running);
     check(view.world().rule_version()==6&&view.world().map_permissions()->policy_version()==3,"explicit ramp versions not retained");
+    check(view.authored_terrain_side_count()>0,"authored height gap has no prepared side faces");
     const auto screen=[&](simulation::Cell c){auto p=maps::terrain_ground({unsigned(c.x),unsigned(c.y)},72);p.y-=view.world().transport_height(c)*40;return view.camera().world_to_screen(p);};
     const auto a=screen({103,103}),b=screen({104,103});
     check(view.pick(a)==simulation::Cell{103,103} && view.pick(b)==simulation::Cell{104,103},"graded ramp input endpoint pick mismatch");
@@ -1488,6 +1495,12 @@ void ramp_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer
     up();check(view.world().ramps().size()==1,"duplicate release built another ramp");
     const auto built=view.world().snapshot();view.handle_event(key(SDLK_F5),running);view.tick_once();view.handle_event(key(SDLK_F9),running);
     check(view.world().snapshot()==built,"actual handler F5/F9 lost full schema22 state");
+    for(int zoom=0;zoom<3;++zoom){check(view.render(),"authored terrain integer zoom failed");view.handle_event(key(SDLK_Z),running);}
+    SDL_Event wheel{};wheel.type=SDL_EVENT_MOUSE_WHEEL;wheel.wheel.y=.5F;wheel.wheel.mouse_x=float(a.x);wheel.wheel.mouse_y=float(a.y);
+    view.handle_event(wheel,running);view.update(.01,{true,false,false,false});check(view.render(),"authored terrain fractional zoom/pan failed");
+    check(SDL_SetWindowSize(window,1290,780),"authored terrain actual resize");SDL_PumpEvents();
+    SDL_Event resized{};resized.type=SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;view.handle_event(resized,running);
+    check(view.render(),"authored terrain resized clipping failed");
     view.handle_event(key(SDLK_F1),running);for(int layer=0;layer<8;++layer){view.handle_event(key(SDLK_F8),running);check(view.render(),"ramp F8 layer failed");}
     check(view.world().snapshot()==built,"F8 changed Ramp authority");view.shutdown();
 }

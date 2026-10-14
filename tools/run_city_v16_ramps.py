@@ -44,6 +44,7 @@ def main():
 
     run("transport", "openemperor-ramp-transport-tests", [])
     run("pixels", "openemperor-ramp-rendering-tests", [])
+    run("terrain-side-pixels", "openemperor-authored-terrain-side-tests", [])
     run("scripted-ui", "openemperor-sandbox-view-tests", ["--ramps-only"])
     run("height-audit", "openemperor-original-height-audit", [data, root / "height-audit"])
     heights = json.loads((root / "height-audit/height-corpus.json").read_text())

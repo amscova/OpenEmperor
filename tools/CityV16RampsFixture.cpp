@@ -167,13 +167,18 @@ void captures(Context& context,const fs::path& root,const fs::path& checkpoint,S
     auto session=m::load_stored_map_session(context.data,context.map,m::FootprintPolicy::EdgeByte4x4Preview,m::StoredGraphicsProfile::Slot8);
     const m::MapGeometry geometry{session.map.declared_map_size};
     oe::SandboxView view(std::move(session),false,s::RulesProfile::CityV16,6);
+    view.set_authored_terrain_sides(true);
     const auto visuals=oe::detect_and_select_visual_profiles(context.data,fs::current_path()/"resources");
     if(!visuals.building.empty())view.set_building_visuals(visuals.building,visuals.building_source);
     if(!visuals.road.empty())view.set_road_visuals(visuals.road,visuals.road_source);
     if(!visuals.walker.empty())view.set_walker_visuals(visuals.walker,visuals.walker_source);
     view.configure_save(context.data,context.map,root/"scripted-f5-f9.json",p::read_save(checkpoint));view.initialize(sdl.window,sdl.renderer);
     bool running=true;SDL_Event event{};
+    check(view.authored_terrain_side_count()>0,"authored terrace did not prepare side graphics");
+    const auto capture=[&](const char* name){check(view.render(),"capture render failed");auto* surface=SDL_RenderReadPixels(sdl.renderer,nullptr);check(surface,SDL_GetError());
+        const bool saved=SDL_SaveBMP(surface,(root/name).c_str());SDL_DestroySurface(surface);check(saved,"private capture failed");};
     if(build) {
+        capture("terrain-before-ramp-1x.bmp");
         const s::Cell a{115,114},b{116,114};auto control=s::World::restore(view.world().snapshot(),context.policy);
         check(control.execute(s::place_ramp(a,b)).accepted,"normal UI control ramp rejected");
         const auto raw=[&](s::Cell c){auto point=m::terrain_ground({unsigned(c.x),unsigned(c.y)},geometry.border);
@@ -198,8 +203,6 @@ void captures(Context& context,const fs::path& root,const fs::path& checkpoint,S
     for(int frame=0;frame<100;++frame)check(view.render(),"pure ramp frame failed");
     for(std::size_t i=0;i<std::size_t(oe::performance::Counter::Count);++i)check(oe::performance::counter(static_cast<oe::performance::Counter>(i))==0,"pure frame performed forbidden work");
     oe::performance::set_enabled(false);check(live==oe::StoredGraphicsRenderer::live_texture_count(),"render changed textures");
-    const auto capture=[&](const char* name){check(view.render(),"capture render failed");auto* surface=SDL_RenderReadPixels(sdl.renderer,nullptr);check(surface,SDL_GetError());
-        const bool saved=SDL_SaveBMP(surface,(root/name).c_str());SDL_DestroySurface(surface);check(saved,"private capture failed");};
     if(build)capture("user-build-1x.bmp");else {capture("ramp-1x.bmp");event.key.key=SDLK_Z;view.handle_event(event,running);capture("ramp-2x.bmp");view.handle_event(event,running);capture("ramp-4x.bmp");}
 }
 }

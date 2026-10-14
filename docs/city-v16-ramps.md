@@ -70,9 +70,22 @@ Authoritative courier positions already interpolate saved path vertices and
 edge progress/duration. The pure ramp surface projection interpolates the matching
 saved endpoint heights, including ascent/descent and negative levels. No additional
 floating height is saved. Marker drawing and picking share that foot position.
-Bridge graphics are unchanged. General original elevation/cliff composition remains
-unresolved; the independently authored terrace test exposes the existing unfilled
-terrain seam rather than inventing an original cliff-body contract.
+Bridge graphics are unchanged. The independent terrace starter now explicitly
+enables **`--authored-terrain-sides`**: an OpenEmperor soil/stone face closes the
+40px gap between neighboring single-level land cells, including before a Ramp is
+built. This is a session-only, default-OFF presentation option for explicit rule6,
+not original cliff artwork or a new transport permission.
+
+Preparation reads complete source/policy3 geometry once. Both cells must have
+exact raw0x80/0xc0, objects0, matching signed source/policy heights, permitted normal
+land and no original protection, gate or water; the signed difference must be1.
+The bounded cache holds at most512 faces and16 eagerly prepared direction/material
+templates, each with at most4,096 color runs. Faces draw before the existing Ground
+pass; unchanged terrain, roads, foreground, Ramp and actor composition cover them.
+Flat Snapshot hides the faces. Picking, all gameplay/save authority, Bridge art and
+the global painter remain unchanged. Frames perform no material generation, map
+scan, file/asset/texture work, World copies, commands, ticks or navigation.
+General original elevation, slope identity and cliff composition remain unresolved.
 
 ## Evidence and persistence
 
@@ -118,7 +131,7 @@ Default `--all` builds current Release, verifies the pinned original inventory,
 runs the complete elevation and permission census, paid authored gameplay, malformed
 saves, process restart and old city/Bridge controls. `--audit` omits gameplay;
 `--gameplay` omits the repeated old long-play controls. `--ui` performs diagnosis
-and opens the normal Release app paused **before ramp construction**. Press P or
+and opens the normal Release app with authored terrain sides, paused **before ramp construction**. Press P or
 click P Ramp, drag the visible neighboring roads at the step, release the green
 $40 preview, then Continue. Watch Clay climb, deposit and return; F5/F9 preserves
 the city. The existing bridge further down the road remains independently built.
@@ -162,3 +175,19 @@ Final complete starter: `.local/city-v16-ramps/run-E3TeNf`; source SHA-256
 process exited0; this does not infer Cocoa/Metal or human input acceptance.
 The private normal-player prebuild save is in
 `.local/city-v16-ramps/run-5p6rom/player-app/saves/01-build-ramp.json`.
+
+### Authored terrain-side graphics follow-up
+
+The new pixel check covers all four edge directions, signed endpoint heights,
+1x/2x/4x/fractional zoom, material detail, gap coverage and pure cached frames.
+Scripted production View checks also exercise zoom/pan, actual window resize,
+clipping, F8, normal paid P drag and exact F5/F9 state. These checks pass in
+Release, Debug and ASan+UBSan with no sanitizer findings. Before/after-construction
+and mid-Ramp software captures are inspected separately from native/human acceptance.
+The complete Release suite passes154/154; the four relevant pixel/View/input checks
+also pass in Debug and ASan+UBSan. The current `--gameplay` starter
+`.local/city-v16-ramps/run-7f7RQM` passes12,000 paid ticks and11 full-document
+process restart pairs. Its23 authoritative Ramp saves remain byte-identical to
+`run-E3TeNf`; all1,485 original-policy summaries and the pinned original inventory
+remain unchanged. The normal Release app with the explicit side option also loads
+the prebuild save under dummy/software; this does not establish native/human acceptance.
