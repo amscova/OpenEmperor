@@ -1,4 +1,5 @@
 #include "app/SandboxView.h"
+#include "app/ServiceCoverage.h"
 #include "maps/LandscapeProvenance.h"
 #include "maps/RegeneratedMapRenderPlan.h"
 
@@ -1149,7 +1150,7 @@ void SandboxView::update_layout(bool preserve_center) {
     const auto next=sandbox_ui::make_layout(width,height,window_width,window_height,panel_open_,
         simulation::fire_profile(rules_),simulation::desirability_profile(rules_),
         simulation::water_profile(rules_),simulation::health_profile(rules_),
-        simulation::market_profile(rules_));
+        simulation::market_profile(rules_),simulation::service_profile(rules_));
     if (preserve_center && next.map.x==layout_.map.x && next.map.y==layout_.map.y &&
         next.map.w==layout_.map.w && next.map.h==layout_.map.h) return;
     // Panel toggles and resize change the clipped viewport before another
@@ -1550,6 +1551,7 @@ bool SandboxView::action_enabled(sandbox_ui::Action action) const {
         if (command && world_->treasury()<world_->construction_cost(*command)) return false;
     }
     if (action==sandbox_ui::Action::Health) return simulation::health_profile(rules_);
+    if (action==sandbox_ui::Action::ServiceOverlay) return simulation::service_profile(rules_);
     if (action==sandbox_ui::Action::HealthPost)
         return simulation::health_profile(rules_) && count_kind(simulation::Object::HealthPost)<
             static_cast<std::ptrdiff_t>(simulation::Rules::health_post_limit);
@@ -1734,6 +1736,11 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
             action==A::RemoveRoad ? 6:action==A::Household ? 7:action==A::Farm ? 8:
             action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:0;
         last_message_=tool_name(rules_,tool_);
+    } else if (action==A::ServiceOverlay) {
+        cancel_gesture();
+        service_overlay_=!service_overlay_;
+        last_message_=service_overlay_ ?
+            "Service ON: C covered; ! expires by demand; X missing. Future visits unknown.":"Service OFF";
     } else if (action==A::Health) {
         cancel_gesture();
         health_overlay_=!health_overlay_;
@@ -1967,6 +1974,8 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         else if (event.key.key==SDLK_J && simulation::health_profile(rules_)) set_tool(13);
         else if (event.key.key==SDLK_K && simulation::health_profile(rules_))
             perform_action(sandbox_ui::Action::Health);
+        else if (event.key.key==SDLK_V && simulation::service_profile(rules_) && !walker_diagnostic_open_)
+            perform_action(sandbox_ui::Action::ServiceOverlay);
         else if (event.key.key==SDLK_I && simulation::water_profile(rules_)) set_tool(12);
         else if (event.key.key==SDLK_U && simulation::water_profile(rules_))
             perform_action(sandbox_ui::Action::Water);
@@ -3070,6 +3079,33 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
         if (!SDL_SetRenderDrawBlendMode(renderer_,previous) || !ok) return false;
     }
+    if (service_overlay_ && simulation::service_profile(rules_)) {
+        SDL_BlendMode previous;
+        if (!SDL_GetRenderDrawBlendMode(renderer_,&previous) ||
+            !SDL_SetRenderDrawBlendMode(renderer_,SDL_BLENDMODE_BLEND)) return false;
+        bool ok=true;
+        for (const auto& b:world_->buildings()) if (b.placed && b.kind==simulation::Object::Household) {
+            const auto coverage=sandbox_ui::service_coverage(world_->ticks(),b.service_until_tick,b.demand_progress);
+            const auto color=coverage.state==sandbox_ui::ServiceCoverageState::Covered ? SDL_Color{104,167,137,22}:
+                coverage.state==sandbox_ui::ServiceCoverageState::ExpiringByDemand ? SDL_Color{203,157,75,22}:SDL_Color{184,100,83,22};
+            const char* symbol=coverage.state==sandbox_ui::ServiceCoverageState::Covered ? "C":
+                coverage.state==sandbox_ui::ServiceCoverageState::ExpiringByDemand ? "!":"X";
+            for (const auto cell:simulation::building_footprint_cells(rules_,world_->rule_version(),b.kind,b.cell)) {
+                const auto top=world_for({static_cast<double>(cell.x),static_cast<double>(cell.y)});
+                const auto screen=camera_.world_to_screen(top);
+                const double half_w=40*camera_.zoom,half_h=20*camera_.zoom;
+                if (screen.x+half_w<layout_.map.x || screen.x-half_w>=layout_.map.x+layout_.map.w ||
+                    screen.y+half_h<layout_.map.y || screen.y-half_h>=layout_.map.y+layout_.map.h) continue;
+                ok=draw_diamond({top.x,top.y-20},color.r,color.g,color.b,true,color.a/255.0F) && ok;
+            }
+            const auto cell=simulation::building_front_cell(rules_,world_->rule_version(),b.kind,b.cell);
+            const auto marker=camera_.world_to_screen(world_for({static_cast<double>(cell.x),static_cast<double>(cell.y)}));
+            if (layout_.map.contains(marker.x,marker.y))
+                ok=SDL_SetRenderDrawColor(renderer_,236,239,228,255) &&
+                    draw_text(marker.x-4*layout_.scale,marker.y-7*layout_.scale,symbol,12*layout_.scale) && ok;
+        }
+        if (!SDL_SetRenderDrawBlendMode(renderer_,previous) || !ok) return false;
+    }
     if (selected_) {
         const auto owner=world_->building_owner_at(*selected_);
         if (owner) {
@@ -3419,6 +3455,20 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             simulation::Rules::maintenance_interval_ticks)+" ticks");
         if (!b.operating_enabled) lines.push_back("Maintenance continues while paused.");
     };
+    const auto add_service_diagnosis=[&](simulation::BuildingId id) {
+        if (!service_overlay_ || !simulation::service_profile(rules_)) return;
+        const auto& home=world_->building(id);
+        const auto service=sandbox_ui::service_coverage(world_->ticks(),home.service_until_tick,home.demand_progress);
+        if (!service.active) lines.push_back("Coverage remaining: 0 ticks");
+        lines.push_back(!service.next_demand ? "Coverage at next demand: unknown":
+            service.valid_at_next_demand ? "Coverage at next demand: valid":
+            service.active ? "Coverage expires by demand unless revisited.":
+            "Coverage missing at next demand unless revisited.");
+        lines.push_back("Future Service arrival: unknown.");
+        const auto reachable=world_->service_route_available(id);
+        lines.push_back(!reachable ? "Service route: unknown":
+            *reachable ? "Service route: known reachable":"Service route: no known route");
+    };
     const auto add_house_income=[&](simulation::BuildingId id) {
         const auto& home=world_->building(id);
         const auto demand=world_->household_demand_status(id);
@@ -3434,6 +3484,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             home.demand_progress)+" ticks");
         lines.push_back(home.last_demand_status==0 ? "Last demand: none yet":
             home.last_demand_status==1 ? "Last demand: supplied; tax paid":"Last demand: unmet; no tax");
+        add_service_diagnosis(id);
         lines.push_back("Taxes contributed: "+std::to_string(world_->household_tax_contributed(id)));
         lines.push_back("Payment depends on conditions at the demand deadline.");
     };
@@ -3754,6 +3805,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         lines.push_back(b.last_demand_status==0 ? "Last demand: none yet" :
             b.last_demand_status==1 ? "Last demand: supplied; tax paid" :
                                       "Last demand: unmet; no tax");
+        if (!simulation::market_profile(rules_)) add_service_diagnosis(*id);
     } else if (b.kind==simulation::Object::Farm) {
         lines.push_back("Food output "+std::to_string(b.output)+"/12");
         lines.push_back("Progress "+std::to_string(b.progress)+"/"+
@@ -3777,7 +3829,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             [&](const simulation::CourierState& c) { return c.owner==b.id; });
         if (found==world_->couriers().end()) return lines;
         const auto& c=*found;
-        lines.push_back("Covered houses "+std::to_string(world_->covered_households())+"/"+
+        lines.push_back("City-wide covered Houses "+std::to_string(world_->covered_households())+"/"+
             std::to_string(std::count_if(world_->buildings().begin(),world_->buildings().end(),
                 [](const simulation::BuildingState& value) {
                     return value.placed && value.kind==simulation::Object::Household;
@@ -3788,7 +3840,9 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         const auto decision=world_->courier_dispatch_status(c.id);
         lines.push_back(std::string("Road status ")+
             simulation::courier_dispatch_status_name(decision.status));
-        if (world_->last_dispatched_service_household())
+        if (simulation::scalable_profile(rules_) && c.last_dispatched_target)
+            lines.push_back("Last target "+std::to_string(static_cast<unsigned>(*c.last_dispatched_target)));
+        else if (!simulation::scalable_profile(rules_) && world_->last_dispatched_service_household())
             lines.push_back("Last target "+std::to_string(static_cast<unsigned>(
                 *world_->last_dispatched_service_household())));
     }
@@ -4255,6 +4309,7 @@ bool SandboxView::draw_hud() {
         case A::Market: return "0 Market $140";
         case A::HealthPost: return "J Health Post $120";
         case A::Health: return health_overlay_ ? "K Health ON":"K Health";
+        case A::ServiceOverlay: return service_overlay_ ? "V Service ON":"V Service";
         case A::Well: return "I Well $60";
         case A::Water: return water_overlay_ ? "U Water ON":"U Water";
         case A::Desirability: return desirability_overlay_ ? "D Desirability ON":"D Desirability";
@@ -4290,6 +4345,7 @@ bool SandboxView::draw_hud() {
         case A::FireWatch: active=tool_==11; break;
         case A::HealthPost: active=tool_==13; break;
         case A::Health: active=health_overlay_; break;
+        case A::ServiceOverlay: active=service_overlay_; break;
         case A::Well: active=tool_==12; break;
         case A::Water: active=water_overlay_; break;
         case A::ToggleIncome: active=income_open_; break;
@@ -4761,7 +4817,8 @@ bool SandboxView::draw_help_overlay() {
     const int x=layout_.map.x+margin;
     const int y=layout_.map.y+margin;
     const int width=std::max(0,layout_.map.w-2*margin);
-    const int height=std::max(0,std::min(layout_.map.h-2*margin,(simulation::maintenance_profile(rules_) ? 350:250)*layout_.scale));
+    const int height=std::max(0,std::min(layout_.map.h-2*margin,(simulation::maintenance_profile(rules_) ? 350:
+        simulation::service_profile(rules_) ? 280:250)*layout_.scale));
     if (width<=0 || height<=0) return true;
     const SDL_FRect panel{static_cast<float>(x),static_cast<float>(y),
         static_cast<float>(width),static_cast<float>(height)};
@@ -4773,11 +4830,11 @@ bool SandboxView::draw_help_overlay() {
         constexpr std::array<const char*,20> compact{
             "HELP - H / ? closes", "1-0 Build | F Watch | I Well | J Health",
             "Arrows Move | Wheel Zoom | 5 Select", "Space Pause | . Step | + / - Speed",
-            "F5 Save | F9 Load | Esc Menu", "D Desirability | U Water | K Health",
-            "F1 + G Road check | F2/F4/F6", "Houses pay tax after full supply",
+            "F5 Save | F9 Load | Esc Menu", "D Score | U Water | K Health | V Service",
+            "V: C covered | ! risk | X missing", "Houses pay tax after full supply",
             "Food, Pottery and Service enable tax", "Residents provide workers",
             "Select a business: Pause / Resume", "High / Normal / Low controls staffing",
-            "Wells slow risk; road Health visits cure", "BUILDING MAINTENANCE",
+            "! expires by demand unless revisited", "BUILDING MAINTENANCE",
             "Upkeep starts 400 ticks after building", "Then every 400 ticks per building",
             "Maint HUD = installed rates", "Funds may go negative; taxes repay debt",
             "Paused buildings still pay upkeep", "Demolition stops future upkeep"};
@@ -4807,6 +4864,9 @@ bool SandboxView::draw_help_overlay() {
             !text(1,12,"Health Workers visit by road") ||
             !text(1,13,"Sick blocks demand. Visits cure.")) return false;
     }
+    if (simulation::service_profile(rules_) &&
+        (!text(0,15,"V Service: C covered | ! at risk | X missing") ||
+         !text(1,15,"! expires by demand unless revisited"))) return false;
     return text(0,0,"HELP - H / ? closes") &&
         text(0,2,"BUILD AND NAVIGATE") && text(0,3,"1 Road | 2 Clay | 3 Pottery") &&
         text(0,4,"4 Store | 5 Select | 6 Remove") &&

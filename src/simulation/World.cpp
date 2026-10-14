@@ -1,4 +1,7 @@
 #include "simulation/World.h"
+#ifdef OPENEMPEROR_SERVICE_SCHEDULER_EXPERIMENT
+#include "ServiceSchedulerExperiment.h"
+#endif
 
 #include <algorithm>
 #include <array>
@@ -1736,6 +1739,20 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
             if (risky) return {CourierDispatchStatus::Ready,risky->id};
         }
         std::size_t start=0;
+        // Compiled solely into the excluded diagnostic adapter. The ordinary
+        // app and registered production tests contain no alternative selector.
+#ifdef OPENEMPEROR_SERVICE_SCHEDULER_EXPERIMENT
+        if (c.role==CourierRole::Service && service_experiment::enabled()) {
+            std::vector<service_experiment::Candidate> reachable;
+            for (const auto* target:targets) {
+                const auto* route=dynamic_route(c,target->id);
+                if (route && *route) reachable.push_back({target->id,(**route).size()-1});
+            }
+            if (reachable.empty()) return {CourierDispatchStatus::NoRoad,std::nullopt};
+            const auto chosen=service_experiment::choose(*this,c,reachable);
+            return {chosen ? CourierDispatchStatus::Ready:CourierDispatchStatus::NoTarget,chosen};
+        }
+#endif
         if (c.last_dispatched_target) {
             const auto found=std::find_if(targets.begin(),targets.end(),[&](const auto* b) {
                 return b->id==*c.last_dispatched_target;
@@ -1877,6 +1894,26 @@ bool World::household_route_available(BuildingId id) const {
         value>=household_id_end || household_routes_revision_!=road_revision_)
         return false;
     return building(id).placed && household_routes_[value-first_household_id].has_value();
+}
+
+std::optional<bool> World::service_route_available(BuildingId id) const {
+    if (!service_profile(profile_)) return std::nullopt;
+    const auto& home=building(id);
+    if (!home.placed || home.kind!=Object::Household) return std::nullopt;
+    if (scalable(profile_)) {
+        bool stale=false;
+        for (const auto& c:couriers_) if (c.enabled && c.role==CourierRole::Service) {
+            if (c.cached_revision!=road_revision_) { stale=true; continue; }
+            const auto* route=dynamic_route(c,id);
+            if (route && route->has_value()) return true;
+        }
+        return stale ? std::nullopt:std::optional<bool>{false};
+    }
+    if (!building(BuildingId::ServicePost).placed) return false;
+    if (service_routes_revision_!=road_revision_) return std::nullopt;
+    const auto value=static_cast<unsigned>(id);
+    if (value<first_household_id || value>=household_id_end) return std::nullopt;
+    return service_household_routes_[value-first_household_id].has_value();
 }
 
 void World::tick_production_v2() {

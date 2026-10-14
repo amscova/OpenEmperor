@@ -535,6 +535,9 @@ public:
     std::optional<BuildingId> next_household_candidate() const;
     std::optional<BuildingId> next_pottery_candidate(CourierId id) const;
     bool household_route_available(BuildingId id) const;
+    // Known geometric reachability from existing current-revision Service caches.
+    // Paused/unstaffed posts may have a route; no search or prediction is performed.
+    std::optional<bool> service_route_available(BuildingId household) const;
     const CourierState& courier(CourierId id) const;
     std::optional<Position> courier_position(CourierId id) const;
     CourierDispatchDecision courier_dispatch_status(CourierId id) const;

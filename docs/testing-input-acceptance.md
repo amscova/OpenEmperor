@@ -5,6 +5,37 @@ events and computer-control requests do not mark its human rows PASS.
 Use **NOT RUN / PASS / FAIL**, with the observed symptom for any failure.
 Historical City balance, demolition and service playthroughs remain separate.
 
+## Service overlay candidate (2026-10-13)
+
+The local candidate on `26005cdfa7e66d59b448634a752dff2afff0858b` adds a normal
+Service view without changing rule4/policy2/schema20. Run:
+
+```sh
+sh tools/test_city_v16_service_coverage.sh .local/gog-extracted/app --ui
+```
+
+Use **L Load Save →01-service-baseline.json →Open selected /Enter** in the
+isolated menu. It loads the paid18-House Xia case paused; zoom over its central
+district. **V /V Service**: C green covers the next demand using current expiry;
+! amber expires by then unless revisited; X red is missing now. Future visits
+are unknown. Inspector routes are existing geometric caches, not arrival ETAs.
+
+| Human step | Expected | Human result |
+| --- | --- | --- |
+| V and the Service button, then OFF | Same Houses, funds/tick/save; OFF restores the prior paused map image | **NOT RUN** |
+| Inspect green, amber and red Houses | Current coverage, remaining, actual next demand/last result and known route; no promised visit | **NOT RUN** |
+| H, then V/button | Help remains blocking; no toggle or map action leaks | **NOT RUN** |
+| F3, then V | Walker visual role cycles; Service view remains unchanged | **NOT RUN** |
+| Wheel1×/2×/4×, held arrows, resize, panel toggle | Exact footprint shading/symbols, artwork readable, no sticky input | **NOT RUN** |
+| Combine Water/Health/Desirability | Each view remains comprehensible; green Service alone does not promise full supply | **NOT RUN** |
+| F5 →Step →F9, then fresh app load | Complete state restores paused; a new view defaults Service OFF | **NOT RUN** |
+
+Software production-view pixel/input tests and normal Release macOS automated
+V/button/wheel/inspection/Help/F3/F5-Step-F9 delivery are separate technical
+evidence, documented in [the Service milestone](city-v16-service-coverage.md).
+The CUA native pipe failed; fallback OS automation used an owned isolated PID
+and stopped on foreground takeover. None of this marks these human rows PASS.
+
 Oliver has confirmed zoom, arrow keys and window resizing: **User-reported PASS for the tested City-v10 session**. This narrow report does not mark the City-v16 checklist below, road drag, all building stages, demolition/Recovery, external display changes or a full human playthrough PASS.
 
 ## Local candidate and isolation

@@ -1,9 +1,14 @@
 // Explicit, on-demand diagnostics. No instrumentation or alternate economy is
 // installed in the application's frame/tick paths. Original maps are read only.
 #include "CityV16PlaythroughRecipe.h"
+#include "ServiceSchedulerExperiment.h"
+#include "app/ServiceCoverage.h"
 #include "app/SandboxView.h"
+#include "app/VisualSelection.h"
+#include "core/PerformanceDiagnostics.h"
 #include "maps/StoredMapSession.h"
 #include "persistence/SandboxSave.h"
+#include "renderer/FireSpriteSet.h"
 #include "simulation/CityStartGuidance.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -11,8 +16,10 @@
 #include <charconv>
 #include <chrono>
 #include <climits>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -239,19 +246,33 @@ J production(const sim::World &w) {
 
 struct Context {
     fs::path data, map, root;
+    unsigned border=0;
     SDL_Window *window = nullptr;
     SDL_Renderer *renderer = nullptr;
     std::unique_ptr<oe::SandboxView> view;
-    Context(fs::path d, fs::path m, fs::path r)
+    Context(fs::path d, fs::path m, fs::path r, fs::path resources = {})
         : data(std::move(d)), map(std::move(m)), root(std::move(r)) {
         auto stored = oe::maps::load_stored_map_session(
             data, map, oe::maps::FootprintPolicy::EdgeByte4x4Preview,
             oe::maps::StoredGraphicsProfile::Slot8);
+        border=stored.plan.border;
         check(SDL_CreateWindowAndRenderer("Isolated long-play adapter", 1100, 700,
                                           SDL_WINDOW_HIDDEN, &window, &renderer),
               SDL_GetError());
         view = std::make_unique<oe::SandboxView>(std::move(stored), false,
                                                  sim::RulesProfile::CityV16, 4);
+        if (!resources.empty()) {
+            const auto profiles=oe::detect_and_select_visual_profiles(data,resources);
+            check(profiles.compatibility.compatible(),"UI visual pack fingerprint mismatch");
+            view->set_walker_visuals(profiles.walker,profiles.walker_source);
+            view->set_building_visuals(profiles.building,profiles.building_source);
+            view->set_road_visuals(profiles.road,profiles.road_source);
+            view->set_fire_visuals(profiles.fire,profiles.fire_source);
+            view->set_fire_inspector_visuals(profiles.fire_inspector,profiles.fire_inspector_source);
+            view->set_market_walker_visuals(profiles.market_walker,profiles.market_walker_source);
+            view->set_service_walker_visuals(profiles.service_walker,profiles.service_walker_source);
+            view->set_health_walker_visuals(profiles.health_walker,profiles.health_walker_source);
+        }
         fs::create_directories(root / "saves");
         view->configure_save(data, map, root / "saves/current.json");
         view->initialize(window, renderer);
@@ -282,6 +303,7 @@ struct Context {
     }
 };
 struct Trace {
+    std::function<void(const sim::WorldSnapshot&,const sim::World&,const J&)> observer;
     Context &context;
     fs::path root;
     std::ofstream demand, workforce, events, finance, commands, house_log;
@@ -489,6 +511,7 @@ struct Trace {
                               {"dispatch_status", sim::courier_dispatch_status_name(
                                                       w.courier_dispatch_status(c.id).status)}});
         }
+        if (observer) observer(before,w,pre_workers);
         if (w.ticks() % 400 == 0)
             interval(w);
     }
@@ -716,6 +739,9 @@ std::vector<sim::Command> connected_purchase(const sim::World &w, sim::CommandTy
                              std::string(sim::starter_building_name(kind)));
 }
 
+#include "CityV16ServiceAudit.h"
+#include "CityV16ServiceChallenges.h"
+
 J observe(Context &context, sim::World w, std::uint64_t ticks, const char *evidence) {
     Trace t(context, context.root);
     t.begin(w);
@@ -792,7 +818,7 @@ J reconstructed(Context &context, const fs::path &earned_save) {
     return r;
 }
 
-J recovery(Context &context, const fs::path &save) {
+J recovery(Context &context, const fs::path &save,bool service_prepare=false) {
     auto w = context.restore(save);
     Trace t(context, context.root);
     t.begin(w);
@@ -815,6 +841,12 @@ J recovery(Context &context, const fs::path &save) {
     for (unsigned i = 0; i < 4000; ++i)
         t.tick(w);
     stages.push_back({{"stage", "existing supply / controls only"}, {"after", finances(w)}});
+    if (service_prepare) {
+        t.checkpoint(w,"service-start");t.finish(w);
+        J result={{"evidence","same paid18-House outage source and ordinary controls-only4000t recovery"},
+                  {"start",start},{"stages",stages},{"final",finances(w)}};
+        write(context.root/"summary.json",result);return result;
+    }
     // The measured reconstruction needs no paid expansion. On another supplied
     // save, a goods miss alone cannot distinguish capacity, backlog or routing;
     // report that open diagnosis rather than automatically buying producers.
@@ -991,14 +1023,15 @@ J fresh(Context &context) {
 int main(int argc, char **argv) {
     const auto process_start = Clock::now();
     try {
-        check(argc == 5 || argc == 6 || argc == 7,
+        check(argc == 5 || argc == 6 || argc == 7 || argc==8,
               "usage: fixture DATA FRESH-ROOT --fresh MAP | --analyse SAVE [TICKS] | "
               "--reconstructed SAVE | --recovery SAVE | --resume SAVE TICKS EXPECTED");
         const std::string mode = argv[3];
-        check((mode == "--resume" && argc == 7) ||
+        check((mode == "--resume" && (argc == 7||argc==8)) || ((mode=="--service-audit"||mode=="--service-ui")&&argc==6) ||
+                  (mode=="--service-challenges"&&argc==5) ||
                   (mode == "--analyse" && (argc == 5 || argc == 6)) ||
                   ((mode == "--fresh" || mode == "--reconstructed" || mode == "--recovery" ||
-                    mode == "--priority-only") &&
+                    mode == "--priority-only"||mode=="--service-prepare"||mode=="--service-capacity") &&
                    argc == 5),
               "invalid mode or argument count");
         const auto data = fs::canonical(argv[1]), root = fs::canonical(argv[2]);
@@ -1008,12 +1041,20 @@ int main(int argc, char **argv) {
                   SDL_Init(SDL_INIT_VIDEO),
               SDL_GetError());
         int code = 0;
-        if (std::string(argv[3]) == "--fresh") {
+        if (mode=="--service-challenges") {
+            check(std::string(argv[4])=="authored","challenge evidence must be explicit");service_challenges(root);
+        } else if (std::string(argv[3]) == "--fresh") {
             Context context(data, argv[4], root);
             const auto result = fresh(context);
             std::cout << result.dump(2) << '\n';
             code = result["status"] == "PASS" ? 0 : 1;
-        } else if (std::string(argv[3]) == "--analyse" ||
+        } else if(mode=="--service-ui") {
+            const auto doc=oe::persistence::read_save(argv[4]);Context context(data,doc.map_relative,root,argv[5]);
+            service_ui(context,argv[4]);
+        } else if(mode=="--service-audit") {
+            const auto doc=oe::persistence::read_save(argv[4]);Context context(data,doc.map_relative,root);
+            const auto result=service_audit(context,argv[4],argv[5]);std::cout<<result.dump(2)<<'\n';
+        } else if (std::string(argv[3]) == "--analyse" || mode=="--service-prepare" || mode=="--service-capacity" ||
                    std::string(argv[3]) == "--reconstructed" ||
                    std::string(argv[3]) == "--recovery" ||
                    std::string(argv[3]) == "--priority-only") {
@@ -1029,10 +1070,13 @@ int main(int argc, char **argv) {
                 result = reconstructed(context, argv[4]);
             else if (std::string(argv[3]) == "--priority-only")
                 result = priority_only(context, argv[4]);
+            else if(mode=="--service-prepare") result=recovery(context,argv[4],true);
+            else if(mode=="--service-capacity") result=service_capacity(context,argv[4]);
             else
                 result = recovery(context, argv[4]);
             std::cout << result.dump(2) << '\n';
         } else if (std::string(argv[3]) == "--resume") {
+            oe::service_experiment::configure(argc==8?argv[7]:"current");
             const auto d = oe::persistence::read_save(argv[4]);
             Context context(data, d.map_relative, root);
             auto w = context.restore(argv[4]);

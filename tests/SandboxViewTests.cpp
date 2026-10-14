@@ -1,4 +1,5 @@
 #include "app/SandboxView.h"
+#include "app/ServiceCoverage.h"
 #include "app/AutosaveController.h"
 #include "app/WalkerPose.h"
 #include "core/PerformanceDiagnostics.h"
@@ -832,6 +833,72 @@ void city_v15_health_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* re
     view.shutdown();std::cout<<"City-v15 UI: sick/save/load paused, inspectors, J/K/H, 100 overlay toggles at 4 and 20 Houses, 200 hover events, road preview pure\n";
 }
 
+void service_coverage_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
+    namespace ui=openemperor::sandbox_ui;
+    namespace perf=openemperor::performance;
+    using State=ui::ServiceCoverageState;
+    check(ui::service_coverage(100,501,0).state==State::Covered,"coverage after deadline");
+    check(ui::service_coverage(100,500,0).state==State::ExpiringByDemand,"expiry exactly at deadline");
+    check(ui::service_coverage(100,499,0).state==State::ExpiringByDemand,"expiry before deadline");
+    check(ui::service_coverage(100,100,399).state==State::Uncovered &&
+        ui::service_coverage(100,0,0).state==State::Uncovered,"expired/never visited");
+    check(ui::service_coverage(100,101,399).state==State::ExpiringByDemand &&
+        ui::service_coverage(100,102,399).state==State::Covered,"one tick deadline boundary");
+    check(!ui::service_coverage(UINT64_MAX-1,UINT64_MAX,0).next_demand,"deadline overflow");
+    check(SDL_SetWindowSize(window,1100,700),"Service test resize");SDL_PumpEvents();
+    std::vector<std::uint8_t> mask;auto session=city_v10_fixture(temp,mask);const auto border=session.plan.border;
+    openemperor::SandboxView view(std::move(session),false,simulation::RulesProfile::CityV16,2);
+    Temp outside;view.configure_save(temp.path,"Cities/Synthetic.map",outside.path/"service-save.json");
+    view.set_walker_visuals(walker_fixture(temp));view.initialize(window,renderer);bool running=true;
+    check(!view.service_overlay(),"Service default must be OFF");
+    const auto put=[&](simulation::CommandType kind,simulation::Cell cell){check(view.execute({kind,cell}).accepted,"Service paid fixture");return *view.world().building_owner_at(cell);};
+    const auto post=put(simulation::CommandType::PlaceServicePost,{105,104});
+    const auto home=put(simulation::CommandType::PlaceHousehold,{106,101});
+    const auto far=put(simulation::CommandType::PlaceHousehold,{116,107});
+    for(int x=100;x<=114;++x)check(view.execute({simulation::CommandType::PlaceRoad,{x,103}}).accepted,"Service fixture roads");
+    check(view.world().service_route_available(home)==true && view.world().service_route_available(far)==false,"cached Service reachability");
+    const auto map_pixels=[&](){check(view.render(),"Service pixel render");const auto map=view.layout().map;const SDL_Rect rect{map.x,map.y,map.w,map.h};auto* surface=SDL_RenderReadPixels(renderer,&rect);check(surface,"Service pixel read");
+        Bytes pixels(static_cast<std::size_t>(surface->pitch*surface->h));std::copy_n(static_cast<const std::uint8_t*>(surface->pixels),pixels.size(),pixels.begin());SDL_DestroySurface(surface);return pixels;};
+    const auto off=map_pixels();view.handle_event(key(SDLK_V),running);check(view.service_overlay(),"normal V Service");
+    check(map_pixels()!=off,"Service overlay produced no map pixels");
+    const auto button=std::find_if(view.layout().buttons.begin(),view.layout().buttons.end(),[](const auto& b){return b.action==ui::Action::ServiceOverlay;});
+    check(button!=view.layout().buttons.end() && button->rect.w>0,"Service button missing");
+    mouse_click(view,static_cast<float>(button->rect.x+button->rect.w/2),static_cast<float>(button->rect.y+button->rect.h/2),running);
+    check(!view.service_overlay() && map_pixels()==off,"OFF must restore map pixels exactly");
+    view.handle_event(key(SDLK_F3),running);view.handle_event(key(SDLK_V),running);check(!view.service_overlay(),"diagnostic V precedence");view.handle_event(key(SDLK_F3),running);
+    view.handle_event(key(SDLK_H),running);view.handle_event(key(SDLK_V),running);check(!view.service_overlay(),"Help leaks Service toggle");view.handle_event(key(SDLK_H),running);
+    // Actual arrival, not an injected deadline. Demand precedes arrival in World.tick.
+    for(int i=0;i<300 && !view.world().household_service_active(home);++i)view.tick_once();
+    check(view.world().household_service_active(home),"real Service arrival");
+    check(view.world().building(home).service_until_tick==view.world().ticks()+1200,"arrival duration");
+    view.handle_event(key(SDLK_V),running);
+    const auto select=[&](simulation::Cell c){view.set_tool(5);auto p=view.camera().world_to_screen(maps::terrain_ground({static_cast<unsigned>(c.x),static_cast<unsigned>(c.y)},border));mouse_click(view,static_cast<float>(p.x),static_cast<float>(p.y),running);};
+    select({106,101});std::string lines;for(const auto& l:view.inspection_lines())lines+=l+" ";
+    check(lines.find("Coverage at next demand: valid")!=std::string::npos && lines.find("Service route: known reachable")!=std::string::npos && lines.find("Future Service arrival: unknown")!=std::string::npos,"Service inspector facts");
+    select({105,104});lines.clear();for(const auto& l:view.inspection_lines())lines+=l+" ";
+    check(lines.find("City-wide covered Houses")!=std::string::npos && lines.find("Last target")!=std::string::npos,"Post inspector cursor/coverage");
+    check(view.execute(simulation::set_building_operation(post,false)).accepted,"pause Post");
+    const auto snapshot=view.world().snapshot();const auto texture_count=view.building_texture_count();
+    perf::set_enabled(true);perf::reset();
+    for(int i=0;i<100;++i){view.handle_event(key(SDLK_V),running);if(i%25==0)view.handle_event(key(SDLK_Z),running);check(view.render(),"Service stress render");}
+    for(const auto c:{perf::Counter::WorldCopies,perf::Counter::WorldExecutes,perf::Counter::WorldRestores,perf::Counter::BfsCalls,perf::Counter::RouteRefreshes,perf::Counter::AssetDecodes,perf::Counter::TextureUploads,perf::Counter::FileReads,perf::Counter::FileWrites,perf::Counter::SimulationTicks})check(perf::counter(c)==0,"Service overlay expensive work");
+    check(view.world().snapshot()==snapshot && view.building_texture_count()==texture_count,"Service stress mutated World/textures");perf::set_enabled(false);
+    view.handle_event(key(SDLK_U),running);view.handle_event(key(SDLK_K),running);view.handle_event(key(SDLK_D),running);check(view.render(),"combined Service overlays");
+    view.handle_event(key(SDLK_TAB),running);check(view.render(),"Service panel hidden");
+    check(SDL_SetWindowSize(window,900,650),"Service resize");SDL_PumpEvents();SDL_Event resized{};resized.type=SDL_EVENT_WINDOW_RESIZED;view.handle_event(resized,running);check(view.render(),"resized Service render");
+    view.handle_event(key(SDLK_F5),running);view.tick_once();view.handle_event(key(SDLK_F9),running);check(view.world().snapshot()==snapshot && view.paused(),"Service F5/F9 changed full World");
+    // With the actual Post paused, renewal cannot occur. Observe the real
+    // green -> amber -> red transitions without editing a Snapshot deadline.
+    for(int n=0;n<1600 && ui::service_coverage(view.world().ticks(),view.world().building(home).service_until_tick,view.world().building(home).demand_progress).state==State::Covered;++n)view.tick_once();
+    check(ui::service_coverage(view.world().ticks(),view.world().building(home).service_until_tick,view.world().building(home).demand_progress).state==State::ExpiringByDemand,"actual upcoming deadline must become amber");
+    for(int n=0;n<1200 && view.world().household_service_active(home);++n)view.tick_once();
+    check(ui::service_coverage(view.world().ticks(),view.world().building(home).service_until_tick,view.world().building(home).demand_progress).state==State::Uncovered,"actual expiry must become red");
+    view.shutdown();
+    openemperor::SandboxView legacy(fixture(temp),false,simulation::RulesProfile::IndustryV5);legacy.initialize(window,renderer);
+    legacy.handle_event(key(SDLK_V),running);check(!legacy.service_overlay() && std::none_of(legacy.layout().buttons.begin(),legacy.layout().buttons.end(),[](const auto& b){return b.action==ui::Action::ServiceOverlay;}),"unsupported legacy Service controls");legacy.shutdown();
+    std::cout<<"Service coverage: strict deadlines, actual arrival, V/button/diagnostic/Help, cached inspector, pixels OFF,100 pure frames,zoom/resize/combinations,full F5/F9 PASS\n";
+}
+
 void city_v16_maintenance_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
     namespace perf=openemperor::performance;
     std::vector<std::uint8_t> mask;auto session=city_v10_fixture(temp,mask);const auto border=session.plan.border;
@@ -1309,6 +1376,7 @@ void input_reliability_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* 
         const simulation::Command warned{simulation::CommandType::PlaceHousehold,{115,101}};
         const auto before=view.world().snapshot();
         check(!view.request_execute(warned).accepted&&view.budget_warning_pending(),"input budget modal");
+        view.handle_event(key(SDLK_V),running);check(!view.service_overlay()&&view.world().snapshot()==before,"budget modal leaked Service toggle");
         view.handle_event(click(180,399),running);resize(view,1290,780);view.handle_event(release(180,399),running);
         check(view.budget_warning_pending()&&view.world().snapshot()==before,"budget resize disarms stale confirm and retains candidate");
         const auto modal_camera=view.camera();view.update(.05,{true});
@@ -1328,6 +1396,7 @@ void input_reliability_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* 
         check(view.execute({simulation::CommandType::PlaceClaySource,{100,101}}).accepted,"input demolition fixture");
         const auto before=view.world().snapshot();const auto panel=view.layout().panel;
         mouse_click(view,float(panel.x+30),float(panel.y+panel.h-64),running);check(view.demolition_pending(),"input demolition opens");
+        view.handle_event(key(SDLK_V),running);check(!view.service_overlay()&&view.world().snapshot()==before,"demolition modal leaked Service toggle");
         view.handle_event(click(180,399),running);resize(view,1290,780);view.handle_event(release(180,399),running);
         check(!view.demolition_pending()&&view.world().snapshot()==before,"demolition resize cancels without command and refreshes layout");
         resize(view,1100,700);view.shutdown();
@@ -1608,9 +1677,10 @@ int main(int argc,char** argv) {
         const bool geometry_only=argc==2 && std::string(argv[1])=="--geometry16-only";
         const bool maintenance_only=argc==2 && std::string(argv[1])=="--maintenance-only";
         const bool health_only=argc==2 && std::string(argv[1])=="--health-only";
+        const bool service_only=argc==2 && std::string(argv[1])=="--service-only";
         const bool water_only=argc==2 && std::string(argv[1])=="--water-only";
         const bool alpha_stress=argc==2 && std::string(argv[1])=="--alpha-stress";
-        check(argc==1 || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only || original_roads_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
+        check(argc==1 || service_only || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only || original_roads_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
         {
             const auto layout=openemperor::sandbox_ui::make_layout(1100,700,1100,700,true);
             check(layout.top.h==52 && layout.map.w==796 && layout.map.h==516 &&
@@ -1726,6 +1796,10 @@ int main(int argc,char** argv) {
         }
         if (health_only) {
             city_v15_health_checks(temp,window,renderer);
+            SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;
+        }
+        if (service_only) {
+            service_coverage_checks(temp,window,renderer);
             SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;
         }
         if (water_only) {

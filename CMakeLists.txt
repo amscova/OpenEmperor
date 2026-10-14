@@ -353,6 +353,8 @@ if(BUILD_TESTING)
     add_test(NAME sandbox-gate-budget-view COMMAND openemperor-sandbox-gate-budget-view-tests)
     set_tests_properties(sandbox-gate-budget-view PROPERTIES TIMEOUT 60)
     add_test(NAME sandbox-city-v15-view COMMAND openemperor-sandbox-view-tests --health-only)
+    add_test(NAME sandbox-service-coverage-view COMMAND openemperor-sandbox-view-tests --service-only)
+    set_tests_properties(sandbox-service-coverage-view PROPERTIES TIMEOUT 60)
     add_test(NAME sandbox-road-connectivity-view COMMAND openemperor-sandbox-view-tests --connectivity-only)
     add_test(NAME sandbox-original-roads-view COMMAND openemperor-sandbox-view-tests --original-roads-only)
     set_tests_properties(sandbox-road-connectivity-view PROPERTIES TIMEOUT 60)
@@ -1109,6 +1111,15 @@ get_target_property(city_v16_fixture_sources openemperor-city-v16-playthrough-fi
 list(REMOVE_ITEM city_v16_fixture_sources tools/CityV16PlaythroughFixture.cpp)
 add_executable(openemperor-city-v16-longplay-fixture EXCLUDE_FROM_ALL
     tools/CityV16LongplayFixture.cpp ${city_v16_fixture_sources})
+# Same World sources, a test-only selection hook, and ordinary movement/demand.
+# Direct objects satisfy simulation symbols before the normal static dependencies;
+# no alternate World layout, Snapshot fields, or second simulation is introduced.
+get_target_property(service_experiment_simulation_sources openemperor-simulation SOURCES)
+target_sources(openemperor-city-v16-longplay-fixture PRIVATE
+    ${service_experiment_simulation_sources} tools/ServiceSchedulerExperiment.cpp)
+target_compile_definitions(openemperor-city-v16-longplay-fixture PRIVATE
+    OPENEMPEROR_SERVICE_SCHEDULER_EXPERIMENT=1)
+target_include_directories(openemperor-city-v16-longplay-fixture PRIVATE tools)
 target_link_libraries(openemperor-city-v16-longplay-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-city-v16-longplay-fixture)
