@@ -86,6 +86,7 @@ struct RoadConnectivityReport {
     // This is precisely World::find_building_route(), including both building
     // endpoint cells. No diagnostic route is substituted for that authority.
     std::optional<std::vector<Cell>> route;
+    std::vector<RampLink> ramps_on_route;
     std::vector<BridgeSpan> bridges_on_route; // Captured by explicit G, never rebuilt by the inspector.
     std::vector<RoadConnectivityComponent> components;
     std::vector<std::uint32_t> source_components,target_components;

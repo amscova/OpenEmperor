@@ -197,3 +197,7 @@ release or publication was performed.
 ## Later user report: City-v10
 
 Oliver confirms working zoom, arrow keys and window resizing: **User-reported PASS for the tested City-v10 session**. This report is separate from the historical Codex native probe above. It does not complete City-v16, road drag, selection of every building stage, demolition/Recovery, external-display changes or a full human playthrough. The Ruined Great Wall milestone makes no input behavior changes.
+
+## Ramp gesture boundary
+
+Explicit City-v16 rule6 adds P Ramp alongside B Bridge; earlier controls and F3 precedence stay unchanged. Its pure coalesced adjacent-road drag revalidates actual MouseUp, cancels on Escape/right-click/focus/resize/UI release, and disarms at existing modal boundaries. Scripted authored SDL tests do not infer native/human input acceptance. See [Ramp controls](city-v16-ramps.md).

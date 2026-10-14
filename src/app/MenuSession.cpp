@@ -17,7 +17,7 @@ enum Action { ChooseFolder=1, NewGame, LoadGame, Resume, DataFolder, Quit,
     ResetSettings, OpenMenu, VisualsFile, VisualsClear, BuildingVisualsFile, BuildingVisualsClear,
     RoadVisualsFile, RoadVisualsClear, AdvancedVisuals, UpgradeCopy, ConfirmUpgradeCopy,
     CancelUpgrade, ToggleAutosave, ToggleSaveView, DeleteRecovery, ConfirmDeleteRecovery,
-    CancelDeleteRecovery, GreatWallChoice, RecheckMap, BridgesChoice,
+    CancelDeleteRecovery, GreatWallChoice, RecheckMap, BridgesChoice, RampsChoice,
     MapSelectBase=1000, SaveSelectBase=2000, RecoverySelectBase=3000 };
 constexpr simulation::RulesProfile profiles[]={simulation::RulesProfile::LogisticsV1,
     simulation::RulesProfile::ProductionV2,simulation::RulesProfile::HouseholdV3,
@@ -179,7 +179,7 @@ void MenuSession::open_dialog(DialogKind kind) {
 }
 std::optional<maps::MapRulesRequest> MenuSession::selected_map_request() const {
     if (map_index_>=catalog_.entries.size() || catalog_.data_root.empty()) return std::nullopt;
-    const auto version=bridges_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 5U:
+    const auto version=ramps_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 6U:bridges_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 5U:
         simulation::current_rule_version(settings_.profile);
     return maps::MapRulesRequest{catalog_.data_root,catalog_.entries[map_index_].relative_path,
         settings_.profile,version,maps::map_rules_policy_version(settings_.profile,version)};
@@ -240,7 +240,7 @@ void MenuSession::finish_loading() {
             save_path=new_save_target(app_root_,settings_.data_root);
         }
         const auto version=document ? document->world.rule_version:
-            bridges_new_game_ && profile==simulation::RulesProfile::CityV16 ? 5U:simulation::current_rule_version(profile);
+            ramps_new_game_ && profile==simulation::RulesProfile::CityV16 ? 6U:bridges_new_game_ && profile==simulation::RulesProfile::CityV16 ? 5U:simulation::current_rule_version(profile);
         auto view=std::make_unique<SandboxView>(std::move(loaded),document ? false:demo_,profile,version);
         view->set_managed(true);
         const auto upgraded_document=upgrade_copy_ ? document:
@@ -389,6 +389,11 @@ void MenuSession::perform(int action) {
             rebuild_buttons(); break;
         }
         case Demo: demo_=!demo_; settings_.prepared_starter=demo_; rebuild_buttons(); break;
+        case RampsChoice:
+            if(settings_.profile==simulation::RulesProfile::CityV16) {
+                ramps_new_game_=!ramps_new_game_;check_selected_map();rebuild_buttons();
+            }
+            break;
         case BridgesChoice:
             if(settings_.profile==simulation::RulesProfile::CityV16) {
                 bridges_new_game_=!bridges_new_game_;check_selected_map();rebuild_buttons();
@@ -657,8 +662,10 @@ void MenuSession::rebuild_buttons() {
         add(MapPrev,"Previous map",40,120); add(MapNext,"Next map",230,120);
         add(ProfilePrev,"Previous rules",40,205); add(ProfileNext,"Next rules",230,205);
         add(Demo,demo_?"Prepared starter settlement":"Empty city",40,270,260);
-        if(settings_.profile==simulation::RulesProfile::CityV16)
+        if(settings_.profile==simulation::RulesProfile::CityV16) {
+            add(RampsChoice,ramps_new_game_?"Ramps + Bridges ON (rule 6)":"Enable Ramps + Bridges (rule 6)",430,250,280);
             add(BridgesChoice,bridges_new_game_?"Bridges V1 ON (rule 5)":"Enable Bridges V1 (rule 5)",430,205,280);
+        }
         add(Start,"Start sandbox",40,315); add(Back,"Back",230,315);
         buttons_[buttons_.size()-2].enabled=map_rules_can_start();
         add(RecheckMap,"Check again",430,315,280);

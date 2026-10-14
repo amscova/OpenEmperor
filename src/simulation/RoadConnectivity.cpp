@@ -168,7 +168,7 @@ RoadConnectivityReport diagnose_road_connectivity(
     const bool version_pair=permissions &&
         ((world.rule_version()==3 && permissions->policy_version()==kMapPermissionsPolicyVersion) ||
          (world.rule_version()==4 && permissions->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion) ||
-         (world.rule_version()==5 && permissions->policy_version()==kBridgesMapPermissionsPolicyVersion));
+         ((world.rule_version()==5 || world.rule_version()==6) && permissions->policy_version()==kBridgesMapPermissionsPolicyVersion));
     if (world.profile()!=RulesProfile::CityV16 || !version_pair) {
         result.unsupported_reason="Requires City-v16 rule 3/policy 1 or rule 4/policy 2 permissions";
         return result;
@@ -196,6 +196,9 @@ RoadConnectivityReport diagnose_road_connectivity(
     if(result.route)for(const auto cell:*result.route)if(const auto* bridge=world.bridge_at(cell))
         if(std::none_of(result.bridges_on_route.begin(),result.bridges_on_route.end(),
             [&](const auto& value){return value.id==bridge->id;}))result.bridges_on_route.push_back(*bridge);
+    if(result.route)for(std::size_t i=1;i<result.route->size();++i)
+        if(const auto* r=world.ramp_between((*result.route)[i-1],(*result.route)[i]))
+            result.ramps_on_route.push_back(*r);
     if (result.route) result.category=RoadConnectivityCategory::Connected;
     else if (result.source.entrances.empty()) result.category=RoadConnectivityCategory::SourceNoEntrance;
     else if (result.target.entrances.empty()) result.category=RoadConnectivityCategory::TargetNoEntrance;

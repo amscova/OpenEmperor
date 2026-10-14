@@ -1414,7 +1414,7 @@ void input_reliability_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* 
 }
 
 maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vector<std::uint8_t>& mask,
-                                                     bool original_roads=false,bool bridge_water=false) {
+                                                     bool original_roads=false,bool bridge_water=false,bool ramps=false) {
     auto session=city_v10_fixture(temp,mask);
     Bytes raw(maps::original_entities_logical_offset+6,0);
     const Bytes signature{5,0,0xfe,0xca,0,0,2,0};
@@ -1422,6 +1422,7 @@ maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vect
     const maps::MapGeometry geometry{84};
     for (unsigned y=0;y<228;++y) for (unsigned x=0;x<228;++x)
         u32(raw,maps::terrain_logical_offset+4*(std::size_t(y)*228+x),geometry.contains({x,y}) ? 0x80:0x80000);
+    if(ramps)for(unsigned y=0;y<228;++y)for(unsigned x=0;x<104;++x)raw[std::size_t(maps::landscape_height_offset)+y*228U+x]=1;
     if (original_roads) for (unsigned x=100;x<=110;++x) if (x!=104)
         u32(raw,maps::terrain_logical_offset+4*(103U*228U+x),0xc0);
     if(bridge_water)for(unsigned y=90;y<=130;++y)u32(raw,maps::terrain_logical_offset+4*(y*228U+104),4);
@@ -1439,11 +1440,56 @@ maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vect
     write(temp.path/"Cities/Synthetic.map",packed);
     session.map=maps::read_emperor_map(maps::EmperorContainer::open(temp.path/"Cities/Synthetic.map"),0);
     session.plan.map_relative="Cities/Synthetic.map";session.plan.height_bytes.assign(228U*228U,0);
+    if(ramps){session.plan.landscape_layers_available=true;for(unsigned y=0;y<228;++y)for(unsigned x=0;x<104;++x)session.plan.height_bytes[y*228U+x]=1;}
     if (original_roads) for (unsigned x=100;x<=110;++x) if (x!=104) {
         const auto cell=session.plan.cell_by_storage[103U*228U+x];
         if (cell) session.plan.cells[*cell].terrain_raw=0xc0;
     }
     return session;
+}
+void ramp_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
+    namespace perf=openemperor::performance;using s=simulation::CommandType;
+    check(SDL_SetWindowSize(window,1100,700),"ramp test resize");SDL_PumpEvents();
+    std::vector<std::uint8_t> mask;openemperor::SandboxView view(road_connectivity_view_fixture(temp,mask,false,false,true),false,simulation::RulesProfile::CityV16,6);
+    const auto save=temp.path.parent_path()/(temp.path.filename().string()+"-viewer-save.json");
+    view.set_walker_visuals(walker_fixture(temp));
+    view.configure_save(temp.path,"Cities/Synthetic.map",save);view.initialize(window,renderer);bool running=true;
+    if(!view.paused())view.handle_event(key(SDLK_SPACE),running);
+    check(view.world().rule_version()==6&&view.world().map_permissions()->policy_version()==3,"explicit ramp versions not retained");
+    const auto screen=[&](simulation::Cell c){auto p=maps::terrain_ground({unsigned(c.x),unsigned(c.y)},72);p.y-=view.world().transport_height(c)*40;return view.camera().world_to_screen(p);};
+    const auto a=screen({103,103}),b=screen({104,103});
+    check(view.pick(a)==simulation::Cell{103,103} && view.pick(b)==simulation::Cell{104,103},"graded ramp input endpoint pick mismatch");
+    check(view.layout().map.contains(a.x,a.y)&&view.layout().map.contains(b.x,b.y),"ramp input banks clipped");
+    check(view.execute({s::PlaceRoad,{103,103}}).accepted&&view.execute({s::PlaceRoad,{104,103}}).accepted,"paid bank roads failed");
+    const auto snapshot=view.world().snapshot();const auto previous_tool=view.tool();
+    view.handle_event(key(SDLK_F3),running);view.handle_event(key(SDLK_P),running);check(view.tool()==previous_tool,"B stole F3 diagnostic light control");
+    view.handle_event(key(SDLK_F3),running);view.handle_event(key(SDLK_P),running);check(view.tool()==15,"B did not select ramp");
+    const auto down=[&]{view.handle_event(click(float(a.x),float(a.y)),running);};
+    const auto up=[&]{view.handle_event(release(float(b.x),float(b.y)),running);};
+    for(int cancel=0;cancel<4;++cancel) {
+        down();
+        if(cancel==0)view.handle_event(key(SDLK_ESCAPE),running);
+        if(cancel==1){SDL_Event event{};event.type=SDL_EVENT_WINDOW_FOCUS_LOST;view.handle_event(event,running);event.type=SDL_EVENT_WINDOW_FOCUS_GAINED;view.handle_event(event,running);}
+        if(cancel==2){SDL_Event event{};event.type=SDL_EVENT_WINDOW_RESIZED;view.handle_event(event,running);}
+        if(cancel==3){auto event=click(float(a.x),float(a.y));event.button.button=SDL_BUTTON_RIGHT;view.handle_event(event,running);}
+        up();check(view.world().snapshot()==snapshot,"cancelled ramp gesture published state");
+    }
+    down();view.handle_event(release(float(view.layout().toolbar.x+10),float(view.layout().toolbar.y+10)),running);
+    check(view.world().snapshot()==snapshot,"ramp release over UI committed");
+    perf::set_enabled(true);perf::reset();down();
+    SDL_Event motion{};motion.type=SDL_EVENT_MOUSE_MOTION;motion.motion.x=float(b.x);motion.motion.y=float(b.y);
+    for(int i=0;i<100;++i){view.handle_event(motion,running);view.update(0,{});check(view.render(),"ramp preview frame failed");}
+    for(const auto counter:{perf::Counter::WorldCopies,perf::Counter::WorldExecutes,perf::Counter::SimulationTicks,
+        perf::Counter::BfsCalls,perf::Counter::RouteRefreshes,perf::Counter::AssetDecodes,perf::Counter::TextureUploads,perf::Counter::FileReads,perf::Counter::FileWrites})
+        check(perf::counter(counter)==0,"ramp preview did forbidden work");
+    check(view.world().snapshot()==snapshot,"ramp preview mutated World");up();perf::set_enabled(false);
+    check(view.world().ramps().size()==1&&view.world().treasury()==snapshot.treasury-40&&view.world().command_sequence()==snapshot.command_sequence+1,
+        "MouseUp did not publish one atomic whole ramp at actual endpoint");
+    up();check(view.world().ramps().size()==1,"duplicate release built another ramp");
+    const auto built=view.world().snapshot();view.handle_event(key(SDLK_F5),running);view.tick_once();view.handle_event(key(SDLK_F9),running);
+    check(view.world().snapshot()==built,"actual handler F5/F9 lost full schema22 state");
+    view.handle_event(key(SDLK_F1),running);for(int layer=0;layer<8;++layer){view.handle_event(key(SDLK_F8),running);check(view.render(),"ramp F8 layer failed");}
+    check(view.world().snapshot()==built,"F8 changed Ramp authority");view.shutdown();
 }
 void bridge_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
     namespace perf=openemperor::performance;using s=simulation::CommandType;
@@ -1742,6 +1788,7 @@ int main(int argc,char** argv) {
         const bool input_only=argc==2 && std::string(argv[1])=="--input-only";
         const bool connectivity_only=argc==2 && std::string(argv[1])=="--connectivity-only";
         const bool original_roads_only=argc==2 && std::string(argv[1])=="--original-roads-only";
+        const bool ramps_only=argc==2 && std::string(argv[1])=="--ramps-only";
         const bool bridges_only=argc==2 && std::string(argv[1])=="--bridges-only";
         const bool road_only=argc==2 && std::string(argv[1])=="--road-continuity-only";
         const bool geometry_only=argc==2 && std::string(argv[1])=="--geometry16-only";
@@ -1750,7 +1797,7 @@ int main(int argc,char** argv) {
         const bool service_only=argc==2 && std::string(argv[1])=="--service-only";
         const bool water_only=argc==2 && std::string(argv[1])=="--water-only";
         const bool alpha_stress=argc==2 && std::string(argv[1])=="--alpha-stress";
-        check(argc==1 || bridges_only || service_only || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only || original_roads_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
+        check(argc==1 || ramps_only || bridges_only || service_only || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only || original_roads_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
         {
             const auto layout=openemperor::sandbox_ui::make_layout(1100,700,1100,700,true);
             check(layout.top.h==52 && layout.map.w==796 && layout.map.h==516 &&
@@ -1852,6 +1899,7 @@ int main(int argc,char** argv) {
             original_roads_view_checks(temp,window,renderer);
             SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;
         }
+        if(ramps_only) {ramp_view_checks(temp,window,renderer);SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;}
         if(bridges_only) {bridge_view_checks(temp,window,renderer);SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;}
         if (road_only) {
             road_continuity_checks(temp,window,renderer);

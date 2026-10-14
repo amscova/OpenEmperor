@@ -248,7 +248,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=5;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=6;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -272,6 +272,8 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::CityV16 && version==3) return city_v16_v3;
     static constexpr ProfileRules city_v16_v4{4,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==4) return city_v16_v4;
+    static constexpr ProfileRules city_v16_v6{6,32,64,32,5,800};
+    if (profile==RulesProfile::CityV16 && version==6) return city_v16_v6;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};
@@ -304,7 +306,7 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
         const bool valid_pair=profile_==RulesProfile::CityV16 &&
             ((rule_version_==3 && permissions_->policy_version()==kMapPermissionsPolicyVersion) ||
              (rule_version_==4 && permissions_->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion) ||
-             (rule_version_==5 && permissions_->policy_version()==kBridgesMapPermissionsPolicyVersion));
+             ((rule_version_==5 || rule_version_==6) && permissions_->policy_version()==kBridgesMapPermissionsPolicyVersion));
         if (!valid_pair)
             throw std::invalid_argument("map permissions require City-v16 rule 3/policy 1, rule 4/policy 2 or rule 5/policy 3");
     } else if (profile_==RulesProfile::CityV16 && rule_version_>=4) {
@@ -312,6 +314,7 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
             "City-v16 rule 4 requires complete policy-2 map permissions");
     } else if (profile_==RulesProfile::CityV16 && rule_version_==3)
         permissions_=authored_simple_permissions(width_,height_,buildable_);
+    if(ramps_supported())ramp_index_.assign(buildable_.size(),0);
     treasury_=city_profile(profile) ? starting_treasury_for(profile):0;
     objects_.assign(buildable_.size(),Object::Empty);
     owners_.assign(buildable_.size(),0);
@@ -453,6 +456,8 @@ CourierState& World::mutable_courier(CourierId id) {
 std::int64_t World::construction_cost(CommandType type) const {
     if (!city_profile(profile_)) return 0;
     switch (type) {
+    case CommandType::PlaceRamp:return ramps_supported()?ramp_cost:0;
+    case CommandType::RemoveRamp:
     case CommandType::PlaceBridge: // Variable span price lives only in validate_bridge().span.paid_cost.
     case CommandType::RemoveBridge:
         return 0;
@@ -809,6 +814,8 @@ bool World::city_economy_valid() const {
         return true;
     };
     if (!add_cost(roads_placed_total_,static_cast<std::uint64_t>(Rules::road_cost))) return false;
+    for(const auto& ramp:ramps_)
+        if(ramp.paid_cost!=ramp_cost || !add_cost(1,std::uint64_t(ramp.paid_cost)))return false;
     for(const auto& bridge:bridges_)
         if(bridge.paid_cost<=0 || !add_cost(1,std::uint64_t(bridge.paid_cost)))return false;
     for (const auto& value:buildings_) if (value.placed) {
@@ -901,6 +908,13 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if(command.type==CommandType::PlaceRamp) {
+        const auto v=validate_ramp(command.cell,command.ramp_end);
+        return {v.accepted,v.accepted,v.reason,command_sequence_,ticks_,v.diagnostic};
+    }
+    if(command.type==CommandType::RemoveRamp)
+        return {false,false,"Ramp demolition unsupported in V1",command_sequence_,ticks_,
+            {BuildBlocker::SandboxOccupied,command.cell,{}}};
     if(command.type==CommandType::PlaceBridge) {
         const auto b=validate_bridge(command.cell,command.bridge_end);
         return {b.accepted,b.accepted,b.reason,command_sequence_,ticks_,b.diagnostic};
@@ -997,6 +1011,7 @@ CommandResult World::validate(Command command) const {
         const auto kind=placed_object(command.type);
         if (kind) for (const auto cell:building_footprint_cells(profile_,rule_version_,*kind,command.cell)) {
             if (!in_bounds(cell)) return blocked(BuildBlocker::OutsideMap,cell,"Building footprint outside sandbox grid");
+            if(ramp_endpoint(cell))return blocked(BuildBlocker::SandboxOccupied,cell,"Ramp endpoint reserved for a normal road");
             if(bridge_bank_at(cell))return blocked(BuildBlocker::ProtectedBridge,cell,"Bridge bank is reserved for land-road attachment");
             if (!buildable(cell)) return blocked(permissions_ ? permissions_->building_blocker(cell):
                 BuildBlocker::LegacyBuildabilityRestriction,cell,original_road(cell) ?
@@ -1221,6 +1236,16 @@ CommandResult World::execute(Command command) {
 
 CommandResult World::execute_impl(Command command,bool refresh_after) {
     performance::increment(performance::Counter::WorldExecutes);
+    if(command.type==CommandType::RemoveRamp)return validate(command);
+    if(command.type==CommandType::PlaceRamp) {
+        auto v=validate_ramp(command.cell,command.ramp_end);
+        if(!v.accepted)return {false,false,v.reason,command_sequence_,ticks_,v.diagnostic};
+        ramps_.push_back(v.link);index_ramp(ramps_.back());
+        ++next_ramp_id_;++command_sequence_;++road_revision_;
+        treasury_-=ramp_cost;construction_spent_total_+=std::uint64_t(ramp_cost);
+        cached_route_.reset();if(refresh_after)refresh_routes();
+        return {true,true,"Ramp built. Single level; no upkeep; removal unavailable in V1",command_sequence_,ticks_};
+    }
     if(command.type==CommandType::RemoveBridge)return validate(command);
     if(command.type==CommandType::PlaceBridge) {
         auto validation=validate_bridge(command.cell,command.bridge_end);
@@ -1454,6 +1479,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after) {
     case CommandType::SetBuildingOperation:
     case CommandType::SetBuildingWorkforcePriority:
     case CommandType::DemolishBuilding:
+    case CommandType::PlaceRamp:
+    case CommandType::RemoveRamp:
     case CommandType::PlaceBridge:
     case CommandType::RemoveBridge:
         throw std::logic_error("operation command reached placement path");
@@ -3174,6 +3201,12 @@ std::string World::canonical_state() const {
     out<<'|';
     for (const auto allowed:buildable_) out<<static_cast<int>(allowed!=0);
     if (permissions_) out<<"|permissions:"<<permissions_->canonical_state();
+    if(ramps_supported()) {
+        out<<"|ramps:"<<next_ramp_id_;
+        for(const auto& r:ramps_)out<<'|'<<r.id.value<<','<<r.endpoint_a.x<<','<<r.endpoint_a.y
+            <<','<<r.endpoint_b.x<<','<<r.endpoint_b.y<<','<<int(r.height_a)<<','<<int(r.height_b)
+            <<','<<r.paid_cost<<','<<r.placed_tick;
+    }
     if(bridges_supported()) {
         out<<"|bridges:"<<next_bridge_id_;
         for(const auto& bridge:bridges_) {
@@ -3230,6 +3263,7 @@ WorldSnapshot World::snapshot() const {
     s.maintenance_spent_total=maintenance_spent_total_;
     s.demolition_history=demolition_history_;
     s.bridges=bridges_;s.next_bridge_id=next_bridge_id_;
+    s.ramps=ramps_;s.next_ramp_id=next_ramp_id_;
     for (int y=0;y<height_;++y) for (int x=0;x<width_;++x)
         if (object_at({x,y})==Object::Road) s.roads.push_back({x,y});
     s.workshop=workshop_; s.warehouse=warehouse_;
@@ -3299,7 +3333,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         s.roads.size()>w.objects_.size() || s.command_sequence<s.roads.size())
         fail("invalid sandbox counters or road count");
     const auto put=[&](Cell cell,Object object,BuildingId owner) {
-        if(object!=Object::Road && (w.bridge_at(cell)||w.bridge_bank_at(cell)))fail("saved building overlaps bridge span or bank");
+        if(object!=Object::Road && (w.bridge_at(cell)||w.bridge_bank_at(cell)||w.ramp_endpoint(cell)))fail("saved building overlaps bridge span or bank");
         if (object==Object::Road ? (!w.road_buildable(cell) || w.fixed_passage(cell) || w.original_road(cell)):
             !w.buildable(cell)) fail(w.permissions_ ? "saved object outside permitted map cells":
                 "saved object outside buildable mask");
@@ -3310,6 +3344,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
     };
     for (const auto cell:s.roads) put(cell,Object::Road,BuildingId::ClaySource);
     w.restore_bridges(s);
+    w.restore_ramps(s);
     w.ticks_=s.ticks; w.command_sequence_=s.command_sequence; w.road_revision_=s.road_revision;
     w.roads_placed_total_=s.roads_placed_total;
     w.roads_removed_total_=s.roads_removed_total;
@@ -3464,7 +3499,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             s.road_revision<s.roads_placed_total ||
             s.road_revision-s.roads_placed_total<s.roads_removed_total ||
             s.road_revision-s.roads_placed_total-s.roads_removed_total!=
-                s.buildings.size()+2*s.demolition_history.buildings+s.bridges.size() ||
+                s.buildings.size()+2*s.demolition_history.buildings+s.bridges.size()+s.ramps.size() ||
             (w.demolition_supported() && (s.demolition_history.buildings>=UINT32_MAX ||
                 s.buildings.size()+s.demolition_history.buildings+1!=s.next_building_id)))
             fail("City-v10 placement revision mismatch");

@@ -37,7 +37,9 @@ BuildBlocker World::transport_edge_blocker(Cell from,Cell to) const {
             return BuildBlocker::BridgeSideEntry;
         return BuildBlocker::None;
     }
-    return permissions_?permissions_->transport_edge_blocker(from,to):BuildBlocker::None;
+    const auto base=permissions_?permissions_->transport_edge_blocker(from,to):BuildBlocker::None;
+    if(base==BuildBlocker::UnsupportedHeightTransition&&ramp_between(from,to))return BuildBlocker::None;
+    return base;
 }
 BridgeValidation World::validate_bridge(Cell a,Cell b) const {
     BridgeValidation result;

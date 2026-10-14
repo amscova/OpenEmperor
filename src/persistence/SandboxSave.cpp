@@ -231,12 +231,19 @@ json snapshot_json(const simulation::WorldSnapshot& s) {
             {"food_consumed",h.food_consumed},{"taxes",h.taxes},
             {"construction_spent",h.construction_spent}};
     }
-    if(s.profile==simulation::RulesProfile::CityV16 && s.rule_version==5) {
+    if(s.profile==simulation::RulesProfile::CityV16 && (s.rule_version==5 || s.rule_version==6)) {
         result["next_bridge_id"]=s.next_bridge_id;
         result["bridges"]=json::array();
         for(const auto& b:s.bridges)result["bridges"].push_back({{"id",b.id.value},{"axis",unsigned(b.axis)},
             {"bank_a",cell_json(b.bank_a)},{"bank_b",cell_json(b.bank_b)},{"water_cells",cells_json(b.water_cells)},
             {"deck_height",int(b.deck_height)},{"paid_cost",b.paid_cost},{"placed_tick",b.placed_tick}});
+    }
+    if(s.profile==simulation::RulesProfile::CityV16 && s.rule_version==6) {
+        result["next_ramp_id"]=s.next_ramp_id;result["ramps"]=json::array();
+        for(const auto& r:s.ramps)result["ramps"].push_back({{"id",r.id.value},
+            {"endpoint_a",cell_json(r.endpoint_a)},{"endpoint_b",cell_json(r.endpoint_b)},
+            {"height_a",int(r.height_a)},{"height_b",int(r.height_b)},
+            {"paid_cost",r.paid_cost},{"placed_tick",r.placed_tick}});
     }
     return result;
 }
@@ -290,8 +297,9 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
         out.taxes=number(field(h,"taxes"));
         out.construction_spent=number(field(h,"construction_spent"));
     }
-    require(schema==21 || (!j.contains("bridges") && !j.contains("next_bridge_id")),"bridge authority requires schema 21");
-    if (schema>=10 && schema<=21) {
+    require(schema==21 || schema==22 || (!j.contains("bridges") && !j.contains("next_bridge_id")),"bridge authority requires schema 21");
+    require(schema==22 || (!j.contains("ramps") && !j.contains("next_ramp_id")),"ramp authority requires schema22");
+    if (schema>=10 && schema<=22) {
         const bool v11=schema>=11;
         require(bs.is_array() && bs.size()<=building_collection_limit(profile) &&
                 cs.is_array() && cs.size()<=courier_collection_limit(profile),
@@ -406,7 +414,7 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
         s.taxes_collected_total=number(field(j,"taxes_collected_total"));
         s.construction_spent_total=number(field(j,"construction_spent_total"));
         s.food_produced_total=number(field(j,"food_produced_total"));
-        if(schema==21) {
+        if(schema==21 || schema==22) {
             s.next_bridge_id=std::uint32_t(number(field(j,"next_bridge_id"),UINT32_MAX));
             const auto& bridges=field(j,"bridges");
             require(bridges.is_array() && bridges.size()<=bridge_max_spans,"saved bridge count exceeds bound");
@@ -420,6 +428,21 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
                 require(deck>=-128 && deck<=127,"saved bridge deck height exceeds signed byte");b.deck_height=std::int8_t(deck);
                 b.paid_cost=signed_number(field(value,"paid_cost"));b.placed_tick=number(field(value,"placed_tick"));
                 s.bridges.push_back(std::move(b));
+            }
+        }
+        if(schema==22) {
+            s.next_ramp_id=std::uint32_t(number(field(j,"next_ramp_id"),UINT32_MAX));
+            const auto& ramps=field(j,"ramps");
+            require(ramps.is_array()&&ramps.size()<=ramp_max_links,"saved ramp count exceeds bound");
+            for(const auto& value:ramps) {
+                require(value.is_object()&&value.size()==7,"saved ramp requires exactly its canonical fields");
+                RampLink r;r.id={std::uint32_t(number(field(value,"id"),UINT32_MAX))};
+                r.endpoint_a=cell(field(value,"endpoint_a"));r.endpoint_b=cell(field(value,"endpoint_b"));
+                const auto a=signed_number(field(value,"height_a")),b=signed_number(field(value,"height_b"));
+                require(a>=-128&&a<=127&&b>=-128&&b<=127,"saved ramp height exceeds signed byte");
+                r.height_a=std::int8_t(a);r.height_b=std::int8_t(b);
+                r.paid_cost=signed_number(field(value,"paid_cost"));r.placed_tick=number(field(value,"placed_tick"));
+                s.ramps.push_back(r);
             }
         }
         return s;
@@ -592,7 +615,7 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
 json document_json(const SaveDocument& d) {
     json out={{"format","openemperor-sandbox-save"},{"schema_version",
              d.world.profile==simulation::RulesProfile::CityV16 ?
-                (d.world.rule_version==5 ? 21:d.world.rule_version==4 ? 20:d.world.rule_version==3 ? 19:18):
+                (d.world.rule_version==6 ? 22:d.world.rule_version==5 ? 21:d.world.rule_version==4 ? 20:d.world.rule_version==3 ? 19:18):
              d.world.profile==simulation::RulesProfile::CityV15 ? 17:
              d.world.profile==simulation::RulesProfile::CityV14 ? 16:
              d.world.profile==simulation::RulesProfile::CityV13 ? 15:
@@ -614,7 +637,7 @@ json document_json(const SaveDocument& d) {
                   {"version",d.world.rule_version}}},
         {"world",snapshot_json(d.world)}};
     if (d.world.profile==simulation::RulesProfile::CityV16 &&
-        (d.world.rule_version>=3 && d.world.rule_version<=5))
+        (d.world.rule_version>=3 && d.world.rule_version<=6))
         out["profiles"]["map_permissions"]={{"version",d.map_permissions_policy_version},
                                              {"sha256",d.map_permissions_sha256}};
     return out;
@@ -622,7 +645,7 @@ json document_json(const SaveDocument& d) {
 SaveDocument parse_document(const json& j) {
     require(str(field(j,"format"))=="openemperor-sandbox-save","unknown save format");
     const auto schema=number(field(j,"schema_version"));
-    require(schema>=1 && schema<=21,"unsupported save schema version");
+    require(schema>=1 && schema<=22,"unsupported save schema version");
     const auto& m=field(j,"map"); const auto& p=field(j,"profiles");
     const auto& r=field(j,"rules");
     SaveDocument d;
@@ -632,7 +655,7 @@ SaveDocument parse_document(const json& j) {
     d.map_sha256=str(field(m,"sha256"));
     d.buildable_sha256=str(field(p,"buildable_sha256"));
     require(valid_hash(d.map_sha256) && valid_hash(d.buildable_sha256),"invalid save fingerprint");
-    if (schema==19 || schema==20 || schema==21) {
+    if (schema==19 || schema==20 || schema==21 || schema==22) {
         const auto& policy=field(p,"map_permissions");
         require(policy.is_object() && policy.size()==2,
                 "save map permissions must contain only version and SHA-256, not transit links");
@@ -682,7 +705,7 @@ SaveDocument parse_document(const json& j) {
             (d.world.profile!=simulation::RulesProfile::CityV13 || schema==15) &&
             (d.world.profile!=simulation::RulesProfile::CityV14 || schema==16) &&
             (d.world.profile!=simulation::RulesProfile::CityV15 || schema==17) &&
-            (d.world.profile!=simulation::RulesProfile::CityV16 || schema==18 || schema==19 || schema==20 || schema==21) &&
+            (d.world.profile!=simulation::RulesProfile::CityV16 || schema==18 || schema==19 || schema==20 || schema==21 || schema==22) &&
             (d.world.profile!=simulation::RulesProfile::CityV11 ||
                 (schema==11 ? d.world.rule_version<=2 :
                  (schema==12 && d.world.rule_version==3) ||
@@ -716,6 +739,8 @@ SaveDocument parse_document(const json& j) {
             d.world.rule_version==4),"schema 20 requires City-v16 rule 4");
     require(schema!=21 || (d.world.profile==simulation::RulesProfile::CityV16 &&
             d.world.rule_version==5),"schema 21 requires City-v16 rule 5");
+    require(schema!=22 || (d.world.profile==simulation::RulesProfile::CityV16 &&
+            d.world.rule_version==6),"schema22 requires City-v16 rule6");
     auto parsed=parse_snapshot(field(j,"world"),schema,d.world.profile);
     parsed.profile=d.world.profile; parsed.rule_version=d.world.rule_version;
     if (schema==1 && parsed.profile==simulation::RulesProfile::ProductionV2) {
@@ -741,7 +766,7 @@ SaveDocument make_document(const fs::path& root,const fs::path& relative,
     d.buildable_sha256=digest(mask.data(),mask.size());d.world=world.snapshot();
     // Validate the snapshot against the actual mask before publishing it.
     if (d.world.profile==simulation::RulesProfile::CityV16 &&
-        (d.world.rule_version>=3 && d.world.rule_version<=5)) {
+        (d.world.rule_version>=3 && d.world.rule_version<=6)) {
         d.prepared_permissions=world.map_permissions();
         require(static_cast<bool>(d.prepared_permissions),"City-v16 map-integrated rules require prepared map permissions");
         d.map_permissions_policy_version=d.prepared_permissions->policy_version();
@@ -815,8 +840,8 @@ simulation::World restore_save(const SaveDocument& d,const fs::path& root,
     require(digest(mask.data(),mask.size())==d.buildable_sha256,
             "sandbox buildable mask SHA-256 differs from save");
     if (d.world.profile==simulation::RulesProfile::CityV16 &&
-        (d.world.rule_version>=3 && d.world.rule_version<=5)) {
-        const auto expected_schema=d.world.rule_version==3 ? 19U:d.world.rule_version==4 ? 20U:21U;
+        (d.world.rule_version>=3 && d.world.rule_version<=6)) {
+        const auto expected_schema=d.world.rule_version==3 ? 19U:d.world.rule_version==4 ? 20U:d.world.rule_version==5 ? 21U:22U;
         const auto expected_policy=d.world.rule_version==3 ? simulation::kMapPermissionsPolicyVersion:
             d.world.rule_version==4 ? simulation::kOriginalRoadsMapPermissionsPolicyVersion:simulation::kBridgesMapPermissionsPolicyVersion;
         require(d.source_schema_version==0 || d.source_schema_version==expected_schema,

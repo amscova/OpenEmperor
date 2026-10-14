@@ -166,3 +166,7 @@ E copy buys FireWatch normally for 80 Funds: workers 2/2, actual NoRoad, and F1/
 correctly reports SOURCE_NO_ENTRANCE (0) while Clay has one target entrance.
 Compatible targets cycle without dispatching. These runs establish scripted
 App behavior, not native pointer/held-key or human acceptance.
+
+## Explicit Ramp edges
+
+Rule6/policy3 explicit G uses the same World graph and captures owned RampLink provenance along the actual route. Inspector reports endpoint heights, delta, paid cost and live restrictions. Unbuilt differing-height edges keep UnsupportedHeightTransition; only an exact paid edge becomes Height transition via Sandbox Ramp. Cached inspection adds no BFS or map scan. See [Ramps V1](city-v16-ramps.md).

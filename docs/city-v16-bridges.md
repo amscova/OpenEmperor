@@ -257,3 +257,7 @@ visible; Continue starts the actual Clay delivery. F5/F9 preserves a user-built
 span. The same empty-span checkpoint is also printed as `01-build-bridge.json`.
 Prebuilt returning and running-city saves also remain in
 the isolated root. The direct CLI view exits with Escape.
+
+## Explicit Rule6 inheritance
+
+[Authored land Ramp V1](city-v16-ramps.md) inherits Bridge V1 under explicit rule6/policy3/schema22. Rule5/schema21 prices, spans, heights, IDs, rendering and saves remain exact. Ramp edges join normal roads before/after a bridge, never water/deck/side edges or unequal banks. Original bridge/slope import remains unresolved.

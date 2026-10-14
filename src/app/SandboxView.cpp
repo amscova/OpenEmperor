@@ -9,6 +9,7 @@
 #include "renderer/WellFallbackRenderer.h"
 #include "renderer/HealthPostFallbackRenderer.h"
 #include "renderer/BridgeRenderer.h"
+#include "renderer/RampRenderer.h"
 #include "app/WalkerPose.h"
 #include "app/SandboxVisualOrder.h"
 #include "core/Version.h"
@@ -134,6 +135,7 @@ simulation::CommandType command_type(simulation::RulesProfile rules,int tool) {
         case 11: return simulation::CommandType::PlaceFireWatch;
         case 12: return simulation::CommandType::PlaceWell;
         case 13: return simulation::CommandType::PlaceHealthPost;
+        case 15: return simulation::CommandType::PlaceRamp;
         case 14: return simulation::CommandType::PlaceBridge;
         default: return simulation::CommandType::PlaceHousehold;
         }
@@ -213,7 +215,7 @@ persistence::SaveDocument SandboxView::capture_save_document() const {
 }
 
 bool SandboxView::recovery_safe_point() const {
-    return world_ && !budget_warning_ && !pending_demolition_ && !road_start_ && !bridge_start_ && !map_pressed_ && !ui_pressed_ &&
+    return world_ && !budget_warning_ && !pending_demolition_ && !road_start_ && !bridge_start_ && !ramp_start_ && !map_pressed_ && !ui_pressed_ &&
         !pending_command_ && !pending_road_;
 }
 
@@ -336,7 +338,8 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if (world_->bridges_supported())title+=" | save schema 21 | Bridges V1";
+    if(world_->ramps_supported())title+=" | save schema 22 | Ramps V1 + Bridges V1";
+    else if (world_->bridges_supported())title+=" | save schema 21 | Bridges V1";
     SDL_SetWindowTitle(window_,title.c_str());
 }
 void SandboxView::shutdown() {
@@ -1141,7 +1144,9 @@ void SandboxView::reset_camera() {
     }
     if(world_->bridges_supported() && (!world_->bridges().empty() || !world_->buildings().empty())) {
         simulation::Position focus{};
-        if(!world_->bridges().empty()) {
+        if(world_->ramps_supported() && !world_->ramps().empty()) {
+            const auto& r=world_->ramps().front();focus={(r.endpoint_a.x+r.endpoint_b.x)*.5,(r.endpoint_a.y+r.endpoint_b.y)*.5};
+        } else if(!world_->bridges().empty()) {
             const auto& bridge=world_->bridges().front();
             focus={(bridge.bank_a.x+bridge.bank_b.x)*.5,(bridge.bank_a.y+bridge.bank_b.y)*.5};
         } else {
@@ -1169,7 +1174,8 @@ void SandboxView::update_layout(bool preserve_center) {
         simulation::fire_profile(rules_),simulation::desirability_profile(rules_),
         simulation::water_profile(rules_),simulation::health_profile(rules_),
         simulation::market_profile(rules_),simulation::service_profile(rules_),
-        (world_ && world_->bridges_supported()) || (!world_ && rules_==simulation::RulesProfile::CityV16 && requested_rule_version_==5));
+        (world_ && world_->bridges_supported()) || (!world_ && rules_==simulation::RulesProfile::CityV16 && requested_rule_version_>=5),
+        (world_ && world_->ramps_supported()) || (!world_ && rules_==simulation::RulesProfile::CityV16 && requested_rule_version_==6));
     if (preserve_center && next.map.x==layout_.map.x && next.map.y==layout_.map.y &&
         next.map.w==layout_.map.w && next.map.h==layout_.map.h) return;
     // Panel toggles and resize change the clipped viewport before another
@@ -1520,6 +1526,7 @@ std::optional<simulation::Cell> SandboxView::pick(scene::Point screen) const {
     return simulation::Cell{static_cast<int>(cell->x),static_cast<int>(cell->y)};
 }
 simulation::CommandResult SandboxView::preview(simulation::Cell cell) const {
+    if(tool_==15)return {false,false,"Ramp: drag between neighboring land roads, exactly one signed height level",world_->command_sequence(),world_->ticks()};
     if(tool_==14)return {false,false,"Bridge: drag between existing roads on equal-height banks (1..8 water cells)",world_->command_sequence(),world_->ticks()};
     if (tool_==(simulation::production_profile(rules_) ? 5 : 4))
         return {false,false,"Select tool",world_->command_sequence()+1,world_->ticks()};
@@ -1546,12 +1553,14 @@ void SandboxView::set_tool(int tool) {
     case 11: action=sandbox_ui::Action::FireWatch; break;
     case 12: action=sandbox_ui::Action::Well; break;
     case 13: action=sandbox_ui::Action::HealthPost; break;
+    case 15: action=sandbox_ui::Action::Ramp; break;
     case 14: action=sandbox_ui::Action::Bridge; break;
     default: return;
     }
     if (action_enabled(action)) perform_action(action);
 }
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
+    if(action==sandbox_ui::Action::Ramp)return world_->ramps_supported();
     if(action==sandbox_ui::Action::Bridge)return world_->bridges_supported();
     if (action==sandbox_ui::Action::ToggleIncome) return simulation::market_profile(rules_);
     const auto count_kind=[&](simulation::Object kind) {
@@ -1635,6 +1644,7 @@ void SandboxView::cancel_gesture() {
     ui_pressed_=false;
     map_pressed_=false;
     road_start_.reset();
+    ramp_start_.reset();ramp_preview_={};
     bridge_start_.reset();bridge_preview_={};
     road_preview_={};
     invalidate_road_preview_cache();
@@ -1757,14 +1767,14 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
     }
     if (action==A::Select || action==A::Road || action==A::Clay || action==A::Pottery ||
         action==A::Warehouse || action==A::RemoveRoad || action==A::Household ||
-        action==A::Farm || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || action==A::Bridge) {
+        action==A::Farm || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || (action==A::Bridge || action==A::Ramp)) {
         cancel_gesture();
         tool_=action==A::Select ? (simulation::production_profile(rules_) ? 5:4) :
             action==A::Road ? 1 : action==A::Clay ? 2 : action==A::Pottery ? 3 :
             action==A::Warehouse ? (simulation::production_profile(rules_) ? 4:3) :
             action==A::RemoveRoad ? 6:action==A::Household ? 7:action==A::Farm ? 8:
-            action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:0;
-        last_message_=tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
+            action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:action==A::Ramp ? 15:0;
+        last_message_=tool_==15 ? "Ramp: neighboring roads, one signed level, $40":tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
     } else if (action==A::ServiceOverlay) {
         cancel_gesture();
         service_overlay_=!service_overlay_;
@@ -1856,6 +1866,20 @@ void SandboxView::refresh_hover(bool force_road_plan) {
     performance::ScopedTimer timer(performance::Timing::HoverPicking);
     hovered_=pointer_ ? pick(*pointer_) : std::nullopt;
     hover_dirty_=false;
+    if(ramp_start_) {
+        if(!hovered_) {ramp_preview_={};return;}
+        const bool stale=force_road_plan || planned_start_!=ramp_start_ || planned_end_!=hovered_ ||
+            planned_road_revision_!=world_->road_revision() || planned_command_sequence_!=world_->command_sequence() ||
+            planned_treasury_!=world_->treasury();
+        if(stale) {
+            ramp_preview_=world_->validate_ramp(*ramp_start_,*hovered_);
+            planned_start_=ramp_start_;planned_end_=hovered_;planned_road_revision_=world_->road_revision();
+            planned_command_sequence_=world_->command_sequence();planned_treasury_=world_->treasury();
+            last_message_=ramp_preview_.reason+" | height "+std::to_string(world_->transport_height(*ramp_start_))+" -> "+
+                std::to_string(world_->transport_height(*hovered_))+" | delta "+
+                std::to_string(int(world_->transport_height(*hovered_))-int(world_->transport_height(*ramp_start_)))+" | $40";
+        }return;
+    }
     if(bridge_start_) {
         if(!hovered_) {bridge_preview_={};return;}
         const bool stale=force_road_plan || planned_start_!=bridge_start_ || planned_end_!=hovered_ ||
@@ -1995,7 +2019,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         }
         if (event.key.key==SDLK_ESCAPE) {
             if (help_open_) { help_open_=false; last_message_="Help closed"; return; }
-            if (map_pressed_ || road_start_ || bridge_start_ || pressed_button_ || ui_pressed_ || menu_pressed_)
+            if (map_pressed_ || road_start_ || bridge_start_ || ramp_start_ || pressed_button_ || ui_pressed_ || menu_pressed_)
                 cancel_gesture();
             else if (managed_) menu_requested_=true;
             else running=false;
@@ -2015,6 +2039,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
             set_tool(0);
         else if (event.key.key==SDLK_F && simulation::fire_profile(rules_)) set_tool(11);
         else if (event.key.key==SDLK_J && simulation::health_profile(rules_)) set_tool(13);
+        else if(event.key.key==SDLK_P && world_->ramps_supported() && !walker_diagnostic_open_)set_tool(15);
         else if(event.key.key==SDLK_B && world_->bridges_supported() && !walker_diagnostic_open_)set_tool(14);
         else if (event.key.key==SDLK_K && simulation::health_profile(rules_))
             perform_action(sandbox_ui::Action::Health);
@@ -2143,7 +2168,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                 const double next=scroll-std::trunc(double(event.wheel.y))*24*layout_.scale;
                 scroll=static_cast<int>(std::clamp(next,0.0,double(limit)));
             }
-            else if (layout_.map.contains(point->x,point->y) && !road_start_ && !bridge_start_)
+            else if (layout_.map.contains(point->x,point->y) && !road_start_ && !bridge_start_ && !ramp_start_)
                 camera_.zoom_at(*point,std::pow(1.15,event.wheel.y));
             refresh_hover();
         }
@@ -2194,6 +2219,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         if (!cell && !landscape_hit && !(debug_open_ &&
             tool_==(simulation::production_profile(rules_) ? 5:4))) return;
         map_pressed_=true;
+        if(tool_==15 && cell) {ramp_start_=cell;refresh_hover(true);}
         if(tool_==14 && cell) {bridge_start_=cell;refresh_hover(true);}
         if (tool_==1) {
             road_start_=cell;
@@ -2253,7 +2279,10 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         if (selecting && debug_open_ && pointer_ && select_visual(*pointer_)) {
             cancel_gesture(); refresh_hover(); return;
         }
-        if(cell && bridge_start_ && tool_==14) {
+        if(cell && ramp_start_ && tool_==15) {
+            (void)execute(simulation::place_ramp(*ramp_start_,*cell));
+            clear_visual_selection();selected_=cell;
+        } else if(cell && bridge_start_ && tool_==14) {
             (void)execute(simulation::place_bridge(*bridge_start_,*cell));
             clear_visual_selection();selected_=cell;
         } else if (cell && road_start_ && tool_==1) {
@@ -2283,14 +2312,14 @@ void SandboxView::update(double seconds,PanKeyState keys) {
     performance::ScopedTimer timer(performance::Timing::SimulationUpdate);
     if (budget_warning_ || pending_demolition_) return;
     const double movement=400.0*std::clamp(seconds,0.0,0.05);
-    if (input_focused_ && !road_start_ && !bridge_start_) {
+    if (input_focused_ && !road_start_ && !bridge_start_ && !ramp_start_) {
         if (keys.a || keys.left) camera_.offset.x+=movement;
         if ((!simulation::desirability_profile(rules_) && keys.d) || keys.right) camera_.offset.x-=movement;
         if (keys.w || keys.up) camera_.offset.y+=movement;
         if (keys.s || keys.down) camera_.offset.y-=movement;
         hover_dirty_=true;
     }
-    if (hover_dirty_ || road_start_ || bridge_start_) refresh_hover();
+    if (hover_dirty_ || road_start_ || bridge_start_ || ramp_start_) refresh_hover();
     clock_.update(seconds,*world_);
     clear_hidden_walker_selection();
 }
@@ -2415,6 +2444,7 @@ scene::Point SandboxView::world_for(simulation::Position cell) const {
         };
         height=(h(x,y)*(1-fx)+h(x+1,y)*fx)*(1-fy)+(h(x,y+1)*(1-fx)+h(x+1,y+1)*fx)*fy;
     }
+    if(background_.elevated())if(const auto ramp_height=world_->ramp_surface_height(cell))height=*ramp_height;
     return {(u-v)*40.0,(u+v)*20.0+20.0-height*maps::landscape_height_step};
 }
 scene::Point SandboxView::building_visual_ground(simulation::Cell origin,
@@ -2424,7 +2454,7 @@ scene::Point SandboxView::building_visual_ground(simulation::Cell origin,
 }
 int SandboxView::walker_marker_shift(simulation::Position position,simulation::CourierId id) const {
     const simulation::Cell cell{int(std::floor(position.x)),int(std::floor(position.y))};
-    if(world_->bridge_at(cell)||world_->bridge_bank_at(cell))return 0;
+    if(world_->bridge_at(cell)||world_->bridge_bank_at(cell)||world_->ramp_surface_height(position))return 0;
     const auto value=static_cast<unsigned>(id);
     return value==1?-5:value==2?5:value==3?0:value==4?-10:value==5?10:14;
 }
@@ -2447,6 +2477,12 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
         visual_hits_.push_back(next);
     };
     VisualHit hit; hit.key=instance.key; hit.cell=instance.cell;
+    if(instance.ramp) {
+        hit.ramp=instance.ramp->id;hit.ramp_half=instance.ramp_half;hit.ramp_front=instance.ramp_front;
+        hit.mesh_ground=world_for({double(instance.ramp->endpoint_a.x),double(instance.ramp->endpoint_a.y)});
+        hit.origin={hit.mesh_ground.x-64,hit.mesh_ground.y-64};hit.width=192;hit.height=192;
+        append(hit);return;
+    }
     if(instance.bridge) {
         hit.bridge=instance.bridge->id;
         hit.bridge_front_rail=instance.bridge_front_rail;
@@ -2537,6 +2573,11 @@ bool SandboxView::select_visual(scene::Point screen) {
         const double x=world.x-it->origin.x,y=world.y-it->origin.y;
         if (x<0 || y<0 || x>=it->width || y>=it->height) continue;
         if (it->diamond && std::abs(x-40)/40+std::abs(y-20)/20>1) continue;
+        if(it->ramp) {
+            const auto links=world_->ramps();
+            const auto r=std::find_if(links.begin(),links.end(),[&](const auto& v){return v.id==*it->ramp;});
+            if(r==links.end()||!hit_ramp_part(world,it->mesh_ground,*r,it->ramp_half,it->ramp_front,background_.elevated()))continue;
+        }
         if(it->bridge) {
             const auto spans=world_->bridges();
             const auto span=std::find_if(spans.begin(),spans.end(),[&](const auto& value){return value.id==*it->bridge;});
@@ -2648,6 +2689,22 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         };
         append(bridge.bank_a);for(const auto cell:bridge.water_cells)append(cell);append(bridge.bank_b);
     };
+    const auto append_ramp=[&](const simulation::RampLink& r,bool preview) {
+        for(int half=0;half<2;++half)for(const bool front:{false,true}) {
+            // Each half deck precedes its actors; its near rail follows them.
+            // Existing global front-cell ordering and all original items stay exact.
+            const double t=(half+(front?1:0))*.5;
+            const double x=r.endpoint_a.x+(r.endpoint_b.x-r.endpoint_a.x)*t;
+            const double y=r.endpoint_a.y+(r.endpoint_b.y-r.endpoint_a.y)*t;
+            const double depth=(x+y-2.0*geometry_.border)*20+20;
+            DrawInstance instance{{depth,(x-y)*40,front?scene::WorldVisualLayer::SandboxBridgeFrontRail:
+                scene::WorldVisualLayer::SandboxBuilding,r.id.value},half==0?r.endpoint_a:r.endpoint_b};
+            instance.ramp=&r;instance.ramp_half=half;instance.ramp_front=front;instance.placement_preview=preview;
+            instances.push_back(instance);
+        }
+    };
+    if(bridges_visible)for(const auto& r:world_->ramps())append_ramp(r,false);
+    if(ramp_start_&&ramp_preview_.geometry_valid)append_ramp(ramp_preview_.link,true);
     if(bridges_visible)for(const auto& bridge:world_->bridges())append_bridge(bridge,false);
     if(bridge_start_ && bridge_preview_.geometry_valid)append_bridge(bridge_preview_.span,true);
     if (road_start_ && road_preview_.valid) {
@@ -2969,7 +3026,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
                               static_cast<std::uint32_t>(state.id)},{},
                              simulation::Object::Empty,state.id,*position});
     }
-    if (!road_start_ && !bridge_start_ && hovered_ && tool_!=14 && tool_!=(simulation::production_profile(rules_) ? 5:4)) {
+    if (!road_start_ && !bridge_start_ && !ramp_start_ && hovered_ && tool_!=14 && tool_!=15 && tool_!=(simulation::production_profile(rules_) ? 5:4)) {
         const auto result=preview(*hovered_);
         const auto object=tool_==2 ? simulation::Object::ClaySource:
             tool_==3 ? simulation::Object::Pottery:
@@ -2994,6 +3051,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     }
     // Keep the existing logical front-cell order while lifting presentation.
     if (background_.elevated()) for (auto& instance:instances) {
+        if(instance.ramp)continue;
         if(instance.bridge) {instance.key.depth=(double(instance.cell.x)+instance.cell.y-2.0*geometry_.border)*20.0+20.0;continue;}
         auto position=instance.position;
         if (instance.key.layer!=scene::WorldVisualLayer::SandboxWalker) {
@@ -3021,6 +3079,12 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     std::sort(spatial_begin,instances.end(),less);
     const auto draw_instance_body=[&](std::size_t index)->bool {
         const auto& instance=instances[index];
+        if(instance.ramp) {
+            const auto tint=instance.placement_preview?(ramp_preview_.accepted?BridgeTint::Valid:
+                ramp_preview_.diagnostic.blocker==simulation::BuildBlocker::InsufficientFunds?BridgeTint::Unaffordable:BridgeTint::Blocked):BridgeTint::Normal;
+            return draw_ramp_part(renderer_,camera_,world_for({double(instance.ramp->endpoint_a.x),double(instance.ramp->endpoint_a.y)}),
+                *instance.ramp,instance.ramp_half,instance.ramp_front,background_.elevated(),tint);
+        }
         if(instance.bridge) {
             const auto& bridge=*instance.bridge;const auto cell=instance.cell;
             const double u=cell.x-double(geometry_.border),v=cell.y-double(geometry_.border);
@@ -3227,6 +3291,17 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
         return true;
     }
+    if(ramp_start_&&hovered_&&!ramp_preview_.geometry_valid) {
+        const auto a=camera_.world_to_screen(world_for({double(ramp_start_->x),double(ramp_start_->y)}));
+        const auto b=camera_.world_to_screen(world_for({double(hovered_->x),double(hovered_->y)}));
+        if(!SDL_SetRenderDrawColor(renderer_,218,77,63,255)||!SDL_RenderLine(renderer_,float(a.x),float(a.y),float(b.x),float(b.y)))return false;
+    }
+    if(tool_==15&&hovered_&&!ramp_start_) {
+        const auto c=*hovered_;const auto p=world_for({double(c.x),double(c.y)});
+        const bool valid=world_->road_cell(c)&&!world_->map_permissions()->protected_original(c)&&
+            !world_->map_permissions()->fixed_gate_at(c)&&!world_->bridge_at(c)&&!world_->ramp_endpoint(c);
+        if(!draw_diamond({p.x,p.y-20},valid?70:210,valid?178:70,valid?205:63,false))return false;
+    }
     if(bridge_start_) {
         if(hovered_ && !bridge_preview_.geometry_valid) {
             const auto from=camera_.world_to_screen(world_for({double(bridge_start_->x),double(bridge_start_->y)}));
@@ -3250,7 +3325,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             !world_->bridge_at(cell) && !world_->bridge_bank_at(cell);
         return draw_diamond({ground.x,ground.y-20},bank?90:230,bank?200:65,bank?220:65,false);
     }
-    if (hovered_ && tool_!=14 && tool_!=(simulation::production_profile(rules_) ? 5 : 4)) {
+    if (hovered_ && tool_!=14 && tool_!=15 && tool_!=(simulation::production_profile(rules_) ? 5 : 4)) {
         const auto result=preview(*hovered_);
         const auto object=tool_==2 ? simulation::Object::ClaySource:
             tool_==3 ? simulation::Object::Pottery:
@@ -3363,6 +3438,11 @@ std::vector<std::string> SandboxView::road_connectivity_lines() const {
         "Measured tick "+std::to_string(report->measured_tick)+" | road rev "+std::to_string(report->road_revision),
         "G: check next compatible target"};
     if (report->route) lines.push_back("Authoritative route: "+std::to_string(report->route->size())+" cells");
+    for(const auto& r:report->ramps_on_route) {
+        lines.push_back("Height transition via Sandbox Ramp #"+std::to_string(r.id.value));
+        lines.push_back("Endpoints "+cell(r.endpoint_a)+" -> "+cell(r.endpoint_b)+" | heights "+std::to_string(r.height_a)+" -> "+std::to_string(r.height_b));
+        lines.push_back("Paid $"+std::to_string(r.paid_cost)+" | authored edge; demolition unavailable");
+    }
     for(const auto& bridge:report->bridges_on_route) {
         lines.push_back("Transport source: Sandbox bridge #"+std::to_string(bridge.id.value));
         lines.push_back(std::string("Bridge axis ")+(bridge.axis==simulation::BridgeAxis::StorageX?"X":"Y")+
@@ -3472,6 +3552,15 @@ std::vector<std::string> SandboxView::inspection_lines() const {
     std::vector<std::string> lines;
     if (selected_ && !selected_walker_ && world_->map_permissions()) {
         const auto& permissions=*world_->map_permissions();
+        if(const auto* r=world_->ramp_endpoint(*selected_))return wrap_panel_lines({
+            "OpenEmperor Ramp #"+std::to_string(r->id.value),
+            "Endpoint A: "+std::to_string(r->endpoint_a.x)+","+std::to_string(r->endpoint_a.y),
+            "Endpoint B: "+std::to_string(r->endpoint_b.x)+","+std::to_string(r->endpoint_b.y),
+            "Heights: "+std::to_string(r->height_a)+" -> "+std::to_string(r->height_b)+" | delta "+std::to_string(int(r->height_b)-int(r->height_a)),
+            std::string("Axis: storage ")+(r->endpoint_a.x!=r->endpoint_b.x?"X":"Y"),
+            "Paid $40; upkeep 0; authored slope",
+            world_->transport_edge_allowed(r->endpoint_a,r->endpoint_b)?"Height transition via Sandbox Ramp":"Disconnected: endpoint road missing",
+            "Ramp demolition unsupported in V1"});
         const auto* bridge=world_->bridge_at(*selected_);
         if(!bridge)bridge=world_->bridge_bank_at(*selected_);
         if(bridge) {
@@ -4343,7 +4432,8 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(world_->bridges_supported())overview+=" | Policy 3 | Save 21 | Bridges "+std::to_string(world_->bridges().size());
+        if(world_->ramps_supported())overview+=" | Policy 3 | Save 22 | Ramps "+std::to_string(world_->ramps().size())+" | Bridges "+std::to_string(world_->bridges().size());
+        else if(world_->bridges_supported())overview+=" | Policy 3 | Save 21 | Bridges "+std::to_string(world_->bridges().size());
         overview+=" | Tick "+
             std::to_string(world_->ticks())+" | "+(clock_.paused() ? "Paused ":"Running ")+
             std::to_string(clock_.speed())+"x";
@@ -4369,7 +4459,7 @@ bool SandboxView::draw_hud() {
         status="Need "+std::to_string(count*simulation::Rules::road_cost)+
             " funds; treasury "+std::to_string(world_->treasury());
     }
-    if (simulation::city_profile(rules_) && !road_start_ && !bridge_start_ && hovered_ && tool_!=14 &&
+    if (simulation::city_profile(rules_) && !road_start_ && !bridge_start_ && !ramp_start_ && hovered_ && tool_!=14 && tool_!=15 &&
         tool_!=(simulation::production_profile(rules_) ? 5:4)) {
         const auto result=preview(*hovered_);
         if (!result.accepted && std::string_view(result.reason)=="Not enough money") {
@@ -4378,7 +4468,7 @@ bool SandboxView::draw_hud() {
                 std::to_string(world_->treasury());
         }
     }
-    if (simulation::maintenance_profile(rules_) && hovered_ && !road_start_ && tool_!=5 && tool_!=6 && tool_!=14) {
+    if (simulation::maintenance_profile(rules_) && hovered_ && !road_start_ && tool_!=5 && tool_!=6 && tool_!=14 && tool_!=15) {
         const auto type=command_type(rules_,tool_);
         const auto cost=world_->construction_cost(type);
         const auto kind=simulation::placed_object(type);
@@ -4459,6 +4549,7 @@ bool SandboxView::draw_hud() {
         case A::HealthPost: return "J Health Post $120";
         case A::Health: return health_overlay_ ? "K Health ON":"K Health";
         case A::ServiceOverlay: return service_overlay_ ? "V Service ON":"V Service";
+        case A::Ramp: return "P Ramp $40";
         case A::Bridge: return "B Bridge $40 + $20/cell";
         case A::Well: return "I Well $60";
         case A::Water: return water_overlay_ ? "U Water ON":"U Water";
@@ -4496,6 +4587,7 @@ bool SandboxView::draw_hud() {
         case A::HealthPost: active=tool_==13; break;
         case A::Health: active=health_overlay_; break;
         case A::ServiceOverlay: active=service_overlay_; break;
+        case A::Ramp: active=tool_==15; break;
         case A::Bridge: active=tool_==14; break;
         case A::Well: active=tool_==12; break;
         case A::Water: active=water_overlay_; break;

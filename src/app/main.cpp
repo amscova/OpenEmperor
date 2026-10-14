@@ -71,7 +71,7 @@ void print_usage(const char* executable) {
               << " [--multi-tile-preview [--footprint-policy isolated|edge-byte|edge-byte-4x4]]"
               << " --render-check --report-json\n";
     std::cerr << "       " << executable << " --data <directory> --sandbox <relative.map>"
-              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16] [--sandbox-bridges]"
+              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16] [--sandbox-bridges|--sandbox-ramps]"
               << " [--sandbox-demo] [--sandbox-visuals <walker-profile.json>]"
               << " [--building-visuals <building-profile.json>]"
               << " [--road-visuals <road-profile.json>]"
@@ -122,6 +122,7 @@ int main(int argc, char* argv[]) {
     bool sandbox_routing_check = false;
     bool sandbox_rules_supplied = false;
     bool sandbox_bridges = false;
+    bool sandbox_ramps = false;
     bool sandbox_save_supplied = false;
     bool load_sandbox_supplied = false;
     bool performance_diagnostics = false;
@@ -241,6 +242,8 @@ int main(int argc, char* argv[]) {
             sandbox_save_path=argv[++index]; sandbox_save_supplied=true;
         } else if (argument == "--load-sandbox" && !load_sandbox_supplied) {
             load_sandbox_path=argv[++index]; load_sandbox_supplied=true;
+        } else if (argument == "--sandbox-ramps" && !sandbox_ramps) {
+            sandbox_ramps=true;
         } else if (argument == "--sandbox-bridges" && !sandbox_bridges) {
             sandbox_bridges=true;
         } else if (argument == "--sandbox-rules" && !sandbox_rules_supplied) {
@@ -389,7 +392,7 @@ int main(int argc, char* argv[]) {
             sandbox_rules!=openemperor::simulation::RulesProfile::ProductionV2 ||
             sandbox_check || sandbox_resume_check || sandbox_demo || sandbox_save_supplied)) ||
         (sandbox_rules_supplied && !sandbox_supplied) ||
-        (sandbox_bridges && (!sandbox_supplied || !sandbox_rules_supplied || sandbox_check ||
+        ((sandbox_bridges || sandbox_ramps) && (!sandbox_supplied || !sandbox_rules_supplied || sandbox_check ||
             sandbox_routing_check || sandbox_rules!=openemperor::simulation::RulesProfile::CityV16)) ||
         (sandbox_save_supplied && (!sandbox_supplied || sandbox_check)) ||
         (load_sandbox_supplied && (sandbox_supplied || sandbox_demo || sandbox_rules_supplied ||
@@ -497,7 +500,7 @@ int main(int argc, char* argv[]) {
             if (sandbox_save_supplied || load_sandbox_supplied)
                 openemperor::persistence::validate_save_target(sandbox_save_path,data_directory);
             const auto active_rule_version=initial ? initial->world.rule_version:
-                sandbox_bridges ? 5U:openemperor::simulation::current_rule_version(sandbox_rules);
+                sandbox_ramps ? 6U:sandbox_bridges ? 5U:openemperor::simulation::current_rule_version(sandbox_rules);
             auto session=openemperor::maps::load_stored_map_session(data_directory,sandbox_path,
                 openemperor::maps::FootprintPolicy::EdgeByte4x4Preview,
                 openemperor::maps::StoredGraphicsProfile::Slot8,great_wall_mode);

@@ -135,3 +135,7 @@ The existing City-v16 rule-1 native saves at ticks **399, 400 and 7842** were in
 ### Road continuity follow-up (2026-10-03)
 
 The earlier connected-road acceptance above remains **FAILED / superseded by real user playtest**. The follow-up replaces the old stored single-cell grass graphic for configured complete roads, preserving the evidenced mapping and all Well/Herbalist, geometry, economy and save authority. Original-data production readbacks measure zero disconnecting terrain cuts on 128 contacts at 1×; synthetic adversarial compositor tests cover exact 1×/2×/4× and alpha drag. The final bundle passed actual keyboard F1-off 1× and F6 off/on review of the same six-House paid Xia scene at tick 4200, Funds 656 and population 53. Neighboring individual grass blades and whole-image object occlusion remain possible. See [measurements, native/synthetic distinctions and final regression](road-visual-profile.md#road-continuity-correction-2026-10-03).
+
+## Explicit Rule6 Ramps
+
+[Ramp V1](city-v16-ramps.md) uses rule6/unchanged policy3/schema22, with all existing city/Bridge rules and defaults preserved. A normally paid40-fund link opens exactly one previously blocked signed-height edge. The complete original census finds no eligible height pair; the paid test city is independently authored terrain, not original-map reproduction.

@@ -51,7 +51,7 @@ std::uint32_t map_rules_policy_version(simulation::RulesProfile profile,std::uin
     if (profile!=simulation::RulesProfile::CityV16) return 0;
     if (rule_version==3) return simulation::kMapPermissionsPolicyVersion;
     if (rule_version==4) return simulation::kOriginalRoadsMapPermissionsPolicyVersion;
-    if (rule_version==5) return simulation::kBridgesMapPermissionsPolicyVersion;
+    if (rule_version==5 || rule_version==6) return simulation::kBridgesMapPermissionsPolicyVersion;
     return 0;
 }
 

@@ -289,6 +289,9 @@ private:
         bool placement_preview=false;
         const simulation::BridgeSpan* bridge=nullptr;
         bool bridge_front_rail=false;
+        const simulation::RampLink* ramp=nullptr;
+        int ramp_half=0;
+        bool ramp_front=false;
     };
     // Descriptors of the dynamic pixels actually submitted to the painter.
     // Image pixels remain in the eagerly loaded profiles; no hit mask is copied.
@@ -298,6 +301,9 @@ private:
         std::optional<simulation::CourierId> walker;
         std::optional<simulation::BridgeId> bridge;
         bool bridge_front_rail=false;
+        std::optional<simulation::RampId> ramp;
+        int ramp_half=0;
+        bool ramp_front=false;
         std::optional<std::size_t> image;
         scene::Point origin;
         double width=0,height=0;
@@ -403,6 +409,8 @@ private:
     std::optional<std::size_t> original_road_visual_index(simulation::Cell cell) const;
     bool original_road_dynamic(const OriginalRoadVisual& road) const;
     std::optional<simulation::Cell> road_start_;
+    std::optional<simulation::Cell> ramp_start_;
+    simulation::RampValidation ramp_preview_{};
     std::optional<simulation::Cell> bridge_start_;
     simulation::BridgeValidation bridge_preview_{};
     std::optional<sandbox_ui::Action> pressed_button_;
