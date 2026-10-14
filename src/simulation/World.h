@@ -1,5 +1,6 @@
 #pragma once
 #include "simulation/MapPermissions.h"
+#include "simulation/Bridge.h"
 
 #include "core/PerformanceDiagnostics.h"
 
@@ -221,7 +222,7 @@ enum class Object : std::uint8_t {
     FireWatch, Well, HealthPost
 };
 enum class TransportCellSource : std::uint8_t {
-    None, SandboxRoad, OriginalMapRoad, FixedGatePassage
+    None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
 };
 const char* transport_cell_source_name(TransportCellSource source);
 std::int64_t maintenance_cost(RulesProfile profile,Object kind);
@@ -258,7 +259,7 @@ const char* workforce_priority_name(WorkforcePriority priority);
 enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySource, PlacePottery,
                          RemoveRoad, PlaceHousehold, PlaceFarm, PlaceServicePost, PlaceMarket,
                          SetBuildingOperation, SetBuildingWorkforcePriority, DemolishBuilding,
-                         PlaceFireWatch, PlaceWell, PlaceHealthPost };
+                         PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 struct Command {
@@ -267,7 +268,10 @@ struct Command {
     BuildingId building_id=static_cast<BuildingId>(0);
     bool operating_enabled=true;
     WorkforcePriority workforce_priority=WorkforcePriority::Normal;
+    Cell bridge_end{};
+    BridgeId bridge_id{};
 };
+Command place_bridge(Cell bank_a,Cell bank_b);
 Command demolish_building(BuildingId id);
 Command set_building_operation(BuildingId id,bool enabled);
 Command set_building_workforce_priority(BuildingId id,WorkforcePriority priority);
@@ -485,6 +489,8 @@ struct WorldSnapshot {
     std::uint64_t construction_spent_total=0;
     std::uint64_t maintenance_spent_total=0;
     DemolitionHistory demolition_history;
+    std::vector<BridgeSpan> bridges;
+    std::uint32_t next_bridge_id=1;
     bool operator==(const WorldSnapshot&) const = default;
 };
 struct ResourceInventory {
@@ -499,6 +505,13 @@ const char* delivery_phase_name(CourierPhase phase);
 
 class World {
 public:
+    bool bridges_supported() const { return profile_==RulesProfile::CityV16 && rule_version_==5; }
+    std::span<const BridgeSpan> bridges() const { return bridges_; }
+    const BridgeSpan* bridge_at(Cell cell) const;
+    const BridgeSpan* bridge_bank_at(Cell cell) const;
+    BridgeValidation validate_bridge(Cell bank_a,Cell bank_b) const;
+    BuildBlocker transport_edge_blocker(Cell from,Cell to) const;
+    std::int8_t transport_height(Cell cell) const;
     World(int width,int height,std::vector<std::uint8_t> buildable,
           RulesProfile profile=RulesProfile::LogisticsV1,std::uint32_t rule_version=0);
     World(std::shared_ptr<const MapPermissions> permissions,
@@ -660,6 +673,8 @@ private:
     CommandResult execute_impl(Command command,bool refresh_after);
     std::size_t index(Cell cell) const;
     bool permission_edge_allowed(Cell from,Cell to) const;
+    void restore_bridges(const WorldSnapshot& snapshot);
+    void index_bridge(const BridgeSpan& span);
     static World restore_impl(const WorldSnapshot& snapshot,std::vector<std::uint8_t> buildable,
                               std::shared_ptr<const MapPermissions> permissions);
     std::optional<std::vector<Cell>> find_road_route(Cell start,Cell goal) const;
@@ -695,6 +710,9 @@ private:
     std::vector<std::uint32_t> owners_;
     std::vector<BuildingState> buildings_;
     std::vector<CourierState> couriers_;
+    std::vector<BridgeSpan> bridges_;
+    std::uint32_t next_bridge_id_=1;
+    std::vector<std::uint8_t> bridge_index_,bridge_bank_index_; // Rule5-only derived lookups, never persisted.
     std::uint32_t next_household_id_=first_household_id;
     std::uint32_t next_production_id_=8;
     std::uint32_t next_courier_id_=4;

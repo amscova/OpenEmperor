@@ -45,12 +45,16 @@ RoadConnectivityCell facts(const World& world,Cell cell) {
     result.fixed_gate=permissions.fixed_gate_at(cell);
     result.road_blocker=permissions.road_blocker(cell);
     result.building_blocker=permissions.building_blocker(cell);
+    result.bridge_eligible_water=permissions.bridge_water(cell);
+    if(const auto* bridge=world.bridge_at(cell)) {
+        result.bridge=bridge->id;result.bridge_axis=bridge->axis;result.deck_height=bridge->deck_height;
+    }
     return result;
 }
 RoadConnectivityEdge edge(const World& world,Cell from,Cell to,bool candidate) {
     RoadConnectivityEdge result;
     result.from=facts(world,from);result.to=facts(world,to);
-    result.permission_blocker=world.map_permissions()->transport_edge_blocker(from,to);
+    result.permission_blocker=world.transport_edge_blocker(from,to);
     result.category=category(result.permission_blocker);
     result.reason=build_blocker_reason(result.permission_blocker);
     result.candidate=candidate;
@@ -163,7 +167,8 @@ RoadConnectivityReport diagnose_road_connectivity(
     const auto permissions=world.map_permissions();
     const bool version_pair=permissions &&
         ((world.rule_version()==3 && permissions->policy_version()==kMapPermissionsPolicyVersion) ||
-         (world.rule_version()==4 && permissions->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion));
+         (world.rule_version()==4 && permissions->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion) ||
+         (world.rule_version()==5 && permissions->policy_version()==kBridgesMapPermissionsPolicyVersion));
     if (world.profile()!=RulesProfile::CityV16 || !version_pair) {
         result.unsupported_reason="Requires City-v16 rule 3/policy 1 or rule 4/policy 2 permissions";
         return result;
@@ -188,6 +193,9 @@ RoadConnectivityReport diagnose_road_connectivity(
     result.source=endpoint(world,*source,false);result.target=endpoint(world,*target,true);
     result.authoritative_route_queries=1;
     result.route=world.find_building_route(source_id,target_id);
+    if(result.route)for(const auto cell:*result.route)if(const auto* bridge=world.bridge_at(cell))
+        if(std::none_of(result.bridges_on_route.begin(),result.bridges_on_route.end(),
+            [&](const auto& value){return value.id==bridge->id;}))result.bridges_on_route.push_back(*bridge);
     if (result.route) result.category=RoadConnectivityCategory::Connected;
     else if (result.source.entrances.empty()) result.category=RoadConnectivityCategory::SourceNoEntrance;
     else if (result.target.entrances.empty()) result.category=RoadConnectivityCategory::TargetNoEntrance;

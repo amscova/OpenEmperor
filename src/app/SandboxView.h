@@ -287,6 +287,8 @@ private:
         simulation::CourierId courier=simulation::CourierId::Clay;
         simulation::Position position{};
         bool placement_preview=false;
+        const simulation::BridgeSpan* bridge=nullptr;
+        bool bridge_front_rail=false;
     };
     // Descriptors of the dynamic pixels actually submitted to the painter.
     // Image pixels remain in the eagerly loaded profiles; no hit mask is copied.
@@ -294,6 +296,8 @@ private:
         scene::WorldDrawKey key;
         simulation::Cell cell{};
         std::optional<simulation::CourierId> walker;
+        std::optional<simulation::BridgeId> bridge;
+        bool bridge_front_rail=false;
         std::optional<std::size_t> image;
         scene::Point origin;
         double width=0,height=0;
@@ -342,6 +346,7 @@ private:
     scene::Point world_for(simulation::Position cell) const;
     scene::Point building_visual_ground(simulation::Cell origin,
                                                   simulation::Object kind) const;
+    int walker_marker_shift(simulation::Position position,simulation::CourierId id) const;
     std::optional<std::uint64_t> session_texture_headroom(bool include_walkers,
                                                         bool include_fire) const;
     void remove_fire_inspector_extension();
@@ -398,6 +403,8 @@ private:
     std::optional<std::size_t> original_road_visual_index(simulation::Cell cell) const;
     bool original_road_dynamic(const OriginalRoadVisual& road) const;
     std::optional<simulation::Cell> road_start_;
+    std::optional<simulation::Cell> bridge_start_;
+    simulation::BridgeValidation bridge_preview_{};
     std::optional<sandbox_ui::Action> pressed_button_;
     std::optional<simulation::BuildingId> pressed_building_;
     bool ui_pressed_=false;

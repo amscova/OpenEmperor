@@ -21,14 +21,17 @@ struct FixedGateId {
 };
 inline constexpr std::uint32_t kMapPermissionsPolicyVersion=1;
 inline constexpr std::uint32_t kOriginalRoadsMapPermissionsPolicyVersion=2;
+inline constexpr std::uint32_t kBridgesMapPermissionsPolicyVersion=3;
 constexpr bool supported_map_permissions_policy(std::uint32_t version) {
-    return version==kMapPermissionsPolicyVersion || version==kOriginalRoadsMapPermissionsPolicyVersion;
+    return version==kMapPermissionsPolicyVersion || version==kOriginalRoadsMapPermissionsPolicyVersion ||
+        version==kBridgesMapPermissionsPolicyVersion;
 }
 enum class BuildBlocker : std::uint8_t {
     None, OutsideMap, UnsupportedTerrain, OriginalStructure, GateSolidPart,
     GateSideEntry, SandboxOccupied, InsufficientFunds, LegacyBuildabilityRestriction,
     UnsupportedHeightTransition, ProtectedGatePassage, InvalidEdge, CounterExhausted,
-    ProtectedOriginalRoad, UnsupportedOriginalRoad
+    ProtectedOriginalRoad, UnsupportedOriginalRoad, UnsupportedBridgeWater,
+    BridgeBankRoadRequired, BridgeSideEntry, ProtectedBridge
 };
 const char* build_blocker_name(BuildBlocker blocker);
 const char* build_blocker_reason(BuildBlocker blocker);
@@ -67,6 +70,9 @@ struct MapCellPermission {
     BuildBlocker building_blocker=BuildBlocker::LegacyBuildabilityRestriction;
     bool original_road=false;
     OriginalRoadClassification original_road_classification=OriginalRoadClassification::None;
+    // Policy 3 only: exact raw normal water, after complete original claims.
+    // Eligibility never creates a transport cell or changes either mask.
+    bool bridge_water=false;
 };
 struct FixedGatePassage {
     FixedGateId id{};
@@ -96,6 +102,7 @@ public:
     bool original_road(Cell cell) const;
     OriginalRoadClassification original_road_classification(Cell cell) const;
     std::int8_t cell_height(Cell cell) const;
+    bool bridge_water(Cell cell) const;
     bool fixed_passage(Cell cell) const;
     const FixedGatePassage* fixed_gate(Cell cell) const;
     std::optional<FixedGateId> fixed_gate_at(Cell cell) const;

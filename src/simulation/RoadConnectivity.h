@@ -29,6 +29,10 @@ struct RoadConnectivityCell {
     std::uint32_t imported_under_policy=0;
     std::int8_t height=0;
     std::optional<FixedGateId> fixed_gate;
+    bool bridge_eligible_water=false;
+    std::optional<BridgeId> bridge;
+    std::optional<BridgeAxis> bridge_axis;
+    std::int8_t deck_height=0;
     BuildBlocker road_blocker=BuildBlocker::None,building_blocker=BuildBlocker::None;
     bool operator==(const RoadConnectivityCell&) const = default;
 };
@@ -82,6 +86,7 @@ struct RoadConnectivityReport {
     // This is precisely World::find_building_route(), including both building
     // endpoint cells. No diagnostic route is substituted for that authority.
     std::optional<std::vector<Cell>> route;
+    std::vector<BridgeSpan> bridges_on_route; // Captured by explicit G, never rebuilt by the inspector.
     std::vector<RoadConnectivityComponent> components;
     std::vector<std::uint32_t> source_components,target_components;
     std::vector<RoadConnectivityEdge> blocked_edges;

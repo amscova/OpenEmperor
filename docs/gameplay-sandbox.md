@@ -1,5 +1,13 @@
 # Logistics sandbox (`sandbox-logistics-v1`)
 
+Optional [Bridges V1](city-v16-bridges.md): explicitly enable rule 5 with City-v16 in
+New Sandbox, or load a schema 21 bridge save. B drags between existing equal-height
+normal bank roads over 1..8 straight water cells. Green/amber/red distinguishes
+affordable, unaffordable and blocked geometry; price 40 + 20/cell, upkeep 0. F3 keeps
+B's diagnostic light. Selection shows ownership/longitudinal restrictions; span
+removal is unavailable in V1. Older saves/defaults keep their versions. Starter:
+`sh tools/test_city_v16_bridges.sh DATA --ui`.
+
 The explicit `sandbox-city-v16` rule 1 inherits City-v15 and adds ownership maintenance only. Costs are charged at positive building ages divisible by 400, after real Household taxes, regardless of staffing, pause or fire. Funds may become negative; actual taxes repay debt and sufficiently funded paid construction becomes available again. Existing operations continue normally. Schema 18 adds only `maintenance_spent_total` and signed treasury; schemas 1–17 have no maintenance and retain their old validation. Demolition stops future bills without refunds. Houses and roads have no maintenance; no loans, interest, bankruptcy, new goods or entities are introduced. These are authored OpenEmperor rules. See [maintenance table, exact ordering, persistence and budget acceptance](city-v16.md).
 
 The opt-in **City-v15** (`sandbox-city-v15`, rule 1/schema 17) adds authored deterministic Health to City-v14. Every 100 placement-relative ticks a healthy, unprotected House gains +1 risk with water, +3 without; risk 100 starts 1,200-tick illness. A paid 120-fund, 1×1 Health Post needs two workers and sends a cargo-free Health Worker by road, prioritizing reachable sick and high-risk Houses. Actual arrival cures and grants 2,400-tick protection. Sick Houses miss demand once, retain goods/current workforce and earn no tax/growth. The starter, Water/quality level caps, goal, economy and older profiles stay exact. J/K select the Post/House-only Health overlay; schema 17 persists authoritative health without migration. No RNG, medicine or reconstructed original rules. See [City-v15](city-v15.md).

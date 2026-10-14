@@ -362,6 +362,40 @@ void roots_and_setup_lifetime(Temp& temp,SDL_Window* window,SDL_Renderer* render
           "result after menu shutdown changed menu authorization or session");
 }
 
+void explicit_bridge_setup(Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
+    const auto app=temp.app("explicit-bridges");
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    key(menu,SDLK_N);accept(menu);
+    check(menu.map_rules_result().request.rule_version==4 &&
+          menu.map_rules_result().request.policy_version==2,"new menu default no longer uses rule4/policy2");
+    click(menu,440,215);accept(menu);
+    check(menu.map_rules_result().request.rule_version==5 &&
+          menu.map_rules_result().request.policy_version==3 && menu.map_rules_can_start(),
+          "explicit Bridge choice did not check rule5/policy3");
+    check(menu.render(),"Bridge setup did not render");
+    click(menu,440,215);accept(menu);
+    check(menu.map_rules_result().request.rule_version==4 &&
+          menu.map_rules_result().request.policy_version==2,"disabling Bridge choice did not restore rule4/policy2");
+    click(menu,440,215);accept(menu);key(menu,SDLK_RETURN);finish_load(menu);
+    check(menu.sandbox() && menu.sandbox()->world().bridges_supported() &&
+          menu.sandbox()->world().rule_version()==5 && menu.sandbox()->world().map_permissions()->policy_version()==3,
+          "checked Bridge setup did not create the requested rule5 World");
+    key(menu,SDLK_F5);
+    const auto save=menu.sandbox()->save_path();
+    const auto document=openemperor::persistence::read_save(save);
+    check(document.source_schema_version==21 && document.world.rule_version==5 &&
+          document.map_permissions_policy_version==3,"normal menu F5 did not preserve Bridge version authority");
+    menu.shutdown();check(textures()==0,"Bridge setup leaked textures");
+    Menu restarted({},app,std::make_unique<Dialog>());restarted.initialize(window,renderer);
+    key(restarted,SDLK_N);accept(restarted);
+    check(restarted.map_rules_result().request.rule_version==4 &&
+          restarted.map_rules_result().request.policy_version==2,"session-only Bridge choice became a stored default");
+    key(restarted,SDLK_ESCAPE);key(restarted,SDLK_L);key(restarted,SDLK_RETURN);finish_load(restarted);
+    check(restarted.sandbox() && restarted.sandbox()->world().snapshot()==document.world &&
+          restarted.sandbox()->world().bridges_supported(),"normal menu load downgraded a rule5 save");
+    restarted.shutdown();check(textures()==0,"Bridge load leaked textures");
+}
+
 void content_retry_and_resume(Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
     auto controls=std::make_shared<ControlledChecks>();
     Menu menu({},temp.app("resume"),std::make_unique<Dialog>(),{},openemperor::maps::GreatWallPresentationMode::Automatic,
@@ -592,6 +626,7 @@ int main() {
         Temp temp;
         selection_and_input(temp,window,renderer);
         roots_and_setup_lifetime(temp,window,renderer);
+        explicit_bridge_setup(temp,window,renderer);
         content_retry_and_resume(temp,window,renderer);
         reswall_atomic_preflight(temp,window,renderer);
         resgate_atomic_preflight(temp,window,renderer);

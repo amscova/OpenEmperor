@@ -510,7 +510,7 @@ OriginalRulePreparation prepare_original_rules(
         else if (terrain&0x4U)
             out.original_road_classification=OriginalRoadClassification::WaterOrBridge;
         else out.original_road_classification=OriginalRoadClassification::UnsupportedTerrain;
-        if (policy_version==simulation::kOriginalRoadsMapPermissionsPolicyVersion) {
+        if (policy_version>=simulation::kOriginalRoadsMapPermissionsPolicyVersion) {
             if (out.original_road_classification==OriginalRoadClassification::GroundRoad) {
                 out.original_road=true;
                 out.building_allowed=false;
@@ -519,6 +519,12 @@ OriginalRulePreparation prepare_original_rules(
                 out.road_blocker=BuildBlocker::UnsupportedOriginalRoad;
         }
     }
+    if (policy_version==simulation::kBridgesMapPermissionsPolicyVersion)
+        for (unsigned y=0;y<stored_grid_height;++y) for (unsigned x=0;x<stored_grid_width;++x) {
+            const GridCell cell{x,y};const auto at=storage(cell);auto& out=cells[at];
+            out.bridge_water=geometry.contains(cell) && map.terrain_raw.values[at]==0x4U &&
+                map.objects_raw.values[at]==0 && !out.protected_original && !owner[at] && !marker_reserved[at];
+        }
     return {std::move(cells),std::move(passages)};
 }
 } // namespace

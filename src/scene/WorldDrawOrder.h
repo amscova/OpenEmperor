@@ -12,7 +12,7 @@ enum class WorldVisualLayer : std::uint8_t {
     StoredMap, SandboxRoad, SandboxBuilding, SandboxWalker,
     // Bounded cTower +0x10c fragments after actors at the same ground key.
     // Depth and projected X still precede this local component phase.
-    StoredTowerAfterActors
+    StoredTowerAfterActors, SandboxBridgeFrontRail
 };
 
 struct WorldDrawKey {

@@ -331,6 +331,12 @@ json audit_map(const maps::MapCatalogEntry& entry,const fs::path& root,const fs:
     }
     if(detailed_conflicts)add_claim_diagnostics(row,map,geometry,entities,heights);
     const auto first=check(map,geometry,entities,heights);row["first_preparation_error"]=first;row["first_category"]=category(first);
+    if(!first.empty()) {
+        try {maps::validate_sandbox_original_map_rules(map,geometry,entities,heights,3);
+            throw std::logic_error("bridge policy unexpectedly relaxed failed complete original preparation");}
+        catch(const maps::SandboxMapRulesUnsupported& error){row["policy3_error"]=error.what();}
+        catch(const std::invalid_argument& error){row["policy3_error"]=error.what();}
+    }
     maps::OriginalMapEntities probe=entities;probe.records.clear();std::vector<maps::OriginalEntityRecord> supported;
     std::set<std::size_t> unknown_indices;row["active_object_count"]=0;
     for (const auto& record:entities.records) if (record.active()) {
@@ -395,6 +401,10 @@ json audit_map(const maps::MapCatalogEntry& entry,const fs::path& root,const fs:
             const auto pone=maps::prepare_sandbox_map_permissions(map,geometry,one,entities,heights,version);
             row["policy2"]={{"zero_legacy",save_permissions(*pzero,directory/"policy2-zero",row["input_sha256"],zero)},
                 {"maximal_legacy",save_permissions(*pone,directory/"policy2-one",row["input_sha256"],one)}};
+            const auto bzero=maps::prepare_sandbox_map_permissions(map,geometry,zero,entities,heights,3);
+            const auto bone=maps::prepare_sandbox_map_permissions(map,geometry,one,entities,heights,3);
+            row["policy3"]={{"zero_legacy",save_permissions(*bzero,directory/"policy3-zero",row["input_sha256"],zero)},
+                {"maximal_legacy",save_permissions(*bone,directory/"policy3-one",row["input_sha256"],one)}};
         }
     }
     return row;
@@ -496,6 +506,9 @@ int main(int argc,char** argv) {
                     const auto policy2=maps::load_sandbox_map_permissions(session.map,background.plan(),geometry,mask,
                         simulation::kOriginalRoadsMapPermissionsPolicyVersion,row["input_sha256"]);
                     row["policy2"]["production_legacy"]=save_permissions(*policy2,output/"permissions"/relative/"policy2-production",row["input_sha256"],mask);
+                    const auto policy3=maps::load_sandbox_map_permissions(session.map,background.plan(),geometry,mask,
+                        simulation::kBridgesMapPermissionsPolicyVersion,row["input_sha256"]);
+                    row["policy3"]["production_legacy"]=save_permissions(*policy3,output/"permissions"/relative/"policy3-production",row["input_sha256"],mask);
                 }
                 row["production_legacy_prepared"]=true;row["presentation_preparation"]={{"decoded_assets",background.plan().decoded_assets},{"texture_uploads",background.plan().texture_uploads},{"logical_texture_bytes",background.plan().logical_texture_bytes}};
                 std::cerr<<relative.generic_string()<<": production legacy mask prepared\n";

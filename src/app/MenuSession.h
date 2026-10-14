@@ -85,6 +85,7 @@ private:
     State confirm_return_state_=State::MainMenu;
     AfterConfirm after_confirm_=AfterConfirm::None;
     Settings settings_;
+    bool bridges_new_game_=false; // Explicit setup choice, never a default/save upgrade.
     MapRulesPreflight map_preflight_;
     std::optional<maps::MapRulesResult> starting_map_check_;
     assets::CompatibilityResult compatibility_;

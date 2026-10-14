@@ -214,8 +214,8 @@ void versioned_original_roads() {
     wrong=new_request;wrong.policy_version=1;
     check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"rule4 must reject policy1");
     wrong=new_request;wrong.policy_version=3;
-    check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"unknown policy must reject");
-    wrong=new_request;wrong.rule_version=5;
+    check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"rule4 must reject bridge policy3");
+    wrong=new_request;wrong.rule_version=6;
     check(maps::check_map_rules(wrong).status==maps::MapRulesStatus::InputError,"unknown rule must reject");
 }
 void reswall_rules() {

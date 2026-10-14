@@ -54,7 +54,7 @@ void version_and_canonical_contract(){
  check(old->canonical_state()==expected,"policy1 canonical bytes retain literal former representation");
  const auto current=f.make();check(current->canonical_state().find("original-roads-format:1")!=std::string::npos&&current->canonical_state()!=old->canonical_state(),"policy2 canonically binds explicit import and classifier format");
  f.map.terrain_raw.values[at(site)]=0x80;check(f.make()->canonical_state()!=current->canonical_state(),"original road deletion changes policy2 fingerprint input");
- rejects([&]{f.make(3);},"unknown policy rejected");
+ rejects([&]{f.make(4);},"unknown policy rejected");
  auto cells=current->cells();cells[at(site)].original_road=true;cells[at(site)].original_road_classification=simulation::OriginalRoadClassification::GroundRoad;cells[at(site)].building_allowed=false;
  rejects([&]{simulation::MapPermissions(228,228,1,cells,{});},"policy1 constructor cannot smuggle imported road authority");
  auto old_cells=old->cells();old_cells[at(site)].road_blocker=simulation::BuildBlocker::UnsupportedOriginalRoad;
@@ -62,5 +62,24 @@ void version_and_canonical_contract(){
  cells[at(site)].protected_original=true;rejects([&]{simulation::MapPermissions(228,228,2,cells,{});},"original structure cannot simultaneously be an imported road");
  check(simulation::authored_simple_permissions(2,2,{1,1,1,1},2)->policy_version()==2,"explicit authored empty policy2 retains no invented roads");
 }
+void bridge_water_source(){
+ Fixture f;f.map.terrain_raw.values[at(site)]=4;const auto before1=f.make(1)->canonical_state(),before2=f.make(2)->canonical_state();
+ auto p=f.make(3);check(p->bridge_water({116,110})&&!p->road_allowed({116,110})&&!p->building_allowed({116,110})&&!p->original_road({116,110}),"eligible raw water must remain blocked/unimported");
+ f.mask.assign(count,0);f.plan.raw_saved_ids.assign(count,0xffffffff);check(f.make(3)->bridge_water({116,110}),"legacy mask or saved graphic cannot establish water eligibility");
+ f.mask.assign(count,1);check(f.make(1)->canonical_state()==before1&&f.make(2)->canonical_state()==before2,"bridge prep altered old canonical policies");
+ for(const auto raw:std::array<unsigned,11>{0,0x80,0x44,0x400004,0x4000004,0x84,0x80004,0x8008,0xc008,0x2000004,0x4000044}){
+  f.map.terrain_raw.values[at(site)]=raw;check(!f.make(3)->bridge_water({116,110}),"unknown/mixed/road/shore/off-map water admitted");
+ }
+ f.map.terrain_raw.values[at(site)]=4;for(const auto objects:{1U,2U,0x80000000U}){f.map.objects_raw.values[at(site)]=objects;check(!f.make(3)->bridge_water({116,110}),"raw object water admitted");}
+ f.map.objects_raw.values[at(site)]=0;f.map.terrain_raw.values[0]=4;check(!f.make(3)->bridge_water({0,0}),"outside Diamond water admitted");
+ f.plan.height_bytes[at(site)]=255;check(f.make(3)->cell_height({116,110})==-1&&f.make(3)->bridge_water({116,110}),"raw signed water height altered or used as deck authority");
+ f.entities.records.push_back(f.source(site));check(f.make(3)->protected_original({116,110})&&!f.make(3)->bridge_water({116,110}),"original square water occupancy admitted");
+ auto marker=f.source(site);marker.entity_class=maps::OriginalEntityClass::Industrial;marker.type=163;marker.footprint_side=0;
+ f.entities.records[0]=marker;check(!f.make(3)->bridge_water({116,110}),"original marker water origin admitted");
+ auto ferry=f.source(site);ferry.entity_class=maps::OriginalEntityClass::Ferry;ferry.type=210;ferry.provenance.wrapper_schema=ferry.provenance.extended_schema=1;
+ f.entities.records[0]=ferry;check(!f.make(3)->bridge_water({116,110}),"typed Ferry landing water occupancy admitted");
+ f.entities.records[0]=marker;
+ f.entities.records[0].type=999;rejects([&]{f.make(3);},"unknown complete manager was relaxed for bridge water");
 }
-int main(){try{exact_ground_road();rejected_road_forms();complete_claims_first();version_and_canonical_contract();std::cout<<"Original road classification tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+}
+int main(){try{exact_ground_road();rejected_road_forms();complete_claims_first();version_and_canonical_contract();bridge_water_source();std::cout<<"Original road classification tests passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -17,7 +17,7 @@ enum Action { ChooseFolder=1, NewGame, LoadGame, Resume, DataFolder, Quit,
     ResetSettings, OpenMenu, VisualsFile, VisualsClear, BuildingVisualsFile, BuildingVisualsClear,
     RoadVisualsFile, RoadVisualsClear, AdvancedVisuals, UpgradeCopy, ConfirmUpgradeCopy,
     CancelUpgrade, ToggleAutosave, ToggleSaveView, DeleteRecovery, ConfirmDeleteRecovery,
-    CancelDeleteRecovery, GreatWallChoice, RecheckMap,
+    CancelDeleteRecovery, GreatWallChoice, RecheckMap, BridgesChoice,
     MapSelectBase=1000, SaveSelectBase=2000, RecoverySelectBase=3000 };
 constexpr simulation::RulesProfile profiles[]={simulation::RulesProfile::LogisticsV1,
     simulation::RulesProfile::ProductionV2,simulation::RulesProfile::HouseholdV3,
@@ -179,7 +179,8 @@ void MenuSession::open_dialog(DialogKind kind) {
 }
 std::optional<maps::MapRulesRequest> MenuSession::selected_map_request() const {
     if (map_index_>=catalog_.entries.size() || catalog_.data_root.empty()) return std::nullopt;
-    const auto version=simulation::current_rule_version(settings_.profile);
+    const auto version=bridges_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 5U:
+        simulation::current_rule_version(settings_.profile);
     return maps::MapRulesRequest{catalog_.data_root,catalog_.entries[map_index_].relative_path,
         settings_.profile,version,maps::map_rules_policy_version(settings_.profile,version)};
 }
@@ -238,7 +239,9 @@ void MenuSession::finish_loading() {
         if (upgrade_copy_ || recovery_load) {
             save_path=new_save_target(app_root_,settings_.data_root);
         }
-        auto view=std::make_unique<SandboxView>(std::move(loaded),document ? false:demo_,profile);
+        const auto version=document ? document->world.rule_version:
+            bridges_new_game_ && profile==simulation::RulesProfile::CityV16 ? 5U:simulation::current_rule_version(profile);
+        auto view=std::make_unique<SandboxView>(std::move(loaded),document ? false:demo_,profile,version);
         view->set_managed(true);
         const auto upgraded_document=upgrade_copy_ ? document:
             std::optional<persistence::SaveDocument>{};
@@ -386,6 +389,11 @@ void MenuSession::perform(int action) {
             rebuild_buttons(); break;
         }
         case Demo: demo_=!demo_; settings_.prepared_starter=demo_; rebuild_buttons(); break;
+        case BridgesChoice:
+            if(settings_.profile==simulation::RulesProfile::CityV16) {
+                bridges_new_game_=!bridges_new_game_;check_selected_map();rebuild_buttons();
+            }
+            break;
         case GreatWallChoice:
             great_wall_mode_=static_cast<maps::GreatWallPresentationMode>(
                 (static_cast<unsigned>(great_wall_mode_)+1U)%5U);
@@ -649,6 +657,8 @@ void MenuSession::rebuild_buttons() {
         add(MapPrev,"Previous map",40,120); add(MapNext,"Next map",230,120);
         add(ProfilePrev,"Previous rules",40,205); add(ProfileNext,"Next rules",230,205);
         add(Demo,demo_?"Prepared starter settlement":"Empty city",40,270,260);
+        if(settings_.profile==simulation::RulesProfile::CityV16)
+            add(BridgesChoice,bridges_new_game_?"Bridges V1 ON (rule 5)":"Enable Bridges V1 (rule 5)",430,205,280);
         add(Start,"Start sandbox",40,315); add(Back,"Back",230,315);
         buttons_[buttons_.size()-2].enabled=map_rules_can_start();
         add(RecheckMap,"Check again",430,315,280);
@@ -762,7 +772,7 @@ bool MenuSession::render() {
             !label(430,80,"?: rules unchecked")) return false;
         if (!label(40,245,description(settings_.profile))) return false;
         if (!label(40,258,std::string("Technical: ")+simulation::rules_profile_name(settings_.profile)+
-            " | rule "+std::to_string(simulation::current_rule_version(settings_.profile)))) return false;
+            " | rule "+std::to_string(selected_map_request()->rule_version))) return false;
         if (!label(310,278,demo_ ?
             "Connected starter; normal budget, no goods or ticks":"No buildings are placed")) return false;
         if (!label(40,345,compatibility_.compatible() ?
@@ -775,7 +785,8 @@ bool MenuSession::render() {
         case maps::MapRulesStatus::Checking: status="Checking map rules..."; break;
         case maps::MapRulesStatus::MapRulesChecked:
             status=settings_.profile==simulation::RulesProfile::CityV16 ?
-                "Map rules checked for City v16 v3.":"Map rules checked for selected rules.";
+                "Map rules checked for City v16 v"+std::to_string(check.request.rule_version)+".":
+                "Map rules checked for selected rules.";
             break;
         case maps::MapRulesStatus::UnsupportedForRules: status="Not yet supported with these rules."; break;
         case maps::MapRulesStatus::InputError: status="Map check failed. Check files and retry."; break;

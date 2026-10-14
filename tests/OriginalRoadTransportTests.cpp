@@ -66,7 +66,7 @@ void version_contract() {
     for (const auto version:{1U,2U,3U,4U})
         check(sim::rule_version_supported(sim::RulesProfile::CityV16,version),
               "City-v16 historical and original-road rules must remain explicit");
-    check(!sim::rule_version_supported(sim::RulesProfile::CityV16,5),
+    check(!sim::rule_version_supported(sim::RulesProfile::CityV16,6),
           "Unknown City-v16 rule accepted");
     const auto p2=policy(cells());
     const auto p1=sim::authored_simple_permissions(size,size,std::vector<std::uint8_t>(size*size,1));

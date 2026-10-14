@@ -1,5 +1,13 @@
 # Architecture
 
+Explicit City-v16 rule5 adds independent typed `BridgeSpan` records and schema21.
+Policy3 retains original roads and adds complete-source normal-water eligibility;
+owned deck edges use the same World graph. Rule5-only derived cell/bank indexes
+rebuild from canonical spans during validated restore, never enter saves, and add
+no second navigator. Span prices enter construction conservation; old policies,
+saves/defaults stay exact. Presentation uses code geometry and cached painter
+components, with no bridge textures. See [the contract](city-v16-bridges.md).
+
 City-v16 rule 3 prepares immutable SDL-free `MapPermissions` once from the complete original manager, raw grids, signed heights and legacy building mask. `SandboxPlacement` centralizes saved-square, conservative marker-origin and unsupported occupancy decisions; the [Xia compatibility pass](map-permissions-compatibility.md) adds only exact evidenced Industrial175/165 states. Unknown sources still fail atomically before a candidate World is published. Road/building protection and fixed gate topology stay independent of graphics. Budget hypotheticals share the full immutable policy while copying mutable World state; schema19 Save/Load/Recovery reconstructs and fingerprints the same policy1. Previously prepared maps retain exact canonical bytes and existing saves. General City-v11 defaults and all older profiles remain unchanged.
 
 The bounded ordinary city-wall gate pass extends `WallTopology` with separate eight-neighbor wall/gate masks and their union while retaining the existing static table and generated straight alternation. `OriginalMapEntities` reads exact GateHouse and Tower wrapper state to validate complete managers. The SDL-free `OrdinaryGateMapPresentation` derives each supported saved GateHouse layout 0/1 as 15 singleton claims, independently of saved graphic IDs. `RegeneratedMapRenderPlan` preflights the complete key-`0x4af` selection, deduplicates physical assets and assigns a separate atomic composition group per gate. Existing eager readiness activates all 15 or retains complete fallback. Origins, signed cell-height ×40, split Base/Overlay painter, cached alpha and texture policy are shared with ordinary landscape. F1 and reports distinguish source objects, selected components and activation; no World, playable occupancy, save or buildability state is introduced. See [the contract and remaining limits](reverse/ordinary-wall-gates.md).

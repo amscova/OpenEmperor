@@ -1414,7 +1414,7 @@ void input_reliability_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* 
 }
 
 maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vector<std::uint8_t>& mask,
-                                                     bool original_roads=false) {
+                                                     bool original_roads=false,bool bridge_water=false) {
     auto session=city_v10_fixture(temp,mask);
     Bytes raw(maps::original_entities_logical_offset+6,0);
     const Bytes signature{5,0,0xfe,0xca,0,0,2,0};
@@ -1424,6 +1424,7 @@ maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vect
         u32(raw,maps::terrain_logical_offset+4*(std::size_t(y)*228+x),geometry.contains({x,y}) ? 0x80:0x80000);
     if (original_roads) for (unsigned x=100;x<=110;++x) if (x!=104)
         u32(raw,maps::terrain_logical_offset+4*(103U*228U+x),0xc0);
+    if(bridge_water)for(unsigned y=90;y<=130;++y)u32(raw,maps::terrain_logical_offset+4*(y*228U+104),4);
     u16(raw,maps::original_entities_logical_offset,1); // Complete empty authored original manager.
     Bytes packed(4);u32(packed,0,0xfedcbaaa);
     for (std::size_t at=0;at<raw.size();at+=16384) {
@@ -1443,6 +1444,74 @@ maps::StoredMapSession road_connectivity_view_fixture(const Temp& temp,std::vect
         if (cell) session.plan.cells[*cell].terrain_raw=0xc0;
     }
     return session;
+}
+void bridge_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
+    namespace perf=openemperor::performance;using s=simulation::CommandType;
+    check(SDL_SetWindowSize(window,1100,700),"bridge test resize");SDL_PumpEvents();
+    std::vector<std::uint8_t> mask;openemperor::SandboxView view(road_connectivity_view_fixture(temp,mask,false,true),false,simulation::RulesProfile::CityV16,5);
+    const auto save=temp.path.parent_path()/(temp.path.filename().string()+"-viewer-save.json");
+    view.set_walker_visuals(walker_fixture(temp));
+    view.configure_save(temp.path,"Cities/Synthetic.map",save);view.initialize(window,renderer);bool running=true;
+    if(!view.paused())view.handle_event(key(SDLK_SPACE),running);
+    check(view.world().rule_version()==5&&view.world().map_permissions()->policy_version()==3,"explicit bridge versions not retained");
+    const auto screen=[&](simulation::Cell c){return view.camera().world_to_screen(maps::terrain_ground({unsigned(c.x),unsigned(c.y)},72));};
+    const auto a=screen({103,103}),b=screen({105,103});
+    check(view.layout().map.contains(a.x,a.y)&&view.layout().map.contains(b.x,b.y),"bridge input banks clipped");
+    check(view.execute({s::PlaceRoad,{103,103}}).accepted&&view.execute({s::PlaceRoad,{105,103}}).accepted,"paid bank roads failed");
+    const auto snapshot=view.world().snapshot();const auto previous_tool=view.tool();
+    view.handle_event(key(SDLK_F3),running);view.handle_event(key(SDLK_B),running);check(view.tool()==previous_tool,"B stole F3 diagnostic light control");
+    view.handle_event(key(SDLK_F3),running);view.handle_event(key(SDLK_B),running);check(view.tool()==14,"B did not select bridge");
+    const auto down=[&]{view.handle_event(click(float(a.x),float(a.y)),running);};
+    const auto up=[&]{view.handle_event(release(float(b.x),float(b.y)),running);};
+    for(int cancel=0;cancel<4;++cancel) {
+        down();
+        if(cancel==0)view.handle_event(key(SDLK_ESCAPE),running);
+        if(cancel==1){SDL_Event event{};event.type=SDL_EVENT_WINDOW_FOCUS_LOST;view.handle_event(event,running);event.type=SDL_EVENT_WINDOW_FOCUS_GAINED;view.handle_event(event,running);}
+        if(cancel==2){SDL_Event event{};event.type=SDL_EVENT_WINDOW_RESIZED;view.handle_event(event,running);}
+        if(cancel==3){auto event=click(float(a.x),float(a.y));event.button.button=SDL_BUTTON_RIGHT;view.handle_event(event,running);}
+        up();check(view.world().snapshot()==snapshot,"cancelled bridge gesture published state");
+    }
+    down();view.handle_event(release(float(view.layout().toolbar.x+10),float(view.layout().toolbar.y+10)),running);
+    check(view.world().snapshot()==snapshot,"bridge release over UI committed");
+    perf::set_enabled(true);perf::reset();down();
+    SDL_Event motion{};motion.type=SDL_EVENT_MOUSE_MOTION;motion.motion.x=float(b.x);motion.motion.y=float(b.y);
+    for(int i=0;i<100;++i){view.handle_event(motion,running);view.update(0,{});check(view.render(),"bridge preview frame failed");}
+    for(const auto counter:{perf::Counter::WorldCopies,perf::Counter::WorldExecutes,perf::Counter::SimulationTicks,
+        perf::Counter::BfsCalls,perf::Counter::RouteRefreshes,perf::Counter::AssetDecodes,perf::Counter::TextureUploads,perf::Counter::FileReads,perf::Counter::FileWrites})
+        check(perf::counter(counter)==0,"bridge preview did forbidden work");
+    check(view.world().snapshot()==snapshot,"bridge preview mutated World");up();perf::set_enabled(false);
+    check(view.world().bridges().size()==1&&view.world().treasury()==snapshot.treasury-60&&view.world().command_sequence()==snapshot.command_sequence+1,
+        "MouseUp did not publish one atomic whole bridge at actual endpoint");
+    up();check(view.world().bridges().size()==1,"duplicate release built another bridge");
+    const auto built=view.world().snapshot();view.handle_event(key(SDLK_F5),running);view.tick_once();view.handle_event(key(SDLK_F9),running);
+    check(view.world().snapshot()==built,"actual handler F5/F9 lost full schema21 state");
+    view.set_tool(5);check(view.render(),"bridge selection redraw failed");const auto center=screen({104,103});mouse_click(view,float(center.x),float(center.y),running);
+    std::string lines;for(const auto& line:view.inspection_lines())lines+=line+' ';
+    check(lines.find("OpenEmperor Bridge #1")!=std::string::npos&&lines.find("Paid cost: $60")!=std::string::npos&&lines.find("Longitudinal")!=std::string::npos,
+        "bridge selection lost provenance/axis/deck/cost/edge restrictions");
+    for(int zoom=0;zoom<3;++zoom){check(view.render(),"bridge integer zoom failed");view.handle_event(key(SDLK_Z),running);}
+    SDL_Event wheel{};wheel.type=SDL_EVENT_MOUSE_WHEEL;wheel.wheel.y=.5F;wheel.wheel.mouse_x=float(center.x);wheel.wheel.mouse_y=float(center.y);
+    view.handle_event(wheel,running);view.update(.01,{true,false,false,false});check(view.render(),"fractional bridge zoom/pan failed");
+    view.handle_event(key(SDLK_F1),running);for(int mode=0;mode<8;++mode){view.handle_event(key(SDLK_F8),running);check(view.render(),"bridge F8 layer failed");}
+    check(view.world().snapshot()==built,"visual bridge controls changed authority");
+    view.handle_event(key(SDLK_F1),running);
+    for(const auto command:std::array<simulation::Command,5>{{{s::PlaceHousehold,{100,106}},{s::PlaceHousehold,{100,109}},
+        {s::PlaceClaySource,{101,101}},{s::PlacePottery,{105,101}},{s::PlaceRoad,{102,103}}}})
+        check(view.execute(command).accepted,"bridge marker paid setup failed");
+    bool on_deck=false;
+    for(int tick=0;tick<100&&!on_deck;++tick){view.tick_once();const auto& courier=view.world().couriers()[0];
+        on_deck=courier.phase==simulation::CourierPhase::ToWarehouse&&view.world().bridge_at(courier.path.at(courier.path_vertex));}
+    check(on_deck,"actual loaded marker never reached bridge deck");
+    view.handle_event(key(SDLK_R),running);check(view.camera().zoom==1,"rule5 Reset did not focus an actual owned span at readable zoom");
+    view.handle_event(key(SDLK_F2),running);check(view.render(),"bridge marker fallback frame failed");
+    const auto position=view.world().courier_position(view.world().couriers()[0].id);check(position.has_value(),"bridge marker position missing");
+    const auto foot=view.camera().world_to_screen({(position->x-position->y)*40,(position->x+position->y-144)*20+20});
+    SDL_Surface* pixels=SDL_RenderReadPixels(renderer,nullptr);check(pixels,"marker bridge pixel readback");
+    // The front rail legitimately covers the foot itself. Sample the visible
+    // upper marker at the same X; the former lateral offset misses this point.
+    std::uint8_t r=0,g=0,bcolor=0,alpha=0;check(SDL_ReadSurfacePixel(pixels,int(foot.x),int(foot.y)-3,&r,&g,&bcolor,&alpha),"marker bridge ground-alignment pixel");SDL_DestroySurface(pixels);
+    check(r==104&&g==126&&bcolor==132,"fallback marker shifted away from the common bridge ground point");view.shutdown();
+    std::cout<<"Bridge UI scripted SDL: cancellation, coalesced pure preview, atomic release, schema21 F5/F9, selection and zoom/layers PASS\n";
 }
 void original_roads_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer) {
     namespace perf=openemperor::performance;
@@ -1673,6 +1742,7 @@ int main(int argc,char** argv) {
         const bool input_only=argc==2 && std::string(argv[1])=="--input-only";
         const bool connectivity_only=argc==2 && std::string(argv[1])=="--connectivity-only";
         const bool original_roads_only=argc==2 && std::string(argv[1])=="--original-roads-only";
+        const bool bridges_only=argc==2 && std::string(argv[1])=="--bridges-only";
         const bool road_only=argc==2 && std::string(argv[1])=="--road-continuity-only";
         const bool geometry_only=argc==2 && std::string(argv[1])=="--geometry16-only";
         const bool maintenance_only=argc==2 && std::string(argv[1])=="--maintenance-only";
@@ -1680,7 +1750,7 @@ int main(int argc,char** argv) {
         const bool service_only=argc==2 && std::string(argv[1])=="--service-only";
         const bool water_only=argc==2 && std::string(argv[1])=="--water-only";
         const bool alpha_stress=argc==2 && std::string(argv[1])=="--alpha-stress";
-        check(argc==1 || service_only || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only || original_roads_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
+        check(argc==1 || bridges_only || service_only || alpha_stress || water_only || health_only || maintenance_only || geometry_only || road_only || input_only || connectivity_only || original_roads_only,"usage: openemperor-sandbox-view-tests [--alpha-stress]");
         {
             const auto layout=openemperor::sandbox_ui::make_layout(1100,700,1100,700,true);
             check(layout.top.h==52 && layout.map.w==796 && layout.map.h==516 &&
@@ -1782,6 +1852,7 @@ int main(int argc,char** argv) {
             original_roads_view_checks(temp,window,renderer);
             SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;
         }
+        if(bridges_only) {bridge_view_checks(temp,window,renderer);SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;}
         if (road_only) {
             road_continuity_checks(temp,window,renderer);
             SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;

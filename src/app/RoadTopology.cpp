@@ -24,7 +24,7 @@ RoadNeighborMask road_neighbor_mask_for_preview(const simulation::World& world,
         const simulation::Cell neighbor{cell.x+directions[bit].x,cell.y+directions[bit].y};
         const auto& permissions=world.map_permissions();
         if ((is_road(world,planned,neighbor) || world.fixed_passage(neighbor)) &&
-            (!permissions || permissions->transport_edge_allowed(cell,neighbor)))
+            (!permissions || world.transport_edge_blocker(cell,neighbor)==simulation::BuildBlocker::None))
             mask=static_cast<RoadNeighborMask>(mask | (1U<<bit));
     }
     return mask;
@@ -41,7 +41,7 @@ EntranceMask entrance_mask_for_preview(const simulation::World& world,
         const simulation::Cell neighbor{cell.x+directions[bit].x,cell.y+directions[bit].y};
         const auto& permissions=world.map_permissions();
         if (is_building(world.object_at(neighbor)) &&
-            (!permissions || permissions->transport_edge_allowed(cell,neighbor)))
+            (!permissions || world.transport_edge_blocker(cell,neighbor)==simulation::BuildBlocker::None))
             mask=static_cast<EntranceMask>(mask | (1U<<bit));
     }
     return mask;

@@ -71,7 +71,7 @@ void print_usage(const char* executable) {
               << " [--multi-tile-preview [--footprint-policy isolated|edge-byte|edge-byte-4x4]]"
               << " --render-check --report-json\n";
     std::cerr << "       " << executable << " --data <directory> --sandbox <relative.map>"
-              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16]"
+              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16] [--sandbox-bridges]"
               << " [--sandbox-demo] [--sandbox-visuals <walker-profile.json>]"
               << " [--building-visuals <building-profile.json>]"
               << " [--road-visuals <road-profile.json>]"
@@ -121,6 +121,7 @@ int main(int argc, char* argv[]) {
     bool sandbox_resume_check = false;
     bool sandbox_routing_check = false;
     bool sandbox_rules_supplied = false;
+    bool sandbox_bridges = false;
     bool sandbox_save_supplied = false;
     bool load_sandbox_supplied = false;
     bool performance_diagnostics = false;
@@ -240,6 +241,8 @@ int main(int argc, char* argv[]) {
             sandbox_save_path=argv[++index]; sandbox_save_supplied=true;
         } else if (argument == "--load-sandbox" && !load_sandbox_supplied) {
             load_sandbox_path=argv[++index]; load_sandbox_supplied=true;
+        } else if (argument == "--sandbox-bridges" && !sandbox_bridges) {
+            sandbox_bridges=true;
         } else if (argument == "--sandbox-rules" && !sandbox_rules_supplied) {
             const std::string_view value{argv[++index]};
             if (value==openemperor::simulation::production_profile_name)
@@ -386,6 +389,8 @@ int main(int argc, char* argv[]) {
             sandbox_rules!=openemperor::simulation::RulesProfile::ProductionV2 ||
             sandbox_check || sandbox_resume_check || sandbox_demo || sandbox_save_supplied)) ||
         (sandbox_rules_supplied && !sandbox_supplied) ||
+        (sandbox_bridges && (!sandbox_supplied || !sandbox_rules_supplied || sandbox_check ||
+            sandbox_routing_check || sandbox_rules!=openemperor::simulation::RulesProfile::CityV16)) ||
         (sandbox_save_supplied && (!sandbox_supplied || sandbox_check)) ||
         (load_sandbox_supplied && (sandbox_supplied || sandbox_demo || sandbox_rules_supplied ||
             sandbox_routing_check ||
@@ -492,12 +497,12 @@ int main(int argc, char* argv[]) {
             if (sandbox_save_supplied || load_sandbox_supplied)
                 openemperor::persistence::validate_save_target(sandbox_save_path,data_directory);
             const auto active_rule_version=initial ? initial->world.rule_version:
-                openemperor::simulation::current_rule_version(sandbox_rules);
+                sandbox_bridges ? 5U:openemperor::simulation::current_rule_version(sandbox_rules);
             auto session=openemperor::maps::load_stored_map_session(data_directory,sandbox_path,
                 openemperor::maps::FootprintPolicy::EdgeByte4x4Preview,
                 openemperor::maps::StoredGraphicsProfile::Slot8,great_wall_mode);
             sandbox_view=std::make_unique<openemperor::SandboxView>(std::move(session),sandbox_demo,
-                                                                    sandbox_rules);
+                                                                    sandbox_rules,active_rule_version);
             sandbox_view->configure_save(data_directory,sandbox_path,sandbox_save_path,std::move(initial));
             const auto& visuals=*sandbox_visual_selection;
             sandbox_view->set_compatibility(visuals.compatibility.compatible() ?

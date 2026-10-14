@@ -1,5 +1,12 @@
 # City-v16: maintenance and city budget
 
+Optional [Bridges V1](city-v16-bridges.md) uses **rule 5 / MapPermissions policy 3 /
+save schema 21**, enabled explicitly in New Sandbox or loaded from its own save.
+It inherits rule 4's economy and adds paid straight water crossings to the shared
+transport graph. Rule 4 remains the default; older cities retain their exact
+versions and schema. B builds a complete span between equal-height bank roads;
+whole-span removal is unavailable in V1.
+
 Current native input delivery and the executable short human check are centralized in [Native Input Reliability](input-reliability.md) and [input acceptance](testing-input-acceptance.md). Historical observations below retain their original scope; they do not mark the current human checklist PASS or close profile-specific balance/replanning playthroughs.
 
 Current [income and startup budget guidance](economy-start-guidance.md) separates missing infrastructure, actual operations and House supply; it retains historical taxes separately and shows a checked strictly future upkeep projection. Its current validation is tracked there. Construction and simultaneous-full-staffing estimates are not a first-tax promise; all economy, upkeep rates and paid starter authority below remain unchanged.

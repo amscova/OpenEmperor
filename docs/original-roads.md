@@ -2,6 +2,10 @@
 
 City-v16 **rule 4 / MapPermissions policy 2 / save schema 20** makes supported original ground roads usable before the first dispatch. New City-v16 games use rule 4. Existing cities keep their saved rules without migration, refunds or counter corrections; the general New Sandbox default remains City-v11 rule 3.
 
+Explicit [Bridges V1](city-v16-bridges.md) adds separate owned spans only in
+rule5/policy3/schema21. It retains this classifier and all policy1/2 bytes;
+original water-road hints never become imported original bridges.
+
 The implementation starts from the verified clean HEAD `b01e8140d67b5ac3baf36157d4acf7aa672f119d`. Targeted version, classification, transport and persistence regressions were written before implementation and failed against the baseline. Original inputs and personal saves are read only; generated data and captures stay in ignored `.local/original-roads/`.
 
 ## Bounded classification

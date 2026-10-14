@@ -83,7 +83,7 @@ void contract_cases() {
     const auto old=std::locale();std::locale::global(std::locale(old,new Grouping));
     const auto localized=p->canonical_state();std::locale::global(old);
     check(localized==p->canonical_state(),"canonical bytes independent of process locale");
-    rejects([&]{sim::MapPermissions bad(size,size,3,p->cells(),p->gates());},"unknown policy accepted");
+    rejects([&]{sim::MapPermissions bad(size,size,4,p->cells(),p->gates());},"unknown policy accepted");
     g=p->gates()[0];g.id={0};rejects([&]{sim::MapPermissions bad(size,size,1,p->cells(),{g});},"zero gate ID accepted");
     g=p->gates()[0];g.protected_footprint.pop_back();rejects([&]{sim::MapPermissions bad(size,size,1,p->cells(),{g});},"partial protected footprint accepted");
     g=p->gates()[0];g.protected_footprint.front()={std::numeric_limits<int>::min(),std::numeric_limits<int>::min()};

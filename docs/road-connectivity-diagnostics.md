@@ -1,5 +1,11 @@
 # Road connectivity diagnostics
 
+Rule5/policy3 also diagnoses owned Bridge transport through the shared World edge
+predicate. Explicit G captures each traversed span's typed ID, axis, length, banks,
+signed deck and paid cost in the cached report; inspection adds no route scan/BFS.
+Unbuilt eligible water remains blocked; lateral/direct-building deck attachments
+remain forbidden. See [Bridges V1](city-v16-bridges.md).
+
 Current City-v16 rule 4 / policy 2 now imports validated normal original roads into the existing traffic network. F1/G includes transport source, imported policy and traversability; known special-road classifications produce their concrete unsupported reason. Rule-3 saves retain their original visual-only roads. See [the implementation and real-road acceptance](original-roads.md).
 
 Historical status: **EXPECTED / DIAGNOSTICS IMPROVED**, 2026-10-09. Baseline HEAD
