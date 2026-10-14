@@ -3240,6 +3240,16 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
         return true;
     }
+    if(tool_==14 && hovered_) {
+        const auto cell=*hovered_;const auto ground=world_for({double(cell.x),double(cell.y)});
+        // Cyan identifies a possible starting road, not an accepted span.
+        // Complete geometry and price remain solely validate_bridge's decision.
+        const auto* permissions=world_->map_permissions().get();
+        const bool bank=world_->road_cell(cell) && permissions && permissions->road_allowed(cell) &&
+            !permissions->protected_original(cell) && !permissions->fixed_gate_at(cell) &&
+            !world_->bridge_at(cell) && !world_->bridge_bank_at(cell);
+        return draw_diamond({ground.x,ground.y-20},bank?90:230,bank?200:65,bank?220:65,false);
+    }
     if (hovered_ && tool_!=14 && tool_!=(simulation::production_profile(rules_) ? 5 : 4)) {
         const auto result=preview(*hovered_);
         const auto object=tool_==2 ? simulation::Object::ClaySource:

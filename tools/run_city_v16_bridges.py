@@ -27,7 +27,7 @@ def source_digest(repo):
 def main():
     repo, data, build, root = [Path(x).resolve(strict=True) for x in sys.argv[1:5]]
     mode = sys.argv[5]
-    if mode not in ("--audit", "--gameplay", "--ui", "--all"):
+    if mode not in ("--audit", "--gameplay", "--ui", "--ui-build", "--all"):
         raise RuntimeError("unknown mode")
     if not root.is_relative_to(repo / ".local/city-v16-bridges") or any(root.iterdir()):
         raise RuntimeError("fresh isolated bridge output root required")

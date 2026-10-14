@@ -213,6 +213,68 @@ void render_check(Context& context,const fs::path& root,const fs::path& checkpoi
     capture("bridge-software-1x.bmp");event.key.key=SDLK_Z;view.handle_event(event,running);
     capture("bridge-software-2x.bmp");view.handle_event(event,running);capture("bridge-software-4x.bmp");
 }
+void user_build_check(Context& context,const fs::path& root,Sdl& sdl) {
+    auto session=m::load_stored_map_session(context.data,context.map,m::FootprintPolicy::EdgeByte4x4Preview,
+        m::StoredGraphicsProfile::Slot8,m::GreatWallPresentationMode::Automatic);
+    const m::MapGeometry geometry{session.map.declared_map_size};
+    oe::SandboxView view(std::move(session),false,s::RulesProfile::CityV16,5);
+    const auto visuals=oe::detect_and_select_visual_profiles(context.data,fs::current_path()/"resources");
+    if(!visuals.building.empty())view.set_building_visuals(visuals.building,visuals.building_source);
+    if(!visuals.road.empty())view.set_road_visuals(visuals.road,visuals.road_source);
+    if(!visuals.walker.empty())view.set_walker_visuals(visuals.walker,visuals.walker_source);
+    view.configure_save(context.data,context.map,root/"user-built.json",p::read_save(root/"before-bridge.json"));
+    view.initialize(sdl.window,sdl.renderer);check(view.paused()&&view.world().bridges().empty(),"construction save must start paused without a bridge");
+    const auto layout=p::read_save(root/"after-bridge-before-dispatch.json");const auto& span=layout.world.bridges.at(0);
+    auto control=p::restore_save(p::read_save(root/"before-bridge.json"),context.data,context.mask);
+    check(control.execute(s::place_bridge(span.bank_a,span.bank_b)).accepted,"canonical paid construction control failed");
+    const auto expected=p::make_document(context.data,context.map,context.mask,control);
+    const auto raw=[&](s::Cell cell) {
+        auto ground=m::terrain_ground({unsigned(cell.x),unsigned(cell.y)},geometry.border);
+        ground.y-=context.policy->cell_height(cell)*40;
+        const auto screen=view.camera().world_to_screen(ground);
+        check(view.layout().map.contains(screen.x,screen.y),"construction bank is not visible on initial camera");
+        check(view.pick(screen)==cell,"visible original bank did not ground-pick exactly");
+        SDL_FPoint point{};check(SDL_RenderCoordinatesToWindow(sdl.renderer,float(screen.x),float(screen.y),&point.x,&point.y),"bank render-to-window conversion failed");
+        return point;
+    };
+    const auto a=raw(span.bank_a),b=raw(span.bank_b);bool running=true;
+    SDL_Event event{};event.type=SDL_EVENT_KEY_DOWN;event.key.key=SDLK_B;view.handle_event(event,running);
+    check(view.tool()==14,"normal B key did not expose Bridge construction");
+    const auto before=view.world().snapshot();
+    event={};event.type=SDL_EVENT_MOUSE_MOTION;event.motion.x=a.x;event.motion.y=a.y;view.handle_event(event,running);
+    check(view.render(),"construction bank hover failed");
+    event={};event.type=SDL_EVENT_MOUSE_BUTTON_DOWN;event.button.button=SDL_BUTTON_LEFT;
+    event.button.x=a.x;event.button.y=a.y;view.handle_event(event,running);
+    event={};event.type=SDL_EVENT_MOUSE_MOTION;event.motion.x=b.x;event.motion.y=b.y;
+    oe::performance::set_enabled(true);oe::performance::reset();
+    for(int frame=0;frame<100;++frame){view.handle_event(event,running);view.update(0,{});check(view.render(),"original-map user bridge preview failed");}
+    for(std::size_t i=0;i<std::size_t(oe::performance::Counter::Count);++i)
+        check(oe::performance::counter(static_cast<oe::performance::Counter>(i))==0,"original-map construction preview performed forbidden work");
+    oe::performance::set_enabled(false);check(view.world().snapshot()==before,"construction preview changed paid city state");
+    event={};event.type=SDL_EVENT_MOUSE_BUTTON_UP;event.button.button=SDL_BUTTON_LEFT;
+    event.button.x=b.x;event.button.y=b.y;view.handle_event(event,running);
+    if(view.world().snapshot()!=expected.world) {
+        context.save(view.world(),root/"user-build-actual.json");
+        std::cerr<<"B drag message: "<<view.last_message()<<"; spans "<<view.world().bridges().size()<<"; funds "<<view.world().treasury()<<'\n';
+        throw std::runtime_error("user B drag differs from canonical normally paid bridge command");
+    }
+    event={};event.type=SDL_EVENT_KEY_DOWN;event.key.key=SDLK_F5;view.handle_event(event,running);
+    const auto saved=p::read_save(root/"user-built.json");check(saved.world==expected.world&&saved.source_schema_version==21,"user-built bridge F5 lost state");
+    bool outbound=false,returned=false;
+    for(int tick=0;tick<200;++tick) {
+        view.tick_once();invariants(view.world());
+        for(const auto& courier:view.world().couriers())if(courier.role==s::CourierRole::Clay&&
+            courier.phase!=s::CourierPhase::IdleAtWorkshop&&view.world().bridge_at(courier.path.at(courier.path_vertex))) {
+            if(courier.phase==s::CourierPhase::Returning)returned=true;
+            else if(courier.cargo>0)outbound=true;
+        }
+    }
+    check(outbound&&returned,"user-built original-map bridge did not carry an actual loaded Clay round trip");
+    write(root/"user-build-check.json",{{"evidence","scripted normal B/MouseDown/MouseUp and F5 on paid original-map save; human input separate"},
+        {"map",context.map.generic_string()},{"bank_a",point(span.bank_a)},{"bank_b",point(span.bank_b)},
+        {"funds_before",before.treasury},{"funds_after",expected.world.treasury},{"paid_cost",span.paid_cost},
+        {"full_world_equal_to_paid_command",true},{"preview_frames_without_forbidden_work",100},{"loaded_crossing",outbound},{"return_crossing",returned}});
+}
 }
 int main(int argc,char** argv){try {
     check(argc==4||argc==6,"usage: bridge-fixture DATA FRESH-.local-ROOT WATER-AUDIT | DATA ROOT --resume SAVE TICKS");
@@ -344,6 +406,7 @@ int main(int argc,char** argv){try {
     }
     check(tested,"no occupied-deck disconnect scenario measured");
     save_negatives(*context,root,world);additional_role_controls(*context,root,builder.a,builder.b);
+    user_build_check(*context,root,sdl);
     render_check(*context,root,root/"outbound-on-bridge.json",sdl);
     std::cout<<summary.dump(2)<<'\n';return 0;
 }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}}

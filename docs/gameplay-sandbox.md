@@ -6,7 +6,9 @@ normal bank roads over 1..8 straight water cells. Green/amber/red distinguishes
 affordable, unaffordable and blocked geometry; price 40 + 20/cell, upkeep 0. F3 keeps
 B's diagnostic light. Selection shows ownership/longitudinal restrictions; span
 removal is unavailable in V1. Older saves/defaults keep their versions. Starter:
-`sh tools/test_city_v16_bridges.sh DATA --ui`.
+`sh tools/test_city_v16_bridges.sh DATA --ui` shows a paid crossing;
+`--ui-build` starts before construction so the player builds it with B and a
+bank-to-bank drag.
 
 The explicit `sandbox-city-v16` rule 1 inherits City-v15 and adds ownership maintenance only. Costs are charged at positive building ages divisible by 400, after real Household taxes, regardless of staffing, pause or fire. Funds may become negative; actual taxes repay debt and sufficiently funded paid construction becomes available again. Existing operations continue normally. Schema 18 adds only `maintenance_spent_total` and signed treasury; schemas 1–17 have no maintenance and retain their old validation. Demolition stops future bills without refunds. Houses and roads have no maintenance; no loans, interest, bankruptcy, new goods or entities are introduced. These are authored OpenEmperor rules. See [maintenance table, exact ordering, persistence and budget acceptance](city-v16.md).
 

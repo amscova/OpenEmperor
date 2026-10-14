@@ -49,12 +49,22 @@ actual endpoint and publishes one complete command. Green is legal/affordable,
 amber valid geometry with insufficient funds, red a named blocker. Preview price
 is the authority's actual price. Preview coalesces endpoints/revision/sequence/
 funds, with no World copies, commands, ticks, BFS, routes or asset/file work.
+When B is armed, a cyan outline identifies a possible starting road; red indicates
+that the hovered cell cannot be a starting bank. This cue does not accept a span;
+the complete validation controls the green/amber/red drag and payment.
 Escape/right-click/focus/layout/resize/UI release cancel. **F3 retains B's existing
 diagnostic light control.**
 
 The bridge is **OpenEmperor-authored timber geometry**, not identified Emperor
-artwork: planks, edge thickness, supports, posts, rails and half-bank end sections.
-Beam widths scale with zoom. Deck/back rail and front rail are bounded local
+artwork: individual weathered planks with grain, shaded beam faces, supporting
+pilings and diagonal knees, small capped posts, handrails and half-bank end
+sections. Raised decorative bank cubes have been removed. The fixed twelve
+axis/end/component templates are prepared before the frame loop, rasterized on
+an 80×80 local grid with bounded edge coverage and compressed into colored row
+runs. Shared nearest screen boundaries prevent cracks at fractional zoom.
+Each bounded component submits one geometry batch; the same prepared runs supply
+drawing and picking without textures, material generation or rasterization in a frame.
+Deck/back rail and front rail are bounded local
 painter components; the front rail follows an actor at the same cell key, without
 global bridge-last/elevation sorting. Feet and diagnostic markers share deck
 ground. Cached actually drawn geometry supplies visual inspection. F8 hides the
@@ -179,22 +189,71 @@ baseline comparisons are recorded separately in the ignored
 Native Metal preparation is separate from the software pixel review and does
 not close the manual construction/zoom/resize/Save-Load check above.
 
+## Graphics and player construction follow-up
+
+The 2026-10-14 follow-up keeps all rule, policy, save, transport and price authority
+unchanged. The actual original-map B/MouseDown/MouseUp path builds from the genuine
+pre-construction save: **Funds 836 → 776**, cost 60, and full World equality with
+the normally paid command from that same starting state. F5 preserves it; actual
+loaded Clay and returning crossings follow. Its 100 preview frames perform no
+World copies/commands/ticks, navigation, files, asset decodes or texture uploads.
+The ignored current starter report is `.local/city-v16-bridges/run-ZTZBgC`, including
+`gameplay/user-build-check.json` and reviewed 1×/4× software captures.
+
+Current Release passes **150/150**; the eleven affected Bridge, input, original-road,
+save, composition and ground-occlusion tests pass in **Debug and ASan/UBSan** with
+no sanitizer findings. The complete starter retains 167/165/2, identical before/
+after policy summaries, original bytes and ten process-restart continuations.
+Oliver confirmed the walker crossing in his previous opened test session:
+**User-reported walker PASS**, limited to that crossing. The new appearance and
+manual B build are separate human checks; scripted success does not infer them.
+
+## Visual rejection and revised material
+
+Oliver rejected the previous smooth, blocky appearance on 2026-10-14. Its technical
+PASS does not establish visual acceptance. The replacement darkens and details
+the timber, reduces post density to land thresholds/water-cell centres, relocates
+supports under the water-cell centres, narrows the deck edge and removes the cubic
+bank pads. The authoritative deck, projection, bank endpoints, World and saves
+remain unchanged; no decorative geometry establishes transport or height.
+
+Both axes, 1×/2×/4×/fractional zoom, preview tints, visible supports, material color
+variation, caller blend restoration and shared picking pass production pixel tests.
+The revised actual original-map build/cargo/return/F5/100-pure-frame checks pass;
+private reviewed captures are in `.local/city-v16-bridges/pixel-bridge-final`.
+Current Release passes 150/150, with eight affected Debug and ASan/UBSan tests
+passing separately. The new native appearance still awaits Oliver's review;
+these checks are not an original-Emperor artwork or human-style PASS.
+
 ## Test starter
 
 ```sh
 sh tools/test_city_v16_bridges.sh .local/gog-extracted/app
 sh tools/test_city_v16_bridges.sh .local/gog-extracted/app --ui
+sh tools/test_city_v16_bridges.sh .local/gog-extracted/app --ui-build
 ```
 
 Default `--all` builds current Release, verifies original/source identity, runs
 bridge tests, full before/after corpus, water/sprite-metadata audit, paid gameplay,
 JSON negatives, process restarts and historical/current city controls. `--audit`
-omits original gameplay; `--gameplay` omits old city playthroughs; `--ui` also opens
-the normal current Release app after diagnosis. Generated reports, settings,
+omits original gameplay; `--gameplay` omits old city playthroughs; `--ui` directly
+loads the paid outbound save in the normal current Release app after diagnosis.
+It opens paused at tick 56 with rule 5/policy 3/schema 21, the bridge centered and
+a loaded Clay courier on its deck. It does not depend on navigating the menu or
+starting a new city, whose default deliberately remains rule 4. Generated reports, settings,
 saves and original-data captures stay ignored in `.local/city-v16-bridges/run-*`;
 personal histories and original inputs are unchanged. No publication or asset
 distribution.
 
-Manual check: **L → 01-build-bridge → Enter**, B and drag the existing bank roads.
-Continue and watch Clay cross/return; zoom/pan/resize, select the bridge, F5/F9.
-Prebuilt outbound, returning and running-city saves exist in that isolated root.
+Manual check: run `--ui`, confirm **Bridges 1 / Policy 3 / Save 21**, then click
+**Continue** and watch Clay cross/return; zoom/pan/resize, select the bridge, F5/F9.
+The CLI load uses only that isolated test save, without personal preferences or
+recovery histories. `L` opens the save list only from the main menu; it has no
+load-list action in the playing view. **`--ui-build` loads the pre-construction
+save directly**, with existing paid bank roads and enough funds for the 60-fund
+span. Press B or click B Bridge, drag between the roads on opposite sides of the
+small stream, and release the green preview. The paid bridge is immediately
+visible; Continue starts the actual Clay delivery. F5/F9 preserves a user-built
+span. The same empty-span checkpoint is also printed as `01-build-bridge.json`.
+Prebuilt returning and running-city saves also remain in
+the isolated root. The direct CLI view exits with Escape.
