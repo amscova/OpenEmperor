@@ -4,6 +4,7 @@
 #include "simulation/original/Desirability.h"
 #include "simulation/original/HouseEvolution.h"
 #include "simulation/original/ModelData.h"
+#include "simulation/original/OriginalHousingView.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -205,6 +206,32 @@ void test_evolution() {
     check(g.lacquerware > g.bronzeware, "setup");
 }
 
+
+void test_world_view() {
+    const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
+    if (!dir || !*dir) { std::cout << "world view test skipped (OPENEMPEROR_GAME_DIR unset)\n"; return; }
+    namespace sim = openemperor::simulation;
+    const auto m = load_model_data(dir);
+    sim::World w(160, 32, std::vector<std::uint8_t>(160 * 32, 1), sim::RulesProfile::CityV14);
+    auto place = [&](sim::CommandType t, sim::Cell c) {
+        const auto r = w.execute({t, c});
+        check(r.accepted && r.changed, "placement failed");
+        return *w.building_owner_at(c);
+    };
+    const auto near_warehouse = place(sim::CommandType::PlaceHousehold, {10, 10});
+    const auto far_house = place(sim::CommandType::PlaceHousehold, {60, 10});
+    place(sim::CommandType::PlaceWarehouse, {14, 10});
+    const auto reports = evaluate_original_housing(w, m);
+    check(reports.size() == 2, "one report per house");
+    int near_d = 0, far_d = 99;
+    for (const auto& r : reports) (r.id == near_warehouse ? near_d : far_d) = r.desirability;
+    (void)far_house;
+    check(near_d == -13, "warehouse ring 3/4 over the 2x2 footprint takes the maximum");
+    check(far_d == 0, "distant house unaffected");
+    for (const auto& r : reports) check(r.settled_type >= HT_Shelter, "settled type valid");
+    std::cout << "world view test passed\n";
+}
+
 void test_install() {
     const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
     if (!dir || !*dir) { std::cout << "install test skipped (OPENEMPEROR_GAME_DIR unset)\n"; return; }
@@ -233,6 +260,7 @@ int main() {
         test_walls();
         test_evolution();
         test_install();
+        test_world_view();
     } catch (const std::exception& e) {
         std::cerr << "FAILED: " << e.what() << "\n";
         return 1;

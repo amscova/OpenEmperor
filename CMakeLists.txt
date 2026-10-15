@@ -264,6 +264,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/original/ModelData.cpp
     src/simulation/original/Desirability.cpp
     src/simulation/original/HouseEvolution.cpp
+    src/simulation/original/OriginalHousingView.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
