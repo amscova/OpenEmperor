@@ -1,3 +1,4 @@
+#include "ProcessCommand.h"
 #include "app/AutosaveController.h"
 #include "maps/EmperorMap.h"
 #include "maps/MapGeometry.h"
@@ -132,7 +133,7 @@ void process_boundary(const fs::path& root,const Bytes& mask,const sim::World& w
     save::write_save(root/(prefix+"-expected.json"),save::make_document(root/"data",relative,mask,reference),root/"data",mask);
     const std::string command="\""+executable.string()+"\" --process-read-file \""+root.string()+"\" "+
         std::to_string(layout)+" "+prefix;
-    check(std::system(command.c_str())==0,"fresh process post-repair gate restore failed");
+    check(openemperor::test::run_command(command)==0,"fresh process post-repair gate restore failed");
     check(json_file(root/(prefix+"-process.json"))==json_file(root/(prefix+"-expected.json")),
           "fresh process post-repair continuation differs from live reference");
 }
@@ -150,7 +151,7 @@ void run_layout(const fs::path& root,unsigned layout,const fs::path& executable)
     auto doc=save::make_document(root/"data",relative,mask,w);
     check(autosave.begin(doc,mask).kind==openemperor::AutosaveResult::Kind::Saved,"gate recovery start failed");
     const std::string command="\""+executable.string()+"\" --process-read \""+root.string()+"\" "+std::to_string(layout);
-    check(std::system(command.c_str())==0,"fresh process gate reconstruction failed");
+    check(openemperor::test::run_command(command)==0,"fresh process gate reconstruction failed");
     auto interrupted=sim::World::restore(w.snapshot(),permissions);
     check(interrupted.execute({sim::CommandType::RemoveRoad,gate.openings[1]}).accepted,"gate exit removal failed");
     for(int i=0;i<25;++i)interrupted.tick();boundary(root,mask,interrupted,"interrupted");

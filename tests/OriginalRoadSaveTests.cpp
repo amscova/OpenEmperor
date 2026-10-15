@@ -1,3 +1,4 @@
+#include "ProcessCommand.h"
 #include "app/AutosaveController.h"
 #include "maps/EmperorMap.h"
 #include "maps/MapGeometry.h"
@@ -109,11 +110,7 @@ std::string file_bytes(const fs::path& path) {
     std::ifstream input(path,std::ios::binary);check(input.good(),"Saved byte comparison input missing");
     return {std::istreambuf_iterator<char>(input),std::istreambuf_iterator<char>()};
 }
-std::string shell_quote(std::string_view text) {
-    std::string quoted="'";
-    for(const char c:text)quoted+=c=='\'' ? "'\"'\"'":std::string(1,c);
-    return quoted+"'";
-}
+using openemperor::test::shell_quote;
 void boundary(const fs::path& root,const Bytes& mask,const sim::World& world,const fs::path& executable,
               std::string_view name,bool repair_on_resume=false) {
     const auto before=world.snapshot();const auto path=root/(std::string(name)+".json");
@@ -137,7 +134,7 @@ void boundary(const fs::path& root,const Bytes& mask,const sim::World& world,con
         save::make_document(root/"data",relative,mask,reference),root/"data",mask);
     const auto command=shell_quote(executable.string())+" --process-save "+shell_quote(root.string())+" "+
         shell_quote(name)+" "+(repair_on_resume ? "repair":"continue");
-    check(std::system(command.c_str())==0,"Fresh process original-road restore failed");
+    check(openemperor::test::run_command(command)==0,"Fresh process original-road restore failed");
     check(json_file(root/(std::string(name)+"-expected.json"))==json_file(root/(std::string(name)+"-process.json")),
           "Fresh process full save document differs from uninterrupted continuation");
     check(world.snapshot()==before,"Save/restore mutated source World");
@@ -176,7 +173,7 @@ void run_case(const fs::path& root,bool shared_cell,const fs::path& executable) 
     equal_continuation(sim::World::restore(world.snapshot(),permissions),
         save::restore_save(save::read_save(catalog.histories[0].entries[0].path),root/"data",mask));
     const auto recovery_command=shell_quote(executable.string())+" --process-recovery "+shell_quote(root.string());
-    check(std::system(recovery_command.c_str())==0,"Fresh process schema20 recovery reconstruction failed");
+    check(openemperor::test::run_command(recovery_command)==0,"Fresh process schema20 recovery reconstruction failed");
     check(json_file(root/"recovery-process.json")==json_file(root/"on-original-road-expected.json"),
           "Fresh process recovery continuation differs from earned manual save");
     if(!shared_cell) {

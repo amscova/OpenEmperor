@@ -97,6 +97,18 @@ find_package(Threads REQUIRED)
 
 include(cmake/OpenEmperorWarnings.cmake)
 
+# Windows reserves a 1 MiB default stack for the main thread (and for threads
+# created without an explicit size), versus 8 MiB on macOS/Linux. Several
+# simulation/map paths need more than 1 MiB and crash with
+# STATUS_STACK_OVERFLOW (0xC00000FD). Match the POSIX default.
+if(WIN32)
+    if(MSVC)
+        add_link_options(/STACK:8388608)
+    else()
+        add_link_options(-Wl,--stack,8388608)
+    endif()
+endif()
+
 add_executable(openemperor
     src/app/main.cpp
     src/app/Application.cpp

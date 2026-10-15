@@ -1,3 +1,4 @@
+#include "ProcessCommand.h"
 #include "app/AutosaveController.h"
 
 #include <nlohmann/json.hpp>
@@ -221,7 +222,7 @@ int main(int argc,char* argv[]) {
         const auto invoke=[&](std::string_view mode) {
             const std::string command="\""+executable+"\" "+std::string(mode)+" \""+
                 process_root.string()+"\"";
-            return std::system(command.c_str());
+            return openemperor::test::run_command(command);
         };
         check(invoke("--process-write")==0,"separate process A failed");
         check(invoke("--process-read")==0,"separate process B failed");
