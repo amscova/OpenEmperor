@@ -36,6 +36,12 @@ inline constexpr int service_timer_start = 96;
 void grant_service(int& timer);        // a visit: timer = 96
 void decay_services(HouseState& h);    // once per cycle (phase 35 in the original)
 
+// Updates a service building waits between walkers, from its staffing level
+// (a percentage-like value). No workers at all means 64.
+int service_spawn_interval(int staffing);
+// Counter step: returns true when a walker should be sent this update.
+bool service_spawn_tick(int& counter, int staffing);
+
 enum class Verdict : int { Devolve = -1, Stay = 0, Evolve = 1 };
 
 bool is_house_type(int type);

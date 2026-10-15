@@ -10,6 +10,20 @@ void decay_services(HouseState& h) {
         *t = *t < 2 ? 0 : *t - 1;
 }
 
+int service_spawn_interval(int staffing) {
+    if (staffing >= 100) return 1;
+    if (staffing >= 75) return 3;
+    if (staffing >= 50) return 7;
+    if (staffing >= 25) return 15;
+    return staffing >= 1 ? 29 : 64;
+}
+
+bool service_spawn_tick(int& counter, int staffing) {
+    ++counter;
+    if (counter > service_spawn_interval(staffing)) { counter = 0; return true; }
+    return false;
+}
+
 bool is_house_type(int type) { return type >= house_type_first && type <= house_type_last; }
 bool is_elite(int type) { return type >= HT_EliteUnoccupied && type <= house_type_last; }
 

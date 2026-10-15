@@ -273,6 +273,22 @@ void test_service_timers() {
     (void)m;
 }
 
+void test_spawn_rate() {
+    check(service_spawn_interval(100) == 1 && service_spawn_interval(150) == 1, "full staffing");
+    check(service_spawn_interval(99) == 3 && service_spawn_interval(75) == 3, "75-99");
+    check(service_spawn_interval(74) == 7 && service_spawn_interval(50) == 7, "50-74");
+    check(service_spawn_interval(49) == 15 && service_spawn_interval(25) == 15, "25-49");
+    check(service_spawn_interval(24) == 29 && service_spawn_interval(1) == 29, "1-24");
+    check(service_spawn_interval(0) == 64 && service_spawn_interval(-5) == 64, "unstaffed");
+    // Interval 3: a walker leaves on every 4th update (counter must exceed 3).
+    int c = 0, sent = 0;
+    for (int i = 0; i < 40; ++i) if (service_spawn_tick(c, 75)) ++sent;
+    check(sent == 10, "interval 3 sends every 4th update");
+    c = 0; sent = 0;
+    for (int i = 0; i < 40; ++i) if (service_spawn_tick(c, 100)) ++sent;
+    check(sent == 20, "interval 1 sends every 2nd update");
+}
+
 void test_install() {
     const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
     if (!dir || !*dir) { std::cout << "install test skipped (OPENEMPEROR_GAME_DIR unset)\n"; return; }
@@ -301,6 +317,7 @@ int main() {
         test_walls();
         test_evolution();
         test_service_timers();
+        test_spawn_rate();
         test_install();
         test_world_view();
     } catch (const std::exception& e) {
