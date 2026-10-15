@@ -212,3 +212,94 @@ are absent. Both the new two-Ramp `--ui` starter and existing before-constructio
 exit0 through their owned processes. This proves executable startup/rendering,
 not native Cocoa/Metal input or human visual acceptance. Build/test logs, pixel
 controls and final manifest are in `.local/cliff-ramp-visuals/validation/`.
+
+## Graded shoulder continuity follow-up
+
+This bounded geometry correction starts at clean
+`0e4166374918c5512e4c72fcb3af9ea4e2e75b4f`. It preserves all material/color
+functions, the road surface, original assets, signed projection, actor heights,
+local painter slots, Bridge rendering, rule6/policy3/schema22 and gameplay.
+
+Two independent defects were confirmed before their respective corrections:
+
+1. The tread was continuous, but the outer shoulder used
+   `20*t - (half ? delta*40 : 0) + 20*edge`. At the shared midpoint its two
+   limits differ by`-40*delta` pixels. That is the undisturbed terrain's actual
+   vertical step; using it as the graded shoulder reference created separate
+   cut/fill triangles which could paint across the road. A rendered-pixel
+   regression against the old renderer fails with
+   `triangular bank panel remains in rendered clearance`.
+2. After correcting that reference, two independently antialiased halves still
+   exposed the background along their diagonal seam. Two alpha-half fragments
+   blended successively retain approximately25% background. Rendering against two
+   different clear colors confirmed this at storageY, delta−1, height−1,1x,
+   t0.5/side−0.15. The independent two-background test failed before the raster fix.
+
+Coordinates relative to endpoint A are
+`S(t,s) = ((axisX ? 40 : -40)*t + (axisX ? -40 : 40)*s,
+          (20 - 40*delta)*t + 20*s)`.
+The tread keeps its existing width`0.26 + 0.04*sin(pi*t)`. The shoulder's
+outer edge now uses the same continuous height function at side±0.46, without a
+half-dependent plateau. At t0 and t1 it meets the actual endpoint road planes;
+at t0.5 both halves share the same cross-section. For a descendingX ramp, the
+outer near-edge y values are9.2/39.2/69.2, instead of9.2/(19.2 or59.2)/69.2.
+For ascendingX they are9.2/−0.8/−10.8. Y mirrors x; signed starting heights
+translate the entire construction without changing these differences.
+
+Only the elevated ramp is rasterized as joined geometry, once at preparation.
+Each resulting pixel belongs to exactly one existing half/back/front component,
+using the inverse ramp-plane projection. For the edge-on ascending case, ownership
+uses projection along the unchanged foot line and existing shallow crest. This
+removes overlapping half-alpha seam fragments without a new frame pass, texture,
+palette, global sorting rule or floating height. The flat Snapshot path is kept
+unchanged. The existing24 cached components,2,048-run per-component limit and
+opaque-coverage lookup remain bounded; no renderer budget is increased. Joined
+runs stream directly to those components without an oversized intermediate mesh.
+
+`AuthoredTerrainSides` requires no source change: its existing prepared cut
+intersects the updated actual opaque ramp coverage. Lateral rock and lower
+support remain. Existing pixel tests continue to check all four directions,
+negative heights, openings, flanks, lower closure, cancelled preview and pure
+frames. New Ramp tests add exact endpoint/midpoint shoulder interpolation, left/
+right midpoint limits, forbidden triangular panels and background-independent
+interior pixels at1x/2x/4x/1.73x in both axes and height directions. Existing foot
+projection/picking and tint assertions are retained.
+
+Reproducible current-HEAD baseline captures are in
+`.local/ramp-bank-continuity/before/`; private geometry facts and the two failing
+regression logs are alongside them. The same paid two-Ramp/Bridge scene is used
+afterward, including the actual mid-Ramp courier, F8, F5/F9 and saved-state process
+restarts. These are software/scripted checks; human native visual acceptance and
+complete original Emperor cliff parity remain separate and unverified.
+
+Follow-up validation: the full Release suite passes154/154 (102.88s). The15
+selected geometry/scene/input/transport/save/recovery tests pass in Debug
+(93.61s) and ASan+UBSan (32.55s), with no compiler warnings or sanitizer findings.
+Full Debug/Sanitizer suites and native/human testing were not repeated in this
+bounded follow-up; the complete three-configuration results above are historical.
+The final test object also fails against the exact renderer source from HEAD,
+independently of the new renderer implementation.
+
+`sh tools/test_cliff_ramp_visuals.sh .local/gog-extracted/app --capture` passes at
+`.local/city-v16-ramps/cliff-mdvy6zjp`; its captures are also linked under
+`.local/ramp-bank-continuity/after/`. The unchanged fixture produces1x/2x/4x and
+fractional views, including both endpoint joins, the midpoint, two Ramps, Bridge
+and actual courier. Four before/after SaveDocuments,17 unaffected map pixel
+controls and all20 original-map PNGs remain identical. Four actual saved-state
+process restarts retain eight exact save/map-PNG comparisons, and800 pure frames
+plus F5/advance/F9 retain their existing zero-work/equality assertions.
+
+The full existing `--all` Ramp runner passes at
+`.local/city-v16-ramps/run-6u54mS`, including12,000 paid Ramp ticks,11 restart
+checkpoint pairs, the old Bridge ride and Xia/Handan long-play controls. All50
+old complete SaveDocuments and1,485 policy summaries remain exact; census stays
+167 complete/165 prepared/2 known conflicts. Original data remains unchanged.
+The tested source digest is
+`f9521e6da82fe1792a35766dad5ce1eff3dd8cdb31490d72dab168c2f6b3145b`.
+
+Visual inspection of the software images finds the large cut/fill triangles and
+midpoint stripe removed, with continuous road joins and retained rock flanks.
+This is a visual assessment, separate from the assertions above. The ascending
+orientations remain edge-on under the fixed projection; historical original
+cliff parity and human native appearance/input acceptance remain open. The
+existing texture/palette transition remains deliberately unchanged in this pass.

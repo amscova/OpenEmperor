@@ -14,6 +14,12 @@ inline scene::Point ramp_surface_point(scene::Point a,const simulation::RampLink
     return {a.x+(x?40.:-40.)*t+(x?-40.:40.)*side,
             a.y+(20.-delta*40.)*t+20.*side};
 }
+// The shoulder is graded with the entire ramp, not either half's undisturbed
+// plateau. Only the surrounding cliff keeps the original vertical terrain step.
+inline scene::Point ramp_bank_point(scene::Point a,const simulation::RampLink& r,
+                                   double t,double side) {
+    return ramp_surface_point(a,r,t,side<0?-.46:.46);
+}
 inline bool ramp_terrain_opening(double side,double depth) {
     return std::abs(side)<ramp_surface_half_width&&depth>=0&&depth<20.;
 }

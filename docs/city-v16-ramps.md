@@ -58,6 +58,11 @@ existing F3 diagnostic boundary.
 
 The surface is **OpenEmperor-authored**, with continuous compacted earth/stone
 tread and low terrain banks; no original pixels are copied.
+The graded shoulders share the tread's continuous height function across both
+halves. Elevated geometry is rasterized together and assigned once to the existing
+half/back/front components, avoiding both plateau-reference wedges and transparent
+half-alpha seams. Materials and the flat Snapshot comparison remain unchanged;
+see the [continuity follow-up](rendering/cliff-ramp-integration.md#graded-shoulder-continuity-follow-up).
 Fixed axis/gradient/half/back/front templates, including flat Snapshot comparison,
 prepare their material detail and bounded coverage raster before the frame loop.
 Drawing/picking reuse those components without textures. Actual endpoint projection

@@ -117,14 +117,14 @@ Mesh make_geometry(bool axis_x,int delta,int half,bool front) {
     Mesh mesh;const double first=half*.5;
     const simulation::RampLink r{{1},{0,0},axis_x?simulation::Cell{1,0}:simulation::Cell{0,1},0,std::int8_t(delta),40,0};
     const auto point=[&](double t,double side){return ramp_surface_point({},r,t,side*ramp_surface_width(t)/ramp_surface_half_width);};
-    const auto native=[&](double t,double side){const double edge=side<0?-.46:.46;const auto p=ramp_surface_point({},r,t,edge);return Point{p.x,20*t-(half?delta*40:0)+20*edge};};
+    const auto bank_outer=[&](double t,double side){return ramp_bank_point({},r,t,side);};
     const auto shade=[](int x,int y){auto n=std::uint32_t(x+71)*0x8da6b343U^std::uint32_t(y+91)*0xd8163841U;n^=n>>13;n*=0x85ebca6bU;return int(n%15)-7;};
     const auto flank=[&](double side) {
-        // A cut bank on the upper half and a low supported embankment below.
-        // Both use the same signed slope as the road and the terrain cutout.
+        // A continuous graded shoulder shares the tread's height function.
+        // The half split changes only local painter ownership, never height.
         for(int along=0;along<12;++along)for(int row=0;row<5;++row) {
             const double a=first+along/24.,b=first+(along+1)/24.;
-            const auto a0=point(a,side),a1=point(b,side),b0=native(a,side),b1=native(b,side);
+            const auto a0=point(a,side),a1=point(b,side),b0=bank_outer(a,side),b1=bank_outer(b,side);
             if(std::hypot(a0.x-b0.x,a0.y-b0.y)+std::hypot(a1.x-b1.x,a1.y-b1.y)<.01)continue;
             const int light=shade(along+half*12,row+int(side*20));
             const auto c=SDL_Color{Uint8(137+light),Uint8(130+light),Uint8(109+light),255};
@@ -172,7 +172,7 @@ Mesh make_geometry(bool axis_x,int delta,int half,bool front) {
     }
     return mesh;
 }
-Mesh pixel_contours(const Mesh& input) {
+template<class Emit> void pixel_contour_runs(const Mesh& input,Emit emit) {
     constexpr int side=192,origin=64;
     std::array<SDL_Color,side*side*4> samples{};
     for(std::size_t i=0;i<input.count;++i) {
@@ -186,7 +186,6 @@ Mesh pixel_contours(const Mesh& input) {
             if(inside_polygon(p,face.points))samples[std::size_t((y*side+x)*4+sample)]=face.color;
         }
     }
-    Mesh result;
     for(int y=0;y<side;++y) {
         std::array<SDL_Color,side> row{};
         for(int x=0;x<side;++x) {
@@ -205,20 +204,62 @@ Mesh pixel_contours(const Mesh& input) {
                 if(next.r!=c.r || next.g!=c.g || next.b!=c.b || next.a!=c.a)break;
                 ++end;
             }
-            result.quad({Point{double(x-origin),double(y-origin)},Point{double(end-origin),double(y-origin)},
+            emit(Quad{Point{double(x-origin),double(y-origin)},Point{double(end-origin),double(y-origin)},
                 Point{double(end-origin),double(y-origin+1)},Point{double(x-origin),double(y-origin+1)}},c);
             x=end;
         }
     }
-    return result;
+}
+Mesh pixel_contours(const Mesh& input) {
+    Mesh result;pixel_contour_runs(input,[&](Quad p,SDL_Color c){result.quad(p,c);});return result;
+}
+std::array<Mesh,4> graded_components(bool axis_x,int slope) {
+    // Rasterize the joined geometry once. Antialiasing the two diagonal half
+    // boundaries independently leaves two half-alpha pixels, whose blend still
+    // reveals 25% of the background. Each prepared pixel instead has one owner
+    // in the existing half/back/front painter; no scene ordering changes.
+    Mesh joined;
+    for(int half=0;half<2;++half)for(const bool front:{false,true}) {
+        const auto part=make_geometry(axis_x,slope,half,front);
+        for(std::size_t i=0;i<part.count;++i)joined.quad(part.faces[i].points,part.faces[i].color);
+    }
+    std::array<Mesh,4> parts;
+    const Point along{axis_x?40.:-40.,20.-slope*40.},across{axis_x?-40.:40.,20.};
+    const double determinant=along.x*across.y-along.y*across.x;
+    const auto owner=[&](Point p) {
+        double t=0,side=0;
+        if(std::abs(determinant)>1e-9) {
+            t=(p.x*across.y-p.y*across.x)/determinant;
+            side=(along.x*p.y-along.y*p.x)/determinant;
+        } else {
+            // The ascending tread is edge-on. Its existing shallow crest is
+            // apportioned along the unchanged projected foot line.
+            t=(p.x*along.x+p.y*along.y)/(along.x*along.x+along.y*along.y);
+        }
+        return (t<.5?0:2)+(side>ramp_surface_width(std::clamp(t,0.,1.))?1:0);
+    };
+    pixel_contour_runs(joined,[&](const Quad& p,SDL_Color color) {
+        for(int x=int(p[0].x);x<int(p[1].x);) {
+            const int part=owner({x+.5,p[0].y+.5});int end=x+1;
+            while(end<int(p[1].x)&&owner({end+.5,p[0].y+.5})==part)++end;
+            parts[std::size_t(part)].quad({Point{double(x),p[0].y},Point{double(end),p[0].y},
+                Point{double(end),p[2].y},Point{double(x),p[2].y}},color);x=end;
+        }
+    });
+    return parts;
 }
 // X/Y, descending/flat-debug/ascending, two halves and local back/front.
 // All material/raster work precedes the frame loop, independent of maps.
 const auto meshes=[] {
     std::array<Mesh,24> result;
-    for(int axis=0;axis<2;++axis)for(int slope=-1;slope<=1;++slope)
-        for(int half=0;half<2;++half)for(int front=0;front<2;++front)
-            result[std::size_t(axis*12+(slope+1)*4+half*2+front)]=pixel_contours(make_geometry(axis==0,slope,half,front!=0));
+    for(int axis=0;axis<2;++axis)for(int slope=-1;slope<=1;++slope) {
+        if(slope==0)for(int half=0;half<2;++half)for(int front=0;front<2;++front)
+            result[std::size_t(axis*12+4+half*2+front)]=pixel_contours(make_geometry(axis==0,slope,half,front!=0));
+        else {
+            auto parts=graded_components(axis==0,slope);
+            for(std::size_t i=0;i<parts.size();++i)result[std::size_t(axis*12+(slope+1)*4)+i]=std::move(parts[i]);
+        }
+    }
     return result;
 }();
 const auto opaque=[] {
