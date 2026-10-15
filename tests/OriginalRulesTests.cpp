@@ -1,0 +1,242 @@
+// Tests for the original-style model reader, desirability map and house
+// evolution. Synthetic numbers only; the optional install test reads the
+// user's own game files from OPENEMPEROR_GAME_DIR and skips when unset.
+#include "simulation/original/Desirability.h"
+#include "simulation/original/HouseEvolution.h"
+#include "simulation/original/ModelData.h"
+
+#include <cstdlib>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+
+using namespace openemperor::original;
+namespace {
+void check(bool ok, const char* msg) { if (!ok) throw std::runtime_error(msg); }
+
+std::string synthetic_model() {
+    std::ostringstream s;
+    s << "Notes\r\nBUILDING MODS\r\n";
+    const char* pct[] = {"50", "80", "100", "120", "150"};
+    for (int d = 0; d < 5; ++d) {
+        s << d << ",Mods,{";
+        for (int f = 0; f < 13; ++f) s << "," << (f == 1 ? pct[d] : "100");
+        s << ",},,,\r\n";
+    }
+    s << "ALL BUILDINGS\r\n";
+    s << "7,Test Sink,{,10,-8,2,2,5,0,0,0,0,0,0,0,0,},,,\r\n";
+    s << "8,Test Fountain,{,10,6,1,-2,4,0,0,0,0,0,0,0,0,},,,\r\n";
+    s << "HOUSE MODS\r\n";
+    for (int d = 0; d < 5; ++d) {
+        s << "Mod" << d << ",{";
+        for (int f = 0; f < 24; ++f) s << "," << (f == 0 ? d - 2 : 0);
+        s << ",,,\r\n";
+    }
+    s << "ALL HOUSES\r\n";
+    for (int r = 0; r < 15; ++r) {
+        // low = r*10-20, high = r*10+10; water needed for rows >= 2,
+        // food quality 5*r from row 4.
+        s << r << ": Row,{," << (r * 10 - 20) << "," << (r * 10 + 10)
+          << ",0," << (r >= 2 ? 1 : 0) << ",0,0,0,0," << (r >= 4 ? 5 * r : 0)
+          << ",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,\r\n";
+    }
+    s << "End of model data.\r\n";
+    return s.str();
+}
+
+void test_parser() {
+    const auto m = parse_model_data(synthetic_model());
+    check(m.houses.size() == 15 && m.house_mods.size() == 5 && m.building_mods.size() == 5, "section sizes");
+    check(m.has_building(7) && m.has_building(8) && !m.has_building(9), "building presence");
+    check(m.building_value(7, BF_DesValue, 2) == -8, "normal difficulty keeps value");
+    check(m.building_value(7, BF_DesValue, 0) == -4, "very easy halves value");
+    check(m.building_value(8, BF_DesValue, 4) == 9, "very hard x1.5 truncates");
+    // Row 5: low 30, high 60; difficulty 0 adds -2 to field 0 only.
+    check(m.house_value(5, HF_DesLow, 2) == 30, "house base");
+    check(m.house_value(5, HF_DesLow, 0) == 28, "house modifier");
+    check(m.house_value(0, HF_DesLow, 0) == -22, "negative values parse");
+    bool threw = false;
+    try { parse_model_data("ALL HOUSES\r\n1,x,{,1,2,},\r\n"); } catch (const std::runtime_error&) { threw = true; }
+    check(threw, "malformed input throws");
+}
+
+void test_spread() {
+    DesirabilityMap map(30, 30);
+    // Value 4, -1 per ring, three rings: 4, 3, 2.
+    map.apply_source(10, 10, 1, {4, 1, -1, 3});
+    check(map.at(10, 10) == 0, "footprint tile gets nothing");
+    check(map.at(11, 10) == 4 && map.at(11, 11) == 4, "ring 1");
+    check(map.at(12, 10) == 3 && map.at(8, 8) == 3, "ring 2");
+    check(map.at(13, 13) == 2, "ring 3");
+    check(map.at(14, 10) == 0, "beyond range");
+
+    // Step of 3: -15 for rings 1-3, then -13 for 4-6, then -11, capped to range 8.
+    map.clear();
+    map.apply_source(10, 10, 1, {-15, 3, 2, 8});
+    check(map.at(11, 10) == -15 && map.at(13, 10) == -15, "rings 1-3");
+    check(map.at(14, 10) == -13 && map.at(16, 10) == -13, "rings 4-6");
+    check(map.at(17, 10) == -11 && map.at(18, 10) == -11, "rings 7-8");
+    check(map.at(19, 10) == 0, "range 8");
+
+    // A fading value stops at zero and never flips sign.
+    map.clear();
+    map.apply_source(10, 10, 1, {2, 1, -2, 5});
+    check(map.at(11, 10) == 2 && map.at(12, 10) == 0 && map.at(13, 10) == 0, "stops at zero");
+
+    // Range is capped at 10 rings.
+    map.clear();
+    map.apply_source(15, 15, 1, {5, 99, 0, 25});
+    check(map.at(25, 15) == 5 && map.at(26, 15) == 0, "range cap 10");
+
+    // Values saturate at +-100 and add up.
+    map.clear();
+    for (int i = 0; i < 30; ++i) map.apply_source(10, 10, 1, {9, 1, 0, 1});
+    check(map.at(11, 10) == 100, "saturates at 100");
+
+    // Larger footprint: ring 1 sits one tile outside the 2x2, interior untouched.
+    map.clear();
+    map.apply_source(10, 10, 2, {5, 1, 0, 1});
+    check(map.at(10, 10) == 0 && map.at(11, 11) == 0, "footprint interior untouched");
+    check(map.at(9, 9) == 5 && map.at(12, 12) == 5 && map.at(12, 10) == 5, "ring around 2x2");
+
+    // Off-map tiles are skipped without error.
+    map.clear();
+    map.apply_source(0, 0, 1, {3, 1, 0, 2});
+    check(map.at(1, 0) == 3 && map.at(-1, 0) == 0, "edges are safe");
+
+    // Building value: max over footprint, plus an unclamped bonus.
+    map.clear();
+    map.apply_source(10, 10, 1, {7, 1, 0, 1});
+    check(map.building_value(11, 10, 2) == 7, "max over footprint");
+    check(map.building_value(11, 10, 1, 10) == 17, "bonus is not clamped");
+}
+
+void test_walls() {
+    // A wall ring shields negative sources beyond it but not positive ones.
+    auto build = [](int value) {
+        DesirabilityMap map(40, 40);
+        for (int y = 0; y < 40; ++y) map.set_wall(20 + 3, y);  // vertical wall at x=23
+        map.apply_source(20, 20, 1, {value, 1, 0, 6});
+        return map;
+    };
+    const auto neg = build(-5);
+    check(neg.at(22, 20) == -5, "before wall receives value");
+    check(neg.at(23, 20) == 0, "wall tile receives nothing");
+    check(neg.at(25, 20) == 0, "behind wall is shielded");
+    check(neg.at(18, 20) == -5, "other side unaffected");
+    const auto pos = build(5);
+    check(pos.at(25, 20) == 5 && pos.at(23, 20) == 5, "positive ignores walls");
+
+    DesirabilityMap off(40, 40);
+    off.set_wall(23, 20);
+    off.apply_source(20, 20, 1, {-5, 1, 0, 6}, WallBlocking::None);
+    check(off.at(25, 20) == -5, "blocking can be disabled");
+}
+
+HouseState house(int type, int desirability) {
+    HouseState h;
+    h.type = type;
+    h.desirability = desirability;
+    h.water = true;
+    h.food_quality = 100;
+    return h;
+}
+
+void test_evolution() {
+    const auto m = parse_model_data(synthetic_model());
+    const int d = 2;
+    check(house_row(HT_Shelter) == 0 && house_row(HT_Vacant) == 0 && house_row(HT_Hut) == 1, "rows");
+    check(next_row(HT_EliteUnoccupied) == house_row(HT_EliteUnoccupied) + 2, "unoccupied skips abandoned");
+    check(next_row(HT_HeavenlyCompound) == 14, "top maps to itself");
+
+    // Hut (row 1): low -10, high 20. Next row (2) needs water.
+    HouseState h = house(HT_Hut, 25);
+    check(evolve_step(m, d, h) && h.type == HT_PlainCottage, "evolves immediately");
+
+    // Evolution blocked when next level's needs are missing.
+    h = house(HT_Hut, 25);
+    h.water = false;
+    check(needs_met(m, d, 1, h) && !needs_met(m, d, 2, h), "needs differ by row");
+    check(combined_verdict(m, d, h) == Verdict::Stay, "stay when next needs unmet");
+    check(!evolve_step(m, d, h) && h.type == HT_Hut, "no change");
+
+    // Devolve needs limit+1 consecutive failures (limit 9 => 10th check).
+    h = house(HT_PlainCottage, -50);
+    for (int i = 0; i < 9; ++i) check(!evolve_step(m, d, h) && h.devolve_counter == i + 1, "counting");
+    check(evolve_step(m, d, h) && h.type == HT_Hut && h.devolve_counter == 0, "devolves on 10th");
+
+    // A single good check resets the counter.
+    h = house(HT_PlainCottage, -50);
+    for (int i = 0; i < 5; ++i) evolve_step(m, d, h);
+    h.desirability = 10;
+    check(!evolve_step(m, d, h) && h.devolve_counter == 0, "reset on stay");
+
+    // Missing current-level need devolves even with great desirability.
+    h = house(HT_PlainCottage, 90);
+    h.water = false;
+    check(combined_verdict(m, d, h) == Verdict::Devolve, "missing need devolves");
+
+    // Modest Siheyuan is slow to fall; Abandoned ignores desirability.
+    h = house(HT_ModestSiheyuan, -90);
+    for (int i = 0; i < 49; ++i) evolve_step(m, d, h);
+    check(h.type == HT_ModestSiheyuan, "still modest after 49");
+    check(evolve_step(m, d, h) && h.type == HT_EliteAbandoned, "falls on the 50th");
+    h = house(HT_EliteAbandoned, -90);
+    check(evolve_step(m, d, h) && h.type == HT_ModestSiheyuan, "abandoned returns regardless of desirability");
+
+    // Vacant houses fill only with occupants; unoccupied elites never change.
+    h = house(HT_Vacant, 0);
+    check(!evolve_step(m, d, h), "empty vacant stays");
+    h.occupants = 3;
+    check(evolve_step(m, d, h) && h.type == HT_Shelter, "occupied vacant becomes shelter");
+    h = house(HT_EliteUnoccupied, 99);
+    check(!evolve_step(m, d, h), "elite unoccupied inert");
+
+    // Tops cannot evolve; the bottom common house cannot devolve.
+    h = house(HT_LuxuriousApartment, 100);
+    check(!evolve_step(m, d, h) && h.type == HT_LuxuriousApartment, "top common");
+    h = house(HT_Shelter, -99);
+    for (int i = 0; i < 30; ++i) check(!evolve_step(m, d, h) && h.type == HT_Shelter, "shelter floor");
+
+    // Bronzeware OR lacquerware; Daoist OR Buddhist.
+    HouseState g = house(HT_Hut, 0);
+    g.bronzeware = 0; g.lacquerware = 3;
+    check(g.lacquerware > g.bronzeware, "setup");
+}
+
+void test_install() {
+    const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
+    if (!dir || !*dir) { std::cout << "install test skipped (OPENEMPEROR_GAME_DIR unset)\n"; return; }
+    const auto m = load_model_data(dir);
+    check(m.houses.size() == 15 && m.house_mods.size() == 5, "install section sizes");
+    for (int t : {54, 59, 111, 113, 115, 13}) check(m.has_building(t), "install lacks expected building");
+    // Independently observed worked examples at normal difficulty.
+    auto spec = [&](int type) {
+        return SpreadSpec{m.building_value(type, BF_DesValue, 2), m.building_value(type, BF_DesStep, 2),
+                          m.building_value(type, BF_DesStepSize, 2), m.building_value(type, BF_DesRange, 2)};
+    };
+    DesirabilityMap map(40, 40);
+    map.apply_source(20, 20, 1, spec(111));
+    check(map.at(21, 20) == 4 && map.at(22, 20) == 3 && map.at(23, 20) == 2 && map.at(24, 20) == 0, "Grand Way rings");
+    map.clear();
+    map.apply_source(20, 20, 1, spec(54));
+    check(map.at(21, 20) == -15 && map.at(24, 20) == -13 && map.at(27, 20) == -11 && map.at(29, 20) == 0, "Warehouse rings");
+    std::cout << "install test passed against " << dir << "\n";
+}
+}  // namespace
+
+int main() {
+    try {
+        test_parser();
+        test_spread();
+        test_walls();
+        test_evolution();
+        test_install();
+    } catch (const std::exception& e) {
+        std::cerr << "FAILED: " << e.what() << "\n";
+        return 1;
+    }
+    std::cout << "original rules tests passed\n";
+    return 0;
+}

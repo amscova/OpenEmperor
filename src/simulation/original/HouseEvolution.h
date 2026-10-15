@@ -1,0 +1,57 @@
+#pragma once
+// Original-style house evolution: pure rules over a ModelData table.
+// Services the host game does not model yet are simply reported as absent.
+#include "simulation/original/ModelData.h"
+
+#include <cstdint>
+
+namespace openemperor::original {
+
+inline constexpr int house_type_first = 2;   // Vacant
+inline constexpr int house_type_last = 17;   // Heavenly Compound
+enum HouseType : int {
+    HT_Vacant = 2, HT_Shelter, HT_Hut, HT_PlainCottage, HT_AttractiveCottage,
+    HT_SpaciousDwelling, HT_ElegantDwelling, HT_OrnateApartment, HT_LuxuriousApartment,
+    HT_EliteUnoccupied, HT_EliteAbandoned, HT_ModestSiheyuan, HT_LavishSiheyuan,
+    HT_HumbleCompound, HT_ImpressiveCompound, HT_HeavenlyCompound
+};
+
+// What a house currently has. Anything the host does not simulate stays false/0.
+struct HouseState {
+    int type = HT_Shelter;
+    int desirability = 0;
+    int occupants = 0;
+    int devolve_counter = 0;
+
+    bool herbalist = false, water = false, acupuncture = false, music = false,
+         acrobat = false, drama = false;
+    bool ancestor = false, confucian = false, daoist = false, buddhist = false;
+    int food_quality = 0;
+    int hemp = 0, ceramics = 0, tea = 0, silk = 0, bronzeware = 0, lacquerware = 0;
+};
+
+enum class Verdict : int { Devolve = -1, Stay = 0, Evolve = 1 };
+
+bool is_house_type(int type);
+int house_row(int type);   // max(type - 3, 0)
+int next_row(int type);    // row whose needs must be met to evolve
+bool is_elite(int type);
+
+// Every requirement of `row` is satisfied by the house.
+bool needs_met(const ModelData& m, int difficulty, int row, const HouseState& h);
+// Desirability-only verdict for the current row.
+Verdict desirability_verdict(const ModelData& m, int difficulty, const HouseState& h);
+// Combined verdict as the original computes it (desirability + needs).
+Verdict combined_verdict(const ModelData& m, int difficulty, const HouseState& h);
+
+// Consecutive devolve verdicts tolerated before the next one demotes (limit).
+int devolve_limit(int type);
+// Target type for a given step, or -1 when the step has no effect.
+int evolve_target(int type);
+int devolve_target(int type);
+
+// One evaluation, run once per cycle. Updates h.type / h.devolve_counter and
+// returns true when the type changed.
+bool evolve_step(const ModelData& m, int difficulty, HouseState& h);
+
+}  // namespace openemperor::original

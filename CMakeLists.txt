@@ -261,6 +261,9 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldHealth.cpp
     src/simulation/WorldMaintenance.cpp
     src/simulation/WorldDesirability.cpp
+    src/simulation/original/ModelData.cpp
+    src/simulation/original/Desirability.cpp
+    src/simulation/original/HouseEvolution.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
@@ -486,6 +489,12 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-map-rules-preflight-tests)
     add_test(NAME map-rules-selected-worker COMMAND openemperor-map-rules-preflight-tests)
     set_tests_properties(map-rules-selected-worker PROPERTIES TIMEOUT 30)
+    add_executable(openemperor-original-rules-tests tests/OriginalRulesTests.cpp)
+    target_link_libraries(openemperor-original-rules-tests PRIVATE openemperor-simulation)
+    openemperor_enable_warnings(openemperor-original-rules-tests)
+    add_test(NAME original-rules COMMAND openemperor-original-rules-tests)
+    set_tests_properties(original-rules PROPERTIES TIMEOUT 30
+        ENVIRONMENT "OPENEMPEROR_GAME_DIR=$ENV{OPENEMPEROR_GAME_DIR}")
 
     add_executable(openemperor-map-input-tests tests/MapViewInputTests.cpp
         src/app/MapBrowser.cpp tests/MapDebugViewInputAdapter.cpp src/renderer/TerrainPreviewRenderer.cpp
