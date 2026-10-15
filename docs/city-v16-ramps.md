@@ -96,11 +96,18 @@ the faces. Picking, all gameplay/save authority, Bridge art and
 the global painter remain unchanged. Frames perform no material generation, map
 scan, file/asset/texture work, World copies, commands, ticks or navigation.
 General original elevation, slope identity and cliff composition remain unresolved.
-See [cliff/ramp integration](rendering/cliff-ramp-integration.md) for the same-scene
-before/after captures, original-asset research and the paid two-ramp starter:
+Matching lateral links now share a derived visual slope with no internal bank
+or rock ribbon. Existing runtime road pixels supply the graded earth/stone
+material; joined interior bands omit the source junction's repeated curb clusters.
+All four adjacency variants and both F6 materials are prepared outside frames.
+The authored cliff cache shares closed/four-opening runs within its existing8MiB
+bound. This changes presentation only, retaining rule6/policy3/schema22 and the
+same foot projection, local painter, pricing, transport and old saves.
+See [joined ramp surfaces](rendering/multi-ramp-integration.md) for the actual
+four-ramp before/after matrix and current paid test starter:
 
 ```sh
-sh tools/test_cliff_ramp_visuals.sh .local/gog-extracted/app
+sh tools/test_multi_ramp_visuals.sh .local/gog-extracted/app
 ```
 
 The2026-10-15 integration pass at baseline`9d6ac7a` captures the same paid scene

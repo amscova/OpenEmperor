@@ -205,8 +205,32 @@ const assets::RgbaImage* road_image(const assets::RoadVisualProfile* profile,boo
 SDL_Color surface_material(const assets::RgbaImage* image,bool axis,double t,double side,unsigned adjacency) {
     if(image) {
         const double local=t<.5?t:t-1.;
-        const int x=int(std::floor(39+(axis?40*local-40*side:40*side-40*local)));
-        const int y=int(std::floor(20+20*local+20*side));
+        double source_x=39+(axis?40*local-40*side:40*side-40*local);
+        double source_y=20+20*local+20*side;
+        if((side<0&&(adjacency&1U))||(side>=0&&(adjacency&2U))) {
+            // Existing junction art has corner curb clusters. Repeating the
+            // full junction tile on a broad joined slope turns those corners
+            // into new interior stone rows. The authored widened corridor
+            // therefore uses the same image's bounded central earth patch,
+            // selected only by matching-link topology and geometric UVs.
+            // Smooth UV transitions retain both endpoint road joins; no RGB
+            // classification, physical-record table or original-art rewrite.
+            const auto smooth=[](double a,double b,double value) {
+                const auto u=std::clamp((value-a)/(b-a),0.,1.);return u*u*(3-2*u);
+            };
+            const double weight=smooth(.10,.25,t)*(1-smooth(.75,.90,t))*smooth(.08,.20,std::abs(side));
+            const auto fold=[](double value,double span) {
+                double at=std::fmod(value,span*2);if(at<0)at+=span*2;
+                return at<span?at:span*2-at;
+            };
+            // Reflection avoids hard wrap seams. Two incommensurate native
+            // coordinate periods retain the selected road's fine grain.
+            const double earth_x=33+fold(source_x+source_y*.25,11.999);
+            const double earth_y=16+fold(source_y-source_x*.125,7.999);
+            source_x+=(earth_x-source_x)*weight;
+            source_y+=(earth_y-source_y)*weight;
+        }
+        const int x=int(std::floor(source_x)),y=int(std::floor(source_y));
         if(x>=0&&y>=0&&x<78&&y<40) {
             const auto at=std::size_t((y*78+x)*4);
             if(image->pixels[at+3]==255)return {image->pixels[at],image->pixels[at+1],image->pixels[at+2],255};

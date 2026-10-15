@@ -1,9 +1,16 @@
 # Authored cliff and ramp integration
 
-The criticized two-Ramp scene now uses a continuous earth/stone slope through an
-explicitly opened rock edge. The saved RampLink supplies both the slope and the
-cutout. The remaining rock flanks and lower support are retained. This is a
-bounded OpenEmperor visual fallback, not verified original Emperor cliff art.
+The current renderer groups matching lateral RampLinks and prepares road-derived
+earth/stone material with coherent internal cuts. See
+[joined ramp surfaces](multi-ramp-integration.md) for the four-ramp reproduction,
+current topology/material contract, image matrix and test starter. Original
+Emperor cliff art and human visual acceptance remain unverified.
+
+The sections below record the earlier two-ramp implementation and its continuity
+follow-up. Their single-link widths, independent opened state and fixed24-mesh
+cache describe those historical revisions; the linked current report supersedes
+them. The original-source research and preserved compatibility evidence remain
+applicable.
 
 ## Baseline and root cause
 

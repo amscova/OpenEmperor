@@ -80,6 +80,31 @@ int main(){SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;try {
         }
         camera.zoom=1;
     }
+    // A junction fixture has explicit pale corner/curb material surrounding
+    // a bounded central earth patch. Shared edges must use the earth patch in
+    // the middle of a widened slope, while exterior/endpoint curbs stay exact.
+    auto curbs=profile;
+    for(auto& image:curbs.unique_images)for(int y=0;y<40;++y)for(int x=0;x<78;++x) {
+        const auto at=std::size_t((y*78+x)*4);const bool earth=x>=33&&x<45&&y>=16&&y<24;
+        image.pixels[at]=earth?Uint8(193+(x+y)%7):245;
+        image.pixels[at+1]=earth?Uint8(157+(x*3+y)%9):242;image.pixels[at+2]=earth?109:230;
+    }
+    presentation.prepare(&curbs);camera.zoom=2;
+    const s::RampLink widened{{1},{10,10},{11,10},1,0,40,0};
+    const auto sample=[&](unsigned adjacency,double t,double side) {
+        clear(renderer);
+        for(int half=0;half<2;++half)for(const bool front:{false,true})check(presentation.draw_part(renderer,camera,ground,widened,
+            half,front,true,oe::BridgeTint::Normal,adjacency,true),"curb fixture draw failed");
+        const auto output=pixels(renderer);const auto p=camera.world_to_screen(oe::ramp_surface_point(ground,widened,t,side));
+        return output[std::size_t((int(p.y)*700+int(p.x))*4)];
+    };
+    for(const double t:{.30,.40,.60,.70})for(const double side:{-.4,.4}) {
+        check(sample(3,t,side)>=193&&sample(3,t,side)<=199,"joined corridor retained source corner-curb rows");
+        check(sample(0,t,side)==245,"shared-edge UV treatment changed an isolated exterior curb");
+        check(sample(side<0?2U:1U,t,side)==245,"shared-edge UV treatment changed the group's exterior flank");
+    }
+    for(const double t:{.02,.98})for(const double side:{-.4,.4})
+        check(sample(3,t,side)==sample(0,t,side),"interior material treatment changed the endpoint road join");
     // Profile invalidation restores the precomputed authored style atomically.
     presentation.clear();check(presentation.geometry_bytes()==fallback_bytes,"profile clear retained runtime material storage");
     SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();

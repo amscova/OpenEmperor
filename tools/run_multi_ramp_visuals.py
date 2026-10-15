@@ -32,7 +32,8 @@ def main():
                            stdout=log, stderr=subprocess.STDOUT, check=True)
         print(tag + ": PASS", flush=True)
 
-    for binary in ("openemperor-authored-terrain-side-tests", "openemperor-ramp-rendering-tests"):
+    for binary in ("openemperor-authored-terrain-side-tests", "openemperor-ramp-rendering-tests",
+                   "openemperor-ramp-material-rendering-tests"):
         run(binary, binary, [])
     author(data, root / "authored-data")
     authored = root / "authored-data"

@@ -11,6 +11,7 @@ data_dir=$(CDPATH= cd -- "$1" && pwd -P)
 build_dir="$repo_dir/.local/reswall/release-build"
 cmake -S "$repo_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release -DOPENEMPEROR_USE_SYSTEM_SDL3=ON
 cmake --build "$build_dir" --parallel 2 --target openemperor openemperor-city-v16-ramps-fixture \
-    openemperor-multi-ramp-visual-fixture openemperor-authored-terrain-side-tests openemperor-ramp-rendering-tests
+    openemperor-multi-ramp-visual-fixture openemperor-authored-terrain-side-tests \
+    openemperor-ramp-rendering-tests openemperor-ramp-material-rendering-tests
 cd "$repo_dir"
 exec python3 tools/run_multi_ramp_visuals.py "$repo_dir" "$data_dir" "$build_dir" "$mode"

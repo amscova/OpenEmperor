@@ -855,9 +855,11 @@ void SandboxView::set_road_visuals(const std::filesystem::path& manifest,
     auto profile=assets::load_road_visual_profile(data_root_,manifest);
     auto sprites=std::make_unique<RoadSpriteSet>();
     sprites->initialize(renderer_,profile);
+    RampPresentation ramps;
+    ramps.prepare(&profile);
     road_sprites_=std::move(sprites);
     road_profile_=std::move(profile);
-    ramp_presentation_.prepare(&*road_profile_);
+    ramp_presentation_=std::move(ramps);
     road_manifest_=manifest;
     road_source_=source;
     road_enabled_=true;
@@ -1907,7 +1909,12 @@ void SandboxView::refresh_hover(bool force_road_plan) {
     hovered_=pointer_ ? pick(*pointer_) : std::nullopt;
     hover_dirty_=false;
     if(ramp_start_) {
-        if(!hovered_) {ramp_preview_={};refresh_ramp_visual_topology();return;}
+        if(!hovered_) {
+            const bool clear_preview=ramp_topology_.has_preview();
+            ramp_preview_={};
+            if(clear_preview)refresh_ramp_visual_topology();
+            return;
+        }
         const bool stale=force_road_plan || planned_start_!=ramp_start_ || planned_end_!=hovered_ ||
             planned_road_revision_!=world_->road_revision() || planned_command_sequence_!=world_->command_sequence() ||
             planned_treasury_!=world_->treasury();
@@ -2750,7 +2757,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
     };
     if(bridges_visible)for(const auto& r:world_->ramps())append_ramp(r,false);
-    if(ramp_start_&&ramp_preview_.geometry_valid)append_ramp(ramp_preview_.link,true);
+    if(bridges_visible&&ramp_start_&&ramp_preview_.geometry_valid)append_ramp(ramp_preview_.link,true);
     if(bridges_visible)for(const auto& bridge:world_->bridges())append_bridge(bridge,false);
     if(bridge_start_ && bridge_preview_.geometry_valid)append_bridge(bridge_preview_.span,true);
     if (road_start_ && road_preview_.valid) {

@@ -102,15 +102,23 @@ void paid_ramp(oe::SandboxView& view,int y,J& commands) {
 }
 J topology(const oe::SandboxView& view) {
     J result=J::array();
+#ifndef OE_MULTI_RAMP_BASELINE
     for(const auto& ramp:view.world().ramps()) {
         const unsigned expected=ramp.endpoint_a.y==117?2U:ramp.endpoint_a.y==118?3U:ramp.endpoint_a.y==119?1U:0U;
         const unsigned actual=view.ramp_visual_adjacency(ramp.id,true);
         check(actual==expected,"production presentation topology differs from paid source links");
         result.push_back({{"id",ramp.id.value},{"endpoint_y",ramp.endpoint_a.y},{"adjacency",actual}});
     }
+#else
+    (void)view; // Exact old HEAD has no adjacency presentation API.
+#endif
     return result;
 }
 J preview_checks(oe::SandboxView& view,SDL_Renderer* renderer,std::uint32_t border,const fs::path& root) {
+#ifdef OE_MULTI_RAMP_BASELINE
+    (void)view;(void)renderer;(void)border;(void)root;
+    return {{"evidence","exact old HEAD; new presentation-topology assertions unavailable"}};
+#else
     J commands=J::array();paid_ramp(view,117,commands);paid_ramp(view,119,commands);
     key(view,SDLK_F5);key(view,SDLK_F9);view.set_tool(5);
     auto aim=m::terrain_ground({115,118},border);aim.y-=10;center(view,aim);park(view);
@@ -152,6 +160,14 @@ J preview_checks(oe::SandboxView& view,SDL_Renderer* renderer,std::uint32_t bord
     write_png(pixels(renderer),root/"preview-committed.png");const auto links=topology(view);
     return {{"paid_preparation",commands},{"preview_world_exact",true},{"cancel_map_pixels_exact",true},
         {"normal_release_equals_paid_command",true},{"coalesced_frames",100},{"committed_topology",links}};
+#endif
+}
+std::size_t ramp_geometry_bytes(const oe::SandboxView& view) {
+#ifdef OE_MULTI_RAMP_BASELINE
+    (void)view;return 0;
+#else
+    return view.ramp_geometry_bytes();
+#endif
 }
 }
 int main(int argc,char** argv) {
@@ -194,7 +210,13 @@ int main(int argc,char** argv) {
             auto focus=m::terrain_ground({115,state==1?114U:117U},border);focus.y-=10;
             J captures=J::array();
             for(int zoom=0;zoom<4;++zoom) {
-                if(zoom==3) {SDL_Event e{};e.type=SDL_EVENT_MOUSE_WHEEL;e.wheel.y=.5F;bool running=true;view.handle_event(e,running);}
+                if(zoom==3) {
+                    const auto map=view.layout().map;SDL_FPoint raw{};
+                    check(SDL_RenderCoordinatesToWindow(renderer,float(map.x+map.w/2),float(map.y+map.h/2),&raw.x,&raw.y),SDL_GetError());
+                    SDL_Event e{};e.type=SDL_EVENT_MOUSE_WHEEL;e.wheel.y=.5F;e.wheel.mouse_x=raw.x;e.wheel.mouse_y=raw.y;
+                    bool running=true;view.handle_event(e,running);
+                    check(view.camera().zoom>1&&view.camera().zoom<2,"fractional wheel did not reach production map viewport");
+                }
                 center(view,focus);park(view);check(view.render(),SDL_GetError());
                 const auto prefix=std::string(names[std::size_t(state)])+"-z"+std::to_string(zoom);
                 const auto rgba=pixels(renderer);
@@ -228,7 +250,8 @@ int main(int argc,char** argv) {
             report["states"].push_back({{"name",names[std::size_t(state)]},{"ramps",authority.ramps.size()},
                 {"funds",authority.treasury},{"commands",commands},{"captures",captures},{"pure_frames",100},
                 {"pure_ms",elapsed},{"counters",counters},{"terrain_edges",view.authored_terrain_side_count()},
-                {"terrain_bytes",view.authored_terrain_geometry_bytes()},{"cutouts",view.authored_terrain_open_edges()},
+                {"terrain_bytes",view.authored_terrain_geometry_bytes()},{"ramp_geometry_bytes",ramp_geometry_bytes(view)},
+                {"cutouts",view.authored_terrain_open_edges()},
                 {"topology",initial_topology},{"f5_f9_authority_exact",true},{"f5_f9_map_pixels_exact",true}});
             if(state==0&&!resume)report["preview"]=preview_checks(view,renderer,border,root);
             std::ofstream(root/"summary.json")<<report.dump(2)<<'\n';view.shutdown();
