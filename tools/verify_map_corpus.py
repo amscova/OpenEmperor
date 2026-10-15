@@ -13,7 +13,91 @@ import tempfile
 import time
 
 
+def _kill_tree(process):
+    # taskkill /T also ends children, e.g. a .cmd wrapper's interpreter, which
+    # would otherwise keep the pipes open.
+    try:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                       capture_output=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        process.kill()
+    except OSError:
+        pass
+
+
+def _invoke_windows(argv, timeout):
+    """Windows cannot select() on pipes, so reader threads feed one queue."""
+    import queue
+    import threading
+    process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    chunks = queue.Queue()
+
+    def pump(pipe, name):
+        try:
+            while True:
+                chunk = pipe.read1(65536)
+                if not chunk:
+                    break
+                chunks.put((name, chunk))
+        except (OSError, ValueError):
+            pass
+        finally:
+            chunks.put((name, None))
+
+    threads = [threading.Thread(target=pump, args=(process.stdout, "stdout"), daemon=True),
+               threading.Thread(target=pump, args=(process.stderr, "stderr"), daemon=True)]
+    for thread in threads:
+        thread.start()
+    output = bytearray()
+    errors = bytearray()
+    total = 0
+    open_streams = 2
+    timed_out = False
+    output_limited = False
+    deadline = time.monotonic() + timeout
+    try:
+        while open_streams:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or total > 2 * 1024 * 1024:
+                timed_out = remaining <= 0
+                output_limited = not timed_out
+                break
+            try:
+                name, chunk = chunks.get(timeout=min(remaining, 0.25))
+            except queue.Empty:
+                continue
+            if chunk is None:
+                open_streams -= 1
+                continue
+            total += len(chunk)
+            if name == "stdout":
+                output.extend(chunk)
+            else:
+                errors.extend(chunk)
+                if len(errors) > 2048:
+                    del errors[:-2048]
+    except BaseException:
+        _kill_tree(process)
+        process.wait()
+        raise
+    finally:
+        if timed_out or output_limited or process.poll() is None and open_streams:
+            _kill_tree(process)
+    process.wait()
+    for thread in threads:
+        thread.join(timeout=5)
+    process.stdout.close()
+    process.stderr.close()
+    return {"exit_code": process.returncode, "stdout": output.decode("utf-8", "replace"),
+            "stderr": errors.decode("utf-8", "replace"), "timed_out": timed_out,
+            "output_limited": output_limited}
+
+
 def invoke(argv, timeout):
+    if os.name == "nt":
+        return _invoke_windows(argv, timeout)
     process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                start_new_session=(os.name == "posix"))
     output = bytearray()

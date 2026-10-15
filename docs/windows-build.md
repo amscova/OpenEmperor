@@ -52,12 +52,12 @@ not at the GOG installer. Settings, saves and recovery histories go to
 - Tests that relaunch their own executable quote arguments through
   `tests/ProcessCommand.h`, since `std::system` uses `cmd.exe` on Windows.
 
-## Known test gaps on Windows
+## Windows fixes found while testing
 
-Tested with llvm-mingw / Clang 22.1.8, SDL 3.4.10: 151 of 154 CTest cases pass.
+- **SDL 3.4.10 software renderer.** STATIC textures stop drawing after a scale change. A standalone SDL program reproduces it with the dummy and the native Windows video driver; Direct3D 11/12 and OpenGL are unaffected. `renderer/TextureCompatibility.h` now selects STREAMING for the software renderer on 3.4.10 as well as 3.4.14.
+- **Click picking after a gesture (upstream bug).** `cancel_gesture()` invalidated the submitted hit-test frame on every click, so a second click before the next render selected nothing. It now rebuilds ramp visuals only when ramp state exists.
+- **Map corpus runner.** `tools/verify_map_corpus.py` reads subprocess pipes with threads on Windows (`select()` only works on sockets there). Its tests wrap their fake binaries in `.cmd` files, and the SIGINT test is skipped on Windows.
 
-- `texture-compatibility-production-pixels`, `texture-compatibility-sdl-pixels`:
-  pixel samples read the clear colour under the software/dummy renderer.
-  Under investigation; the interactive renderer is unaffected.
-- `map-corpus-runner`: the Python runner uses `select()` on pipes and POSIX
-  shell stand-in executables, neither of which works on Windows.
+## Test status
+
+Tested with llvm-mingw / Clang 22.1.8, SDL 3.4.10: all 156 CTest cases pass, one Python sub-test (SIGINT delivery to a child) is skipped.

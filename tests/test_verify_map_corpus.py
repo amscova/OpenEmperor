@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import pathlib
 import signal
 import subprocess
@@ -12,6 +13,24 @@ RUNNER = pathlib.Path(__file__).resolve().parents[1] / "tools" / "verify_map_cor
 SPEC = importlib.util.spec_from_file_location("verify_map_corpus", RUNNER)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+
+
+def make_executable(script):
+    """Make a shebang test script runnable as a binary.
+
+    POSIX uses the shebang and chmod. Windows ignores shebangs, so the body is
+    moved to a .py file and a .cmd wrapper (which CreateProcess can run) calls
+    it with the same interpreter.
+    """
+    if os.name != "nt":
+        script.chmod(0o755)
+        return script
+    body = script.read_text(encoding="utf-8").split("\n", 1)[1]
+    py = script.with_name(script.name + ".py")
+    py.write_text(body, encoding="utf-8")
+    wrapper = script.with_name(script.name + ".cmd")
+    wrapper.write_text(f'@"{sys.executable}" "{py}" %*\r\n', encoding="utf-8")
+    return wrapper
 
 
 class CorpusRunnerTests(unittest.TestCase):
@@ -49,7 +68,7 @@ class CorpusRunnerTests(unittest.TestCase):
                 "'covered_cells':4,'graphics_profile':profile,'footprint_policy':policy}))\n"
                 "else:\n"
                 " print('broken output'); sys.exit(9)\n", encoding="utf-8")
-            fake.chmod(0o755)
+            fake = make_executable(fake)
             report = root / "reports" / "results.json"
             result = subprocess.run([sys.executable, str(RUNNER), "--binary", str(fake),
                                      "--data", str(root / "data with spaces"),
@@ -80,7 +99,7 @@ class CorpusRunnerTests(unittest.TestCase):
                 "elif 'A.map' in sys.argv:\n"
                 " print(json.dumps({'status':'snapshot_complete'}))\n"
                 "else: time.sleep(2)\n", encoding="utf-8")
-            fake.chmod(0o755)
+            fake = make_executable(fake)
             report = root / "report.json"
             result = subprocess.run([sys.executable, str(RUNNER), "--binary", str(fake),
                                      "--data", str(root), "--report", str(report),
@@ -92,6 +111,7 @@ class CorpusRunnerTests(unittest.TestCase):
             self.assertEqual([item["status"] for item in saved["results"]],
                              ["snapshot_complete", "timeout"])
 
+    @unittest.skipIf(os.name == "nt", "Windows cannot deliver SIGINT to a child process")
     def test_interrupt_keeps_unchecked_rows(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
@@ -105,7 +125,7 @@ class CorpusRunnerTests(unittest.TestCase):
                 "elif 'A.map' in sys.argv:\n"
                 " print(json.dumps({'status':'snapshot_complete'}))\n"
                 "else: time.sleep(10)\n", encoding="utf-8")
-            fake.chmod(0o755)
+            fake = make_executable(fake)
             report = root / "report.json"
             process = subprocess.Popen([sys.executable, str(RUNNER), "--binary", str(fake),
                                         "--data", str(root), "--report", str(report),

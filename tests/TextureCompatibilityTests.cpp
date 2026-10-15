@@ -381,7 +381,8 @@ void run_cases(Context& c,const Archive& archive,const std::function<void(const 
 void policy_cases() {
     using namespace openemperor::texture_compatibility;
     check(eager_rgba_access_for("software",SDL_VERSIONNUM(3,4,14))==SDL_TEXTUREACCESS_STREAMING,"observed software runtime policy");
-    for(int version:{SDL_VERSIONNUM(3,4,10),SDL_VERSIONNUM(3,4,13),SDL_VERSIONNUM(3,4,15)})
+    check(eager_rgba_access_for("software",SDL_VERSIONNUM(3,4,10))==SDL_TEXTUREACCESS_STREAMING,"Windows-measured software runtime policy");
+    for(int version:{SDL_VERSIONNUM(3,4,9),SDL_VERSIONNUM(3,4,13),SDL_VERSIONNUM(3,4,15)})
         check(eager_rgba_access_for("software",version)==SDL_TEXTUREACCESS_STATIC,"other SDL runtimes stay STATIC");
     for(const auto backend:{"metal","opengl","unknown",""})
         check(eager_rgba_access_for(backend,SDL_VERSIONNUM(3,4,14))==SDL_TEXTUREACCESS_STATIC,"other backends stay STATIC");

@@ -56,12 +56,7 @@ Point `--data` at the installed game folder, not the GOG installer. Settings, sa
 
 This is an alpha, inheriting upstream's status: it is **not a complete recreation of Emperor**. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) and [README.upstream.md](README.upstream.md).
 
-Windows test results (Clang 22.1.8, SDL 3.4.10): **151 of 154** CTest cases pass.
-
-- `texture-compatibility-production-pixels` and `texture-compatibility-sdl-pixels` fail under the software renderer used by tests. The interactive renderer is not affected.
-- `map-corpus-runner` fails because its Python runner assumes POSIX pipes and shell stand-ins.
-
-These are tracked in [docs/windows-build.md](docs/windows-build.md). Interactive play on Windows has had less testing than the automated suite, so expect rough edges and please report them.
+Windows test results (Clang 22.1.8, SDL 3.4.10): **all 156 CTest cases pass** (one Python sub-test is skipped on Windows). The Windows-specific fixes are listed in [docs/windows-build.md](docs/windows-build.md). Interactive play on Windows has had less testing than the automated suite, so expect rough edges and please report them.
 
 ## Contributing and upstream
 
