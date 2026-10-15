@@ -386,6 +386,75 @@ void test_delivery() {
     std::cout << "delivery test passed" << std::endl;
 }
 
+void test_stepper() {
+    check(accepts_service_visit(house(HT_Hut, 0)) == false, "a house with no occupants is not served");
+    HouseState occupied = house(HT_Hut, 0);
+    occupied.occupants = 2;
+    check(accepts_service_visit(occupied), "an occupied house is served");
+    HouseState elite = house(HT_ModestSiheyuan, 0);
+    check(accepts_service_visit(elite), "an empty elite house is still served");
+
+    HouseState v = occupied;
+    check(apply_service_visit(v, ServiceKind::Ancestor) && v.ancestor == 40, "religion visit sets 40");
+    check(apply_service_visit(v, ServiceKind::Herbalist) && v.herbalist == 96, "herbalist visit sets 96");
+    check(apply_service_visit(v, ServiceKind::Daoist) && v.daoist == 40, "Daoist visit sets 40");
+    HouseState empty = house(HT_Hut, 0);
+    check(!apply_service_visit(empty, ServiceKind::Music) && empty.music == 0, "no visit on an empty common house");
+
+    const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
+    if (!dir || !*dir) { std::cout << "stepper test skipped (OPENEMPEROR_GAME_DIR unset)" << std::endl; return; }
+    const auto real = load_model_data(dir);
+
+    // Milestone: a watered Hut at neutral desirability needs an ancestor visit and
+    // food quality 20 before it can become a Plain Cottage.
+    HouseState hut = house(HT_Hut, 0);
+    hut.occupants = 3;
+    hut.food_quality = 0;
+    for (int i = 0; i < 40; ++i) step_house(real, 2, hut, i % steps_per_month);
+    check(hut.type == HT_Hut, "without ancestor worship or food a Hut stays a Hut");
+
+    hut.food_quality = 20;
+    for (int i = 0; i < 10; ++i) step_house(real, 2, hut, i % steps_per_month);
+    check(hut.type == HT_Hut, "food quality alone is not enough");
+
+    check(apply_service_visit(hut, ServiceKind::Ancestor), "shrine visit accepted");
+    step_house(real, 2, hut, 3);
+    check(hut.type == HT_PlainCottage, "ancestor access and food 20 evolve the Hut at once");
+
+    // The ancestor timer is the whole requirement: it lasts 39 more steps, and
+    // a Plain Cottage then needs 10 consecutive failed steps to fall.
+    HouseState cottage = house(HT_PlainCottage, 0);
+    cottage.occupants = 3;
+    cottage.food_quality = 20;
+    apply_service_visit(cottage, ServiceKind::Ancestor);
+    int fell_at = 0;
+    for (int step = 1; step <= 60 && !fell_at; ++step) {
+        step_house(real, 2, cottage, step % steps_per_month);
+        if (cottage.type != HT_PlainCottage) fell_at = step;
+    }
+    check(fell_at == 49, "timer runs out on step 40, then 9 counted failures and the 10th demotes");
+    check(cottage.type == HT_Hut, "falls back to a Hut");
+
+    // Visits before the timer ends keep a house up indefinitely.
+    HouseState kept = house(HT_PlainCottage, 0);
+    kept.occupants = 3; kept.food_quality = 20;
+    for (int step = 1; step <= 400; ++step) {
+        if (step % 30 == 1) apply_service_visit(kept, ServiceKind::Ancestor);
+        step_house(real, 2, kept, step % steps_per_month);
+    }
+    check(kept.type == HT_PlainCottage, "regular visits keep the level");
+
+    // Consumption happens after the evolution check on steps 0 and 7 of the month.
+    HouseState goods = house(HT_AttractiveCottage, 0);
+    goods.occupants = 3; goods.food_quality = 30; goods.hemp = 2;
+    apply_service_visit(goods, ServiceKind::Ancestor);
+    step_house(real, 2, goods, 1);
+    check(goods.hemp == 2, "no consumption on step 1");
+    step_house(real, 2, goods, 7);
+    check(goods.hemp == 1, "consumption on step 7");
+    std::cout << "stepper test passed" << std::endl;
+}
+
 void test_spawn_rate() {
     check(service_spawn_interval(100) == 1 && service_spawn_interval(150) == 1, "full staffing");
     check(service_spawn_interval(99) == 3 && service_spawn_interval(75) == 3, "75-99");
@@ -433,6 +502,7 @@ int main() {
         test_religion();
         test_goods();
         test_delivery();
+        test_stepper();
         test_spawn_rate();
         test_install();
         test_world_view();

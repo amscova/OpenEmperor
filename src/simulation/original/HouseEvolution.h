@@ -69,6 +69,17 @@ int deliver_goods(const ModelData& m, int difficulty, HouseState& h, Goods g, in
 // average that depends on delivered / need. Returns the new house quality.
 int blend_food_quality(int house_quality, int market_score, int delivered, int food_need);
 
+enum class ServiceKind : int { Herbalist, Acupuncture, Music, Acrobat, Drama,
+                               Ancestor, Confucian, Daoist, Buddhist };
+// A house accepts a service visit when it is a house type and has occupants,
+// or is an elite type (served even when empty).
+bool accepts_service_visit(const HouseState& h);
+// Sets the matching timer (96 for services, 40 for religion). False if refused.
+bool apply_service_visit(HouseState& h, ServiceKind kind);
+// One simulation step for one house: decay timers, evolution check, then
+// goods consumption on steps 0 and 7 of the month. True if the type changed.
+bool step_house(const ModelData& m, int difficulty, HouseState& h, int step_in_month);
+
 enum class Verdict : int { Devolve = -1, Stay = 0, Evolve = 1 };
 
 bool is_house_type(int type);

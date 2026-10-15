@@ -198,4 +198,33 @@ bool evolve_step(const ModelData& m, int difficulty, HouseState& h) {
     return true;
 }
 
+bool accepts_service_visit(const HouseState& h) {
+    return is_house_type(h.type) && (h.occupants > 0 || is_elite(h.type));
+}
+
+bool apply_service_visit(HouseState& h, ServiceKind kind) {
+    if (!accepts_service_visit(h)) return false;
+    switch (kind) {
+    case ServiceKind::Herbalist: grant_service(h.herbalist); break;
+    case ServiceKind::Acupuncture: grant_service(h.acupuncture); break;
+    case ServiceKind::Music: grant_service(h.music); break;
+    case ServiceKind::Acrobat: grant_service(h.acrobat); break;
+    case ServiceKind::Drama: grant_service(h.drama); break;
+    case ServiceKind::Ancestor: grant_religion(h.ancestor); break;
+    case ServiceKind::Confucian: grant_religion(h.confucian); break;
+    case ServiceKind::Daoist: grant_religion(h.daoist); break;
+    case ServiceKind::Buddhist: grant_religion(h.buddhist); break;
+    }
+    return true;
+}
+
+bool step_house(const ModelData& m, int difficulty, HouseState& h, int step_in_month) {
+    // Order as in the original: timers decay, then the evolution check, then
+    // goods consumption on its own steps.
+    decay_services(h);
+    const bool changed = evolve_step(m, difficulty, h);
+    if (is_consumption_step(step_in_month)) consume_goods(m, difficulty, h);
+    return changed;
+}
+
 }  // namespace openemperor::original
