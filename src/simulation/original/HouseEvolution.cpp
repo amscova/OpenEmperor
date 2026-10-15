@@ -34,6 +34,23 @@ bool service_spawn_tick(int& counter, int staffing) {
     return false;
 }
 
+bool is_consumption_step(int step_in_month) { return step_in_month == 0 || step_in_month == 7; }
+
+void consume_goods(const ModelData& m, int difficulty, HouseState& h) {
+    if (h.occupants <= 0 || !is_house_type(h.type)) return;
+    const int row = house_row(h.type);
+    auto use = [&](int& stock, int field) {
+        const int amount = m.house_value(row, field, difficulty);
+        if (amount > 0) stock = stock < amount ? 0 : stock - amount;
+    };
+    use(h.hemp, HF_Hemp);
+    use(h.ceramics, HF_Ceramics);
+    use(h.tea, HF_Tea);
+    use(h.silk, HF_Silk);
+    use(h.bronzeware, HF_Bronzeware);
+    use(h.lacquerware, HF_Bronzeware);
+}
+
 bool is_house_type(int type) { return type >= house_type_first && type <= house_type_last; }
 bool is_elite(int type) { return type >= HT_EliteUnoccupied && type <= house_type_last; }
 

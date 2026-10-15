@@ -304,6 +304,33 @@ void test_religion() {
     }
 }
 
+void test_goods() {
+    check(is_consumption_step(0) && is_consumption_step(7) && !is_consumption_step(1) &&
+          !is_consumption_step(8) && !is_consumption_step(15), "consumption steps");
+    const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
+    if (!dir || !*dir) { std::cout << "goods test skipped (OPENEMPEROR_GAME_DIR unset)\n"; return; }
+    const auto real = load_model_data(dir);
+    // Luxurious Apartment (row 7): hemp 1, ceramics 1, tea 1, no silk or bronzeware.
+    HouseState h = house(HT_LuxuriousApartment, 50);
+    h.occupants = 5; h.hemp = 3; h.ceramics = 1; h.tea = 0; h.silk = 4;
+    consume_goods(real, 2, h);
+    check(h.hemp == 2 && h.ceramics == 0 && h.tea == 0, "consumes the row's amounts, floor 0");
+    check(h.silk == 4, "unrequired goods are not consumed");
+    h.occupants = 0; h.hemp = 3;
+    consume_goods(real, 2, h);
+    check(h.hemp == 3, "empty houses consume nothing");
+    // Humble Compound (row 12): silk 1 and bronzeware 1; bronzeware and
+    // lacquerware are each reduced by the same amount.
+    HouseState e = house(HT_HumbleCompound, 60);
+    e.occupants = 4; e.silk = 2; e.bronzeware = 1; e.lacquerware = 3;
+    consume_goods(real, 2, e);
+    check(e.silk == 1 && e.bronzeware == 0 && e.lacquerware == 2, "bronzeware and lacquerware each reduced");
+    // Needs are checked before consumption: stock at the minimum still passes once.
+    HouseState n = house(HT_Hut, 0);
+    n.occupants = 2;
+    std::cout << "goods test passed\n";
+}
+
 void test_spawn_rate() {
     check(service_spawn_interval(100) == 1 && service_spawn_interval(150) == 1, "full staffing");
     check(service_spawn_interval(99) == 3 && service_spawn_interval(75) == 3, "75-99");
@@ -349,6 +376,7 @@ int main() {
         test_evolution();
         test_service_timers();
         test_religion();
+        test_goods();
         test_spawn_rate();
         test_install();
         test_world_view();

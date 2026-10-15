@@ -46,6 +46,15 @@ int religion_spawn_interval(int staffing);
 // Counter step: returns true when a walker should be sent this update.
 bool service_spawn_tick(int& counter, int staffing);
 
+// Time: one step = one 51-phase pass; 16 steps = a month, 12 months = a year.
+inline constexpr int steps_per_month = 16;
+inline constexpr int months_per_year = 12;
+// Goods are consumed on steps 0 and 7 of each month.
+bool is_consumption_step(int step_in_month);
+// Subtracts each goods requirement of the house's row from its stocks (floor 0).
+// Does nothing for a house with no occupants.
+void consume_goods(const ModelData& m, int difficulty, HouseState& h);
+
 enum class Verdict : int { Devolve = -1, Stay = 0, Evolve = 1 };
 
 bool is_house_type(int type);
