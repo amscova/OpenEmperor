@@ -2,6 +2,14 @@
 
 namespace openemperor::original {
 
+void grant_service(int& timer) { timer = service_timer_start; }
+
+void decay_services(HouseState& h) {
+    for (int* t : {&h.herbalist, &h.acupuncture, &h.music, &h.acrobat, &h.drama,
+                   &h.ancestor, &h.confucian, &h.daoist, &h.buddhist})
+        *t = *t < 2 ? 0 : *t - 1;
+}
+
 bool is_house_type(int type) { return type >= house_type_first && type <= house_type_last; }
 bool is_elite(int type) { return type >= HT_EliteUnoccupied && type <= house_type_last; }
 
@@ -17,14 +25,14 @@ int next_row(int type) {
 bool needs_met(const ModelData& m, int difficulty, int row, const HouseState& h) {
     auto v = [&](int f) { return m.house_value(row, f, difficulty); };
     if (v(HF_Water) && !h.water) return false;
-    if (v(HF_Herbalist) && !h.herbalist) return false;
-    if (v(HF_Acupuncture) && !h.acupuncture) return false;
-    if (v(HF_Music) && !h.music) return false;
-    if (v(HF_Acrobat) && !h.acrobat) return false;
-    if (v(HF_Drama) && !h.drama) return false;
-    if (v(HF_Ancestor) && !h.ancestor) return false;
-    if (v(HF_Confucian) && !h.confucian) return false;
-    if (v(HF_Buddhist) && !(h.daoist || h.buddhist)) return false;
+    if (v(HF_Herbalist) && h.herbalist<=0) return false;
+    if (v(HF_Acupuncture) && h.acupuncture<=0) return false;
+    if (v(HF_Music) && h.music<=0) return false;
+    if (v(HF_Acrobat) && h.acrobat<=0) return false;
+    if (v(HF_Drama) && h.drama<=0) return false;
+    if (v(HF_Ancestor) && h.ancestor<=0) return false;
+    if (v(HF_Confucian) && h.confucian<=0) return false;
+    if (v(HF_Buddhist) && h.daoist<=0 && h.buddhist<=0) return false;
     if (h.food_quality < v(HF_FoodQuality)) return false;
     if (h.hemp < v(HF_Hemp)) return false;
     if (h.ceramics < v(HF_Ceramics)) return false;

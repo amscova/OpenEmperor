@@ -232,6 +232,47 @@ void test_world_view() {
     std::cout << "world view test passed\n";
 }
 
+void test_service_timers() {
+    HouseState h;
+    check(h.herbalist == 0, "no access by default");
+    grant_service(h.herbalist);
+    check(h.herbalist == 96, "visit sets 96");
+    // Access lasts 95 decay passes and is gone on the 96th.
+    for (int i = 0; i < 95; ++i) { decay_services(h); check(h.herbalist > 0, "still served"); }
+    check(h.herbalist == 1, "last tick");
+    decay_services(h);
+    check(h.herbalist == 0, "lost on the 96th decay");
+    decay_services(h);
+    check(h.herbalist == 0, "stays at zero");
+
+    // Religion: Daoist OR Buddhist suffices; timers are independent.
+    const auto m = parse_model_data(synthetic_model());
+    grant_service(h.music);
+    decay_services(h);
+    check(h.music == 95 && h.drama == 0, "independent timers");
+
+    // A need backed by a timer is lost when it runs out (row 2 needs water only in
+    // the synthetic data, so use the real table when available).
+    const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
+    if (dir && *dir) {
+        const auto real = load_model_data(dir);
+        HouseState s = house(HT_SpaciousDwelling, 24);  // row 4: herbalist needed
+        s.food_quality = 100; s.ceramics = 9; s.hemp = 9; s.tea = 9; s.silk = 9; s.bronzeware = 9;
+        const int row = house_row(HT_SpaciousDwelling);
+        check(real.house_value(row, HF_Herbalist, 2) != 0, "spacious dwelling needs herbalist");
+        check(!needs_met(real, 2, row, s), "no herbalist, needs unmet");
+        grant_service(s.herbalist);
+        check(!needs_met(real, 2, row, s), "music is also required at this level");
+        grant_service(s.music);
+        check(!needs_met(real, 2, row, s), "ancestor worship is also required at this level");
+        grant_service(s.ancestor);
+        check(needs_met(real, 2, row, s), "herbalist met");
+        for (int i = 0; i < 96; ++i) decay_services(s);
+        check(!needs_met(real, 2, row, s), "unmet again once the timer expires");
+    }
+    (void)m;
+}
+
 void test_install() {
     const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
     if (!dir || !*dir) { std::cout << "install test skipped (OPENEMPEROR_GAME_DIR unset)\n"; return; }
@@ -259,6 +300,7 @@ int main() {
         test_spread();
         test_walls();
         test_evolution();
+        test_service_timers();
         test_install();
         test_world_view();
     } catch (const std::exception& e) {

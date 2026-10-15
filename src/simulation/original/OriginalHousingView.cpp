@@ -55,11 +55,14 @@ std::vector<OriginalHouseReport> evaluate_original_housing(
         house.occupants = std::max(b.population, 1);
         house.desirability = report.desirability;
         house.water = world.household_has_water(b.id);
-        house.herbalist = world.household_health_protected(b.id);
+        const bool herbalist_visits = world.household_health_protected(b.id);
+        if (herbalist_visits) grant_service(house.herbalist);
         house.food_quality = b.food_stock > 0 ? options.food_quality_when_fed : 0;
 
         report.peak_type = house.type;
         for (int i = 0; i < options.evolution_steps; ++i) {
+            decay_services(house);
+            if (herbalist_visits) grant_service(house.herbalist);  // steady revisits
             evolve_step(model, options.difficulty, house);
             report.peak_type = std::max(report.peak_type, house.type);
         }

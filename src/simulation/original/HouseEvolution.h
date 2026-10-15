@@ -23,12 +23,18 @@ struct HouseState {
     int occupants = 0;
     int devolve_counter = 0;
 
-    bool herbalist = false, water = false, acupuncture = false, music = false,
-         acrobat = false, drama = false;
-    bool ancestor = false, confucian = false, daoist = false, buddhist = false;
+    bool water = false;
+    // Service access is a countdown: a visit sets it to service_timer_start and
+    // decay_services() lowers it once per cycle. Nonzero means access.
+    int herbalist = 0, acupuncture = 0, music = 0, acrobat = 0, drama = 0;
+    int ancestor = 0, confucian = 0, daoist = 0, buddhist = 0;
     int food_quality = 0;
     int hemp = 0, ceramics = 0, tea = 0, silk = 0, bronzeware = 0, lacquerware = 0;
 };
+
+inline constexpr int service_timer_start = 96;
+void grant_service(int& timer);        // a visit: timer = 96
+void decay_services(HouseState& h);    // once per cycle (phase 35 in the original)
 
 enum class Verdict : int { Devolve = -1, Stay = 0, Evolve = 1 };
 
