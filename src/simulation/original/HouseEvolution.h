@@ -33,12 +33,16 @@ struct HouseState {
 };
 
 inline constexpr int service_timer_start = 96;
+inline constexpr int religion_timer_start = 40;
 void grant_service(int& timer);        // a visit: timer = 96
+void grant_religion(int& timer);       // a religious visit: timer = 40
 void decay_services(HouseState& h);    // once per cycle (phase 35 in the original)
 
 // Updates a service building waits between walkers, from its staffing level
 // (a percentage-like value). No workers at all means 64.
 int service_spawn_interval(int staffing);
+// Religious buildings use their own, slower tier table.
+int religion_spawn_interval(int staffing);
 // Counter step: returns true when a walker should be sent this update.
 bool service_spawn_tick(int& counter, int staffing);
 

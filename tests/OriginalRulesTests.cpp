@@ -265,12 +265,43 @@ void test_service_timers() {
         check(!needs_met(real, 2, row, s), "music is also required at this level");
         grant_service(s.music);
         check(!needs_met(real, 2, row, s), "ancestor worship is also required at this level");
-        grant_service(s.ancestor);
+        grant_religion(s.ancestor);
         check(needs_met(real, 2, row, s), "herbalist met");
         for (int i = 0; i < 96; ++i) decay_services(s);
         check(!needs_met(real, 2, row, s), "unmet again once the timer expires");
     }
     (void)m;
+}
+
+void test_religion() {
+    HouseState h;
+    grant_religion(h.confucian);
+    check(h.confucian == 40, "religion visit sets 40, not 96");
+    for (int i = 0; i < 39; ++i) { decay_services(h); check(h.confucian > 0, "still served"); }
+    decay_services(h);
+    check(h.confucian == 0, "religion lost on the 40th decay");
+    // Daoist OR Buddhist: either timer alone satisfies the requirement.
+    const auto m = parse_model_data(synthetic_model());
+    (void)m;
+    check(religion_spawn_interval(100) == 3 && religion_spawn_interval(75) == 6 &&
+          religion_spawn_interval(50) == 12 && religion_spawn_interval(25) == 24 &&
+          religion_spawn_interval(1) == 32 && religion_spawn_interval(0) == 64, "religion tiers");
+    const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
+    if (dir && *dir) {
+        const auto real = load_model_data(dir);
+        // Lux. Apartment (row 7) requires Daoist-or-Buddhist; check either works.
+        HouseState a = house(HT_LuxuriousApartment, 50);
+        a.food_quality = 100; a.ceramics = a.hemp = a.tea = a.silk = a.bronzeware = 9;
+        grant_service(a.herbalist); grant_service(a.acupuncture); grant_service(a.music);
+        grant_service(a.acrobat); grant_service(a.drama);
+        grant_religion(a.ancestor); grant_religion(a.confucian);
+        const int row = house_row(HT_LuxuriousApartment);
+        check(real.house_value(row, HF_Buddhist, 2) != 0, "top common house wants Daoist/Buddhist");
+        check(!needs_met(real, 2, row, a), "neither Daoist nor Buddhist: unmet");
+        HouseState b = a; grant_religion(b.daoist);
+        HouseState c = a; grant_religion(c.buddhist);
+        check(needs_met(real, 2, row, b) && needs_met(real, 2, row, c), "either religion satisfies it");
+    }
 }
 
 void test_spawn_rate() {
@@ -317,6 +348,7 @@ int main() {
         test_walls();
         test_evolution();
         test_service_timers();
+        test_religion();
         test_spawn_rate();
         test_install();
         test_world_view();

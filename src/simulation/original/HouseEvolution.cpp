@@ -4,6 +4,8 @@ namespace openemperor::original {
 
 void grant_service(int& timer) { timer = service_timer_start; }
 
+void grant_religion(int& timer) { timer = religion_timer_start; }
+
 void decay_services(HouseState& h) {
     for (int* t : {&h.herbalist, &h.acupuncture, &h.music, &h.acrobat, &h.drama,
                    &h.ancestor, &h.confucian, &h.daoist, &h.buddhist})
@@ -16,6 +18,14 @@ int service_spawn_interval(int staffing) {
     if (staffing >= 50) return 7;
     if (staffing >= 25) return 15;
     return staffing >= 1 ? 29 : 64;
+}
+
+int religion_spawn_interval(int staffing) {
+    if (staffing >= 100) return 3;
+    if (staffing >= 75) return 6;
+    if (staffing >= 50) return 12;
+    if (staffing >= 25) return 24;
+    return staffing >= 1 ? 32 : 64;
 }
 
 bool service_spawn_tick(int& counter, int staffing) {
