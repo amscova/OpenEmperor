@@ -191,3 +191,92 @@ process restart pairs. Its23 authoritative Ramp saves remain byte-identical to
 `run-E3TeNf`; all1,485 original-policy summaries and the pinned original inventory
 remain unchanged. The normal Release app with the explicit side option also loads
 the prebuild save under dummy/software; this does not establish native/human acceptance.
+
+## Full milestone revalidation (2026-10-15)
+
+The repeated Ramp V1 request was reconciled against actual clean HEAD
+`97e085f8fcdce610f4f4f59332fd09d026e47044`, which already contains the complete
+rule6 implementation and the authored terrain-side follow-up. This pass updates
+the acceptance evidence; the production implementation stays at that HEAD.
+The tested source digest is
+`9bbfb25b76695640ca7da273c0307aaf282ede32d25a8f12f3092f95e887a38b`.
+
+All three configurations register and run the same154 tests. Focused transport,
+View and terrain-side checks precede the full suites. No test is skipped, assertion
+weakened or timeout increased; build logs contain no compiler warnings.
+
+| Configuration | Complete result | Skips | CTest wall time |
+| --- | --- | ---: | ---: |
+| Debug | 154/154 PASS | 0 | 1232.61 s |
+| Release | 154/154 PASS | 0 | 111.27 s |
+| ASan + UBSan, RelWithDebInfo | 154/154 PASS; zero findings | 0 | 348.93 s |
+
+Sanitizers use the existing optimized configuration with frame pointers,
+ASan `detect_leaks=0:halt_on_error=1:abort_on_error=1` and
+UBSan `halt_on_error=1:print_stacktrace=1`; this is not a leak-sanitizer claim.
+Independent builds/tests ran concurrently, so their wall times are observational.
+Logs, JUnit reports, registered-test lists and `final-validation.json` are under
+ignored `.local/city-v16-ramps/revalidation-20261015/`.
+
+The exact full starter passed:
+
+```sh
+sh tools/test_city_v16_ramps.sh .local/gog-extracted/app --all
+```
+
+Its isolated root is `.local/city-v16-ramps/run-0ys33R`. Fresh original-source
+diagnosis remains167 complete /165 prepared /2 known conflicts, with1,846,697
+equal-height legal land pairs,16,392 equal-height original-road pairs and zero
+legal differing-height normal-land pairs. The618 raw-road height edges retain
+their existing blockers. All1,485 policy1/2/3 actual/zero/one summaries match the
+Bridge baseline. Six complete policy/placement/geometry/Bridge-render source files
+also remain byte-identical to `bd0a8e856b21f4229acea011d3805c1d95a67206`.
+All1,464 original files /819,711,091 bytes retain the pinned manifest above.
+
+The independently authored map again buys the Ramp for40 Funds,750→710, between
+`(115,114)` height1 and `(116,114)` height0. The same normal courier route crosses
+the separately paid Bridge `(118,114)`→`(120,114)` at deck0.
+
+| Actual Clay checkpoint | Tick | Measured authority |
+| --- | ---: | --- |
+| Before ascent | 56 | `(116,114)`→`(115,114)`, vertex5, progress0/5, cargo1/reservation1 |
+| On ascent | 58 | Same edge, vertex5, progress2/5, cargo1/reservation1; derived surface height0.4 |
+| After ascent | 61 | Reached `(115,114)`, vertex6, cargo1/reservation1 |
+| Delivered | 76 | Returning, cargo0/reservation0 |
+| Descending return | 93 | `(115,114)`→`(116,114)`, vertex3, progress2/5 |
+| Disconnected wait | 12220 | At `(117,114)`, pending route, cargo2/reservation2 retained |
+
+The first recipe completes at305; the12,000-tick result remains30 residents,
+Funds1082, taxes2950 and upkeep1528. Real outgoing/returning Ramp occupancy is
+recorded for Clay, Pottery, Service, Market Food inbound, both Market distributors,
+Fire Inspector and Health Worker. Paid endpoint repair costs2 and preserves the
+Ramp identity. No goods, funds, workers, residents or movement state is injected.
+
+Actual View F5/advance/F9 and all11 immediate/continued new-process pairs pass,
+including mid-Ramp, return, wait and repair. All23 authoritative Ramp SaveDocuments
+also match the earlier `run-E3TeNf` byte-for-byte;23 malformed full documents and a
+truncated document still reject. The full old control preserves50 literal old
+SaveDocuments:14 historical rule3,8 Xia rule4,8 Handan rule4 and20 rule5 Bridge
+documents. Xia/Handan still reach their goals at7200/6800 and hold them for another
+10,000 ticks; Chang-an Sui retains its paid12,000-tick rule5 crossing and restarts.
+
+Four graded orientations, signed heights, shared surface picking, tints and
+integer/fractional zoom pass the production pixel checks. View tests retain pan,
+actual resize, clipping, F8, F3/P boundaries, gesture cancellation, atomic payment
+and pure cached frames. Current before/after-build1x and mid-Ramp4x software
+captures were visually reviewed: the terrace gap is filled, and the Ramp joins
+the ground with the Walker on its graded surface. Existing pure100-frame scopes
+keep all prohibited counters zero; session shutdown returns live textures to0.
+
+The exact `--ui` starter also completed its diagnosis and reached the normal
+Release app, paused before construction, under dummy/software. Its isolated
+player save is `.local/city-v16-ramps/run-De8MF8/player-app/saves/01-build-ramp.json`.
+The owned app exits0. Use the same documented `--ui` command, choose P Ramp, drag
+the two neighboring roads, release the green40-Funds preview and Continue; Clay
+must climb, deliver and descend. F5 saves and F9 restores paused.
+
+Native/human appearance and pointer acceptance remain a manual check. Original-map
+Ramp acceptance remains unavailable because the complete census has no eligible
+site; the independently authored test is not an original-map PASS. Original slope
+identity, arbitrary cliffs and safe Ramp demolition retain their documented limits.
+No commit, push, tag, release or publication was performed.
