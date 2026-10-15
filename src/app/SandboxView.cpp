@@ -229,7 +229,7 @@ void SandboxView::load_now() {
     auto candidate=std::make_unique<simulation::World>(std::move(replacement));
     background_.set_original_road_ground(candidate->map_permissions());
     world_=std::move(candidate);
-    if(authored_terrain_sides_enabled_)authored_terrain_sides_.set_ramps(world_->ramps());
+    refresh_ramp_visual_topology();
     prepare_original_road_visuals();
     road_connectivity_report_.reset();
     road_connectivity_world_=nullptr;
@@ -326,8 +326,8 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
     if(authored_terrain_sides_enabled_) {
         if(!world_->ramps_supported())throw std::invalid_argument("Authored terrain sides require explicit City-v16 rule6");
         authored_terrain_sides_.prepare(background_.plan(),geometry_,*world_->map_permissions());
-        authored_terrain_sides_.set_ramps(world_->ramps());
     }
+    refresh_ramp_visual_topology();
     background_.set_original_road_ground(world_->map_permissions());
     prepare_original_road_visuals();
     reset_camera();
@@ -359,6 +359,7 @@ void SandboxView::shutdown() {
     building_profile_.reset();
     road_sprites_.reset();
     road_profile_.reset();
+    ramp_presentation_.clear();
     fire_sprites_.reset();
     fire_profile_.reset();
     fire_frames_drawn_.fill(false);
@@ -846,6 +847,7 @@ void SandboxView::set_road_visuals(const std::filesystem::path& manifest,
                                    VisualProfileSource source) {
     if (manifest.empty()) {
         road_sprites_.reset();road_profile_.reset();road_manifest_.clear();
+        ramp_presentation_.clear();
         prepare_original_road_visuals();
         road_source_=VisualProfileSource::Fallback;return;
     }
@@ -855,6 +857,7 @@ void SandboxView::set_road_visuals(const std::filesystem::path& manifest,
     sprites->initialize(renderer_,profile);
     road_sprites_=std::move(sprites);
     road_profile_=std::move(profile);
+    ramp_presentation_.prepare(&*road_profile_);
     road_manifest_=manifest;
     road_source_=source;
     road_enabled_=true;
@@ -1643,6 +1646,35 @@ bool SandboxView::action_enabled(sandbox_ui::Action action) const {
     }
     return true;
 }
+void SandboxView::refresh_ramp_visual_topology() {
+    // Existing World links supply identity; immutable source permissions and
+    // current normal endpoint roads only qualify their visual grouping. A
+    // broken road never deletes a link or creates a replacement transport edge.
+    std::array<simulation::RampLink,simulation::ramp_max_links> eligible{};
+    std::size_t count=0;
+    const auto valid=[&](const simulation::RampLink& r) {
+        if(!world_ || !world_->ramps_supported() || !ramp_canonical_slope(r))return false;
+        const auto& permissions=world_->map_permissions();
+        if(!permissions || permissions->policy_version()!=simulation::kBridgesMapPermissionsPolicyVersion)return false;
+        const auto endpoint=[&](simulation::Cell cell,int height) {
+            const auto* p=permissions->cell_permission(cell);
+            return p && p->road_allowed && !p->protected_original && !p->bridge_water &&
+                !permissions->fixed_gate_at(cell) && int(p->height)==height &&
+                world_->road_cell(cell) && !world_->fixed_passage(cell) && !world_->bridge_at(cell);
+        };
+        return endpoint(r.endpoint_a,int(r.height_a)) && endpoint(r.endpoint_b,int(r.height_b));
+    };
+    if(world_)for(const auto& r:world_->ramps())if(valid(r))eligible[count++]=r;
+    const auto preview=ramp_start_ && ramp_preview_.accepted && valid(ramp_preview_.link)?
+        std::optional<simulation::RampLink>(ramp_preview_.link):std::nullopt;
+    const auto links=std::span<const simulation::RampLink>(eligible.data(),count);
+    ramp_topology_.prepare(links,preview);
+    if(authored_terrain_sides_enabled_) {
+        authored_terrain_sides_.set_ramps(links);
+        authored_terrain_sides_.set_preview(preview);
+    }
+    visual_frame_valid_=false;
+}
 void SandboxView::cancel_gesture() {
     pressed_button_.reset();
     pressed_building_.reset();
@@ -1652,7 +1684,7 @@ void SandboxView::cancel_gesture() {
     map_pressed_=false;
     road_start_.reset();
     ramp_start_.reset();ramp_preview_={};
-    authored_terrain_sides_.set_preview(std::nullopt);
+    refresh_ramp_visual_topology();
     bridge_start_.reset();bridge_preview_={};
     road_preview_={};
     invalidate_road_preview_cache();
@@ -1875,14 +1907,13 @@ void SandboxView::refresh_hover(bool force_road_plan) {
     hovered_=pointer_ ? pick(*pointer_) : std::nullopt;
     hover_dirty_=false;
     if(ramp_start_) {
-        if(!hovered_) {ramp_preview_={};authored_terrain_sides_.set_preview(std::nullopt);return;}
+        if(!hovered_) {ramp_preview_={};refresh_ramp_visual_topology();return;}
         const bool stale=force_road_plan || planned_start_!=ramp_start_ || planned_end_!=hovered_ ||
             planned_road_revision_!=world_->road_revision() || planned_command_sequence_!=world_->command_sequence() ||
             planned_treasury_!=world_->treasury();
         if(stale) {
             ramp_preview_=world_->validate_ramp(*ramp_start_,*hovered_);
-            authored_terrain_sides_.set_preview(ramp_preview_.accepted?
-                std::optional<simulation::RampLink>(ramp_preview_.link):std::nullopt);
+            refresh_ramp_visual_topology();
             planned_start_=ramp_start_;planned_end_=hovered_;planned_road_revision_=world_->road_revision();
             planned_command_sequence_=world_->command_sequence();planned_treasury_=world_->treasury();
             last_message_=ramp_preview_.reason+" | height "+std::to_string(world_->transport_height(*ramp_start_))+" -> "+
@@ -2346,8 +2377,8 @@ simulation::CommandResult SandboxView::execute(simulation::Command command) {
     }
     const auto result=world_->execute(command);
     if(result.accepted && result.changed) {
-        if(authored_terrain_sides_enabled_&&command.type==simulation::CommandType::PlaceRamp)
-            authored_terrain_sides_.set_ramps(world_->ramps());
+        if(command.type==simulation::CommandType::PlaceRamp || command.type==simulation::CommandType::PlaceRoad ||
+           command.type==simulation::CommandType::RemoveRoad)refresh_ramp_visual_topology();
         if(world_->bridges_supported())visual_frame_valid_=false;
         if(command.type!=simulation::CommandType::DemolishBuilding)
             if(const auto owner=world_->building_owner_at(command.cell)) {
@@ -2413,7 +2444,7 @@ bool SandboxView::request_road(const sandbox_ui::RoadPlan& plan) {
     }
     std::string reason;
     const bool okay=sandbox_ui::commit_road(*world_,plan,reason);
-    if(okay)refresh_original_road_visuals(plan.cells);
+    if(okay){refresh_original_road_visuals(plan.cells);refresh_ramp_visual_topology();}
     last_message_=reason;
     return okay;
 }
@@ -2435,7 +2466,7 @@ bool SandboxView::resolve_budget_warning(bool build_anyway) {
     if (road) {
         std::string reason;
         const bool okay=sandbox_ui::commit_road(*world_,*road,reason);
-        if(okay)refresh_original_road_visuals(road->cells);
+        if(okay){refresh_original_road_visuals(road->cells);refresh_ramp_visual_topology();}
         last_message_=reason;
         return okay;
     }
@@ -2491,6 +2522,7 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
     VisualHit hit; hit.key=instance.key; hit.cell=instance.cell;
     if(instance.ramp) {
         hit.ramp=instance.ramp->id;hit.ramp_half=instance.ramp_half;hit.ramp_front=instance.ramp_front;
+        hit.ramp_adjacency=instance.ramp_adjacency;
         hit.mesh_ground=world_for({double(instance.ramp->endpoint_a.x),double(instance.ramp->endpoint_a.y)});
         hit.origin={hit.mesh_ground.x-64,hit.mesh_ground.y-64};hit.width=192;hit.height=192;
         append(hit);return;
@@ -2588,7 +2620,8 @@ bool SandboxView::select_visual(scene::Point screen) {
         if(it->ramp) {
             const auto links=world_->ramps();
             const auto r=std::find_if(links.begin(),links.end(),[&](const auto& v){return v.id==*it->ramp;});
-            if(r==links.end()||!hit_ramp_part(world,it->mesh_ground,*r,it->ramp_half,it->ramp_front,background_.elevated()))continue;
+            if(r==links.end()||!ramp_presentation_.hit_part(world,it->mesh_ground,*r,it->ramp_half,it->ramp_front,
+                background_.elevated(),it->ramp_adjacency))continue;
         }
         if(it->bridge) {
             const auto spans=world_->bridges();
@@ -2712,6 +2745,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             DrawInstance instance{{depth,(x-y)*40,front?scene::WorldVisualLayer::SandboxBridgeFrontRail:
                 scene::WorldVisualLayer::SandboxBuilding,r.id.value},half==0?r.endpoint_a:r.endpoint_b};
             instance.ramp=&r;instance.ramp_half=half;instance.ramp_front=front;instance.placement_preview=preview;
+            instance.ramp_adjacency=preview?ramp_topology_.preview_mask():ramp_topology_.effective_mask(r.id);
             instances.push_back(instance);
         }
     };
@@ -3094,8 +3128,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         if(instance.ramp) {
             const auto tint=instance.placement_preview?(ramp_preview_.accepted?BridgeTint::Valid:
                 ramp_preview_.diagnostic.blocker==simulation::BuildBlocker::InsufficientFunds?BridgeTint::Unaffordable:BridgeTint::Blocked):BridgeTint::Normal;
-            return draw_ramp_part(renderer_,camera_,world_for({double(instance.ramp->endpoint_a.x),double(instance.ramp->endpoint_a.y)}),
-                *instance.ramp,instance.ramp_half,instance.ramp_front,background_.elevated(),tint);
+            return ramp_presentation_.draw_part(renderer_,camera_,world_for({double(instance.ramp->endpoint_a.x),double(instance.ramp->endpoint_a.y)}),
+                *instance.ramp,instance.ramp_half,instance.ramp_front,background_.elevated(),tint,
+                instance.ramp_adjacency,road_visuals_active());
         }
         if(instance.bridge) {
             const auto& bridge=*instance.bridge;const auto cell=instance.cell;

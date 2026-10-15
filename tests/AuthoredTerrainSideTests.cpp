@@ -6,6 +6,8 @@
 #include <iostream>
 #include <set>
 #include <stdexcept>
+#include <algorithm>
+#include <vector>
 namespace oe=openemperor;namespace m=oe::maps;namespace s=oe::simulation;
 namespace {
 void check(bool ok,const char* reason){if(!ok)throw std::runtime_error(reason);}
@@ -28,11 +30,141 @@ struct Fixture {
         return std::make_shared<const s::MapPermissions>(228,228,policy,cells,std::vector<s::FixedGatePassage>{});
     }
 };
+void topology_checks() {
+    for(const bool axis_x:{false,true})for(const int delta:{-1,1})for(const int base_height:{-7,1}) {
+        const s::Cell step=axis_x?s::Cell{0,1}:s::Cell{1,0};
+        const s::Cell along=axis_x?s::Cell{1,0}:s::Cell{0,1};
+        std::array<s::RampLink,3> links{};
+        for(int i=0;i<3;++i)links[std::size_t(i)]={{unsigned(i+1)},
+            {114+step.x*i,114+step.y*i},{114+step.x*i+along.x,114+step.y*i+along.y},
+            std::int8_t(base_height),std::int8_t(base_height+delta),40,0};
+        oe::RampTopology topology;topology.prepare(links);
+        check(topology.effective_mask({1})==2&&topology.effective_mask({2})==3&&topology.effective_mask({3})==1,
+            "canonical X/Y lateral group has wrong negative/positive masks");
+        std::reverse(links.begin(),links.end());topology.prepare(links);
+        check(topology.effective_mask({1})==2&&topology.effective_mask({2})==3&&topology.effective_mask({3})==1,
+            "ramp slope group depends on source publication order");std::reverse(links.begin(),links.end());
+        const std::array separated{links[0],links[2]};topology.prepare(separated,links[1]);
+        check(topology.committed_mask({1})==0&&topology.committed_mask({3})==0&&topology.preview_mask()==3&&
+              topology.effective_mask({1})==2&&topology.effective_mask({3})==1,
+            "middle preview did not update both neighbors without committing");
+        topology.prepare(separated);check(topology.effective_mask({1})==0&&topology.effective_mask({3})==0&&!topology.has_preview(),
+            "cancelled preview retained merged side topology");
+        topology.prepare(links,std::nullopt,[](const auto& r){return r.id.value!=2;});
+        check(topology.effective_mask({1})==0&&topology.effective_mask({3})==0,
+            "source-invalid middle link connected a presentation slope");
+        for(int invalid=0;invalid<4;++invalid) {
+            auto other=links[1];
+            if(invalid==0){std::swap(other.height_a,other.height_b);}
+            if(invalid==1){++other.height_a;++other.height_b;}
+            if(invalid==2){other.endpoint_a.x+=along.x;other.endpoint_a.y+=along.y;other.endpoint_b.x+=along.x;other.endpoint_b.y+=along.y;}
+            if(invalid==3){other.endpoint_b={other.endpoint_a.x+step.x,other.endpoint_a.y+step.y};}
+            topology.prepare(std::array{links[0],other});check(topology.effective_mask({1})==0,
+                "different gradient/height/longitudinal/orthogonal link merged into slope");
+        }
+    }
+}
+std::vector<std::uint8_t> frame_bytes(SDL_Renderer* renderer) {
+    auto* raw=SDL_RenderReadPixels(renderer,nullptr);check(raw,"frame readback failed");
+    auto* rgba=SDL_ConvertSurface(raw,SDL_PIXELFORMAT_RGBA32);SDL_DestroySurface(raw);check(rgba,"RGBA conversion failed");
+    std::vector<std::uint8_t> result(std::size_t(rgba->w)*std::size_t(rgba->h)*4U);
+    for(int y=0;y<rgba->h;++y)std::copy_n(static_cast<const std::uint8_t*>(rgba->pixels)+std::size_t(y)*std::size_t(rgba->pitch),
+        std::size_t(rgba->w)*4U,result.data()+std::size_t(y)*std::size_t(rgba->w)*4U);
+    SDL_DestroySurface(rgba);return result;
+}
+void adjacent_cut_checks(SDL_Renderer* renderer) {
+    const std::array<Uint8,3> background{13,21,31};
+    for(const bool axis_x:{false,true})for(const int delta:{-1,1})for(const int base_height:{-7,1}) {
+        const s::Cell lateral=axis_x?s::Cell{0,1}:s::Cell{1,0},along=axis_x?s::Cell{1,0}:s::Cell{0,1};
+        std::array<s::RampLink,3> links{};
+        for(int i=0;i<3;++i)links[std::size_t(i)]={{unsigned(i+1)},
+            {114+lateral.x*i,114+lateral.y*i},{114+lateral.x*i+along.x,114+lateral.y*i+along.y},
+            std::int8_t(base_height),std::int8_t(base_height+delta),40,0};
+        const auto high=delta<0?links[0].endpoint_a:links[0].endpoint_b,low=delta<0?links[0].endpoint_b:links[0].endpoint_a;
+        Fixture fixture(high,low,base_height+std::max(0,delta));
+        for(const auto& r:links)for(const auto c:{r.endpoint_a,r.endpoint_b}) {
+            const auto at=std::size_t(c.y*228+c.x);auto& p=fixture.cells[at];
+            fixture.plan.raw_terrain[at]=0x80;p.road_allowed=p.building_allowed=true;
+            p.road_blocker=p.building_blocker=s::BuildBlocker::None;
+            p.height=c==r.endpoint_a?r.height_a:r.height_b;fixture.plan.height_bytes[at]=std::uint8_t(p.height);
+        }
+        const auto permissions=fixture.permissions();oe::AuthoredTerrainSides faces;
+        faces.prepare(fixture.plan,fixture.geometry,*permissions);check(faces.size()==3,"parallel source edge stream is not exactly three faces");
+        const auto prepared_bytes=faces.logical_geometry_bytes();check(prepared_bytes<=8U*1024U*1024U,"adjacent cache exceeded unchanged8MiB bound");
+        const auto ground=[&](s::Cell c){return m::landscape_ground(fixture.plan,{unsigned(c.x),unsigned(c.y)});};
+        const auto focus=ground(links[1].endpoint_a);
+        oe::RampTopology topology;topology.prepare(links);
+        for(const double zoom:{1.,2.,4.,1.73}) {
+            oe::scene::Camera2D camera;camera.zoom=zoom;camera.offset={350-focus.x*zoom,260-focus.y*zoom};
+            const auto clear=[&]{check(SDL_SetRenderDrawColor(renderer,13,21,31,255)&&SDL_RenderClear(renderer),"adjacent clear failed");};
+            const auto sample=[&](SDL_Surface* surface,oe::scene::Point p){const auto q=camera.world_to_screen(p);Uint8 r=0,g=0,b=0,a=0;
+                check(SDL_ReadSurfacePixel(surface,int(q.x),int(q.y),&r,&g,&b,&a),"adjacent pixel sample failed");return std::array<Uint8,3>{r,g,b};};
+            faces.set_preview(std::nullopt);faces.set_ramps({});clear();check(faces.draw(renderer,camera),"closed group draw failed");
+            const auto closed=frame_bytes(renderer);
+            faces.set_ramps(links);clear();check(faces.draw(renderer,camera),"joined cut draw failed");
+            auto* cut_pixels=SDL_RenderReadPixels(renderer,nullptr);check(cut_pixels,"joined cut readback failed");
+            const auto closed_sample=[&](oe::scene::Point p){const auto q=camera.world_to_screen(p);
+                const auto at=(std::size_t(int(q.y))*720U+std::size_t(int(q.x)))*4U;
+                return std::array<Uint8,3>{closed[at],closed[at+1],closed[at+2]};};
+            for(int i=0;i<3;++i) {
+                const auto g=ground(delta<0?links[std::size_t(i)].endpoint_a:links[std::size_t(i)].endpoint_b);
+                const int sign=delta<0?1:-1;const oe::scene::Point normal{axis_x?sign*20.:-sign*20.,sign*10.};
+                const oe::scene::Point below{g.x+normal.x,g.y+normal.y+30};
+                check(sample(cut_pixels,below)!=background&&sample(cut_pixels,below)==closed_sample(below),
+                    "group excavation removed or repainted lower cliff support");
+                if(i==1)continue;
+                const double side=i==0?-.42:.42;const oe::scene::Point flank{g.x+normal.x+(axis_x?-40.:40.)*side,g.y+normal.y+20*side+8};
+                check(sample(cut_pixels,flank)!=background&&sample(cut_pixels,flank)==closed_sample(flank),
+                    "group excavation removed or repainted an exterior rock flank");
+            }
+            for(int join=0;join<2;++join) {
+                const auto& r=links[std::size_t(join)];const auto g=ground(delta<0?r.endpoint_a:r.endpoint_b);
+                const int sign=delta<0?1:-1;const oe::scene::Point normal{axis_x?sign*20.:-sign*20.,sign*10.};
+                const oe::scene::Point across{axis_x?-40.:40.,20.};unsigned excavated=0;
+                for(int y=-22;y<65;++y)for(int x=-44;x<44;++x) {
+                    const double side=(x+.5-normal.x)/across.x,depth=y+.5-normal.y-20*side;
+                    if(side<=.35||side>=.49||depth<=0||depth>=20)continue;
+                    const oe::scene::Point p{g.x+x+.5,g.y+y+.5};bool fully_cut=true;
+                    for(int sub=0;sub<4;++sub) {
+                        const double px=x+(sub%2?.75:.25),py=y+(sub<2?.25:.75);
+                        const double s=(px-normal.x)/across.x,d=py-normal.y-20*s;
+                        const oe::scene::Point world{g.x+px,g.y+py};
+                        fully_cut&=oe::ramp_terrain_opening(s,d,topology.effective_mask(r.id))&&
+                            (oe::ramp_opaque_at(world,ground(r.endpoint_a),r,topology.effective_mask(r.id))||
+                             oe::ramp_opaque_at(world,ground(links[std::size_t(join+1)].endpoint_a),links[std::size_t(join+1)],1));
+                    }
+                    if(!fully_cut)continue;
+                    check(sample(cut_pixels,p)==background,"internal rock ribbon remains between matching adjacent RampLinks");++excavated;
+                }
+                check(excavated>0,"adjacent cut test never sampled a real covered internal cliff opening");
+            }
+            SDL_DestroySurface(cut_pixels);
+            // F8 partial modes must retain byte-identical closed cliffs even
+            // while all three committed links exist.
+            clear();check(faces.draw(renderer,camera,false),"partial layer closed draw failed");
+            check(frame_bytes(renderer)==closed,"partial F8 state excavated hidden Ramp geometry");
+            const std::array separated{links[0],links[2]};faces.set_ramps(separated);clear();check(faces.draw(renderer,camera),"separated cuts failed");
+            const auto separated_image=frame_bytes(renderer);
+            faces.set_preview(links[1]);check(faces.open_edges()==2,"preview committed an owned opening");
+            clear();check(faces.draw(renderer,camera),"neighbor preview cuts failed");const auto preview_image=frame_bytes(renderer);
+            faces.set_preview(std::nullopt);faces.set_ramps(links);clear();check(faces.draw(renderer,camera),"committed merged cuts failed");
+            check(frame_bytes(renderer)==preview_image,"preview and committed neighboring excavation disagree");
+            faces.set_ramps(separated);faces.set_preview(links[1]);faces.set_preview(std::nullopt);clear();check(faces.draw(renderer,camera),"cancel neighboring preview failed");
+            check(frame_bytes(renderer)==separated_image,"cancel did not restore both outer banks' cliff states");
+            auto wrong_height=links[1];++wrong_height.height_a;++wrong_height.height_b;faces.set_preview(wrong_height);
+            clear();check(faces.draw(renderer,camera),"invalid preview cut draw failed");
+            check(frame_bytes(renderer)==separated_image,"source height mismatch opened or merged a cliff face");
+            faces.set_preview(std::nullopt);faces.set_ramps(links);
+            check(faces.logical_geometry_bytes()==prepared_bytes,"command or preview generated cliff geometry");
+        }
+    }
+}
 }
 int main(){SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;try {
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy");check(SDL_Init(SDL_INIT_VIDEO),SDL_GetError());
     window=SDL_CreateWindow("Authored terrain side pixels",720,640,SDL_WINDOW_HIDDEN);check(window,SDL_GetError());
     renderer=SDL_CreateRenderer(window,"software");check(renderer,SDL_GetError());
+    topology_checks();adjacent_cut_checks(renderer);
     for(const s::Cell direction:{s::Cell{1,0},s::Cell{0,1},s::Cell{-1,0},s::Cell{0,-1}})
         for(const int height:{-127,-1,0,1,127})for(const double zoom:{1.,2.,4.,1.73}) {
             const s::Cell high{114,114},low{114+direction.x,114+direction.y};Fixture f(high,low,height);

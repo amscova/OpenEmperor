@@ -4,6 +4,9 @@
 #include <array>
 #include <cmath>
 #include <stdexcept>
+#include <vector>
+#include <bitset>
+#include "assets/RoadVisualProfile.h"
 
 namespace openemperor {
 namespace {
@@ -112,66 +115,6 @@ Mesh legacy_flat_geometry(bool axis_x,int delta,int half,bool front) {
     mesh.stroke(lift(point(first,side),5),lift(point(last,side),5),1,{83,72,52,255},true);
     return mesh;
 }
-Mesh make_geometry(bool axis_x,int delta,int half,bool front) {
-    if(delta==0)return legacy_flat_geometry(axis_x,delta,half,front);
-    Mesh mesh;const double first=half*.5;
-    const simulation::RampLink r{{1},{0,0},axis_x?simulation::Cell{1,0}:simulation::Cell{0,1},0,std::int8_t(delta),40,0};
-    const auto point=[&](double t,double side){return ramp_surface_point({},r,t,side*ramp_surface_width(t)/ramp_surface_half_width);};
-    const auto bank_outer=[&](double t,double side){return ramp_bank_point({},r,t,side);};
-    const auto shade=[](int x,int y){auto n=std::uint32_t(x+71)*0x8da6b343U^std::uint32_t(y+91)*0xd8163841U;n^=n>>13;n*=0x85ebca6bU;return int(n%15)-7;};
-    const auto flank=[&](double side) {
-        // A continuous graded shoulder shares the tread's height function.
-        // The half split changes only local painter ownership, never height.
-        for(int along=0;along<12;++along)for(int row=0;row<5;++row) {
-            const double a=first+along/24.,b=first+(along+1)/24.;
-            const auto a0=point(a,side),a1=point(b,side),b0=bank_outer(a,side),b1=bank_outer(b,side);
-            if(std::hypot(a0.x-b0.x,a0.y-b0.y)+std::hypot(a1.x-b1.x,a1.y-b1.y)<.01)continue;
-            const int light=shade(along+half*12,row+int(side*20));
-            const auto c=SDL_Color{Uint8(137+light),Uint8(130+light),Uint8(109+light),255};
-            mesh.quad({between(a0,b0,row/5.),between(a1,b1,row/5.),between(a1,b1,(row+1)/5.),between(a0,b0,(row+1)/5.)},c);
-        }
-        // Low, broken gravel edging, not a handrail or a row of timber posts.
-        for(int i=0;i<12;++i) {
-            const double a=first+i/24.,b=first+(i+1)/24.;const double outer=side+(side<0?-.035:.035);
-            const int light=shade(i,half+int(side*100));
-            mesh.quad({point(a,side),point(b,side),point(b,outer),point(a,outer)},
-                {Uint8(155+light),Uint8(142+light),Uint8(109+light),255});
-        }
-    };
-    if(front){flank(ramp_surface_half_width);return mesh;}
-    flank(-ramp_surface_half_width);
-    // Continuous compacted earth/stone, with subtle irregular wear. No rungs,
-    // plank seams, tall posts or independent artwork height offsets.
-    for(int along=0;along<24;++along)for(int cross=0;cross<10;++cross) {
-        const double a=first+along/48.,b=first+(along+1)/48.;
-        const double c=-ramp_surface_half_width+cross*(2*ramp_surface_half_width/10.);
-        const double d=c+2*ramp_surface_half_width/10.;
-        const int light=shade(along+half*24,cross);
-        const int edge=cross==0||cross==9?-9:0;
-        const bool stone=shade(along+half*24,cross)>4;
-        mesh.quad({point(a,c),point(b,c),point(b,d),point(a,d)},
-            {Uint8((stone?192:208)+light+edge),Uint8((stone?178:187)+light+edge),Uint8((stone?143:136)+light+edge),255});
-    }
-    // Small irregular chips break up the compacted earth. Their independent
-    // positions avoid transverse rungs or a checker of rectangular pavers.
-    for(int i=0;i<65;++i) {
-        const auto h=std::uint32_t(i+half*65+17)*0x9e3779b9U;
-        const double t=first+.015+double(h%1000)/1000.*.47;
-        const double s=-.23+double((h>>10)%1000)/1000.*.46;
-        const double length=.006+double((h>>20)%7)*.0015,width=.008+double(h%5)*.002;
-        const auto a=point(t-length,s),b=point(t,s-width),c=point(t+length,s+.003),d=point(t,s+width);
-        const int light=shade(i,half);
-        mesh.quad({a,b,c,d},{Uint8(225+light),Uint8(209+light),Uint8(169+light),255});
-    }
-    // At the exact 2:1 projection two ascending orientations are edge-on.
-    // A shallow stone crest gives the unchanged foot line visible thickness;
-    // it does not move the path, surface height or the camera projection.
-    if(delta==1)for(int i=0;i<24;++i) {
-        const double a=first+i/48.,b=first+(i+1)/48.;const int light=shade(i/2+half*12,3);
-        mesh.stroke(point(a,0),point(b,0),2.2,{Uint8(188+light),Uint8(171+light),Uint8(122+light),255});
-    }
-    return mesh;
-}
 template<class Emit> void pixel_contour_runs(const Mesh& input,Emit emit) {
     constexpr int side=192,origin=64;
     std::array<SDL_Color,side*side*4> samples{};
@@ -210,115 +153,247 @@ template<class Emit> void pixel_contour_runs(const Mesh& input,Emit emit) {
         }
     }
 }
-Mesh pixel_contours(const Mesh& input) {
-    Mesh result;pixel_contour_runs(input,[&](Quad p,SDL_Color c){result.quad(p,c);});return result;
+
+// Compact immutable native-pixel runs replace the former 24 fixed Face arrays.
+// Both materials and all four lateral topologies stay below the old cache size.
+struct Run { std::int8_t x,y;std::uint8_t width,r,g,b,a; };
+static_assert(sizeof(Run)==7);
+using Part=std::vector<Run>;
+struct Layout { std::array<Part,4> parts; };
+using Layouts=std::array<Layout,16>; // X/Y * descending/ascending * adjacency.
+constexpr int raster_side=192,raster_origin=64;
+constexpr std::size_t max_part_runs=4096,max_cache_bytes=3U*1024U*1024U;
+std::size_t index(bool x,int slope,unsigned adjacency) {
+    return std::size_t((x?0:1)*8+(slope>0?4:0)+(adjacency&3U));
 }
-std::array<Mesh,4> graded_components(bool axis_x,int slope) {
-    // Rasterize the joined geometry once. Antialiasing the two diagonal half
-    // boundaries independently leaves two half-alpha pixels, whose blend still
-    // reveals 25% of the background. Each prepared pixel instead has one owner
-    // in the existing half/back/front painter; no scene ordering changes.
-    Mesh joined;
-    for(int half=0;half<2;++half)for(const bool front:{false,true}) {
-        const auto part=make_geometry(axis_x,slope,half,front);
-        for(std::size_t i=0;i<part.count;++i)joined.quad(part.faces[i].points,part.faces[i].color);
+std::uint32_t material_hash(int x,int y) {
+    auto n=std::uint32_t(x+137)*0x8da6b343U^std::uint32_t(y+193)*0xd8163841U;
+    n^=n>>13;n*=0x85ebca6bU;n^=n>>16;return n;
+}
+// Native-pixel earth, embedded stones and irregular chipped rims. It is used
+// without a compatible profile and fills only the source diamond's missing
+// edge pixels. There is no smooth low-frequency beige shoulder material.
+SDL_Color authored_material(bool axis,double t,double side,unsigned adjacency) {
+    const double local=t<.5?t:t-1.;
+    const int px=int(std::floor(39+(axis?40*local-40*side:40*side-40*local)));
+    const int py=int(std::floor(20+20*local+20*side));
+    const auto h=material_hash(px,py),grain=material_hash(px*3+1,py*3-1);
+    int r=221,g=189,b=133;
+    int light=int(h%37)-18;
+    const bool exterior=(side<0?!(adjacency&1U):!(adjacency&2U));
+    const double rim=.27+double(material_hash(int(std::floor(t*17)),side<0?13:29)%8)/100.;
+    if(exterior&&std::abs(side)>rim&&std::abs(side)<rim+.095) {
+        const auto stone=material_hash(px/3,py/2);
+        r=220;g=210;b=174;light=int(stone%61)-30;
+        if(grain%7==0){r=149;g=133;b=100;light=int(h%17);}
+    } else if(grain%13<3) {r=236;g=208;b=157;light=int(h%25)-12;}
+    else if(grain%19==0){r=162;g=139;b=102;light=int(h%21);}
+    // Keep the actual foot line visible in the independently authored mode.
+    return {Uint8(std::clamp(r+light,125,255)),Uint8(std::clamp(g+light,110,255)),
+        Uint8(std::clamp(b+light,65,255)),255};
+}
+const assets::RgbaImage* road_image(const assets::RoadVisualProfile* profile,bool axis,unsigned adjacency) {
+    if(!profile||!profile->replaces_ground)return nullptr;
+    const std::uint8_t mask=axis?std::uint8_t(0xa|((adjacency&1U)?1:0)|((adjacency&2U)?4:0)):
+        std::uint8_t(0x5|((adjacency&1U)?8:0)|((adjacency&2U)?2:0));
+    const auto* entry=profile->find(mask);
+    if(!entry||entry->ground_x!=39||entry->ground_y!=20||entry->image_index>=profile->unique_images.size())return nullptr;
+    const auto& image=profile->unique_images[entry->image_index];
+    if(image.width!=78||image.height!=40||image.pixels.size()!=78U*40U*4U)return nullptr;
+    return &image;
+}
+SDL_Color surface_material(const assets::RgbaImage* image,bool axis,double t,double side,unsigned adjacency) {
+    if(image) {
+        const double local=t<.5?t:t-1.;
+        const int x=int(std::floor(39+(axis?40*local-40*side:40*side-40*local)));
+        const int y=int(std::floor(20+20*local+20*side));
+        if(x>=0&&y>=0&&x<78&&y<40) {
+            const auto at=std::size_t((y*78+x)*4);
+            if(image->pixels[at+3]==255)return {image->pixels[at],image->pixels[at+1],image->pixels[at+2],255};
+        }
     }
-    std::array<Mesh,4> parts;
-    const Point along{axis_x?40.:-40.,20.-slope*40.},across{axis_x?-40.:40.,20.};
-    const double determinant=along.x*across.y-along.y*across.x;
-    const auto owner=[&](Point p) {
-        double t=0,side=0;
-        if(std::abs(determinant)>1e-9) {
-            t=(p.x*across.y-p.y*across.x)/determinant;
-            side=(along.x*p.y-along.y*p.x)/determinant;
-        } else {
-            // The ascending tread is edge-on. Its existing shallow crest is
-            // apportioned along the unchanged projected foot line.
-            t=(p.x*along.x+p.y*along.y)/(along.x*along.x+along.y*along.y);
-        }
-        return (t<.5?0:2)+(side>ramp_surface_width(std::clamp(t,0.,1.))?1:0);
-    };
-    pixel_contour_runs(joined,[&](const Quad& p,SDL_Color color) {
-        for(int x=int(p[0].x);x<int(p[1].x);) {
-            const int part=owner({x+.5,p[0].y+.5});int end=x+1;
-            while(end<int(p[1].x)&&owner({end+.5,p[0].y+.5})==part)++end;
-            parts[std::size_t(part)].quad({Point{double(x),p[0].y},Point{double(end),p[0].y},
-                Point{double(end),p[2].y},Point{double(x),p[2].y}},color);x=end;
-        }
-    });
-    return parts;
+    return authored_material(axis,t,side,adjacency);
 }
-// X/Y, descending/flat-debug/ascending, two halves and local back/front.
-// All material/raster work precedes the frame loop, independent of maps.
-const auto meshes=[] {
-    std::array<Mesh,24> result;
-    for(int axis=0;axis<2;++axis)for(int slope=-1;slope<=1;++slope) {
-        if(slope==0)for(int half=0;half<2;++half)for(int front=0;front<2;++front)
-            result[std::size_t(axis*12+4+half*2+front)]=pixel_contours(make_geometry(axis==0,slope,half,front!=0));
-        else {
-            auto parts=graded_components(axis==0,slope);
-            for(std::size_t i=0;i<parts.size();++i)result[std::size_t(axis*12+(slope+1)*4)+i]=std::move(parts[i]);
+struct Parameters { double t=0,side=0;bool inside=false; };
+Parameters parameters(Point p,bool axis,int slope,unsigned adjacency) {
+    const Point along{axis?40.:-40.,20.-slope*40.},across{axis?-40.:40.,20.};
+    const double determinant=along.x*across.y-along.y*across.x;
+    Parameters result;
+    if(std::abs(determinant)<1e-9) {
+        // Fixed 2:1/height40 ascending projection is exactly edge-on. Retain
+        // its 2.2px authored crest and unchanged authoritative foot line.
+        const double length=std::hypot(along.x,along.y);
+        result.t=(p.x*along.x+p.y*along.y)/(length*length);
+        const double distance=(p.x*along.y-p.y*along.x)/length;
+        result.inside=result.t>=0&&result.t<1&&std::abs(distance)<1.1;
+        return result;
+    }
+    result.t=(p.x*across.y-p.y*across.x)/determinant;
+    result.side=(along.x*p.y-along.y*p.x)/determinant;
+    const double t=result.t;
+    // A physical shared boundary is exact and half-open. Exterior edges have
+    // small deterministic erosion, without per-link overlapping bank meshes.
+    const auto limit=[&](bool positive) {
+        if(adjacency&(positive?2U:1U))return .5;
+        const int phase=int(std::floor(std::clamp(t,0.,1.)*20));
+        return .46-(double(material_hash(phase,positive?31:17)%4)/100.)*std::sin(std::clamp(t,0.,1.)*3.141592653589793);
+    };
+    result.inside=t>=0&&t<1&&result.side>=-limit(false)&&result.side<limit(true);
+    return result;
+}
+struct Pixel { SDL_Color color{};int owner=0; };
+Pixel slope_pixel(int x,int y,bool axis,int slope,unsigned adjacency,const assets::RgbaImage* image) {
+    const Point center{x+.5,y+.5};auto at=parameters(center,axis,slope,adjacency);
+    unsigned count=0;Parameters sample=at;
+    for(int i=0;i<4;++i) {
+        auto point=parameters({x+(i%2?.75:.25),y+(i<2?.25:.75)},axis,slope,adjacency);
+        if(point.inside){++count;if(!at.inside)sample=point;}
+    }
+    // Separately antialiased shared edges can expose 25% background. Interior
+    // boundaries instead have one opaque pixel owner, just like the half seam.
+    if(slope<0&&((adjacency&1U&&at.side<-.46)||(adjacency&2U&&at.side>.46))) {
+        if(!at.inside)return {};
+        count=4;
+    }
+    if(!count)return {};
+    if(at.inside)sample=at;
+    auto color=surface_material(image,axis,std::clamp(sample.t,0.,1.-1e-9),sample.side,adjacency);
+    color.a=Uint8(count*255/4);
+    // Only the external near shoulder uses the front painter component. The
+    // tread and every joined interior have one back/surface owner.
+    const bool front=slope<0&&!(adjacency&2U)&&sample.side>.32;
+    return {color,(sample.t<.5?0:2)+int(front)};
+}
+bool same(SDL_Color a,SDL_Color b){return a.r==b.r&&a.g==b.g&&a.b==b.b&&a.a==b.a;}
+void append(Part& part,Run run) {
+    if(part.size()==max_part_runs)throw std::logic_error("prepared ramp run bound exceeded");
+    part.push_back(run);
+}
+Layout graded_layout(bool axis,int slope,unsigned adjacency,const assets::RgbaImage* image) {
+    Layout result;
+    for(int y=-24;y<88;++y) {
+        std::array<Pixel,128> row{};
+        for(int x=-64;x<64;++x)row[std::size_t(x+64)]=slope_pixel(x,y,axis,slope,adjacency,image);
+        for(int x=0;x<128;) {
+            const auto pixel=row[std::size_t(x)];if(!pixel.color.a){++x;continue;}
+            int end=x+1;while(end<128&&row[std::size_t(end)].owner==pixel.owner&&same(row[std::size_t(end)].color,pixel.color))++end;
+            const auto c=pixel.color;append(result.parts[std::size_t(pixel.owner)],{std::int8_t(x-64),std::int8_t(y),std::uint8_t(end-x),c.r,c.g,c.b,c.a});x=end;
         }
+    }
+    for(auto& part:result.parts)part.shrink_to_fit();
+    return result;
+}
+std::size_t bytes(const Layouts& layouts) {
+    std::size_t count=0;for(const auto& layout:layouts)for(const auto& part:layout.parts)count+=part.capacity()*sizeof(Run);return count;
+}
+const Layouts fallback=[] {
+    Layouts result;
+    for(const bool axis:{true,false})for(const int slope:{-1,1})for(unsigned adjacency=0;adjacency<4;++adjacency)
+        result[index(axis,slope,adjacency)]=graded_layout(axis,slope,adjacency,nullptr);
+    if(bytes(result)>max_cache_bytes)throw std::logic_error("authored ramp cache budget exceeded");
+    return result;
+}();
+const auto flat=[] {
+    std::array<Part,8> result;
+    for(int axis=0;axis<2;++axis)for(int half=0;half<2;++half)for(int front=0;front<2;++front) {
+        auto& out=result[std::size_t(axis*4+half*2+front)];
+        pixel_contour_runs(legacy_flat_geometry(axis==0,0,half,front!=0),[&](const Quad& p,SDL_Color c) {
+            append(out,{std::int8_t(p[0].x),std::int8_t(p[0].y),std::uint8_t(p[1].x-p[0].x),c.r,c.g,c.b,c.a});
+        });out.shrink_to_fit();
     }
     return result;
 }();
 const auto opaque=[] {
-    std::array<std::array<bool,192*192>,6> result{};
-    for(int axis=0;axis<2;++axis)for(int slope=-1;slope<=1;++slope)
-        for(int half=0;half<2;++half)for(int front=0;front<2;++front) {
-            const auto& mesh=meshes[std::size_t(axis*12+(slope+1)*4+half*2+front)];
-            auto& pixels=result[std::size_t(axis*3+slope+1)];
-            for(std::size_t i=0;i<mesh.count;++i)if(mesh.faces[i].color.a==255) {
-                const auto& p=mesh.faces[i].points;
-                for(int y=int(p[0].y)+64;y<int(p[2].y)+64;++y)for(int x=int(p[0].x)+64;x<int(p[2].x)+64;++x)
-                    if(x>=0&&y>=0&&x<192&&y<192)pixels[std::size_t(y*192+x)]=true;
-            }
-        }
+    std::array<std::bitset<raster_side*raster_side>,16> result;
+    for(std::size_t i=0;i<fallback.size();++i)for(const auto& part:fallback[i].parts)for(const auto& run:part)if(run.a==255)
+        for(int x=int(run.x);x<int(run.x)+run.width;++x)result[i].set(std::size_t((int(run.y)+raster_origin)*raster_side+x+raster_origin));
     return result;
 }();
-const Mesh& geometry(const simulation::RampLink& r,int half,bool front,bool elevated) {
-    const int axis=r.endpoint_a.x!=r.endpoint_b.x?0:1;
-    const int slope=elevated?int(r.height_b)-int(r.height_a):0;
-    return meshes[std::size_t(axis*12+(slope+1)*4+half*2+int(front))];
-}
-SDL_FColor color(SDL_Color base,BridgeTint tint) {
+SDL_FColor color(SDL_Color base,BridgeTint tint,bool flat_comparison) {
     if(tint==BridgeTint::Normal)return {base.r/255.0F,base.g/255.0F,base.b/255.0F,base.a/255.0F};
     const SDL_FColor overlay=tint==BridgeTint::Valid?SDL_FColor{.20F,.70F,.42F,1}:
         tint==BridgeTint::Unaffordable?SDL_FColor{.85F,.62F,.20F,1}:SDL_FColor{.80F,.25F,.23F,1};
-    return {overlay.r*.8F+base.r/255.0F*.2F,overlay.g*.8F+base.g/255.0F*.2F,overlay.b*.8F+base.b/255.0F*.2F,.55F*base.a/255.0F};
+    return {overlay.r*.8F+base.r/255.0F*.2F,overlay.g*.8F+base.g/255.0F*.2F,overlay.b*.8F+base.b/255.0F*.2F,
+        (flat_comparison?.55F:1.F)*base.a/255.0F};
 }
+bool valid(const simulation::RampLink& r,int half) {
+    return (half==0||half==1)&&std::abs(int(r.height_b)-int(r.height_a))==1;
 }
-bool ramp_opaque_at(Point world,Point ground,const simulation::RampLink& r) {
-    const int x=int(std::floor(world.x-ground.x))+64,y=int(std::floor(world.y-ground.y))+64;
-    const int slope=int(r.height_b)-int(r.height_a);
-    if(x<0||y<0||x>=192||y>=192||std::abs(slope)>1)return false;
-    return opaque[std::size_t((r.endpoint_a.x!=r.endpoint_b.x?0:1)*3+slope+1)][std::size_t(y*192+x)];
+const Part& selected(const Layouts& layouts,const simulation::RampLink& r,int half,bool front,bool elevated,unsigned adjacency) {
+    const bool axis=r.endpoint_a.x!=r.endpoint_b.x;
+    if(!elevated)return flat[std::size_t((axis?0:1)*4+half*2+int(front))];
+    return layouts[index(axis,int(r.height_b)-int(r.height_a),adjacency)].parts[std::size_t(half*2+int(front))];
 }
-bool hit_ramp_part(Point world,Point ground,const simulation::RampLink& ramp,int half,bool front,bool elevated) {
-    const auto& mesh=geometry(ramp,half,front,elevated);world={world.x-ground.x,world.y-ground.y};
-    for(std::size_t i=0;i<mesh.count;++i)if(inside_polygon(world,mesh.faces[i].points))return true;
-    return false;
-}
-bool draw_ramp_part(SDL_Renderer* renderer,const scene::Camera2D& camera,Point ground,
-    const simulation::RampLink& ramp,int half,bool front,bool elevated,BridgeTint tint) {
+bool draw_runs(SDL_Renderer* renderer,const scene::Camera2D& camera,Point ground,const Part& part,BridgeTint tint,bool flat_comparison) {
     SDL_BlendMode previous=SDL_BLENDMODE_NONE;
     if(!SDL_GetRenderDrawBlendMode(renderer,&previous)||!SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND))return false;
     struct RestoreBlend {SDL_Renderer* renderer;SDL_BlendMode mode;~RestoreBlend(){(void)SDL_SetRenderDrawBlendMode(renderer,mode);}} restore{renderer,previous};
-    const auto& mesh=geometry(ramp,half,front,elevated);
-    std::array<SDL_Vertex,face_capacity*4> vertices;std::array<int,face_capacity*6> indices;
-    for(std::size_t face=0;face<mesh.count;++face) {
-        const auto tint_color=color(mesh.faces[face].color,tint);
-        for(std::size_t i=0;i<4;++i) {
-            const auto p=mesh.faces[face].points[i];
-            const auto screen=camera.world_to_screen({p.x+ground.x,p.y+ground.y});
-            // These are authored raster runs. Give shared pixel boundaries the
-            // same nearest screen edge, including fractional zoom, so software
-            // triangle rounding cannot open water-colored cracks between runs.
-            vertices[face*4+i]={{float(std::round(screen.x)),float(std::round(screen.y))},tint_color,{}};
+    std::array<SDL_Vertex,max_part_runs*4> vertices;std::array<int,max_part_runs*6> indices;
+    for(std::size_t i=0;i<part.size();++i) {
+        const auto& run=part[i];const auto c=color({run.r,run.g,run.b,run.a},tint,flat_comparison);
+        const std::array<Point,4> corners{{{double(run.x),double(run.y)},{double(int(run.x)+run.width),double(run.y)},
+            {double(int(run.x)+run.width),double(int(run.y)+1)},{double(run.x),double(int(run.y)+1)}}};
+        for(std::size_t j=0;j<4;++j) {
+            const auto p=camera.world_to_screen({ground.x+corners[j].x,ground.y+corners[j].y});
+            vertices[i*4+j]={{float(std::round(p.x)),float(std::round(p.y))},c,{}};
         }
-        constexpr int triangle[]={0,1,2,0,2,3};
-        for(std::size_t i=0;i<6;++i)indices[face*6+i]=int(face*4)+triangle[i];
+        constexpr int triangle[]={0,1,2,0,2,3};for(std::size_t j=0;j<6;++j)indices[i*6+j]=int(i*4)+triangle[j];
     }
-    return SDL_RenderGeometry(renderer,nullptr,vertices.data(),int(mesh.count*4),indices.data(),int(mesh.count*6));
+    return part.empty()||SDL_RenderGeometry(renderer,nullptr,vertices.data(),int(part.size()*4),indices.data(),int(part.size()*6));
+}
+bool hit_runs(Point p,const Part& part) {
+    for(const auto& run:part)if(p.x>=run.x&&p.x<=int(run.x)+run.width&&p.y>=run.y&&p.y<=int(run.y)+1)return true;
+    return false;
+}
+}
+struct RampPresentation::Data { Layouts layouts; };
+RampPresentation::RampPresentation()=default;
+RampPresentation::~RampPresentation()=default;
+RampPresentation::RampPresentation(RampPresentation&&) noexcept=default;
+RampPresentation& RampPresentation::operator=(RampPresentation&&) noexcept=default;
+void RampPresentation::prepare(const assets::RoadVisualProfile* profile) {
+    if(!profile||!profile->replaces_ground){clear();return;}
+    auto candidate=std::make_unique<Data>();
+    for(const bool axis:{true,false})for(const int slope:{-1,1})for(unsigned adjacency=0;adjacency<4;++adjacency) {
+        const auto* image=road_image(profile,axis,adjacency);
+        if(image)candidate->layouts[index(axis,slope,adjacency)]=graded_layout(axis,slope,adjacency,image);
+    }
+    if(bytes(fallback)+bytes(candidate->layouts)>max_cache_bytes)throw std::logic_error("combined ramp material cache budget exceeded");
+    data_=std::move(candidate);
+}
+void RampPresentation::clear(){data_.reset();}
+std::size_t RampPresentation::geometry_bytes() const {
+    std::size_t count=bytes(fallback)+(data_?bytes(data_->layouts):0)+sizeof(opaque);
+    for(const auto& part:flat)count+=part.capacity()*sizeof(Run);return count;
+}
+bool RampPresentation::draw_part(SDL_Renderer* renderer,const scene::Camera2D& camera,Point ground,const simulation::RampLink& ramp,
+        int half,bool front,bool elevated,BridgeTint tint,unsigned adjacency,bool road_material) const {
+    if(!valid(ramp,half))return false;
+    const Layouts* layouts=&fallback;
+    if(elevated&&road_material&&data_) {
+        const auto i=index(ramp.endpoint_a.x!=ramp.endpoint_b.x,int(ramp.height_b)-int(ramp.height_a),adjacency);
+        bool available=false;for(const auto& p:data_->layouts[i].parts)available|=!p.empty();
+        if(available)layouts=&data_->layouts;
+    }
+    return draw_runs(renderer,camera,ground,selected(*layouts,ramp,half,front,elevated,adjacency),tint,!elevated);
+}
+bool RampPresentation::hit_part(Point world,Point ground,const simulation::RampLink& ramp,int half,bool front,bool elevated,unsigned adjacency) const {
+    if(!valid(ramp,half))return false;
+    return hit_runs({world.x-ground.x,world.y-ground.y},selected(fallback,ramp,half,front,elevated,adjacency));
+}
+bool ramp_opaque_at(Point world,Point ground,const simulation::RampLink& r,unsigned adjacency) {
+    const int x=int(std::floor(world.x-ground.x))+raster_origin,y=int(std::floor(world.y-ground.y))+raster_origin;
+    const int slope=int(r.height_b)-int(r.height_a);
+    if(x<0||y<0||x>=raster_side||y>=raster_side||std::abs(slope)!=1)return false;
+    return opaque[index(r.endpoint_a.x!=r.endpoint_b.x,slope,adjacency)][std::size_t(y*raster_side+x)];
+}
+bool hit_ramp_part(Point world,Point ground,const simulation::RampLink& ramp,int half,bool front,bool elevated) {
+    const RampPresentation fallback_presentation;
+    return fallback_presentation.hit_part(world,ground,ramp,half,front,elevated);
+}
+bool draw_ramp_part(SDL_Renderer* renderer,const scene::Camera2D& camera,Point ground,const simulation::RampLink& ramp,
+        int half,bool front,bool elevated,BridgeTint tint) {
+    const RampPresentation fallback_presentation;
+    return fallback_presentation.draw_part(renderer,camera,ground,ramp,half,front,elevated,tint,0,false);
 }
 } // namespace openemperor

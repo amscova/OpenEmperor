@@ -4,6 +4,8 @@
 #include "maps/MapGeometry.h"
 #include "renderer/StoredGraphicsRenderer.h"
 #include "renderer/AuthoredTerrainSides.h"
+#include "renderer/RampRenderer.h"
+#include "renderer/RampTopology.h"
 #include "simulation/World.h"
 #include "simulation/CityStartGuidance.h"
 #include "simulation/RoadConnectivity.h"
@@ -66,6 +68,10 @@ public:
     std::size_t authored_terrain_side_count() const { return authored_terrain_sides_.size(); }
     std::size_t authored_terrain_open_edges() const { return authored_terrain_sides_.open_edges(); }
     std::size_t authored_terrain_geometry_bytes() const { return authored_terrain_sides_.logical_geometry_bytes(); }
+    unsigned ramp_visual_adjacency(simulation::RampId id,bool committed=false) const {
+        return committed?ramp_topology_.committed_mask(id):ramp_topology_.effective_mask(id);
+    }
+    std::size_t ramp_geometry_bytes() const { return ramp_presentation_.geometry_bytes(); }
     void shutdown();
     void handle_event(const SDL_Event& event, bool& running);
     void update(double frame_seconds);
@@ -297,6 +303,7 @@ private:
         const simulation::RampLink* ramp=nullptr;
         int ramp_half=0;
         bool ramp_front=false;
+        unsigned ramp_adjacency=0;
     };
     // Descriptors of the dynamic pixels actually submitted to the painter.
     // Image pixels remain in the eagerly loaded profiles; no hit mask is copied.
@@ -309,6 +316,7 @@ private:
         std::optional<simulation::RampId> ramp;
         int ramp_half=0;
         bool ramp_front=false;
+        unsigned ramp_adjacency=0;
         std::optional<std::size_t> image;
         scene::Point origin;
         double width=0,height=0;
@@ -416,6 +424,9 @@ private:
     std::optional<simulation::Cell> road_start_;
     bool authored_terrain_sides_enabled_=false; // Explicit preview; absent from saves/settings.
     AuthoredTerrainSides authored_terrain_sides_;
+    RampTopology ramp_topology_;
+    RampPresentation ramp_presentation_;
+    void refresh_ramp_visual_topology();
     std::optional<simulation::Cell> ramp_start_;
     simulation::RampValidation ramp_preview_{};
     std::optional<simulation::Cell> bridge_start_;

@@ -1193,11 +1193,20 @@ add_executable(openemperor-cliff-ramp-visual-fixture EXCLUDE_FROM_ALL
 target_link_libraries(openemperor-cliff-ramp-visual-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-cliff-ramp-visual-fixture)
 
+add_executable(openemperor-multi-ramp-visual-fixture EXCLUDE_FROM_ALL
+    tools/MultiRampVisualFixture.cpp ${bridge_fixture_sources})
+target_link_libraries(openemperor-multi-ramp-visual-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+openemperor_enable_warnings(openemperor-multi-ramp-visual-fixture)
+
 if(BUILD_TESTING)
     add_executable(openemperor-ramp-rendering-tests tests/RampRenderingTests.cpp src/renderer/RampRenderer.cpp)
     target_link_libraries(openemperor-ramp-rendering-tests PRIVATE openemperor-scene SDL3::SDL3)
     openemperor_enable_warnings(openemperor-ramp-rendering-tests)
     add_test(NAME ramp-rendering-pixels COMMAND openemperor-ramp-rendering-tests)
+    add_executable(openemperor-ramp-material-rendering-tests tests/RampMaterialRenderingTests.cpp src/renderer/RampRenderer.cpp)
+    target_link_libraries(openemperor-ramp-material-rendering-tests PRIVATE openemperor-scene SDL3::SDL3)
+    openemperor_enable_warnings(openemperor-ramp-material-rendering-tests)
+    add_test(NAME ramp-material-rendering-pixels COMMAND openemperor-ramp-material-rendering-tests)
 endif()
 
 if(BUILD_TESTING)
