@@ -29,6 +29,7 @@ struct HouseState {
     int herbalist = 0, acupuncture = 0, music = 0, acrobat = 0, drama = 0;
     int ancestor = 0, confucian = 0, daoist = 0, buddhist = 0;
     int food_quality = 0;
+    int size = 1;  // house size byte; 2 or more quadruples goods needs
     int hemp = 0, ceramics = 0, tea = 0, silk = 0, bronzeware = 0, lacquerware = 0;
 };
 
@@ -54,6 +55,19 @@ bool is_consumption_step(int step_in_month);
 // Subtracts each goods requirement of the house's row from its stocks (floor 0).
 // Does nothing for a house with no occupants.
 void consume_goods(const ModelData& m, int difficulty, HouseState& h);
+
+enum class Goods : int { Hemp, Tea, Ceramics, Bronzeware, Lacquerware, Silk };
+// Per-visit need of one goods type (model value, x4 for size >= 2; an empty
+// house needs a fixed 10 hemp and tea).
+int goods_need(const ModelData& m, int difficulty, const HouseState& h, Goods g);
+int& goods_stock(HouseState& h, Goods g);
+// A market visit tops the house up toward its need. Returns units moved,
+// limited by what the market holds (market_stock is reduced).
+int deliver_goods(const ModelData& m, int difficulty, HouseState& h, Goods g, int& market_stock);
+// Market visit food quality: the market score replaces a lower house quality
+// outright; otherwise a delivery pulls quality toward the score by a weighted
+// average that depends on delivered / need. Returns the new house quality.
+int blend_food_quality(int house_quality, int market_score, int delivered, int food_need);
 
 enum class Verdict : int { Devolve = -1, Stay = 0, Evolve = 1 };
 

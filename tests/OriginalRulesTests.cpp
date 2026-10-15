@@ -331,6 +331,61 @@ void test_goods() {
     std::cout << "goods test passed\n";
 }
 
+void test_delivery() {
+    // Food-quality blend: independent of any game data.
+    check(blend_food_quality(10, 40, 0, 5) == 40, "a higher market score replaces quality outright");
+    check(blend_food_quality(50, 20, 0, 5) == 50, "no delivery leaves a higher quality alone");
+    check(blend_food_quality(40, 20, 16, 5) == (40 + 3 * 20) / 4, "ratio above 3");
+    check(blend_food_quality(40, 20, 11, 5) == (40 + 2 * 20) / 3, "ratio above 2");
+    check(blend_food_quality(40, 20, 5, 5) == (40 + 20) / 2, "ratio 1");
+    check(blend_food_quality(40, 20, 2, 5) == (20 + 2 * 40) / 3, "ratio 0.4");
+    check(blend_food_quality(40, 20, 1, 5) == (20 + 3 * 40) / 4, "ratio 0.2");
+    check(blend_food_quality(40, 20, 1, 0) == (40 + 3 * 20) / 4, "no food need counts as ratio 10");
+
+    const char* dir = std::getenv("OPENEMPEROR_GAME_DIR");
+    if (!dir || !*dir) { std::cout << "delivery test skipped (OPENEMPEROR_GAME_DIR unset)" << std::endl; return; }
+    const auto real = load_model_data(dir);
+
+    // Luxurious Apartment (row 7) uses 1 hemp and 1 ceramics per visit.
+    HouseState h = house(HT_LuxuriousApartment, 50);
+    h.occupants = 4;
+    check(goods_need(real, 2, h, Goods::Hemp) == 1, "hemp need from the model row");
+    h.size = 2;
+    check(goods_need(real, 2, h, Goods::Hemp) == 4, "size 2 or more quadruples the need");
+    h.size = 1;
+    int market = 100;
+    // Stock 0, need 1: target is max(10, need) = 10, amount 10 exceeds the need, so need - stock = 1.
+    check(deliver_goods(real, 2, h, Goods::Hemp, market) == 1 && h.hemp == 1 && market == 99, "tops up by one visit's need");
+    // Already at the need: nothing more moves.
+    check(deliver_goods(real, 2, h, Goods::Hemp, market) == 0 && h.hemp == 1, "stock at the need is not topped up");
+    // A market that is nearly empty can only move what it holds.
+    HouseState e = house(HT_HumbleCompound, 60);
+    e.occupants = 4; e.size = 2;
+    int small = 1;
+    const int silk_need = goods_need(real, 2, e, Goods::Silk);
+    check(silk_need == 4, "elite silk need x4");
+    check(deliver_goods(real, 2, e, Goods::Silk, small) == 1 && small == 0 && e.silk == 1, "limited by market stock");
+    // Empty houses want a fixed 10 hemp and tea but follow the model for silk.
+    HouseState empty = house(HT_HumbleCompound, 60);
+    empty.occupants = 0;
+    check(goods_need(real, 2, empty, Goods::Hemp) == 10 && goods_need(real, 2, empty, Goods::Tea) == 10, "empty house fixed need");
+    check(goods_need(real, 2, empty, Goods::Silk) == 1, "empty house silk follows the model");
+    // A level that needs nothing receives nothing.
+    HouseState hut = house(HT_Hut, 0);
+    hut.occupants = 3;
+    int stock = 50;
+    check(deliver_goods(real, 2, hut, Goods::Silk, stock) == 0 && stock == 50, "no need, no delivery");
+    // Delivery then consumption: a house topped up to its need keeps it for one consumption step only.
+    HouseState c = house(HT_LuxuriousApartment, 50);
+    c.occupants = 4; c.ceramics = 0;
+    int mk = 10;
+    deliver_goods(real, 2, c, Goods::Ceramics, mk);
+    check(c.ceramics == 1, "delivered");
+    consume_goods(real, 2, c);
+    check(c.ceramics == 0, "consumed on the next consumption step, so it must be restocked");
+    std::cout << "delivery test passed" << std::endl;
+}
+
 void test_spawn_rate() {
     check(service_spawn_interval(100) == 1 && service_spawn_interval(150) == 1, "full staffing");
     check(service_spawn_interval(99) == 3 && service_spawn_interval(75) == 3, "75-99");
@@ -377,6 +432,7 @@ int main() {
         test_service_timers();
         test_religion();
         test_goods();
+        test_delivery();
         test_spawn_rate();
         test_install();
         test_world_view();

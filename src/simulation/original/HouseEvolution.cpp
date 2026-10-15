@@ -51,6 +51,60 @@ void consume_goods(const ModelData& m, int difficulty, HouseState& h) {
     use(h.lacquerware, HF_Bronzeware);
 }
 
+int& goods_stock(HouseState& h, Goods g) {
+    switch (g) {
+    case Goods::Hemp: return h.hemp;
+    case Goods::Tea: return h.tea;
+    case Goods::Ceramics: return h.ceramics;
+    case Goods::Bronzeware: return h.bronzeware;
+    case Goods::Lacquerware: return h.lacquerware;
+    default: return h.silk;
+    }
+}
+
+int goods_need(const ModelData& m, int difficulty, const HouseState& h, Goods g) {
+    if (h.occupants <= 0 && (g == Goods::Hemp || g == Goods::Tea)) return 10;
+    int field = HF_Silk;
+    switch (g) {
+    case Goods::Hemp: field = HF_Hemp; break;
+    case Goods::Tea: field = HF_Tea; break;
+    case Goods::Ceramics: field = HF_Ceramics; break;
+    case Goods::Bronzeware:
+    case Goods::Lacquerware: field = HF_Bronzeware; break;
+    default: break;
+    }
+    const int need = m.house_value(house_row(h.type), field, difficulty);
+    return h.size >= 2 ? need * 4 : need;
+}
+
+int deliver_goods(const ModelData& m, int difficulty, HouseState& h, Goods g, int& market_stock) {
+    const int need = goods_need(m, difficulty, h, g);
+    if (need <= 0 || market_stock <= 0) return 0;
+    int& stock = goods_stock(h, g);
+    const int target = need > 10 ? need : 10;
+    int amount = target - stock;
+    if (amount < 1 || amount > need) amount = need - stock;
+    if (amount < 0) amount = 0;
+    if (amount > target) amount = target;
+    if (amount > need) amount = need;
+    if (amount > market_stock) amount = market_stock;  // port: never move more than the market holds
+    if (amount <= 0) return 0;
+    stock += amount;
+    market_stock -= amount;
+    return amount;
+}
+
+int blend_food_quality(int q, int m, int delivered, int food_need) {
+    if (m >= 1 && m > q) return m;
+    if (delivered < 1) return q;
+    const double r = food_need < 1 ? 10.0 : static_cast<double>(delivered) / food_need;
+    if (r > 3.0) return (q + 3 * m) / 4;
+    if (r > 2.0) return (q + 2 * m) / 3;
+    if (r > 0.5) return (q + m) / 2;
+    if (r > 0.33) return (m + 2 * q) / 3;
+    return (m + 3 * q) / 4;
+}
+
 bool is_house_type(int type) { return type >= house_type_first && type <= house_type_last; }
 bool is_elite(int type) { return type >= HT_EliteUnoccupied && type <= house_type_last; }
 
