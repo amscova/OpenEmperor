@@ -1,5 +1,10 @@
 # Joined ramp surfaces and road material
 
+The [original asset audit](original-ramp-asset-audit.md) records the complete
+Elevation/Terrain inspection, newly verified original ramp sprites, measured
+native-fit blocker and current before/after image review. Original ramp identity
+is now bounded evidence; original traversal/whole-raster placement remains open.
+
 This presentation correction reproduces the rejected four-ramp scene from
 `ac61dcfeae58be41b7f04c2a4125f78357296d94`. One paid ramp crosses
 `(115,114) -> (116,114)`; three adjacent paid ramps cross the same height1 -> 0
@@ -65,9 +70,11 @@ Native ramp pixels inverse-map onto the endpoint road material, retaining fine
 earth grain and irregular external stones. A whole road rectangle is never
 stretched onto the ramp. Repeating entire junction images was also inspected
 and rejected: their corner stones produced conspicuous interior white rows.
-Joined interior bands instead use an explicit12x8 central earth UV patch of the
-same selected image, with reflected native coordinates and smooth geometric UV
-transitions. Both endpoint joins and external source curbs retain their normal
+The initial reflected UV interpolation produced visible stretched beige streaks
+and identical neighboring interior strips. Current interiors select native
+six-by-four pieces inside the same image's bounded12x8 earth rectangle. Eight
+eagerly cached lateral phases and deterministic pixel coverage replace coordinate
+interpolation. Both endpoint joins and external source curbs retain normal
 sampling. Selection depends on topology and coordinates, never RGB classification.
 Missing or incompatible profile entries use the prepared deterministic authored
 earth/stone material. F6 switches between the two prepared styles.
@@ -89,8 +96,10 @@ does not infer original Emperor slope identity or original cliff composition.
 Compact seven-byte ramp runs replace the former fixed Face arrays. Both runtime
 and authored styles, all four adjacency variants, flat comparison and opaque
 bitsets use approximately427KB with the pinned road pack, below the prior
-approximately3.5MiB mesh cache. Preparation enforces a3MiB run-cache limit and
-4096 runs per part. Cliff states retain512 faces,4096 runs per selected face
+approximately3.5MiB mesh cache. That427KB figure describes the initial single
+runtime material phase; current eight-phase preparation remains within the same
+3MiB run-cache limit. Preparation enforces4096 runs per part.
+Cliff states retain512 faces,4096 runs per selected face
 state and an8MiB combined capacity limit; shared visibility avoids storing five
 complete material copies. All preparation precedes frames and hover repetition.
 
@@ -103,13 +112,20 @@ covers both axes/gradients, negative heights, source qualification, joined cuts,
 retained exterior/lower support, preview cancellation and exact closed F8 states.
 
 `MultiRampVisualFixture` adds the full production composite: zero, isolated,
-three-adjacent and all-four paid states at1x/2x/4x/fractional zoom, F6 and F8;
+three-adjacent, all-four and actual mid-Ramp courier paid states at1x/2x/4x/fractional zoom, F6 and F8;
 literal boundary/exterior RGB diagnostics; actual preview/release/cancel;
 100 pure frames per state and preview; full World/SaveDocument and normalized
 map-pixel equality through F5/advance/F9 and separate process reloads. Frame
 counters must remain zero for files, decode/upload, World copies/commands/ticks,
 BFS and routes. Image inspection remains necessary; these checks do not confer
 human acceptance.
+
+The added144-case direct production renderer atlas covers both axes/gradients,
+negative/zero/positive starting heights and1–4 adjacent ramps at1x/2x/4x. Two
+backgrounds check opaque tread/half seams, and complete neighboring interior RGB
+strips must differ. This is authored renderer evidence, separate from paid
+Sandbox captures. `OE_MULTI_RAMP_BEFORE=path/to/extended/captures` enables exact
+before/after saves, cameras, F6/Snapshot/no-Ramp controls and Bridge/bank pixels.
 
 ## Run the current version
 

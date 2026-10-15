@@ -32,6 +32,7 @@ sh tools/test_multi_ramp_visuals.sh .local/gog-extracted/app
 ```
 
 That starter builds current Release, creates disposable authored terrain and opens a normal paid four-ramp city. See [ramp presentation](docs/rendering/multi-ramp-integration.md) for software captures and regression modes.
+The [original ramp asset audit](docs/rendering/original-ramp-asset-audit.md) separates verified original sprite identities from authored-link rendering and records the remaining native-fit limit.
 
 ## Playing and saves
 

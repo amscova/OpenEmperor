@@ -1,5 +1,13 @@
 # Graphics-ID investigation (2026-09-17)
 
+The [2026-10-15 original ramp audit](../rendering/original-ramp-asset-audit.md)
+verifies Elevation233–236 and road-dependent237–244 through the147-row height
+table and independent ramp-editor producer. Literal`0x601` is the Terrain
+slot3/group1 fallback; ordinary ramp keys are`0x204e–0x2051` in slot16.
+Original actor surfaces, full normalization and direct native-sprite fit to
+authored RampLinks remain unresolved. Earlier broad selector limits below are
+historical and do not negate this newly bounded directional evidence.
+
 The [MP56 General singleton follow-up](../rendering/mp56-original-structure-fallbacks.md)
 fixes a historical registration-order gap. Saved slot2/local203 and216 resolve
 through containing group `0x428` and the existing runtime skip/dummy mapping to
