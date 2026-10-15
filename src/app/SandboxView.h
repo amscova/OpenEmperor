@@ -64,6 +64,8 @@ public:
     void initialize(SDL_Window* window, SDL_Renderer* renderer);
     void set_authored_terrain_sides(bool enabled) { authored_terrain_sides_enabled_=enabled; }
     std::size_t authored_terrain_side_count() const { return authored_terrain_sides_.size(); }
+    std::size_t authored_terrain_open_edges() const { return authored_terrain_sides_.open_edges(); }
+    std::size_t authored_terrain_geometry_bytes() const { return authored_terrain_sides_.logical_geometry_bytes(); }
     void shutdown();
     void handle_event(const SDL_Event& event, bool& running);
     void update(double frame_seconds);

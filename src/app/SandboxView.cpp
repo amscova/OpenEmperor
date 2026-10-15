@@ -229,6 +229,7 @@ void SandboxView::load_now() {
     auto candidate=std::make_unique<simulation::World>(std::move(replacement));
     background_.set_original_road_ground(candidate->map_permissions());
     world_=std::move(candidate);
+    if(authored_terrain_sides_enabled_)authored_terrain_sides_.set_ramps(world_->ramps());
     prepare_original_road_visuals();
     road_connectivity_report_.reset();
     road_connectivity_world_=nullptr;
@@ -325,6 +326,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
     if(authored_terrain_sides_enabled_) {
         if(!world_->ramps_supported())throw std::invalid_argument("Authored terrain sides require explicit City-v16 rule6");
         authored_terrain_sides_.prepare(background_.plan(),geometry_,*world_->map_permissions());
+        authored_terrain_sides_.set_ramps(world_->ramps());
     }
     background_.set_original_road_ground(world_->map_permissions());
     prepare_original_road_visuals();
@@ -1650,6 +1652,7 @@ void SandboxView::cancel_gesture() {
     map_pressed_=false;
     road_start_.reset();
     ramp_start_.reset();ramp_preview_={};
+    authored_terrain_sides_.set_preview(std::nullopt);
     bridge_start_.reset();bridge_preview_={};
     road_preview_={};
     invalidate_road_preview_cache();
@@ -1872,12 +1875,14 @@ void SandboxView::refresh_hover(bool force_road_plan) {
     hovered_=pointer_ ? pick(*pointer_) : std::nullopt;
     hover_dirty_=false;
     if(ramp_start_) {
-        if(!hovered_) {ramp_preview_={};return;}
+        if(!hovered_) {ramp_preview_={};authored_terrain_sides_.set_preview(std::nullopt);return;}
         const bool stale=force_road_plan || planned_start_!=ramp_start_ || planned_end_!=hovered_ ||
             planned_road_revision_!=world_->road_revision() || planned_command_sequence_!=world_->command_sequence() ||
             planned_treasury_!=world_->treasury();
         if(stale) {
             ramp_preview_=world_->validate_ramp(*ramp_start_,*hovered_);
+            authored_terrain_sides_.set_preview(ramp_preview_.accepted?
+                std::optional<simulation::RampLink>(ramp_preview_.link):std::nullopt);
             planned_start_=ramp_start_;planned_end_=hovered_;planned_road_revision_=world_->road_revision();
             planned_command_sequence_=world_->command_sequence();planned_treasury_=world_->treasury();
             last_message_=ramp_preview_.reason+" | height "+std::to_string(world_->transport_height(*ramp_start_))+" -> "+
@@ -2341,6 +2346,8 @@ simulation::CommandResult SandboxView::execute(simulation::Command command) {
     }
     const auto result=world_->execute(command);
     if(result.accepted && result.changed) {
+        if(authored_terrain_sides_enabled_&&command.type==simulation::CommandType::PlaceRamp)
+            authored_terrain_sides_.set_ramps(world_->ramps());
         if(world_->bridges_supported())visual_frame_valid_=false;
         if(command.type!=simulation::CommandType::DemolishBuilding)
             if(const auto owner=world_->building_owner_at(command.cell)) {
@@ -2696,7 +2703,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     };
     const auto append_ramp=[&](const simulation::RampLink& r,bool preview) {
         for(int half=0;half<2;++half)for(const bool front:{false,true}) {
-            // Each half deck precedes its actors; its near rail follows them.
+            // Each half surface precedes its actors; its near bank follows them.
             // Existing global front-cell ordering and all original items stay exact.
             const double t=(half+(front?1:0))*.5;
             const double x=r.endpoint_a.x+(r.endpoint_b.x-r.endpoint_a.x)*t;
@@ -3161,7 +3168,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     };
     if(authored_terrain_sides_enabled_&&world_->ramps_supported()&&background_.elevated()&&
        background_.landscape_mode()!=LandscapeDebugMode::Snapshot)
-        if(!authored_terrain_sides_.draw(renderer_,render_camera))return false;
+        if(!authored_terrain_sides_.draw(renderer_,render_camera,
+            background_.landscape_mode()==LandscapeDebugMode::Regenerated||
+            background_.landscape_mode()==LandscapeDebugMode::WallsMonuments))return false;
     background_.begin_frame();
     for (std::size_t i=0;i<background_.draw_items().size();++i)
         if (replacement_for(i)!=1 && !background_.draw_ground_item(i,render_camera)) return false;

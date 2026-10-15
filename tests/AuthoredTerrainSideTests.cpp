@@ -1,4 +1,5 @@
 #include "renderer/AuthoredTerrainSides.h"
+#include "renderer/RampRenderer.h"
 #include "maps/LandscapeProvenance.h"
 #include "core/PerformanceDiagnostics.h"
 #include <SDL3/SDL.h>
@@ -55,8 +56,83 @@ int main(){SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;try {
                 check(!(r==13&&g==21&&b==31),"black void remains in the height facet interior");colors.insert((unsigned(r)<<16)|(unsigned(g)<<8)|b);
             }
             check(colors.size()>=8,"soil/stone graphic collapsed to a flat rectangle");SDL_DestroySurface(pixels);
+            s::RampLink link{{1},high,low,std::int8_t(height),std::int8_t(height-1),40,0};
+            if(link.endpoint_a.x>link.endpoint_b.x||link.endpoint_a.y>link.endpoint_b.y){std::swap(link.endpoint_a,link.endpoint_b);std::swap(link.height_a,link.height_b);}
+            faces.set_ramps(std::array{link});check(faces.open_edges()==1,"owned edge did not excavate exact terrain face");
+            const auto clear=[&]{check(SDL_SetRenderDrawColor(renderer,13,21,31,255)&&SDL_RenderClear(renderer),"opening clear");};
+            const auto sample=[&](SDL_Surface* surface,oe::scene::Point p){const auto q=camera.world_to_screen(p);Uint8 r=0,g=0,b=0,a=0;
+                check(SDL_ReadSurfacePixel(surface,int(q.x),int(q.y),&r,&g,&b,&a),"opening sample");return std::array<Uint8,3>{r,g,b};};
+            const std::array<Uint8,3> background{13,21,31};
+            clear();check(faces.draw(renderer,camera),"opened cliff draw");pixels=SDL_RenderReadPixels(renderer,nullptr);check(pixels,"cutout readback");
+            // Ascending canonical edges are exactly edge-on in the fixed 2:1
+            // projection. Probe their shallow visible crest, not an imaginary
+            // broad tread. Descending edges expose the full graded surface.
+            unsigned excavated=0;
+            for(int depth=2;depth<20;++depth)for(int lateral=-8;lateral<=8;++lateral) {
+                const double t=.5+double(lateral)/40.;
+                const auto across=oe::scene::Point{direction.x?-20.:20.,10.};
+                const oe::scene::Point p{ground.x+normal.x+across.x*(t-.5)*2,ground.y+normal.y+across.y*(t-.5)*2+depth};
+                excavated+=sample(pixels,p)==background;
+            }
+            check(excavated>0,"vertical wall still crosses the entire authorized opening");
+            const oe::scene::Point across{direction.x?-20.:20.,10.};
+            for(const double side:{-.84,.84})check(sample(pixels,{ground.x+normal.x+across.x*side,ground.y+normal.y+across.y*side+8})!=background,"lateral cliff flank was removed");
+            check(sample(pixels,{ground.x+normal.x,ground.y+normal.y+30})!=background,"rock below the sloped crossing was removed");SDL_DestroySurface(pixels);
+            const auto start=m::landscape_ground(f.plan,{unsigned(link.endpoint_a.x),unsigned(link.endpoint_a.y)});
+            for(int half=0;half<2;++half)for(const bool front:{false,true})check(oe::draw_ramp_part(renderer,camera,start,link,half,front,true),"integrated surface draw");
+            pixels=SDL_RenderReadPixels(renderer,nullptr);check(pixels,"joined surface readback");
+            for(double along:{-.5,0.,.5})for(int depth:{4,8,12,16})
+                check(sample(pixels,{ground.x+normal.x+across.x*along,ground.y+normal.y+across.y*along+depth})!=background,"transparent hole between cutout and graded surface");
+            SDL_DestroySurface(pixels);
+            faces.set_ramps({});faces.set_preview(link);check(faces.open_edges()==0,"preview published a committed cutout");
+            faces.set_preview(std::nullopt);clear();check(faces.draw(renderer,camera),"cancelled cutout draw");pixels=SDL_RenderReadPixels(renderer,nullptr);
+            check(sample(pixels,{ground.x+normal.x,ground.y+normal.y+8})!=background,"cancelled preview left a terrain hole");SDL_DestroySurface(pixels);
             check(permissions->canonical_state()==canonical,"visual preparation mutated permissions");
         }
+    // A long edge must not repeat the same four painted wall segments. Compare
+    // corresponding interior pixels four cells apart, independently of the
+    // material implementation. The former four-phase renderer fails here.
+    {
+        Fixture f({114,110},{115,110},1);
+        for(int y=110;y<=118;++y)for(int x=114;x<=115;++x) {
+            const auto at=std::size_t(y*228+x);f.plan.raw_terrain[at]=0x80;
+            auto& p=f.cells[at];p.road_allowed=p.building_allowed=true;p.road_blocker=p.building_blocker=s::BuildBlocker::None;
+            p.height=std::int8_t(x==114?1:0);f.plan.height_bytes[at]=std::uint8_t(p.height);
+        }
+        oe::AuthoredTerrainSides faces;faces.prepare(f.plan,f.geometry,*f.permissions());
+        const auto a=m::landscape_ground(f.plan,{114,112}),b=m::landscape_ground(f.plan,{114,116});
+        oe::scene::Camera2D camera;camera.zoom=1;camera.offset={450-a.x,240-a.y};
+        check(SDL_SetRenderDrawColor(renderer,13,21,31,255)&&SDL_RenderClear(renderer)&&faces.draw(renderer,camera),"long cliff draw failed");
+        auto* pixels=SDL_RenderReadPixels(renderer,nullptr);check(pixels,"long cliff readback");unsigned different=0;
+        for(int depth=6;depth<35;depth+=2) {
+            const auto pa=camera.world_to_screen({a.x+20,a.y+10+depth}),pb=camera.world_to_screen({b.x+20,b.y+10+depth});
+            Uint8 ar=0,ag=0,ab=0,aa=0,br=0,bg=0,bb=0,ba=0;
+            check(SDL_ReadSurfacePixel(pixels,int(pa.x),int(pa.y),&ar,&ag,&ab,&aa)&&SDL_ReadSurfacePixel(pixels,int(pb.x),int(pb.y),&br,&bg,&bb,&ba),"long cliff sample failed");
+            different+=ar!=br||ag!=bg||ab!=bb;
+        }
+        SDL_DestroySurface(pixels);check(different>=6,"cliff material visibly repeats every four cells");
+    }
+    // A raised L has an inner corner, outer corners and eight unique boundary
+    // edges. Its two cuts must retain all other faces and lower support.
+    {
+        Fixture f({114,114},{115,114},1);
+        for(int y=113;y<=116;++y)for(int x=113;x<=116;++x) {
+            const auto i=std::size_t(y*228+x);auto& p=f.cells[i];
+            const bool high=(x==114&&(y==114||y==115))||(x==115&&y==114);
+            p.road_allowed=p.building_allowed=true;p.road_blocker=p.building_blocker=s::BuildBlocker::None;p.height=high?1:0;
+            f.plan.height_bytes[i]=std::uint8_t(p.height);f.plan.raw_terrain[i]=0x80;
+        }
+        oe::AuthoredTerrainSides faces;faces.prepare(f.plan,f.geometry,*f.permissions());
+        check(faces.size()==8,"inner/outer corners duplicate or omit a physical cliff edge");
+        const s::RampLink first{{1},{114,115},{115,115},1,0,40,0},second{{2},{115,114},{116,114},1,0,40,0};
+        faces.set_ramps(std::array{first});faces.set_preview(second);
+        check(faces.open_edges()==1,"neighbor preview changed committed topology");
+        faces.set_ramps(std::array{first,second});check(faces.open_edges()==2,"two independent owned edges did not open");
+        auto invalid=second;invalid.height_b=-1;faces.set_preview(invalid);
+        faces.set_ramps(std::array{first});check(faces.open_edges()==1,"removed visual edge state remained stale");
+        faces.set_ramps({});check(faces.open_edges()==0,"cleared link set retained openings");
+        check(faces.logical_geometry_bytes()<=8U*1024U*1024U,"prepared geometry exceeded its explicit memory bound");
+    }
     for(int variant=0;variant<7;++variant) {
         Fixture f({114,114},{115,114},1);auto& p=f.cells[114U*228U+115U];
         switch(variant) {

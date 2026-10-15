@@ -1463,6 +1463,7 @@ void ramp_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer
     if(!view.paused())view.handle_event(key(SDLK_SPACE),running);
     check(view.world().rule_version()==6&&view.world().map_permissions()->policy_version()==3,"explicit ramp versions not retained");
     check(view.authored_terrain_side_count()>0,"authored height gap has no prepared side faces");
+    check(view.authored_terrain_open_edges()==0,"unbuilt edge has a committed cliff opening");
     const auto screen=[&](simulation::Cell c){auto p=maps::terrain_ground({unsigned(c.x),unsigned(c.y)},72);p.y-=view.world().transport_height(c)*40;return view.camera().world_to_screen(p);};
     const auto a=screen({103,103}),b=screen({104,103});
     check(view.pick(a)==simulation::Cell{103,103} && view.pick(b)==simulation::Cell{104,103},"graded ramp input endpoint pick mismatch");
@@ -1480,6 +1481,7 @@ void ramp_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer
         if(cancel==2){SDL_Event event{};event.type=SDL_EVENT_WINDOW_RESIZED;view.handle_event(event,running);}
         if(cancel==3){auto event=click(float(a.x),float(a.y));event.button.button=SDL_BUTTON_RIGHT;view.handle_event(event,running);}
         up();check(view.world().snapshot()==snapshot,"cancelled ramp gesture published state");
+        check(view.authored_terrain_open_edges()==0,"cancelled gesture committed a terrain opening");
     }
     down();view.handle_event(release(float(view.layout().toolbar.x+10),float(view.layout().toolbar.y+10)),running);
     check(view.world().snapshot()==snapshot,"ramp release over UI committed");
@@ -1490,11 +1492,13 @@ void ramp_view_checks(const Temp& temp,SDL_Window* window,SDL_Renderer* renderer
         perf::Counter::BfsCalls,perf::Counter::RouteRefreshes,perf::Counter::AssetDecodes,perf::Counter::TextureUploads,perf::Counter::FileReads,perf::Counter::FileWrites})
         check(perf::counter(counter)==0,"ramp preview did forbidden work");
     check(view.world().snapshot()==snapshot,"ramp preview mutated World");up();perf::set_enabled(false);
+    check(view.authored_terrain_open_edges()==1,"paid gesture did not update its prepared cliff edge");
     check(view.world().ramps().size()==1&&view.world().treasury()==snapshot.treasury-40&&view.world().command_sequence()==snapshot.command_sequence+1,
         "MouseUp did not publish one atomic whole ramp at actual endpoint");
     up();check(view.world().ramps().size()==1,"duplicate release built another ramp");
     const auto built=view.world().snapshot();view.handle_event(key(SDLK_F5),running);view.tick_once();view.handle_event(key(SDLK_F9),running);
     check(view.world().snapshot()==built,"actual handler F5/F9 lost full schema22 state");
+    check(view.authored_terrain_open_edges()==1,"F9 lost the saved RampLink cliff opening");
     for(int zoom=0;zoom<3;++zoom){check(view.render(),"authored terrain integer zoom failed");view.handle_event(key(SDLK_Z),running);}
     SDL_Event wheel{};wheel.type=SDL_EVENT_MOUSE_WHEEL;wheel.wheel.y=.5F;wheel.wheel.mouse_x=float(a.x);wheel.wheel.mouse_y=float(a.y);
     view.handle_event(wheel,running);view.update(.01,{true,false,false,false});check(view.render(),"authored terrain fractional zoom/pan failed");

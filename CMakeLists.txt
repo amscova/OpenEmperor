@@ -1188,6 +1188,11 @@ add_executable(openemperor-city-v16-ramps-fixture EXCLUDE_FROM_ALL tools/CityV16
 target_link_libraries(openemperor-city-v16-ramps-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-city-v16-ramps-fixture)
 
+add_executable(openemperor-cliff-ramp-visual-fixture EXCLUDE_FROM_ALL
+    tools/CliffRampVisualFixture.cpp ${bridge_fixture_sources})
+target_link_libraries(openemperor-cliff-ramp-visual-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+openemperor_enable_warnings(openemperor-cliff-ramp-visual-fixture)
+
 if(BUILD_TESTING)
     add_executable(openemperor-ramp-rendering-tests tests/RampRenderingTests.cpp src/renderer/RampRenderer.cpp)
     target_link_libraries(openemperor-ramp-rendering-tests PRIVATE openemperor-scene SDL3::SDL3)
@@ -1200,7 +1205,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-    add_executable(openemperor-authored-terrain-side-tests tests/AuthoredTerrainSideTests.cpp src/renderer/AuthoredTerrainSides.cpp)
+    add_executable(openemperor-authored-terrain-side-tests tests/AuthoredTerrainSideTests.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/RampRenderer.cpp)
     target_link_libraries(openemperor-authored-terrain-side-tests PRIVATE openemperor-maps SDL3::SDL3)
     openemperor_enable_warnings(openemperor-authored-terrain-side-tests)
     add_test(NAME authored-terrain-side-pixels COMMAND openemperor-authored-terrain-side-tests)

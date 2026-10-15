@@ -81,7 +81,7 @@ bool inside_polygon(Point world,const Quad& points) {
     }
     return true;
 }
-Mesh make_geometry(bool axis_x,int delta,int half,bool front) {
+Mesh legacy_flat_geometry(bool axis_x,int delta,int half,bool front) {
     Mesh mesh;
     const Point along{axis_x?40.0:-40.0,20.0-delta*40.0},across{axis_x?-40.0:40.0,20};
     const double first=half*.5,last=first+.5;
@@ -110,6 +110,66 @@ Mesh make_geometry(bool axis_x,int delta,int half,bool front) {
     }
     mesh.stroke(lift(point(first,side),10),lift(point(last,side),10),1.7,{116,99,73,255},true);
     mesh.stroke(lift(point(first,side),5),lift(point(last,side),5),1,{83,72,52,255},true);
+    return mesh;
+}
+Mesh make_geometry(bool axis_x,int delta,int half,bool front) {
+    if(delta==0)return legacy_flat_geometry(axis_x,delta,half,front);
+    Mesh mesh;const double first=half*.5;
+    const simulation::RampLink r{{1},{0,0},axis_x?simulation::Cell{1,0}:simulation::Cell{0,1},0,std::int8_t(delta),40,0};
+    const auto point=[&](double t,double side){return ramp_surface_point({},r,t,side*ramp_surface_width(t)/ramp_surface_half_width);};
+    const auto native=[&](double t,double side){const double edge=side<0?-.46:.46;const auto p=ramp_surface_point({},r,t,edge);return Point{p.x,20*t-(half?delta*40:0)+20*edge};};
+    const auto shade=[](int x,int y){auto n=std::uint32_t(x+71)*0x8da6b343U^std::uint32_t(y+91)*0xd8163841U;n^=n>>13;n*=0x85ebca6bU;return int(n%15)-7;};
+    const auto flank=[&](double side) {
+        // A cut bank on the upper half and a low supported embankment below.
+        // Both use the same signed slope as the road and the terrain cutout.
+        for(int along=0;along<12;++along)for(int row=0;row<5;++row) {
+            const double a=first+along/24.,b=first+(along+1)/24.;
+            const auto a0=point(a,side),a1=point(b,side),b0=native(a,side),b1=native(b,side);
+            if(std::hypot(a0.x-b0.x,a0.y-b0.y)+std::hypot(a1.x-b1.x,a1.y-b1.y)<.01)continue;
+            const int light=shade(along+half*12,row+int(side*20));
+            const auto c=SDL_Color{Uint8(137+light),Uint8(130+light),Uint8(109+light),255};
+            mesh.quad({between(a0,b0,row/5.),between(a1,b1,row/5.),between(a1,b1,(row+1)/5.),between(a0,b0,(row+1)/5.)},c);
+        }
+        // Low, broken gravel edging, not a handrail or a row of timber posts.
+        for(int i=0;i<12;++i) {
+            const double a=first+i/24.,b=first+(i+1)/24.;const double outer=side+(side<0?-.035:.035);
+            const int light=shade(i,half+int(side*100));
+            mesh.quad({point(a,side),point(b,side),point(b,outer),point(a,outer)},
+                {Uint8(155+light),Uint8(142+light),Uint8(109+light),255});
+        }
+    };
+    if(front){flank(ramp_surface_half_width);return mesh;}
+    flank(-ramp_surface_half_width);
+    // Continuous compacted earth/stone, with subtle irregular wear. No rungs,
+    // plank seams, tall posts or independent artwork height offsets.
+    for(int along=0;along<24;++along)for(int cross=0;cross<10;++cross) {
+        const double a=first+along/48.,b=first+(along+1)/48.;
+        const double c=-ramp_surface_half_width+cross*(2*ramp_surface_half_width/10.);
+        const double d=c+2*ramp_surface_half_width/10.;
+        const int light=shade(along+half*24,cross);
+        const int edge=cross==0||cross==9?-9:0;
+        const bool stone=shade(along+half*24,cross)>4;
+        mesh.quad({point(a,c),point(b,c),point(b,d),point(a,d)},
+            {Uint8((stone?192:208)+light+edge),Uint8((stone?178:187)+light+edge),Uint8((stone?143:136)+light+edge),255});
+    }
+    // Small irregular chips break up the compacted earth. Their independent
+    // positions avoid transverse rungs or a checker of rectangular pavers.
+    for(int i=0;i<65;++i) {
+        const auto h=std::uint32_t(i+half*65+17)*0x9e3779b9U;
+        const double t=first+.015+double(h%1000)/1000.*.47;
+        const double s=-.23+double((h>>10)%1000)/1000.*.46;
+        const double length=.006+double((h>>20)%7)*.0015,width=.008+double(h%5)*.002;
+        const auto a=point(t-length,s),b=point(t,s-width),c=point(t+length,s+.003),d=point(t,s+width);
+        const int light=shade(i,half);
+        mesh.quad({a,b,c,d},{Uint8(225+light),Uint8(209+light),Uint8(169+light),255});
+    }
+    // At the exact 2:1 projection two ascending orientations are edge-on.
+    // A shallow stone crest gives the unchanged foot line visible thickness;
+    // it does not move the path, surface height or the camera projection.
+    if(delta==1)for(int i=0;i<24;++i) {
+        const double a=first+i/48.,b=first+(i+1)/48.;const int light=shade(i/2+half*12,3);
+        mesh.stroke(point(a,0),point(b,0),2.2,{Uint8(188+light),Uint8(171+light),Uint8(122+light),255});
+    }
     return mesh;
 }
 Mesh pixel_contours(const Mesh& input) {
@@ -161,6 +221,20 @@ const auto meshes=[] {
             result[std::size_t(axis*12+(slope+1)*4+half*2+front)]=pixel_contours(make_geometry(axis==0,slope,half,front!=0));
     return result;
 }();
+const auto opaque=[] {
+    std::array<std::array<bool,192*192>,6> result{};
+    for(int axis=0;axis<2;++axis)for(int slope=-1;slope<=1;++slope)
+        for(int half=0;half<2;++half)for(int front=0;front<2;++front) {
+            const auto& mesh=meshes[std::size_t(axis*12+(slope+1)*4+half*2+front)];
+            auto& pixels=result[std::size_t(axis*3+slope+1)];
+            for(std::size_t i=0;i<mesh.count;++i)if(mesh.faces[i].color.a==255) {
+                const auto& p=mesh.faces[i].points;
+                for(int y=int(p[0].y)+64;y<int(p[2].y)+64;++y)for(int x=int(p[0].x)+64;x<int(p[2].x)+64;++x)
+                    if(x>=0&&y>=0&&x<192&&y<192)pixels[std::size_t(y*192+x)]=true;
+            }
+        }
+    return result;
+}();
 const Mesh& geometry(const simulation::RampLink& r,int half,bool front,bool elevated) {
     const int axis=r.endpoint_a.x!=r.endpoint_b.x?0:1;
     const int slope=elevated?int(r.height_b)-int(r.height_a):0;
@@ -172,6 +246,12 @@ SDL_FColor color(SDL_Color base,BridgeTint tint) {
         tint==BridgeTint::Unaffordable?SDL_FColor{.85F,.62F,.20F,1}:SDL_FColor{.80F,.25F,.23F,1};
     return {overlay.r*.8F+base.r/255.0F*.2F,overlay.g*.8F+base.g/255.0F*.2F,overlay.b*.8F+base.b/255.0F*.2F,.55F*base.a/255.0F};
 }
+}
+bool ramp_opaque_at(Point world,Point ground,const simulation::RampLink& r) {
+    const int x=int(std::floor(world.x-ground.x))+64,y=int(std::floor(world.y-ground.y))+64;
+    const int slope=int(r.height_b)-int(r.height_a);
+    if(x<0||y<0||x>=192||y>=192||std::abs(slope)>1)return false;
+    return opaque[std::size_t((r.endpoint_a.x!=r.endpoint_b.x?0:1)*3+slope+1)][std::size_t(y*192+x)];
 }
 bool hit_ramp_part(Point world,Point ground,const simulation::RampLink& ramp,int half,bool front,bool elevated) {
     const auto& mesh=geometry(ramp,half,front,elevated);world={world.x-ground.x,world.y-ground.y};

@@ -462,3 +462,16 @@ The pass stops at the bounded partial implementation. No commit, push, tag, rele
 ## Great Wall restore-context activation follow-up (2026-10-04)
 
 The new [bounded context and activation report](great-wall-restore-context.md) rechecks the pinned original decision, explains the higher-level editor/mission inputs, and records normal-app explicit-preview activation. It starts at clean `91891af8bba00e85223a80773a110edf9f1f7ad0`; the Pass-4 zero-activation results above remain historical. Automatic still has no proven original context. Explicit material previews reuse the existing piece/claim/Type-30 pipeline and have independent active counters; complete original context and scene composition remain open.
+
+## Cliff/ramp research follow-up (2026-10-15)
+
+The [authored cliff integration report](../rendering/cliff-ramp-integration.md)
+rechecks the pinned EXE hash and decodes historical Elevation records
+201/229/211/344/312/349/231/353. Their Type30/side1 cap/pillar geometry is not a
+complete selector for a generic40px step. The key601 generation and conditional
+height normalization above remain unresolved. Real Xia/Banpo/Anyi/Badaling
+provenance and software captures are retained privately; normal render-check
+reports match the old executable in every field except measured load time.
+No original selector, height, anchor, asset or map authority changes in this pass.
+The opt-in authored Ramp scene uses its own bounded prepared rock/slope geometry
+and exact saved RampLink cuts; it is not original first-draw parity.

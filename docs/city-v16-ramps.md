@@ -56,12 +56,12 @@ UI release cancel; previews coalesce endpoints/revision/sequence/funds and never
 execute/copy/restore/tick World or run navigation/file/asset work. P respects the
 existing F3 diagnostic boundary.
 
-The surface is **OpenEmperor-authored**, with weathered cross-planks, tapering
-stone infill, narrow side beams and quiet rails; no original pixels are copied.
+The surface is **OpenEmperor-authored**, with continuous compacted earth/stone
+tread and low terrain banks; no original pixels are copied.
 Fixed axis/gradient/half/back/front templates, including flat Snapshot comparison,
 prepare their material detail and bounded coverage raster before the frame loop.
 Drawing/picking reuse those components without textures. Actual endpoint projection
-uses signed height×40. Each half deck precedes its local actors; its near rail
+uses signed height×40. Each half surface precedes its local actors; its near bank
 follows them within the existing painter, with no global ordering change. Original
 foreground keeps its effective order. F8 hides the whole body in nonstructural
 comparisons; cached drawn geometric hits and endpoint Inspector retain provenance.
@@ -79,13 +79,31 @@ not original cliff artwork or a new transport permission.
 Preparation reads complete source/policy3 geometry once. Both cells must have
 exact raw0x80/0xc0, objects0, matching signed source/policy heights, permitted normal
 land and no original protection, gate or water; the signed difference must be1.
-The bounded cache holds at most512 faces and16 eagerly prepared direction/material
-templates, each with at most4,096 color runs. Faces draw before the existing Ground
+The bounded cache holds at most512 unique edges with connected corner facts and
+closed/open raster states, each with at most4,096 color runs and a combined8MiB
+capacity budget. Exact saved RampLinks select prepared openings; a separate preview
+cut never commits terrain state. Shared slope coverage retains the lateral rock
+and lower support without transparent gaps. Continuous deterministic rock material
+replaces the four-phase repeating template. Faces draw before the existing Ground
 pass; unchanged terrain, roads, foreground, Ramp and actor composition cover them.
-Flat Snapshot hides the faces. Picking, all gameplay/save authority, Bridge art and
+Partial F8 layers retain closed faces when hiding the Ramp; flat Snapshot hides
+the faces. Picking, all gameplay/save authority, Bridge art and
 the global painter remain unchanged. Frames perform no material generation, map
 scan, file/asset/texture work, World copies, commands, ticks or navigation.
 General original elevation, slope identity and cliff composition remain unresolved.
+See [cliff/ramp integration](rendering/cliff-ramp-integration.md) for the same-scene
+before/after captures, original-asset research and the paid two-ramp starter:
+
+```sh
+sh tools/test_cliff_ramp_visuals.sh .local/gog-extracted/app
+```
+
+The2026-10-15 integration pass at baseline`9d6ac7a` captures the same paid scene
+with two Ramps, retains four byte-identical before/after SaveDocuments and eight
+exact new-process save/map-PNG comparisons. All154 tests pass in Debug, Release
+and ASan+UBSan; the complete12k Ramp/Bridge/old-city acceptance retains50 old full
+SaveDocuments and1,485 policy summaries. See the linked report for current images,
+source digest, measured cache bounds and separate original/native/human limits.
 
 ## Evidence and persistence
 

@@ -465,3 +465,16 @@ Handan global-pass overwrite is corrected under the bounded OpenEmperor
 contract; complete original compositor parity, interpenetrating whole
 sprites, height normalization, historical-overlay eligibility and the
 separate Ruined phase-2 Road variant 40 remain open.
+
+## Authored cliff/ramp local composition (2026-10-15)
+
+The explicit rule6 terrain-side preview now prepares connected edge geometry and
+closed/open raster states. Exact saved RampLinks or a separate valid preview
+select an opening, retaining lateral rock and lower support. The cut intersects
+prepared opaque slope coverage; it never removes an entire wall tile or grants
+transport permission. Sides remain before Ground. Each Ramp half's surface/back
+bank precedes local actors and its near bank follows them in the existing merge;
+the global painter, original foreground and Bridge descriptors remain unchanged.
+Partial F8 modes retain closed sides when hiding the Ramp; historical Snapshot
+hides the authored sides and keeps the previous flat-debug Ramp components.
+See [geometry, original evidence and same-scene pixels](cliff-ramp-integration.md).

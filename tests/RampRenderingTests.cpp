@@ -27,7 +27,7 @@ int main(){SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;try {
                 const auto point=camera.world_to_screen(p);std::uint8_t r=0,g=0,b=0,alpha=0;
                 check(SDL_ReadSurfacePixel(pixels,int(point.x),int(point.y),&r,&g,&b,&alpha),"surface pixel missing");
                 if(tint==oe::BridgeTint::Normal) {
-                    check(r>50&&g>40&&b<110,"sloped deck absent at actual interpolated endpoint heights");
+                    check(r>=120&&g>=110&&r>g&&b>=65&&b<g,"compacted earth/stone surface absent at actual interpolated endpoint heights");
                     shades.insert((std::uint32_t(r)<<16)|(std::uint32_t(g)<<8)|b);++samples;
                 }
             }
