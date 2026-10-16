@@ -146,6 +146,32 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   Footprint-, Bau-/Restore-/Save-/Status- oder Fundsänderung. OE-12/Gate B
   BLOCKED, kein OE-13. [Beleg und Repro](../reverse/original-market-desirability-shape.md).
 
+### OE-12: beauftragter Vertragsentwurf, noch keine Freigabe
+
+- **Revision:** sauberer, live/origin bestätigter `main`
+  `4fd586851e1f019dbeb9b9894e7437fd9b6d9e2c`; Feature-Branch per Fast-forward
+  angeglichen. Letzter Forschungscommit `da94833b46c130514d24fa172dacad4a56e46e11`.
+- **Neuer ausdrücklicher Auftrag:** „Zuerst einen konkreten Rule‑7-Quellen-,
+  Bau-, Restore- und Finanzierungsvertrag zur Entscheidung ausarbeiten.“
+  Das beauftragt den [konkreten Entwurf](../original-economy/source-contract-v1-proposal.md),
+  keine Umsetzung oder Annahme der vorgeschlagenen Ausnahmen.
+- **Vorschlag, NICHT ANGENOMMEN:** ausdrücklicher Nachfolger Rule8/Schema24
+  bei policy3; eigener authored Well72-Quellencontainer2×2 mit Preis60/Limit4,
+  atomarer Kauf/Abriss und eigenem bounded Entfernungsledger; fixes neues
+  Startbudget2000 ohne Einnahmen/Refund. Rule7/Schema23 bleiben exakt.
+  Die sieben bisherigen `Inferred`/`Unknown`-Analogien bleiben unverändert.
+- **Zusätzliche Abnahmeentscheidung:** Unverändertes City-v13 verweigert
+  Wells und finanziert die20 Häuser nicht aus seinem Startbudget. Der Entwurf
+  schlägt daher ausdrücklich einen Vergleich seines unveränderten Algorithmus
+  auf der real bezahlten neuen Szene vor, keinen identischen City-v13-Worldlauf.
+  Auch dieser geänderte Vergleich benötigt die Zustimmung des Nutzers.
+- **Review und Konsequenz:** Layout/Finanzarithmetik, Isolation, Ledger/Restore
+  und Zustimmungspflicht unabhängig read-only geprüft. Die vorgeschlagenen
+  Werte sind authored, keine Originalkauf-/Lifecyclebehauptung. Dokumentation
+  darf nach bestehendem Handoff gemergt werden; das genehmigt keine Regeln.
+  OE-12/Gate B weiterhin **BLOCKED**, OE-13 **TODO**. Prompts/Quality-Gates
+  werden vor der Entscheidung nicht umgeschrieben; kein Produktionscode geändert.
+
 ### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
 
 - **Revision:** Beginn am sauberen, live/origin bestätigten `main`

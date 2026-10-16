@@ -18,7 +18,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation); Forschung zuletzt `c3234ae4c397a84aaad533d3ccc63a90d6755d73`, frühere SHAs im Protokoll | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
+| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation); Forschung zuletzt `da94833b46c130514d24fa172dacad4a56e46e11`, frühere SHAs im Protokoll | `.local/original-economy/oe12/` | Strenge Grenze unverändert; konkreter Quellen-/Bau-/Restore-/Finanzierungsentwurf jetzt beauftragt und vorgelegt, noch NICHT FREIGEGEBEN; keine Implementierung |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
@@ -1384,3 +1384,44 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
 - Keine produktive Rechteckerweiterung, World-Quellenidentität, Parser-/
   Footprint-/Save-/Bau-/Restore-/Fundsänderung. Quellenvertrag und Finanzierung
   bleiben ungelöst; keine OE-13-Freigabe.
+
+### OE-12 Vertragsentwurf – 2026-10-16, Basis4fd5868 – zur Entscheidung
+
+- Beginn am sauberen, live/origin bestätigten `main`
+  `4fd586851e1f019dbeb9b9894e7437fd9b6d9e2c`; Feature-Branch per Fast-forward
+  angeglichen. Letzter Markt-Forschungscommit `da94833b46c130514d24fa172dacad4a56e46e11`
+  oben nachgetragen. Nutzer beauftragt ausdrücklich zuerst den konkreten
+  Quellen-, Bau-, Restore- und Finanzierungsvertrag zur Entscheidung.
+- [Prüfbarer Entwurf](../original-economy/source-contract-v1-proposal.md):
+  genau Well72 als eigener authored2×2-Quellencontainer, Kauf60/max4,
+  atomarer Abriss ohne Refund, eigenes bounded Ledger und striktes Restore.
+  Empfohlen sind ausdrücklich Rule8/Schema24/policy3 und fixes Budget2000;
+  der heutige Rule7-/Schema23-Vertrag bleibt eingefroren. Die Umstellung vom
+  beauftragten Rule7-Namen ist eine sichtbare Entscheidung, keine Umsetzung.
+- Konkrete24×20-Szene:20 regulär zu kaufende Häuser,40 eindeutige Straßen,
+  zwei Quellen, Abriss und Wiederkauf am Rand. Layout-/Ledgerarithmetik ergibt
+  Ausgaben1860/Rest140, historische ID21 und neue ID23/nächste24.
+  Das wurde als Geometrie-/Rechenprüfung kontrolliert, **nicht** als neue
+  Rule8-World ausgeführt. Separater Algorithmusvergleich erforderlich:
+  echtes City-v13 verweigert Wells. Der Entwurf benennt diesen zusätzlichen
+  Abnahmewechsel ausdrücklich; keine gefälschte City-v13-Instanz.
+- Drei unabhängige read-only Designreviews: Objekt-/Capability-Isolation,
+  Finance/Schema/Ledger und Layout/Legacyvergleich. Quellenkaufhistorie und
+  bestehendes DemolitionHistory strikt getrennt; alle alten Schemas verweigern
+  neue Quellentypen. Keine bisherigen Analogien aufgewertet.
+- Private Dokumentations-/Layoutprüfung:
+  `python3 .local/original-economy/oe12/source-contract-proposal/validate_proposal.py`.
+  Abschlussbelege liegen dort in `final-validation.json` und
+  `layout-finance.json`; nur Dokumentations- und Rechenprüfung, kein Featuretest.
+  CMake-/Source-/Test-/Tool-/Resource-SHA256 bleibt
+  `2a0257193d1ba22a5395ad34c78ba27629e45d0f977a9a3e8aae868d8b6669fe`;
+  Originalinventar1464 Dateien/819711091 Bytes und Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`
+  bleiben unverändert. Lokale Links, Layout, Funds-/ID-/Revisionsarithmetik
+  und Diff-Whitespace geprüft: **PASS** für Layout-/Ledgerarithmetik und79
+  lokale Links. Dieses PASS bezeichnet ausschließlich den Entwurf.
+- **NICHT FREIGEGEBEN:** Kein Bau-/Restore-/Budget-/Versionscode geändert.
+  Keine Produktionsbuilds/CTests; Gate-B-Vollsuites **NOT_RUN**, native/human
+  **NOT_RUN**. OE-12/Gate B bleiben **BLOCKED**, OE-13 **TODO**. Der delegierte
+  Git-Handoff erlaubt Dokumentationscommit/PR/Merge, keine implizite Annahme
+  dieses Vorschlags. Nächster notwendiger Schritt ist die Nutzerentscheidung.
