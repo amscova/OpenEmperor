@@ -389,9 +389,10 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     library = args.simulation_library or ROOT / CONFIGURATIONS[args.configuration][1] / "libopenemperor-simulation.a"
     if not library.is_file():
         raise ValueError("matching prebuilt simulation library is missing; build the selected configuration first")
-    # Actual fourth-module execution requires the exact unchanged World API.
+    # OE-08 reviewed: additive Rule-7 gates/factory; legacy probe API and
+    # World/Snapshot data fields are unchanged. Keep the compatibility pin exact.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "f07f8a74cd6e77de1a8d76fe994fc27ccdc6715f":
+    if world_blob != "deb226cbf1701e5ca7d3b00ab93bbb6b35bff6b1":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"world_header_git_blob":world_blob}
     authored = cases()

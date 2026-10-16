@@ -187,6 +187,9 @@ SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::Ru
     if (!geometry_.supported) throw std::invalid_argument("sandbox requires supported map geometry");
     if (!simulation::rule_version_supported(rules_,requested_rule_version_))
         throw std::invalid_argument("unsupported sandbox rule version");
+    if (simulation::original_economy_enabled(rules_,requested_rule_version_))
+        throw std::invalid_argument("Rule 7 original economy runtime is not available yet; "
+            "use --sandbox-original-economy-check for developer diagnostics");
     if (simulation::production_profile(rules_)) tool_=5;
 }
 SandboxView::~SandboxView() { shutdown(); }

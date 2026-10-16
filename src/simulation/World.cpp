@@ -248,7 +248,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=6;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=7;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -274,6 +274,8 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::CityV16 && version==4) return city_v16_v4;
     static constexpr ProfileRules city_v16_v6{6,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==6) return city_v16_v6;
+    static constexpr ProfileRules city_v16_v7{7,32,64,32,5,800};
+    if (original_economy_enabled(profile,version)) return city_v16_v7;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};
@@ -285,7 +287,8 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
              std::uint32_t rule_version)
     : World(width,height,std::move(buildable),profile,rule_version,{}) {}
 World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfile profile,
-             std::uint32_t rule_version,std::shared_ptr<const MapPermissions> permissions)
+             std::uint32_t rule_version,std::shared_ptr<const MapPermissions> permissions,
+             bool original_development)
     : width_(width),height_(height),profile_(profile),
       rule_version_(rule_version==0 ? current_rule_version(profile):rule_version),
       buildable_(std::move(buildable)),permissions_(std::move(permissions)) {
@@ -302,11 +305,13 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
         profile!=RulesProfile::CityV15 && profile!=RulesProfile::CityV16)
         throw std::invalid_argument("unknown sandbox rules profile");
     (void)profile_rules(profile_,rule_version_);
+    if (original_economy_enabled() && !original_development)
+        throw std::invalid_argument("City-v16 rule 7 runtime is not ready; use the explicit infrastructure-only development factory");
     if (permissions_) {
         const bool valid_pair=profile_==RulesProfile::CityV16 &&
             ((rule_version_==3 && permissions_->policy_version()==kMapPermissionsPolicyVersion) ||
              (rule_version_==4 && permissions_->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion) ||
-             ((rule_version_==5 || rule_version_==6) && permissions_->policy_version()==kBridgesMapPermissionsPolicyVersion));
+             (bridges_supported() && permissions_->policy_version()==kBridgesMapPermissionsPolicyVersion));
         if (!valid_pair)
             throw std::invalid_argument("map permissions require City-v16 rule 3/policy 1, rule 4/policy 2 or rule 5/policy 3");
     } else if (profile_==RulesProfile::CityV16 && rule_version_>=4) {
@@ -364,6 +369,13 @@ World::World(std::shared_ptr<const MapPermissions> permissions,RulesProfile prof
     : World(permissions ? permissions->width():0,permissions ? permissions->height():0,
             permissions ? permissions->building_mask():std::vector<std::uint8_t>{},profile,version,
             permissions) {}
+
+World World::create_original_economy_development(std::shared_ptr<const MapPermissions> permissions) {
+    if (!permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion)
+        throw std::invalid_argument("City-v16 rule 7 development requires complete policy-3 map permissions");
+    return World(permissions->width(),permissions->height(),permissions->building_mask(),
+                 RulesProfile::CityV16,kOriginalEconomyRuleVersion,permissions,true);
+}
 
 bool World::in_bounds(Cell cell) const {
     return cell.x>=0 && cell.y>=0 && cell.x<width_ && cell.y<height_;
@@ -908,6 +920,10 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if (original_economy_enabled() && command.type!=CommandType::PlaceRoad &&
+        command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
+        command.type!=CommandType::PlaceRamp)
+        return {false,false,"City-v16 rule 7 economy is not ready; development permits infrastructure only",command_sequence_,ticks_};
     if(command.type==CommandType::PlaceRamp) {
         const auto v=validate_ramp(command.cell,command.ramp_end);
         return {v.accepted,v.accepted,v.reason,command_sequence_,ticks_,v.diagnostic};
@@ -1235,6 +1251,10 @@ CommandResult World::execute(Command command) {
 }
 
 CommandResult World::execute_impl(Command command,bool refresh_after) {
+    if (original_economy_enabled() && command.type!=CommandType::PlaceRoad &&
+        command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
+        command.type!=CommandType::PlaceRamp)
+        return validate(command);
     performance::increment(performance::Counter::WorldExecutes);
     if(command.type==CommandType::RemoveRamp)return validate(command);
     if(command.type==CommandType::PlaceRamp) {
@@ -2413,6 +2433,8 @@ void World::move_courier() {
 }
 
 void World::tick() {
+    if (original_economy_enabled())
+        throw std::logic_error("City-v16 rule 7 runtime is not ready; development cannot advance the economy");
     performance::increment(performance::Counter::SimulationTicks);
     if (production_profile(profile_)) { tick_production_v2(); return; }
     if (ticks_==UINT64_MAX) throw std::overflow_error("sandbox tick counter exhausted");

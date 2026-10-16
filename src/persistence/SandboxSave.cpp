@@ -613,6 +613,8 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
     return s;
 }
 json document_json(const SaveDocument& d) {
+    require(!simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
+            "City-v16 rule 7 save schema is not implemented");
     json out={{"format","openemperor-sandbox-save"},{"schema_version",
              d.world.profile==simulation::RulesProfile::CityV16 ?
                 (d.world.rule_version==6 ? 22:d.world.rule_version==5 ? 21:d.world.rule_version==4 ? 20:d.world.rule_version==3 ? 19:18):
@@ -759,6 +761,7 @@ SaveDocument parse_document(const json& j) {
 
 SaveDocument make_document(const fs::path& root,const fs::path& relative,
                            const std::vector<std::uint8_t>& mask,const simulation::World& world) {
+    require(!world.original_economy_enabled(),"City-v16 rule 7 save schema is not implemented");
     safe_relative(relative);
     const auto map=maps::resolve_map_path(root,relative);
     SaveDocument d;
@@ -834,6 +837,8 @@ std::string map_permissions_fingerprint(const simulation::MapPermissions& permis
 simulation::World restore_save(const SaveDocument& d,const fs::path& root,
                                std::vector<std::uint8_t> mask,
                                std::shared_ptr<const simulation::MapPermissions> permissions) {
+    require(!simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
+            "City-v16 rule 7 save schema is not implemented");
     safe_relative(d.map_relative);
     const auto map=maps::resolve_map_path(root,d.map_relative);
     require(hash_file(map)==d.map_sha256,"original map SHA-256 differs from save");
