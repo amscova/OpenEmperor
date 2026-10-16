@@ -131,6 +131,7 @@ std::optional<Object> placed_object(CommandType type) {
     case CommandType::PlaceFireWatch: return Object::FireWatch;
     case CommandType::PlaceWell: return Object::Well;
     case CommandType::PlaceHealthPost: return Object::HealthPost;
+    case CommandType::PlaceOriginalInfluenceSource: return Object::OriginalInfluenceSource;
     default: return std::nullopt;
     }
 }
@@ -140,6 +141,11 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 }
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
+    if (kind==Object::OriginalInfluenceSource) {
+        if (!original_influence_enabled(profile,rule_version))
+            throw std::invalid_argument("original influence geometry requires City-v16 rule 8");
+        return {2,2};
+    }
     if (profile==RulesProfile::CityV16 && rule_version>=2 &&
         (kind==Object::Well || kind==Object::HealthPost)) return {2,2};
     if (scalable(profile) &&
@@ -263,7 +269,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=7;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=8;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -290,7 +296,9 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v6{6,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==6) return city_v16_v6;
     static constexpr ProfileRules city_v16_v7{7,32,64,32,5,800};
-    if (original_economy_enabled(profile,version)) return city_v16_v7;
+    if (profile==RulesProfile::CityV16 && version==7) return city_v16_v7;
+    static constexpr ProfileRules city_v16_v8{8,32,64,32,5,800};
+    if (original_influence_enabled(profile,version)) return city_v16_v8;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};
@@ -325,6 +333,8 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
         throw std::invalid_argument("City-v16 rule 7 runtime is not ready; use the explicit infrastructure-only development factory");
     if (!original_economy_enabled() && original_rules_model_)
         throw std::invalid_argument("original rules model requires City-v16 rule 7");
+    if (original_influence_enabled() && (!original_rules_model_ || width>228 || height>228))
+        throw std::invalid_argument("original influence development requires a bound model and grid within 228");
     if (permissions_) {
         const bool valid_pair=profile_==RulesProfile::CityV16 &&
             ((rule_version_==3 && permissions_->policy_version()==kMapPermissionsPolicyVersion) ||
@@ -343,7 +353,8 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
         if (original_rules_model_)
             original_economy_->model_source=original_model_source(*original_rules_model_);
     }
-    treasury_=city_profile(profile) ? starting_treasury_for(profile):0;
+    if (original_influence_enabled()) original_influence_.emplace();
+    treasury_=city_profile(profile) ? starting_treasury_for(profile,rule_version_):0;
     objects_.assign(buildable_.size(),Object::Empty);
     owners_.assign(buildable_.size(),0);
     if(bridges_supported()) {bridge_index_.assign(buildable_.size(),0);bridge_bank_index_.assign(buildable_.size(),0);}
@@ -402,18 +413,22 @@ World World::create_original_economy_development(std::shared_ptr<const MapPermis
 }
 
 void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
+    const bool influence=simulation::original_influence_enabled(s.profile,s.rule_version);
+    if (!influence && s.original_influence)
+        throw std::invalid_argument("original influence authority requires City-v16 rule 8");
     if (!simulation::original_economy_enabled(s.profile,s.rule_version)) {
         if (s.original_economy)
-            throw std::invalid_argument("original economy authority requires City-v16 rule 7");
+            throw std::invalid_argument("original economy authority requires City-v16 rule 7 or 8");
+        for (const auto& b:s.buildings) if (b.kind==Object::OriginalInfluenceSource)
+            throw std::invalid_argument("original influence object requires City-v16 rule 8");
         return;
     }
     if (!s.original_economy)
-        throw std::invalid_argument("City-v16 rule 7 requires original economy authority");
+        throw std::invalid_argument("original development requires original economy authority");
     const auto& original_state=*s.original_economy;
     if (original_state.model_source) validate_original_model_source(*original_state.model_source);
-    // Only the versioned scheduler may advance. Actors and paid original supply
-    // are subsequent contracts, never legacy economy under another rule ID.
-    // Their absent implementation cannot authorize legacy economy state here.
+    if (influence && (!original_state.model_source || !s.original_influence))
+        throw std::invalid_argument("original influence requires bound model and explicit source authority");
     if (s.ticks>original::scheduler_max_tick || s.workshop || s.warehouse || s.total_produced ||
         s.clay_extracted_total || s.pottery_completed_total || s.workshop_stock ||
         s.production_progress || s.courier_cargo || s.warehouse_stock ||
@@ -422,36 +437,35 @@ void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
         s.next_production_id!=8 || s.next_courier_id!=1 ||
         s.last_dispatched_household || s.last_dispatched_food_household ||
         s.last_dispatched_service_household || s.food_produced_total ||
-        s.taxes_collected_total || s.maintenance_spent_total ||
-        s.treasury<0 || s.construction_spent_total>
-            static_cast<std::uint64_t>(starting_treasury_for(s.profile)) ||
+        s.taxes_collected_total || s.maintenance_spent_total || s.treasury<0 ||
+        s.construction_spent_total>static_cast<std::uint64_t>(starting_treasury_for(s.profile,s.rule_version)) ||
         s.demolition_history!=DemolitionHistory{})
-        throw std::invalid_argument("City-v16 rule 7 development cannot restore active economy or invalid clock authority");
-    if (original_state.houses.size()!=s.buildings.size() ||
-        original_state.houses.size()>Rules::city_v10_household_limit)
-        throw std::invalid_argument("original house references must match every paid vacant container");
+        throw std::invalid_argument("original development cannot restore active economy or invalid clock authority");
+    if (original_state.houses.size()>Rules::city_v10_household_limit)
+        throw std::invalid_argument("original house limit exceeded");
+    std::size_t house_index=0;
     for (std::size_t i=0;i<s.buildings.size();++i) {
         const auto& building=s.buildings[i];
-        const auto& record=original_state.houses[i];
-        const auto type=static_cast<std::uint16_t>(record.house.type);
         if (static_cast<std::uint32_t>(building.id)==0 ||
-            (i && !(s.buildings[i-1].id<building.id)) ||
-            record.building_id!=building.id || type<2 || type>17 ||
-            record.house.occupants<0 || record.house.hemp<0 || record.house.ceramics<0 ||
-            record.house.tea<0 || record.house.silk<0 || record.house.bronzeware<0 ||
-            record.house.lacquerware<0)
-            throw std::invalid_argument("invalid original house identity, type or stock domain");
+            (i && !(s.buildings[i-1].id<building.id)))
+            throw std::invalid_argument("invalid original building identity");
+        if (influence && building.kind==Object::OriginalInfluenceSource) continue;
+        if (building.kind!=Object::Household || house_index>=original_state.houses.size())
+            throw std::invalid_argument("original house references must match every vacant container");
+        const auto& record=original_state.houses[house_index++];
         BuildingSnapshot vacant{building.id,Object::Household,building.cell,true};
         vacant.placed_tick=building.placed_tick;
         if (building.placed_tick>s.ticks || building!=vacant || record!=OriginalHouseState{building.id})
-            throw std::invalid_argument("City-v16 rule 7 currently restores only vacant zero-state house containers");
+            throw std::invalid_argument("original development restores only vacant zero-state house containers");
     }
+    if (house_index!=original_state.houses.size())
+        throw std::invalid_argument("orphan original house reference");
 }
 
 World World::restore_original_economy_development(const WorldSnapshot& snapshot,
     std::shared_ptr<const MapPermissions> permissions,
     std::shared_ptr<const original::OriginalRulesModel> model) {
-    if (!simulation::original_economy_enabled(snapshot.profile,snapshot.rule_version) ||
+    if (snapshot.profile!=RulesProfile::CityV16 || snapshot.rule_version!=7 ||
         !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion)
         throw std::invalid_argument("original development restore requires rule 7 and complete policy-3 permissions");
     return restore_impl(snapshot,{},std::move(permissions),true,std::move(model));
@@ -553,6 +567,8 @@ std::int64_t World::construction_cost(CommandType type) const {
     case CommandType::PlaceBridge: // Variable span price lives only in validate_bridge().span.paid_cost.
     case CommandType::RemoveBridge:
         return 0;
+    case CommandType::PlaceOriginalInfluenceSource:
+        return original_influence_enabled() ? original_influence_source_cost:0;
     case CommandType::PlaceRoad: return Rules::road_cost;
     case CommandType::PlaceClaySource: return Rules::clay_source_cost;
     case CommandType::PlacePottery: return Rules::pottery_cost;
@@ -877,6 +893,7 @@ std::uint64_t World::household_tax_contributed(BuildingId id) const {
 }
 
 bool World::city_economy_valid() const {
+    if (original_influence_enabled()) return original_influence_finance_valid();
     if (!maintenance_profile(profile_) && maintenance_spent_total_!=0) return false;
     if (!city_profile(profile_))
         return treasury_==0 && taxes_collected_total_==0 && construction_spent_total_==0;
@@ -947,6 +964,12 @@ bool World::city_economy_valid() const {
 }
 DemolitionStatus World::demolition_status(BuildingId id) const {
     DemolitionStatus status;
+    if (original_influence_enabled()) {
+        const auto checked=validate_original_influence_command(demolish_building(id));
+        status.allowed=checked.accepted; status.reason=checked.reason;
+        status.blocker=checked.accepted ? DemolitionBlocker::None:DemolitionBlocker::UnsupportedKind;
+        return status;
+    }
     if (!demolition_supported()) {
         status.blocker=DemolitionBlocker::UnsupportedProfile;
         status.reason="Building demolition requires City-v11 rule version 4";
@@ -1010,6 +1033,11 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if (original_influence_enabled() && command_sequence_>=UINT64_MAX-1)
+        return {false,false,"Original influence command counter exhausted",command_sequence_,ticks_};
+    if (command.type==CommandType::PlaceOriginalInfluenceSource ||
+        (original_influence_enabled() && command.type==CommandType::DemolishBuilding))
+        return validate_original_influence_command(command);
     if (original_economy_enabled() && command.type!=CommandType::PlaceRoad &&
         command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
         command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold)
@@ -1281,7 +1309,8 @@ RoadBatchValidation World::validate_road_batch(std::span<const Cell> cells) cons
     }
     if (batch.diagnostic.blocker!=BuildBlocker::None)return batch;
     const auto count=static_cast<std::uint64_t>(new_cells.size());
-    if (count>UINT64_MAX-command_sequence_) {
+    const auto command_limit=original_influence_enabled() ? UINT64_MAX-1:UINT64_MAX;
+    if (command_sequence_>command_limit || count>command_limit-command_sequence_) {
         batch.reason="Sandbox command counter exhausted"; return batch;
     }
     if (count>UINT64_MAX-road_revision_ || count>UINT64_MAX-roads_placed_total_) {
@@ -1340,7 +1369,18 @@ CommandResult World::execute(Command command) {
     return execute_impl(command,true);
 }
 
-CommandResult World::execute_impl(Command command,bool refresh_after) {
+CommandResult World::execute_impl(Command command,bool refresh_after,bool influence_prepared) {
+    if (original_influence_enabled() && !influence_prepared) {
+        const auto checked=validate(command);
+        if (!checked.accepted || !checked.changed) return checked;
+        World candidate=*this;
+        auto result=candidate.execute_impl(command,refresh_after,true);
+        if (result.accepted && result.changed) *this=std::move(candidate);
+        return result;
+    }
+    if (command.type==CommandType::PlaceOriginalInfluenceSource ||
+        (original_influence_enabled() && command.type==CommandType::DemolishBuilding))
+        return execute_original_influence_command(command,refresh_after);
     if (original_economy_enabled() && command.type!=CommandType::PlaceRoad &&
         command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
         command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold)
@@ -1589,6 +1629,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after) {
         add_v10_courier(id,CourierRole::MarketFoodDistribution,Good::Food);
         break;
     }
+    case CommandType::PlaceOriginalInfluenceSource:
     case CommandType::SetBuildingOperation:
     case CommandType::SetBuildingWorkforcePriority:
     case CommandType::DemolishBuilding:
@@ -2763,6 +2804,9 @@ bool World::industry_balance_valid() const {
                     b.progress<0 || b.progress>=rules.farm_ticks ||
                     (b.output==Rules::farm_output_capacity && b.progress!=0)) return false;
                 food+=static_cast<std::uint64_t>(b.output); if (!add(produced_food,b.food_produced)) return false; break;
+            case Object::OriginalInfluenceSource:
+                if (!original_influence_enabled()) return false;
+                break;
             case Object::Well:
             case Object::FireWatch:
             case Object::HealthPost:
@@ -3357,6 +3401,15 @@ std::string World::canonical_state() const {
                <<','<<record.access_enabled;
         }
     }
+    if (original_influence_) {
+        out<<"|original-influence:";
+        for (const auto& source:original_influence_->sources)
+            out<<'|'<<static_cast<std::uint32_t>(source.building_id)<<','<<static_cast<unsigned>(source.type);
+        out<<"|removed-influence:";
+        for (const auto& removed:original_influence_->removed_sources)
+            out<<'|'<<static_cast<std::uint32_t>(removed.building_id)<<','<<static_cast<unsigned>(removed.type)
+               <<','<<removed.placed_tick<<','<<removed.removed_tick;
+    }
     return out.str();
 }
 
@@ -3407,6 +3460,7 @@ WorldSnapshot World::snapshot() const {
     s.bridges=bridges_;s.next_bridge_id=next_bridge_id_;
     s.ramps=ramps_;s.next_ramp_id=next_ramp_id_;
     s.original_economy=original_economy_;
+    s.original_influence=original_influence_;
     for (int y=0;y<height_;++y) for (int x=0;x<width_;++x)
         if (object_at({x,y})==Object::Road) s.roads.push_back({x,y});
     s.workshop=workshop_; s.warehouse=warehouse_;
@@ -3451,6 +3505,8 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
     if (!rule_version_supported(s.profile,s.rule_version))
         throw std::invalid_argument("unsupported sandbox rule version");
     validate_original_economy_snapshot(s);
+    if (simulation::original_influence_enabled(s.profile,s.rule_version))
+        validate_original_influence_snapshot(s);
     if (original_development) {
         if (!simulation::original_economy_enabled(s.profile,s.rule_version) || !s.original_economy)
             throw std::invalid_argument("original model restore requires City-v16 rule 7 authority");
@@ -3464,6 +3520,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         s.rule_version,permissions,original_development,std::move(model)):
         World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development,std::move(model));
     w.original_economy_=s.original_economy;
+    w.original_influence_=s.original_influence;
     if (!maintenance_profile(s.profile) && s.maintenance_spent_total)
         throw std::invalid_argument("maintenance authority requires City-v16");
     w.maintenance_spent_total_=s.maintenance_spent_total;
@@ -3549,7 +3606,8 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             const auto& b=s.buildings[i];
             if (static_cast<std::uint32_t>(b.id)==0 || (i && !(s.buildings[i-1].id<b.id)) ||
                 !b.placed || b.kind==Object::Empty || b.kind==Object::Road ||
-                b.kind==Object::Workshop || (b.kind==Object::Market && !market_profile(s.profile)) ||
+                b.kind==Object::Workshop ||
+                (b.kind==Object::OriginalInfluenceSource && !w.original_influence_enabled()) || (b.kind==Object::Market && !market_profile(s.profile)) ||
                 (b.kind==Object::FireWatch && !fire_profile(s.profile)) ||
                 (b.kind==Object::Well && !water_profile(s.profile)) ||
                 (b.kind==Object::HealthPost && !health_profile(s.profile)))
@@ -3654,9 +3712,11 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             s.road_revision<s.roads_placed_total ||
             s.road_revision-s.roads_placed_total<s.roads_removed_total ||
             s.road_revision-s.roads_placed_total-s.roads_removed_total!=
-                s.buildings.size()+2*s.demolition_history.buildings+s.bridges.size()+s.ramps.size() ||
+                s.buildings.size()+2*s.demolition_history.buildings+s.bridges.size()+s.ramps.size()+
+                    (w.original_influence_enabled() ? 2*s.original_influence->removed_sources.size():0) ||
             (w.demolition_supported() && (s.demolition_history.buildings>=UINT32_MAX ||
-                s.buildings.size()+s.demolition_history.buildings+1!=s.next_building_id)))
+                s.buildings.size()+s.demolition_history.buildings+1+
+                    (w.original_influence_enabled() ? s.original_influence->removed_sources.size():0)!=s.next_building_id)))
             fail("City-v10 placement revision mismatch");
         w.clay_extracted_total_=s.clay_extracted_total;
         w.pottery_completed_total_=s.pottery_completed_total;
@@ -3667,6 +3727,10 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             !w.service_state_valid() || !w.population_valid())
             fail("invalid City-v10 state or conservation totals");
         w.refresh_routes();
+        if (w.original_influence_enabled()) {
+            w.original_influence_cache_build_count_=0;
+            w.rebuild_original_influence_cache();
+        }
         return w;
     }
     if (industry_profile(s.profile)) {

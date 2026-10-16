@@ -49,6 +49,7 @@ struct FunctionalModelCandidate {
     case Object::Household:
     case Object::ServicePost:
     case Object::FireWatch:
+    case Object::OriginalInfluenceSource:
         return {};
     }
     throw std::out_of_range("invalid Object for original model candidate");

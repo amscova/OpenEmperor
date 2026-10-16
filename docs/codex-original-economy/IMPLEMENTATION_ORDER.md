@@ -9,8 +9,9 @@ Jeder Task benötigt die erfolgreichen Vorgänger. Wenn sich Scope/Schema durch 
 - Auf einem neuen Branch `feature/original-economy-v1` arbeiten. Wenn der Branch bereits existiert: HEAD/Status prüfen; keinesfalls anderer Leute Änderungen verwerfen.
 - Beginn am aktuellen `main`, nicht am Windows-Fork. Fork nur als Referenz für Original-Regeln und testbare Differenzen.
 - Geplante **City-v16 Rule7 / MapPermissions policy3 / Save schema23** nur als bedingte Architekturentscheidung. Die freien Nummern zu Laufzeit prüfen; verbindliche Wahl in `DECISIONS.md` festhalten.
-- Alte 1–22 Saves **byte-identisch**, insbesondere Rule6-Rampen und Rule5-Brücken. Neue Regeln nie Default, nie automatische Save-Migration.
-- Je erfolgreich abgeschlossenem OE-Task **ein Commit**; die aktuelle Nutzerfreigabe ersetzt ausdrücklich alte `no commit`-Arbeitsnotizen aus AGENTS.md für dieses Paket, nicht deren übrige Schutzregeln. Keine leeren PASS-Commits; keine Pushes/Tags/Releases.
+- OE-12-Ausnahme nach konkreter Nutzerfreigabe: der [Quellenvertrag V1](../original-economy/source-contract-v1-proposal.md) wird als Rule8/Schema24 bei unveränderter policy3 implementiert. Bestehendes Rule7/Schema23 bleibt eingefroren. Diese Entscheidung erledigt keine späteren Tasks.
+- Alte 1–23 Saves **byte-identisch**, insbesondere Rule7, Rule6-Rampen und Rule5-Brücken. Neue Regeln nie Default, nie automatische Save-Migration.
+- Je erfolgreich abgeschlossenem OE-Task **ein Commit**; die aktuelle Nutzerfreigabe ersetzt ausdrücklich alte `no commit`-Arbeitsnotizen aus AGENTS.md für dieses Paket, nicht deren übrige Schutzregeln. Keine leeren PASS-Commits. Push/PR/regulärer Merge dieses Branches nach dem späteren [Nutzer-Handoff](DECISIONS.md#merge-handoff--ausdrückliche-nutzerfreigabe-am-2026-10-16); keine Tags/Releases.
 - Gewünschte neuen Regeln müssen mit echten kaufbaren Quellen, Dispatcher, Walker-Ankunft, Beständen, Konsum und House-State laufen, nicht nur in einer separaten read-only Ansicht.
 
 ## Reihenfolge
@@ -38,7 +39,7 @@ Jeder Task benötigt die erfolgreichen Vorgänger. Wenn sich Scope/Schema durch 
 | OE-09 | [Striktes neues Save-Schema und getrennte OriginalHouse-Daten](prompts/09-striktes-neues-save-schema-und-getrennte-originalhouse-daten.md) | OE-08 | Neue Rule-7-only Persistenz und null implizite Migration |
 | OE-10 | [Original-Spielzyklen mit World-Ticks synchronisieren](prompts/10-original-spielzyklen-mit-world-ticks-synchronisieren.md) | OE-05, OE-08, OE-09 | Deterministischer Rule-7-Scheduler mit erklärter Zeitbasis |
 | OE-11 | [Echte Modelldatei an World-Sessions binden](prompts/11-echte-modelldatei-an-world-sessions-binden.md) | OE-01, OE-08, OE-09 | Rule-7-World nutzt genau ein geprüftes OriginalRulesModel |
-| OE-12 | [Originales Desirability-Modell produktiv verbinden](prompts/12-originales-desirability-modell-produktiv-verbinden.md) | OE-03, OE-09, OE-11 | Rule-7-House-Desirability stammt aus realen Gebäuden und Modelldaten |
+| OE-12 | [Originales Desirability-Modell produktiv verbinden](prompts/12-originales-desirability-modell-produktiv-verbinden.md) | OE-03, OE-09, OE-11 | Freigegebener Rule8-/Schema24-Nachfolger: bezahlte Well72-Quellen, strikter Restore und20-Haus-Abnahme |
 
 **Gate:** siehe [QUALITY_GATES.md](QUALITY_GATES.md). Ohne dokumentierten Gate-PASS nicht in die nächste Phase wechseln.
 

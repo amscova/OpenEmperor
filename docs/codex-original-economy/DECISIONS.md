@@ -6,9 +6,9 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 |---|---|---|
 | D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig testen | plan |
 | D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | OE-11: explizites unveränderliches Sessionmodell, einmalige typisierte Vorbereitung; Live-SHA/Größe bei Save/Restore; kein Modellzugriff im Tick |
-| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-08: Rule7 frei und ausschließlich Entwickler-Gate; policy3 unverändert, Schema23 in OE-09 ausschließlich Entwickler-Persistenz; keine Laufzeitfreigabe |
-| D-04 | Alte Save-Schemas 1–22 unverändert und keine Auto-Migration | zwingende Invariante |
-| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08: explizite begrenzte Capability-Gates; bezahlter vollständiger Rule6/7-Vergleich und Legacy-Replay bestanden |
+| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-12: Rule7/Schema23 eingefroren; ausdrücklich freigegebener Nachfolger Rule8/Schema24 ausschließlich Entwickler-Opt-in, policy3 unverändert; keine Standardprofil-/Menüfreigabe |
+| D-04 | Alte Save-Schemas 1–23 unverändert und keine Auto-Migration | zwingende Invariante;72 vollständige OE-00-Saves/Snapshots auch nach OE-12 bytegleich |
+| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08/12: explizite begrenzte Capability-Gates auch für Rule8; bezahlte Befehle/Restore und exakter Legacy-Replay bestanden |
 | D-06 | Original-Model-IDs nur nach eindeutiger Quelle als VERIFIED führen | einzelne IDs offen |
 | D-07 | Originalspiel-Simulationsschritte nicht automatisch mit 20Hz World-Ticks gleichsetzen | OE-10: authored Mappingversion1 bindet 1 Tick/Phase an Rule7/Schema23; 51/16/12-Counterstruktur beobachtet, elapsed-Kalenderepoche0 getrennt vom Originaljahr; tatsächliche Prüfungen im Fortschritt |
 | D-08 | 15 House-Zeilen sind nicht gleich dem aktuellen World-Level 0..2 | eigene Authority erforderlich |
@@ -171,6 +171,57 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   darf nach bestehendem Handoff gemergt werden; das genehmigt keine Regeln.
   OE-12/Gate B weiterhin **BLOCKED**, OE-13 **TODO**. Prompts/Quality-Gates
   werden vor der Entscheidung nicht umgeschrieben; kein Produktionscode geändert.
+
+### OE-12: Quellenvertrag V1 zur Umsetzung beauftragt
+
+- **Nutzerfreigabe:** Auf die konkrete Frage „Gibst du dieses Paket zur
+  Umsetzung frei?“ nach Darstellung aller vier Änderungen antwortet der Nutzer
+  direkt „weiter gehts“. Diese Antwort wird im unmittelbaren Fragekontext als
+  Zustimmung zum vorgelegten Paket verstanden, nicht als rückwirkender
+  allgemeiner Waiver der früheren strengen Grenze.
+- **Vertrag:** [Quellenvertrag V1](../original-economy/source-contract-v1-proposal.md):
+  ausdrücklicher Entwickler-Nachfolger City-v16 Rule8/Schema24, policy3 exakt;
+  eigener authored Well72-Einflusscontainer2×2, Kauf60/max4, sicherer Abriss ohne
+  Refund und eigenes typisiertes Entfernungsledger; fixes Startbudget2000;
+  Vergleich mit unverändertem City-v13-Algorithmus auf der bezahlten Szene.
+  Kein vorgetäuschter identischer City-v13-Worldlauf. Rule7/Schema23 und alle
+  älteren Regeln/Savebytes bleiben exakt; keine automatische Migration.
+- **Beginn:** sauberer live/origin `main`
+  `1be1863b643233781865158510b8ceb93e7c63e3`, Feature per Fast-forward angepasst.
+  Dokumentationscommit des Entwurfs `d62da85f2b1b3158f1e46b603d3ab7b10a7d7052`.
+  OE-12 begann IN_PROGRESS. Die abgeschlossene technische Abnahme ist unten
+  vermerkt; OE-13 bleibt TODO. Annahme des Vertrags ersetzt keine Originalbelege.
+
+### OE-12: begrenzte Umsetzung und technische Abnahme
+
+- **`authored` / Runtime:** Rule8/Schema24 implementiert genau den angenommenen
+  Vertrag. Neuer Objekttyp ist angehängt; Well72-Typbindung,2×2-Fläche,
+  Preis60/max4,2000 Startfunds, eigener Quellen-/Entfernungsledger und atomare
+  Kandidatenveröffentlichung bleiben von den alten Regeln getrennt. Keine
+  zusätzlichen Originalzustände oder sieben bisherigen Analogien zugelassen.
+- **`model` / read-only:** Das unveränderliche Sessionmodell liefert nur die
+  vorbereiteten Well72-Zahlen. Bestehender Quadratkern bleibt bytegleich;
+  maximal vier Quellen werden nach BuildingId verarbeitet. Cache/Prefixmaps
+  entstehen ausschließlich bei Create/Restore und erfolgreichem Quellenkauf
+  oder -abriss. Haus-/Frame-/Tickabfragen lösen keine Vorbereitung aus.
+- **Save und UI:** Schema24 prüft Modell-/Map-/Policybindung, lückenlose
+  gemeinsame BuildingIds und vollständige Kosten-/Quellenhistorie. Alte
+  Schemas1–23 bleiben exakt. Nur der explizite ausgeschlossene Launcher öffnet
+  die Ansicht; normaler App-/Menü-/Recoverypfad bleibt geschlossen. Well-Grafik
+  ist Präsentation, Wasser/Worker/Goods/Service/Einkommen bleiben neutral.
+- **Vergleich und Review:** City-v13-Algorithmus liest dieselbe bezahlte Szene
+  mit ausdrücklich authored Well72→Well-Referenz; keine illegale City-v13-World.
+  Simulation, Save/UI/Launcher und Szenenfinanzen unabhängig reviewed. Der
+  Rule8-only Guard am letzten Command-Counterwert gilt auch für Road-Batches;
+  atomare Ablehnung und erfolgreich restaurierbarer letzter Einzelkauf geprüft.
+- **Ergebnis:** OE-12 und Gate B **PASS**, begrenzt auf diesen Entwicklervertrag.
+  Vollständige Suiten plus finale gezielte Wiederholungen belegen181 verschiedene
+  Tests je Debug/Release/ASan+UBSan, ohne Skip. Bezahlte20-Haus-Szene, zwei
+  Prozessreplays,74 Fork-Vergleiche je Konfiguration und exakter72-Save-/1485-
+  Policy-Legacyvergleich stehen im
+  [Testprotokoll](PROGRESS.md#oe-12-umsetzung--2026-10-16-basis1be1863--gate-b-pass).
+  Originaldateien unverändert; keine allgemeine Originalgebäude-/Lifecycle-
+  oder Rechteckparität. Native/human **NOT_RUN**, OE-13 **TODO**.
 
 ### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
 

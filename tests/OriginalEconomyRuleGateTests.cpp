@@ -69,20 +69,23 @@ void version_matrix() {
             profile==sim::RulesProfile::CityV11 ? 3U:
             profile==sim::RulesProfile::CityV16 ? 4U:1U;
         check(sim::current_rule_version(profile)==current,"Legacy default rule changed");
-        for (std::uint32_t version=0;version<=8;++version) {
+        for (std::uint32_t version=0;version<=9;++version) {
             const bool expected=profile==sim::RulesProfile::ProductionV2 ? version==2:
                 profile==sim::RulesProfile::CityV11 ? version>=1 && version<=4:
-                profile==sim::RulesProfile::CityV16 ? version>=1 && version<=7:version==1;
+                profile==sim::RulesProfile::CityV16 ? version>=1 && version<=8:version==1;
             check(sim::rule_version_supported(profile,version)==expected,
                 "Explicit profile/rule support matrix changed");
             check(sim::original_economy_enabled(profile,version)==
-                (profile==sim::RulesProfile::CityV16 && version==7),
+                (profile==sim::RulesProfile::CityV16 && (version==7 || version==8)),
                 "Original-economy gate escaped its exact profile/version");
+            check(sim::original_influence_enabled(profile,version)==
+                (profile==sim::RulesProfile::CityV16 && version==8),
+                "Original-influence gate escaped its exact profile/version");
             check(sim::bridges_rule_enabled(profile,version)==
-                (profile==sim::RulesProfile::CityV16 && version>=5 && version<=7),
+                (profile==sim::RulesProfile::CityV16 && version>=5 && version<=8),
                 "Bridge gate inherited an unknown profile/version");
             check(sim::ramps_rule_enabled(profile,version)==
-                (profile==sim::RulesProfile::CityV16 && version>=6 && version<=7),
+                (profile==sim::RulesProfile::CityV16 && version>=6 && version<=8),
                 "Ramp gate inherited an unknown profile/version");
             if (!expected) {
                 rejects([&] { (void)sim::profile_rules(profile,version); },"unsupported");
@@ -95,6 +98,7 @@ void version_matrix() {
         }
         check(!sim::rule_version_supported(profile,UINT32_MAX) &&
             !sim::original_economy_enabled(profile,UINT32_MAX) &&
+            !sim::original_influence_enabled(profile,UINT32_MAX) &&
             !sim::bridges_rule_enabled(profile,UINT32_MAX) &&
             !sim::ramps_rule_enabled(profile,UINT32_MAX),
             "Maximum unknown rule version activated a reserved gate");
@@ -179,13 +183,13 @@ void add_infrastructure(sim::World& world) {
 
 void development_gate() {
     const auto p3=policy(3);
-    for (const auto profile:profiles) {
+    for (const auto profile:profiles) for (const auto version:{7U,8U}) {
         const auto reason=profile==sim::RulesProfile::CityV16 ?
-            "rule 7 runtime is not ready":"unsupported";
-        rejects([&] { sim::World denied(p3,profile,7); },reason);
-        rejects([&] { sim::World denied(width,height,p3->building_mask(),profile,7); },reason);
+            "runtime is not ready":"unsupported";
+        rejects([&] { sim::World denied(p3,profile,version); },reason);
+        rejects([&] { sim::World denied(width,height,p3->building_mask(),profile,version); },reason);
     }
-    rejects([&] { sim::World denied(p3,sim::RulesProfile::CityV16,8); },"unsupported");
+    rejects([&] { sim::World denied(p3,sim::RulesProfile::CityV16,9); },"unsupported");
     rejects([&] { (void)sim::World::create_original_economy_development(nullptr); },"complete policy-3");
     for (const std::uint32_t version:{1U,2U})
         rejects([&] { (void)sim::World::create_original_economy_development(policy(version)); },"complete policy-3");
@@ -202,7 +206,9 @@ void development_gate() {
         development.ramps_supported(),"Explicit development factory did not bind rule7/policy3");
     check(maps::map_rules_policy_version(sim::RulesProfile::CityV16,7)==3,
         "Rule7 map preflight bypasses complete policy3");
-    check(maps::map_rules_policy_version(sim::RulesProfile::CityV16,8)==0 &&
+    check(maps::map_rules_policy_version(sim::RulesProfile::CityV16,8)==3,
+        "Rule8 map preflight bypasses complete policy3");
+    check(maps::map_rules_policy_version(sim::RulesProfile::CityV16,9)==0 &&
         maps::map_rules_policy_version(sim::RulesProfile::CityV11,7)==0 &&
         !sim::original_economy_enabled(static_cast<sim::RulesProfile>(255),7),
         "Unknown profile/version inherited rule7 preflight or economy gate");

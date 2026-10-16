@@ -1,7 +1,11 @@
-# OE-12: produktive Desirability-Anbindung blockiert
+# OE-12: historische Rule7-Blocker der Desirability-Anbindung
 
-**Status: BLOCKED. Keine OE-12-Implementierung, kein Gate-B-PASS, kein Fortgang
-zu OE-13.** Ausgangspunkt ist `main`
+**Historischer Status des unveränderten Rule7-Vertrags: BLOCKED.** Diese
+Diagnose bleibt für Rule7 gültig. Die spätere ausdrückliche Freigabe eines
+eigenen Rule8-/Schema24-Nachfolgers ist im
+[Quellenvertrag V1](source-contract-v1-proposal.md) dokumentiert; aktueller
+Umsetzungs-/Gate-Status steht im [Fortschritt](../codex-original-economy/PROGRESS.md).
+Ausgangspunkt des historischen Befunds ist `main`
 `df293931bbb8a409668f3790379bb370e6c9f44d` nach OE-11.
 
 Der Nutzer hat ausdrücklich entschieden, die strenge Grenze beizubehalten und
@@ -11,13 +15,14 @@ erlaubt keine neue Bau-/Restore-Authority, zusätzliche Funds oder erfundene
 World→Model-Zuordnung. Ein Dokumentationscommit dieses Befunds ist keine
 Featurefreigabe.
 
-**Entwurf zur Entscheidung:** Der Nutzer hat inzwischen ausdrücklich einen
+**Spätere Vertragsentscheidung:** Der Nutzer hat zuerst ausdrücklich einen
 [konkreten Quellen-/Bau-/Restore-/Finanzierungsvertrag](source-contract-v1-proposal.md)
-beauftragt. Dieser empfiehlt Rule8/Schema24, einen eigenständigen authored
+beauftragt und danach das konkrete Paket zur Umsetzung freigegeben. Es nutzt
+Rule8/Schema24, einen eigenständigen authored
 Well72-Quellencontainer,2000 feste Start-Funds und einen ausdrücklich geänderten
-City-v13-Algorithmusvergleich. Er ist **NICHT FREIGEGEBEN** und ändert keinen
-der hier beschriebenen Rule7-Blocker. Auch sein Dokumentationsmerge ist keine
-Umsetzungsfreigabe; OE-12/Gate B bleiben BLOCKED.
+City-v13-Algorithmusvergleich. Die hier beschriebenen Rule7-Blocker werden
+damit nicht rückwirkend beseitigt oder umetikettiert. Der frühere reine
+Dokumentationsmerge selbst war keine Umsetzungsfreigabe.
 
 Der [OE-12-Auftrag](../codex-original-economy/prompts/12-originales-desirability-modell-produktiv-verbinden.md)
 verlangt tatsächliche bezahlte Quellen, verifizierte Model-IDs, Quellenbau und

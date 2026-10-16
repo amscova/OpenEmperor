@@ -301,7 +301,8 @@ class HousingNamespaceControls(unittest.TestCase):
             root = Path(directory)
             isolated = root / "isolated"
             with mock.patch.object(parity, "prepare_housing_fork", return_value=isolated), \
-                    mock.patch.object(parity, "checked_run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run:
+                    mock.patch.object(parity, "checked_run", return_value=subprocess.CompletedProcess(
+                        [], 0, "-I/authored/openssl/include -L/authored/openssl/lib -lcrypto", "")) as run:
                 parity.compile_probes(root / "fork", root, "unused-compiler", "debug", root / "simulation.a")
             commands = [call.args[0] for call in run.call_args_list]
             self.assertEqual(len(commands), 4)  # pkg-config and three compilers.
@@ -311,6 +312,12 @@ class HousingNamespaceControls(unittest.TestCase):
             self.assertNotIn(str(root / "fork/src"), housing)
             for module in parity.HOUSING_FORK_MODULES:
                 self.assertIn(str(isolated / (module + ".cpp")), housing)
+            libraries = [str(path) for path in parity.housing_link_libraries(root / "simulation.a")]
+            start = housing.index(str(root / "simulation.a"))
+            self.assertEqual(housing[start:start + len(libraries)], libraries)
+            self.assertEqual(housing[start + len(libraries):start + len(libraries) + 3],
+                             ["-I/authored/openssl/include", "-L/authored/openssl/lib", "-lcrypto"])
+            self.assertFalse(any(path in fork or path in current for path in libraries))
 
 
 class OutputAndStatusControls(unittest.TestCase):
@@ -464,7 +471,8 @@ class OutputAndStatusControls(unittest.TestCase):
         output = directory / "result"
         output.mkdir()
         library = directory / "authored-unused-library.a"
-        library.write_text("test-only orchestration control", encoding="utf-8")
+        for path in parity.housing_link_libraries(library):
+            path.write_text("test-only orchestration control", encoding="utf-8")
         args = argparse.Namespace(fork=directory / "fork", data=data, compiler="unused",
                                   configuration="debug", simulation_library=library)
         binaries = {side + "-probe": Path(side + "-probe") for side in ("fork", "current", "housing")}

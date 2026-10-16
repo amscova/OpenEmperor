@@ -16,11 +16,12 @@ Du implementierst die Aufgaben in `docs/codex-original-economy/prompts/` in **ex
 
 - Der Fork `amscova/windows-port` ist **nur** eine Quell-/Vergleichsreferenz. **Keine Windows-Integration**, keine pauschalen Cherry-Picks, kein fremdes README-Replace.
 - Bestehendes `main`, City-v16 Rule4/5/6, MapPermissions, Bridge/Ramp-Rendering/Authority und Save-Schemas 1–22 bleiben exakt. Neuen Regelstand niemals automatisch aktivieren.
+- Für OE-12 gilt die konkret angenommene Ausnahme in `DECISIONS.md` und dem Quellenvertrag V1: eigener Rule8-/Schema24-Entwicklerpfad, zusätzlich Rule7/Schema23 exakt erhalten. Keine automatische Freigabe späterer Wirtschaftsregeln.
 - In der neuen Regelgeneration: `Model/EmperorBuildingModels.txt` read-only zur Laufzeit laden, mit überprüfter Quelle/Fingerprint; Modellwerte nicht in Git oder alte Saves kopieren.
 - Eigene Simulation darf fehlende Waren/Services nicht mit Fake-Boolean, Gratisinventar, visuellen Walkern oder Test-only World-Mutationen ersetzen.
 - Unverifizierte Regeln als experimentell markieren; negative Ergebnisse behalten. Keine Behauptung vollständiger Originaltreue ohne reproduzierbare Originalquelle.
 - Originaldaten/Sprites niemals ins Repository oder Bundle übernehmen. Bild-/Audit-Artefakte ausschließlich unter `.local/`.
-- Lokale Commits sind durch die aktuelle Nutzerbitte ausdrücklich erlaubt, auch wenn ältere AGENTS.md-Arbeitsnotizen noch `no commit` sagen. Alle übrigen AGENTS-Invarianten gelten. Keine Commits ohne relevante abgeschlossene Tests. Keine Tests abschwächen. Keine `git reset --hard`, `git clean -fd`, Stash von Nutzeränderungen, Push, PR, Tag oder Release.
+- Lokale Commits sind durch die aktuelle Nutzerbitte ausdrücklich erlaubt, auch wenn ältere AGENTS.md-Arbeitsnotizen noch `no commit` sagen. Der spätere [Merge-Handoff](DECISIONS.md#merge-handoff--ausdrückliche-nutzerfreigabe-am-2026-10-16) erlaubt für diesen Branch außerdem Push, PR nach `main` und regulären Merge nach bestandenen Prüfungen. Alle übrigen AGENTS-Invarianten gelten. Keine Commits ohne relevante abgeschlossene Tests, keine abgeschwächten Tests, kein `git reset --hard`, `git clean -fd`, Stash von Nutzeränderungen, erzwungenes Ref-Update, Squash, Branchlöschen, Tag oder Release.
 - Wenn Originalquelle oder Pflicht-Abnahme fehlt: **BLOCKED, STOP**. Nicht einfach 30 Schritte überspringen oder ein Fake-PASS behaupten.
 
 ## Start

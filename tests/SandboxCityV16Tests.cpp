@@ -395,7 +395,9 @@ void geometry() {
         sim::rule_version_supported(sim::RulesProfile::CityV16,4) &&
         sim::rule_version_supported(sim::RulesProfile::CityV16,5)&&
         sim::rule_version_supported(sim::RulesProfile::CityV16,6) &&
-        !sim::rule_version_supported(sim::RulesProfile::CityV16,8),"City16 version support");
+        sim::rule_version_supported(sim::RulesProfile::CityV16,7) &&
+        sim::rule_version_supported(sim::RulesProfile::CityV16,8) &&
+        !sim::rule_version_supported(sim::RulesProfile::CityV16,9),"City16 version support");
     Temp t;
     for (const auto profile:{sim::RulesProfile::CityV14,sim::RulesProfile::CityV15,sim::RulesProfile::CityV16})
         for (const auto kind:{sim::Object::Well,sim::Object::HealthPost})
