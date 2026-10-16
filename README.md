@@ -25,7 +25,17 @@ Start City-v16 directly:
   --sandbox Cities/Xia.map --sandbox-rules sandbox-city-v16 --sandbox-demo
 ```
 
-For the latest isolated/adjacent ramp graphics test with local extracted data:
+For the playable experiment using original ramp sprites 233–244 and a separate
+source-cell height model:
+
+```sh
+sh tools/test_original_ramp_prototype.sh .local/gog-extracted/app
+```
+
+See the [original ramp cell prototype](docs/rendering/original-ramp-cell-prototype.md)
+for controls, measured visuals and the production integration decision.
+
+For the existing production isolated/adjacent ramp graphics test:
 
 ```sh
 sh tools/test_multi_ramp_visuals.sh .local/gog-extracted/app

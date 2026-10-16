@@ -1,5 +1,11 @@
 # Original ramp assets and authored-link validation
 
+Follow-up: the [isolated source-cell prototype](original-ramp-cell-prototype.md)
+now directly renders 233–244 and investigates ordinary actor height. It supports
+a continuous central-path model with a half-height source-cell center. The
+production result recorded below remains historical; original pass composition,
+normalization and production adoption are still open.
+
 Investigation started at clean HEAD
 `2efa8c14b76edaadc8dc9e307741a546a66e2eb8` on 2026-10-15. Original inputs
 are read-only. Rule6, policy3, schema22, RampLinks, projection, path progress,

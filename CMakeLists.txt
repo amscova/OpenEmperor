@@ -1198,6 +1198,21 @@ add_executable(openemperor-multi-ramp-visual-fixture EXCLUDE_FROM_ALL
 target_link_libraries(openemperor-multi-ramp-visual-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-multi-ramp-visual-fixture)
 
+# Explicit standalone experiment: no production renderer, World or save hooks.
+add_executable(openemperor-original-ramp-prototype EXCLUDE_FROM_ALL
+    tools/OriginalRampPrototype.cpp tools/original-ramp/CellTerrain.cpp)
+target_link_libraries(openemperor-original-ramp-prototype PRIVATE openemperor-maps SDL3::SDL3 ZLIB::ZLIB)
+target_compile_definitions(openemperor-original-ramp-prototype PRIVATE
+    OPENEMPEROR_PROTOTYPE_RESOURCES="${CMAKE_CURRENT_SOURCE_DIR}/resources/compatibility/gog-derived-2.0.0.2-en-assetset-1")
+openemperor_enable_warnings(openemperor-original-ramp-prototype)
+if(BUILD_TESTING)
+    add_executable(openemperor-original-ramp-cell-tests
+        tests/OriginalRampCellTerrainTests.cpp tools/original-ramp/CellTerrain.cpp)
+    target_include_directories(openemperor-original-ramp-cell-tests PRIVATE tools)
+    openemperor_enable_warnings(openemperor-original-ramp-cell-tests)
+    add_test(NAME original-ramp-cell-terrain COMMAND openemperor-original-ramp-cell-tests)
+endif()
+
 if(BUILD_TESTING)
     add_executable(openemperor-ramp-rendering-tests tests/RampRenderingTests.cpp src/renderer/RampRenderer.cpp)
     target_link_libraries(openemperor-ramp-rendering-tests PRIVATE openemperor-scene SDL3::SDL3)
