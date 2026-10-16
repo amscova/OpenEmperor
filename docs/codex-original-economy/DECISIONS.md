@@ -104,6 +104,27 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   OE-12/Gate B bleiben BLOCKED; keine OE-13-Freigabe. Nur geprüfte Forschung
   und Dokumentation, keine erneute unveränderte Bau-/Budgetprobe als Fortschritt.
 
+### OE-12 Fortsetzung: konkrete Originalfabriken und abweichende Geometrie
+
+- **Revision:** sauberer, live/origin bestätigter `main`
+  `837caf8e48272fa48172c3cb7b815a95eda8883e`; vorige Zustandsforschung ist
+  Dokumentationscommit `5f30abc9b053ad700199604b4cf0c320dd5a5336` aus PR15.
+  Feature-Branch per Fast-forward angeglichen; strenge Nutzergrenze unverändert.
+- **`exe`:** Für35/43/54/59/72/193/207 tatsächliche Klassifikation, priorisierte
+  Factorydispatches, konkrete Konstruktoren und finale Vtable-Slots geprüft.
+  Warehouse54 nutzt im Quadratpfad einen eigenen konstant3 liefernden Callback;
+  Farm193 den runtime-Sidegetter mit initialem Lookup-Default3. Markt59 wählt
+  einen gesonderten Formpfad; Initialside1 beweist keinen1×1-Einflussabdruck.
+  Nicht sämtliche transitive Initialisierungs-/Lifecyclepfade rekonstruiert.
+- **Read-only Worldvergleich:** Sieben Aufrufe der unveränderten produktiven
+  Footprintfunktion, ohne World oder Platzierung. Warehouse hat dort2×2,
+  Farm1×1; vier andere Defaults stimmen dimensional überein, beweisen jedoch
+  keine Identität. Alle sieben `Inferred`/`Unknown`-Zuordnungen bleiben bestehen.
+  Details und Repro im [Factorybeleg](../reverse/original-desirability-source-factories.md).
+- **Konsequenz:** Keine Footprint-/Parser-/World-/Save-/Status-/Bau-/Restore-
+  oder Budgetänderung. Originalfabrikbelege ersetzen keine authored World-
+  Identitätsentscheidung. OE-12/Gate B weiterhin BLOCKED, kein OE-13-Fortgang.
+
 ### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
 
 - **Revision:** Beginn am sauberen, live/origin bestätigten `main`
