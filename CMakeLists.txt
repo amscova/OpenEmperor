@@ -253,7 +253,8 @@ add_library(openemperor-simulation STATIC
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
-# Read-only evidence module. It is deliberately not linked into World or the app.
+# Read-only model parser. Schema23 persistence uses source identity only;
+# no original runtime model is bound to World at this milestone.
 add_library(openemperor-original-model STATIC
     src/simulation/original/ModelData.cpp src/simulation/original/ModelSchema.cpp)
 target_include_directories(openemperor-original-model PUBLIC src)
@@ -263,7 +264,8 @@ add_executable(openemperor-model-inspect tools/model-inspector/main.cpp)
 target_link_libraries(openemperor-model-inspect PRIVATE
     openemperor-original-model nlohmann_json::nlohmann_json)
 openemperor_enable_warnings(openemperor-model-inspect)
-# Detached numerical house rules; not linked into the application or World.
+# Numerical house rules; persistence uses only HouseType domain validation.
+# No evolution/needs rules are invoked by World at this milestone.
 add_library(openemperor-original-house-evolution STATIC
     src/simulation/original/HouseEvolution.cpp)
 target_include_directories(openemperor-original-house-evolution PUBLIC src)
@@ -298,7 +300,7 @@ add_library(openemperor-persistence STATIC src/persistence/SandboxSave.cpp
     src/platform/AtomicReplace.cpp)
 target_include_directories(openemperor-persistence PUBLIC src)
 target_link_libraries(openemperor-persistence PUBLIC openemperor-maps openemperor-simulation
-    nlohmann_json::nlohmann_json OpenSSL::Crypto)
+    nlohmann_json::nlohmann_json OpenSSL::Crypto openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-persistence)
 add_library(openemperor-recovery STATIC
     src/persistence/RecoveryStore.cpp
@@ -443,6 +445,21 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-sandbox-view-tests PRIVATE openemperor-recovery SDL3::SDL3
         openemperor-version)
     openemperor_enable_warnings(openemperor-sandbox-view-tests)
+    add_executable(openemperor-original-economy-save-view-tests tests/OriginalEconomySaveViewTests.cpp
+        src/app/SandboxView.cpp src/renderer/BridgeRenderer.cpp src/renderer/RampRenderer.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/FireSpriteSet.cpp src/app/WalkerPose.cpp src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
+        src/app/VisualSelection.cpp
+        src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
+        src/renderer/WalkerSpriteSet.cpp)
+    target_sources(openemperor-original-economy-save-view-tests PRIVATE src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    target_link_libraries(openemperor-original-economy-save-view-tests PRIVATE openemperor-recovery SDL3::SDL3
+        openemperor-version)
+    openemperor_enable_warnings(openemperor-original-economy-save-view-tests)
+    target_compile_definitions(openemperor-original-economy-save-view-tests PRIVATE
+        OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    add_test(NAME original-economy-save-view COMMAND openemperor-original-economy-save-view-tests)
+    set_tests_properties(original-economy-save-view PROPERTIES TIMEOUT 60)
+
     add_executable(openemperor-sandbox-gate-budget-view-tests
         tests/SandboxGateBudgetViewTests.cpp tests/GateBudgetPreflightShim.cpp
         src/app/SandboxView.cpp src/renderer/BridgeRenderer.cpp src/renderer/RampRenderer.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/FireSpriteSet.cpp src/app/WalkerPose.cpp src/app/SandboxUiLayout.cpp
@@ -762,6 +779,12 @@ if(BUILD_TESTING)
             COMMAND openemperor-sandbox-city-v16-tests ${maintenance_test})
         set_tests_properties(sandbox-city-v16-${maintenance_test} PROPERTIES TIMEOUT 900)
     endforeach()
+
+    add_executable(openemperor-original-economy-save-tests tests/OriginalEconomySaveTests.cpp)
+    target_link_libraries(openemperor-original-economy-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-economy-save-tests)
+    add_test(NAME original-economy-save COMMAND openemperor-original-economy-save-tests)
+    set_tests_properties(original-economy-save PROPERTIES TIMEOUT 30)
 
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)

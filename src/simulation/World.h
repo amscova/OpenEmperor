@@ -2,6 +2,7 @@
 #include "simulation/MapPermissions.h"
 #include "simulation/Bridge.h"
 #include "simulation/Ramp.h"
+#include "simulation/OriginalEconomyState.h"
 
 #include "core/PerformanceDiagnostics.h"
 
@@ -508,6 +509,7 @@ struct WorldSnapshot {
     std::uint32_t next_bridge_id=1;
     std::vector<RampLink> ramps;
     std::uint32_t next_ramp_id=1;
+    std::optional<OriginalEconomyState> original_economy;
     bool operator==(const WorldSnapshot&) const = default;
 };
 struct ResourceInventory {
@@ -523,6 +525,7 @@ const char* delivery_phase_name(CourierPhase phase);
 class World {
 public:
     bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
+    const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
     bool bridges_supported() const { return bridges_rule_enabled(profile_,rule_version_); }
     bool ramps_supported() const { return ramps_rule_enabled(profile_,rule_version_); }
     std::span<const RampLink> ramps() const { return ramps_; }
@@ -540,9 +543,15 @@ public:
           RulesProfile profile=RulesProfile::LogisticsV1,std::uint32_t rule_version=0);
     World(std::shared_ptr<const MapPermissions> permissions,
           RulesProfile profile=RulesProfile::CityV16,std::uint32_t rule_version=0);
-    // Infrastructure-only test fixture. No economy ticks, producers or save support
-    // until the new generation's model, scheduler and schema are implemented.
-    static World create_original_economy_development(std::shared_ptr<const MapPermissions> permissions);
+    // Explicit development fixture for infrastructure and paid vacant containers.
+    // The original runtime remains closed until model/scheduler integration.
+    static World create_original_economy_development(std::shared_ptr<const MapPermissions> permissions,
+        std::optional<OriginalModelSource> source=std::nullopt);
+    static World restore_original_economy_development(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions);
+    // Map-independent authority validation shared by schema-23 parsing and
+    // explicit development restore. Geometry/accounting still require restore.
+    static void validate_original_economy_snapshot(const WorldSnapshot& snapshot);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -706,7 +715,8 @@ private:
     void restore_bridges(const WorldSnapshot& snapshot);
     void index_bridge(const BridgeSpan& span);
     static World restore_impl(const WorldSnapshot& snapshot,std::vector<std::uint8_t> buildable,
-                              std::shared_ptr<const MapPermissions> permissions);
+                              std::shared_ptr<const MapPermissions> permissions,
+                              bool original_development=false);
     std::optional<std::vector<Cell>> find_road_route(Cell start,Cell goal) const;
     std::optional<std::vector<Cell>> find_route_to_building(Cell start,BuildingId target) const;
     const std::vector<Cell>* route_for_revision();
@@ -736,6 +746,7 @@ private:
     std::uint32_t rule_version_=1;
     std::vector<std::uint8_t> buildable_;
     std::shared_ptr<const MapPermissions> permissions_;
+    std::optional<OriginalEconomyState> original_economy_;
     std::vector<Object> objects_;
     std::vector<std::uint32_t> owners_;
     std::vector<BuildingState> buildings_;

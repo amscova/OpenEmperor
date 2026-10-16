@@ -76,3 +76,7 @@ Der aktualisierte [portable Bericht](core-parity.json) ändert keine Regelwerte.
 Gate A bleibt der historische begrenzte Kernnachweis; Gate B bleibt bis OE-12
 offen. Originalzeitbasis, spielbare Wirtschaft und menschliche Spielabnahme
 sind weiterhin nicht nachgewiesen.
+
+OE-09 ergänzt die ausdrücklich begrenzte [Schema23-Persistenz](save-schema-23.md)
+und bezahlte leere Hauscontainer. Der obige OE-08-Stand bleibt als historische
+Versionsentscheidung erhalten; gewöhnlicher Spielstart und Ticks bleiben gesperrt.

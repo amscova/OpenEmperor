@@ -18,8 +18,8 @@ struct SaveDocument {
     simulation::WorldSnapshot world;
     bool migrated_from_schema1=false; // Diagnostic only; never serialized.
     std::uint32_t source_schema_version=0; // Diagnostic only; set when reading.
-    // Schema 19/rule 3/policy 1 or schema 20/rule 4/policy 2 only.
-    // The save contains no transit links or editable original-road claims.
+    // Bound schema/rule/policy identity. Original-road claims and prepared
+    // topology are immutable inputs, never replacement save authority.
     std::uint32_t map_permissions_policy_version=0;
     std::string map_permissions_sha256;
     // Prepared immutable input for manual/autosave validation; never serialized.
@@ -34,6 +34,16 @@ SaveDocument make_document(const std::filesystem::path& data_root,
                            const std::vector<std::uint8_t>& buildable,
                            const simulation::World& world);
 SaveDocument read_save(const std::filesystem::path& path);
+// Source identity only. Does not prepare or activate original runtime rules.
+simulation::OriginalModelSource original_model_source(
+    const std::filesystem::path& data_root,
+    original::Difficulty difficulty=original::Difficulty::Normal);
+// Schema 23 remains an explicit development boundary while normal Rule-7
+// sessions, ticking and restore_save are unavailable.
+simulation::World restore_original_economy_development(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr);
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& document);
 SaveDocument upgrade_city_v11_v3_to_v4(const SaveDocument& document);
 simulation::World restore_save(const SaveDocument& document,

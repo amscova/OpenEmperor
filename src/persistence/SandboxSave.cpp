@@ -13,6 +13,7 @@
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 
@@ -612,9 +613,136 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
     }
     return s;
 }
+json document_json(const SaveDocument& d);
+SaveDocument parse_document(const json& j);
+
+json original_house_json(const original::HouseState& h) {
+    return {{"type",static_cast<unsigned>(h.type)},{"desirability",int(h.desirability)},
+        {"occupants",h.occupants},{"devolve_counter",h.devolve_counter},{"water",h.water},
+        {"herbalist",h.herbalist},{"acupuncture",h.acupuncture},{"music",h.music},
+        {"acrobat",h.acrobat},{"drama",h.drama},{"ancestor",h.ancestor},
+        {"confucian",h.confucian},{"daoist",h.daoist},{"buddhist",h.buddhist},
+        {"food_quality",h.food_quality},{"hemp",h.hemp},{"ceramics",h.ceramics},
+        {"tea",h.tea},{"silk",h.silk},{"bronzeware",h.bronzeware},{"lacquerware",h.lacquerware}};
+}
+original::HouseState parse_original_house(const json& j) {
+    original::HouseState h;
+    h.type=static_cast<original::HouseType>(small(field(j,"type"),UINT16_MAX));
+    require(original::is_house_type(h.type),"invalid original House type");
+    const auto desirability=signed_number(field(j,"desirability"));
+    require(desirability>=INT8_MIN && desirability<=INT8_MAX,"original House desirability exceeds signed byte");
+    h.desirability=static_cast<std::int8_t>(desirability);
+    h.occupants=static_cast<std::int16_t>(number(field(j,"occupants"),INT16_MAX));
+    h.devolve_counter=static_cast<std::uint8_t>(number(field(j,"devolve_counter"),UINT8_MAX));
+    h.water=boolean(field(j,"water"));
+    const auto byte=[&](const char* key) { return static_cast<std::uint8_t>(number(field(j,key),UINT8_MAX)); };
+    h.herbalist=byte("herbalist");h.acupuncture=byte("acupuncture");h.music=byte("music");
+    h.acrobat=byte("acrobat");h.drama=byte("drama");h.ancestor=byte("ancestor");
+    h.confucian=byte("confucian");h.daoist=byte("daoist");h.buddhist=byte("buddhist");
+    h.food_quality=byte("food_quality");
+    const auto stock=[&](const char* key) { return static_cast<std::int16_t>(number(field(j,key),INT16_MAX)); };
+    h.hemp=stock("hemp");h.ceramics=stock("ceramics");h.tea=stock("tea");h.silk=stock("silk");
+    h.bronzeware=stock("bronzeware");h.lacquerware=stock("lacquerware");
+    return h;
+}
+json original_economy_json(const simulation::OriginalEconomyState& state) {
+    require(state.model_source.has_value(),"schema23 requires an original model source identity");
+    const auto& source=*state.model_source;
+    require(source.format_version==original::model_schema_version && valid_hash(source.sha256) &&
+            source.byte_count>0 && source.byte_count<=original::max_model_bytes &&
+            static_cast<std::size_t>(source.difficulty)<original::difficulty_count,
+            "invalid schema23 original model source identity");
+    json houses=json::array();
+    for (const auto& h:state.houses)
+        houses.push_back({{"building_id",static_cast<std::uint32_t>(h.building_id)},
+            {"house",original_house_json(h.house)},{"cycle_phase",h.cycle_phase},
+            {"original_status",h.original_status},{"access_enabled",h.access_enabled}});
+    return {{"model_source",{{"format_version",source.format_version},{"sha256",source.sha256},
+        {"byte_count",source.byte_count},{"difficulty",static_cast<unsigned>(source.difficulty)}}},
+        {"houses",std::move(houses)}};
+}
+simulation::OriginalEconomyState parse_original_economy(const json& j) {
+    simulation::OriginalEconomyState state;
+    const auto& source=field(j,"model_source");
+    simulation::OriginalModelSource model;
+    model.format_version=static_cast<std::uint32_t>(number(field(source,"format_version"),UINT32_MAX));
+    model.sha256=str(field(source,"sha256"));
+    model.byte_count=number(field(source,"byte_count"),original::max_model_bytes);
+    model.difficulty=static_cast<original::Difficulty>(number(field(source,"difficulty"),original::difficulty_count-1));
+    state.model_source=std::move(model);
+    const auto& houses=field(j,"houses");
+    require(houses.is_array() && houses.size()<=simulation::building_collection_limit(simulation::RulesProfile::CityV16),
+            "schema23 original House count exceeds bound");
+    std::uint32_t previous=0;
+    for (const auto& value:houses) {
+        simulation::OriginalHouseState h;
+        const auto id=static_cast<std::uint32_t>(number(field(value,"building_id"),UINT32_MAX));
+        require(id>previous,"schema23 original House IDs must be positive, unique and sorted");
+        previous=id;h.building_id=static_cast<simulation::BuildingId>(id);
+        h.house=parse_original_house(field(value,"house"));
+        h.cycle_phase=static_cast<std::uint8_t>(number(field(value,"cycle_phase"),UINT8_MAX));
+        h.original_status=static_cast<std::uint8_t>(number(field(value,"original_status"),UINT8_MAX));
+        h.access_enabled=boolean(field(value,"access_enabled"));
+        state.houses.push_back(h);
+    }
+    (void)original_economy_json(state); // Validate the source identity as well.
+    return state;
+}
+json original_document_json(const SaveDocument& d) {
+    require(d.world.original_economy.has_value(),"schema23 requires separate original economy authority");
+    require(d.source_schema_version==0 || d.source_schema_version==23,"rule7 requires schema23; legacy saves are not migrated");
+    require(d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion &&
+            valid_hash(d.map_permissions_sha256),"schema23 requires immutable policy3 identity");
+    // Reuse only the canonical infrastructure representation. No World is cast
+    // to another rule generation and no old save is upgraded.
+    auto projected=d;
+    projected.world.rule_version=6;
+    projected.world.original_economy.reset();
+    auto result=document_json(projected);
+    result["schema_version"]=23;
+    result["rules"]["version"]=simulation::kOriginalEconomyRuleVersion;
+    result["world"]["original_economy"]=original_economy_json(*d.world.original_economy);
+    return result;
+}
+bool canonical_fields(const json& value,const json& canonical) {
+    if (canonical.is_number_integer()) return value.is_number_integer() && value==canonical;
+    if (value.type()!=canonical.type()) return false;
+    if (canonical.is_object()) {
+        if (value.size()!=canonical.size()) return false;
+        for (const auto& [key,expected]:canonical.items())
+            if (!value.contains(key) || !canonical_fields(value.at(key),expected)) return false;
+        return true;
+    }
+    if (canonical.is_array()) {
+        if (value.size()!=canonical.size()) return false;
+        for (std::size_t i=0;i<canonical.size();++i)
+            if (!canonical_fields(value[i],canonical[i])) return false;
+        return true;
+    }
+    return value==canonical;
+}
+SaveDocument parse_original_document(const json& j) {
+    require(str(field(field(j,"rules"),"id"))==simulation::city_v16_profile_name &&
+            number(field(field(j,"rules"),"version"))==simulation::kOriginalEconomyRuleVersion,
+            "schema23 requires City-v16 rule7");
+    auto projected=j;
+    projected["schema_version"]=22;
+    projected["rules"]["version"]=6;
+    projected["world"].erase("original_economy");
+    auto d=parse_document(projected);
+    d.source_schema_version=23;
+    d.world.rule_version=simulation::kOriginalEconomyRuleVersion;
+    d.world.original_economy=parse_original_economy(field(field(j,"world"),"original_economy"));
+    simulation::World::validate_original_economy_snapshot(d.world);
+    // Equality checks every nested key and retained value; ignored legacy
+    // fields, unknown keys and missing canonical fields cannot become authority.
+    require(canonical_fields(j,original_document_json(d)),"schema23 contains unknown or noncanonical save fields");
+    return d;
+}
 json document_json(const SaveDocument& d) {
-    require(!simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
-            "City-v16 rule 7 save schema is not implemented");
+    if (simulation::original_economy_enabled(d.world.profile,d.world.rule_version))
+        return original_document_json(d);
+    require(!d.world.original_economy,"original economy authority requires City-v16 rule7/schema23");
     json out={{"format","openemperor-sandbox-save"},{"schema_version",
              d.world.profile==simulation::RulesProfile::CityV16 ?
                 (d.world.rule_version==6 ? 22:d.world.rule_version==5 ? 21:d.world.rule_version==4 ? 20:d.world.rule_version==3 ? 19:18):
@@ -647,7 +775,10 @@ json document_json(const SaveDocument& d) {
 SaveDocument parse_document(const json& j) {
     require(str(field(j,"format"))=="openemperor-sandbox-save","unknown save format");
     const auto schema=number(field(j,"schema_version"));
+    if (schema==23) return parse_original_document(j);
     require(schema>=1 && schema<=22,"unsupported save schema version");
+    require(!j.contains("original_economy") && !field(j,"world").contains("original_economy"),
+            "original economy authority requires schema23");
     const auto& m=field(j,"map"); const auto& p=field(j,"profiles");
     const auto& r=field(j,"rules");
     SaveDocument d;
@@ -761,12 +892,20 @@ SaveDocument parse_document(const json& j) {
 
 SaveDocument make_document(const fs::path& root,const fs::path& relative,
                            const std::vector<std::uint8_t>& mask,const simulation::World& world) {
-    require(!world.original_economy_enabled(),"City-v16 rule 7 save schema is not implemented");
     safe_relative(relative);
     const auto map=maps::resolve_map_path(root,relative);
     SaveDocument d;
     d.map_relative=relative;d.map_sha256=hash_file(map);
     d.buildable_sha256=digest(mask.data(),mask.size());d.world=world.snapshot();
+    if (world.original_economy_enabled()) {
+        d.prepared_permissions=world.map_permissions();
+        require(d.prepared_permissions && d.prepared_permissions->policy_version()==simulation::kBridgesMapPermissionsPolicyVersion,
+                "schema23 requires complete immutable policy3 map permissions");
+        d.map_permissions_policy_version=d.prepared_permissions->policy_version();
+        d.map_permissions_sha256=map_permissions_fingerprint(*d.prepared_permissions,d.map_sha256);
+        (void)restore_original_economy_development(d,root,mask,d.prepared_permissions);
+        return d;
+    }
     // Validate the snapshot against the actual mask before publishing it.
     if (d.world.profile==simulation::RulesProfile::CityV16 &&
         (d.world.rule_version>=3 && d.world.rule_version<=6)) {
@@ -790,12 +929,34 @@ SaveDocument read_save(const fs::path& path) {
     require(input.gcount()==static_cast<std::streamsize>(bytes.size()) && !input.bad(),"truncated save file");
     require(input.peek()==std::char_traits<char>::eof(),"save file changed while reading");
     // JSON's callback sees container starts before conversion, bounding recursion depth.
-    const auto j=json::parse(bytes,[&](int depth,json::parse_event_t event,json&) {
+    std::vector<std::set<std::string>> object_keys;
+    bool duplicate_key=false;
+    const auto j=json::parse(bytes,[&](int depth,json::parse_event_t event,json& parsed) {
         if ((event==json::parse_event_t::object_start || event==json::parse_event_t::array_start) &&
             depth>32) throw std::runtime_error("save JSON nesting exceeds 32");
+        if (event==json::parse_event_t::object_start) object_keys.emplace_back();
+        else if (event==json::parse_event_t::key) {
+            require(!object_keys.empty(),"invalid save JSON object nesting");
+            if (!object_keys.back().insert(parsed.get<std::string>()).second) duplicate_key=true;
+        } else if (event==json::parse_event_t::object_end) {
+            require(!object_keys.empty(),"invalid save JSON object nesting");
+            object_keys.pop_back();
+        }
         return true;
     });
+    if (j.is_object() && j.contains("schema_version") && j.at("schema_version")==23)
+        require(!duplicate_key,"schema23 duplicate save key");
     return parse_document(j);
+}
+simulation::OriginalModelSource original_model_source(const fs::path& root,original::Difficulty difficulty) {
+    require(static_cast<std::size_t>(difficulty)<original::difficulty_count,"invalid original model difficulty");
+    const auto result=original::load_model_data(root);
+    require(static_cast<bool>(result),"schema23 original model source is unavailable or invalid");
+    const auto& provenance=result.model->provenance();
+    require(provenance.source_kind==original::ModelSourceKind::File && valid_hash(provenance.sha256),
+            "schema23 requires a verified file model source");
+    return {provenance.format_version,provenance.sha256,
+            static_cast<std::uint64_t>(provenance.byte_count),difficulty};
 }
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& source) {
     require(source.world.profile==simulation::RulesProfile::CityV11 &&
@@ -838,7 +999,7 @@ simulation::World restore_save(const SaveDocument& d,const fs::path& root,
                                std::vector<std::uint8_t> mask,
                                std::shared_ptr<const simulation::MapPermissions> permissions) {
     require(!simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
-            "City-v16 rule 7 save schema is not implemented");
+            "City-v16 rule 7 runtime is not ready; use explicit schema23 development restore");
     safe_relative(d.map_relative);
     const auto map=maps::resolve_map_path(root,d.map_relative);
     require(hash_file(map)==d.map_sha256,"original map SHA-256 differs from save");
@@ -868,6 +1029,32 @@ simulation::World restore_save(const SaveDocument& d,const fs::path& root,
             "saved map-permissions policy requires matching City-v16 map-integrated rules");
     return simulation::World::restore(d.world,std::move(mask));
 }
+simulation::World restore_original_economy_development(const SaveDocument& d,const fs::path& root,
+        std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions) {
+    require(simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
+            "schema23 development restore requires City-v16 rule7");
+    require(d.source_schema_version==0 || d.source_schema_version==23,
+            "rule7 requires schema23; legacy saves are not migrated");
+    require(d.world.original_economy && d.world.original_economy->model_source,
+            "schema23 requires an original model source identity");
+    (void)original_document_json(d);
+    const auto& source=*d.world.original_economy->model_source;
+    require(original_model_source(root,source.difficulty)==source,
+            "schema23 original model source identity differs from save");
+    safe_relative(d.map_relative);
+    const auto map=maps::resolve_map_path(root,d.map_relative);
+    require(hash_file(map)==d.map_sha256,"original map SHA-256 differs from save");
+    require(digest(mask.data(),mask.size())==d.buildable_sha256,
+            "sandbox buildable mask SHA-256 differs from save");
+    if (!permissions) permissions=maps::read_sandbox_map_permissions(root,d.map_relative,mask,
+        simulation::kBridgesMapPermissionsPolicyVersion);
+    require(permissions && permissions->policy_version()==simulation::kBridgesMapPermissionsPolicyVersion &&
+            d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion,
+            "schema23 requires matching immutable policy3 map permissions");
+    require(map_permissions_fingerprint(*permissions,d.map_sha256)==d.map_permissions_sha256,
+            "map-permissions SHA-256 differs from save (permissions or topology changed)");
+    return simulation::World::restore_original_economy_development(d.world,std::move(permissions));
+}
 void validate_save_target(const fs::path& path,const fs::path& root) {
     require(!path.empty(),"save path is empty");
     const auto absolute=fs::absolute(path).lexically_normal();
@@ -891,7 +1078,9 @@ void write_save(const fs::path& path,const SaveDocument& d,const fs::path& root,
     performance::increment(performance::Counter::FileWrites);
     validate_save_target(path,root);
     // Recheck original inputs and all world invariants before writing any bytes.
-    (void)restore_save(d,root,mask);
+    if (simulation::original_economy_enabled(d.world.profile,d.world.rule_version))
+        (void)restore_original_economy_development(d,root,mask,d.prepared_permissions);
+    else (void)restore_save(d,root,mask);
     const auto bytes=document_json(d).dump(2);
     require(bytes.size()<=max_save_bytes,"save JSON exceeds 8 MiB");
     const auto target=fs::absolute(path).lexically_normal();

@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FORK_REVISION = "d861d2912337c09751cb68196f85d5a30752726e"
 MODEL_SHA256 = "7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6"
 HOUSING_EXPECTED = [35,43,54,59,193,72,207,1,0,3,3,4,4,1,1,3,4,1]
+HOUSING_FORK_MODULES = ("ModelData", "Desirability", "HouseEvolution", "OriginalHousingView")
 # OE-00's independently retrieved, pinned file identities. A mutable local
 # manifest is not trusted as the source of the expected hashes.
 FORK_SHA256 = {
@@ -294,6 +295,65 @@ def checked_run(command: list[str], *, stdin: str | None = None, timeout: int = 
     return result
 
 
+def isolate_housing_source(name: str, source: str) -> str:
+    """Rename only the pinned namespace and four local includes, never rules.
+
+    World now includes the current original DTO types. The separate fourth-
+    module adapter therefore needs distinct fork symbols while using the exact
+    current World ABI. Numerical fork/current probes remain untransformed.
+    """
+    allowed = {module + suffix for module in HOUSING_FORK_MODULES for suffix in (".h", ".cpp")}
+    if name not in allowed:
+        raise ValueError("housing isolation source is outside the four reviewed modules")
+    namespace_open = "namespace openemperor::original {"
+    namespace_close = "}  // namespace openemperor::original"
+    includes = {f'#include "simulation/original/{module}.h"': f'#include "{module}.h"'
+                for module in HOUSING_FORK_MODULES}
+    opened = closed = 0
+    output = []
+    for line in source.splitlines(keepends=True):
+        content = line.removesuffix("\n")
+        if content == namespace_open:
+            opened += 1
+            content = "namespace openemperor::parity_fork_original {"
+        elif content == namespace_close:
+            closed += 1
+            content = "}  // namespace openemperor::parity_fork_original"
+        elif content in includes:
+            content = includes[content]
+        elif "openemperor::original" in content or '#include "simulation/original/' in content:
+            raise ValueError("housing isolation encountered an unreviewed namespace/include spelling")
+        output.append(content + ("\n" if line.endswith("\n") else ""))
+    if opened != 1 or closed != 1:
+        raise ValueError("housing isolation requires exactly one reviewed namespace declaration")
+    return "".join(output)
+
+
+def prepare_housing_fork(fork: Path, output: Path) -> Path:
+    isolated = output / "housing-fork-source"
+    isolated.mkdir(exist_ok=False)
+    files = {}
+    for module in HOUSING_FORK_MODULES:
+        for suffix in (".h", ".cpp"):
+            name = module + suffix
+            relative = "src/simulation/original/" + name
+            source = fork / relative
+            if source.is_symlink() or not source.is_file():
+                raise ValueError(f"unsafe housing fork source: {relative}")
+            original = source.read_bytes()
+            if hashlib.sha256(original).hexdigest() != FORK_SHA256[relative]:
+                raise ValueError(f"pinned housing fork source mismatch: {relative}")
+            transformed = isolate_housing_source(name, original.decode("utf-8")).encode("utf-8")
+            (isolated / name).write_bytes(transformed)
+            files[name] = {"source_sha256": FORK_SHA256[relative],
+                           "generated_sha256": hashlib.sha256(transformed).hexdigest()}
+    (isolated / "transform-manifest.json").write_text(json.dumps({
+        "namespace": "openemperor::parity_fork_original", "files": files,
+        "changes": "Exact namespace declaration/comment and local includes only; no rule logic changes."
+    }, indent=2, sort_keys=True) + "\n")
+    return isolated
+
+
 def compile_probes(fork: Path, output: Path, compiler: str, configuration: str, simulation_library: Path) -> dict[str, Path]:
     flags = ["-std=c++20", "-Wall", "-Wextra", "-Wpedantic", "-Wconversion", "-Wshadow", *CONFIGURATIONS[configuration][0]]
     openssl = shlex.split(checked_run(["pkg-config", "--cflags", "--libs", "openssl"]).stdout)
@@ -301,10 +361,11 @@ def compile_probes(fork: Path, output: Path, compiler: str, configuration: str, 
     adapter = ROOT / "tools/original-rules-parity/RuleProbe.cpp"
     binaries = {key: output / key for key in ("fork-probe", "current-probe", "housing-probe")}
     common_fork = [str(fork / (module + name + ".cpp")) for name in ("ModelData", "Desirability", "HouseEvolution")]
+    housing_fork = prepare_housing_fork(fork, output)
     commands = {
         "fork-probe": [compiler,*flags,"-DOE_PARITY_FORK=1","-I",str(fork / "src"),str(adapter),*common_fork,"-o",str(binaries["fork-probe"])],
         "current-probe": [compiler,*flags,"-I",str(ROOT / "src"),str(adapter),*[str(ROOT / (module+name+".cpp")) for name in ("ModelData","ModelSchema","Desirability","HouseEvolution","ServiceRules","GoodsRules")],*openssl,"-o",str(binaries["current-probe"])],
-        "housing-probe": [compiler,*flags,"-I",str(fork / "src"),"-I",str(ROOT / "src"),str(ROOT / "tools/original-rules-parity/HousingViewProbe.cpp"),*common_fork,str(fork / (module+"OriginalHousingView.cpp")),str(simulation_library),"-o",str(binaries["housing-probe"])],
+        "housing-probe": [compiler,*flags,"-I",str(housing_fork),"-I",str(ROOT / "src"),str(ROOT / "tools/original-rules-parity/HousingViewProbe.cpp"),*[str(housing_fork / (name+".cpp")) for name in HOUSING_FORK_MODULES],str(simulation_library),"-o",str(binaries["housing-probe"])],
     }
     for key, command in commands.items():
         result = checked_run(command)
@@ -360,7 +421,7 @@ def public_report(report: dict[str, Any]) -> dict[str, Any]:
 def current_source_hashes() -> dict[str,str]:
     module = ROOT / "src/simulation/original"
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
-    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve()]
+    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h"]
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
 
 
@@ -389,12 +450,16 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     library = args.simulation_library or ROOT / CONFIGURATIONS[args.configuration][1] / "libopenemperor-simulation.a"
     if not library.is_file():
         raise ValueError("matching prebuilt simulation library is missing; build the selected configuration first")
-    # OE-08 reviewed: additive Rule-7 gates/factory; legacy probe API and
-    # World/Snapshot data fields are unchanged. Keep the compatibility pin exact.
+    # OE-09 reviewed: separate optional Rule-7 state changes World layout.
+    # Recompile probes against the matching library and pin both exact headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "deb226cbf1701e5ca7d3b00ab93bbb6b35bff6b1":
+    if world_blob != "defac8797e07940653d85b26843e00282f6ef243":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
-    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"world_header_git_blob":world_blob}
+    dto = ROOT / "src/simulation/OriginalEconomyState.h"
+    dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
+    if dto_blob != "4c66306ee98c5408524187e910066d35a72ae857":
+        raise ValueError("Original-state API drift: fourth-module adapter needs a reviewed compatibility contract")
+    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob}
     authored = cases()
     validate_cases(authored)
     binaries = compile_probes(fork,output,args.compiler,args.configuration,library)

@@ -209,7 +209,7 @@ void development_gate() {
     const auto before=development.snapshot();
     for (const auto type:{sim::CommandType::PlaceWorkshop,sim::CommandType::PlaceWarehouse,
             sim::CommandType::PlaceClaySource,sim::CommandType::PlacePottery,
-            sim::CommandType::PlaceHousehold,sim::CommandType::PlaceFarm,
+            sim::CommandType::PlaceFarm,
             sim::CommandType::PlaceServicePost,sim::CommandType::PlaceMarket,
             sim::CommandType::SetBuildingOperation,sim::CommandType::SetBuildingWorkforcePriority,
             sim::CommandType::DemolishBuilding,sim::CommandType::PlaceFireWatch,
@@ -235,7 +235,7 @@ void infrastructure_inheritance() {
     auto development=sim::World::create_original_economy_development(p3);
     prepare_roads(old);prepare_roads(development);
     add_infrastructure(old);add_infrastructure(development);
-    auto inherited=development.snapshot();inherited.rule_version=6;
+    auto inherited=development.snapshot();inherited.rule_version=6;inherited.original_economy.reset();
     check(inherited==old.snapshot(),
         "Rule7 inherited infrastructure changed authoritative rule6 state beyond its version");
     check(development.buildings().empty() && development.couriers().empty() &&
@@ -270,7 +270,7 @@ void infrastructure_inheritance() {
         "Development ramp traversed a disconnected endpoint");
     place(old,{sim::CommandType::PlaceRoad,{7,5}});
     place(development,{sim::CommandType::PlaceRoad,{7,5}});
-    inherited=development.snapshot();inherited.rule_version=6;
+    inherited=development.snapshot();inherited.rule_version=6;inherited.original_economy.reset();
     check(inherited==old.snapshot() && development.transport_edge_allowed({7,5},{8,5}),
         "Development paid ramp repair differed from rule6");
     check(sim::World::restore(old.snapshot(),p3).snapshot()==old.snapshot(),
@@ -321,14 +321,15 @@ void persistence_refusal() {
 
     auto development=sim::World::create_original_economy_development(p3);
     rejects([&] { (void)save::make_document(data,relative,p3->building_mask(),development); },
-        "rule 7 save schema is not implemented");
+        "schema23 requires an original model source identity");
     auto future=document;future.world=development.snapshot();
     for (const std::uint32_t source_schema:{0U,18U,19U,20U,21U,22U,23U}) {
         future.source_schema_version=source_schema;
         rejects([&] { (void)save::restore_save(future,data,p3->building_mask()); },
-            "rule 7 save schema is not implemented");
+            "rule 7 runtime is not ready");
         rejects([&] { save::write_save(protected_save,future,data,p3->building_mask()); },
-            "rule 7 save schema is not implemented");
+            source_schema==0 || source_schema==23 ? "schema23 requires an original model source identity":
+                "rule7 requires schema23");
         check(read_text(protected_save)==saved_bytes,
             "Refused rule7 writer overwrote an existing historical save");
     }

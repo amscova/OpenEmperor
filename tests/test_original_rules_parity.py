@@ -225,6 +225,94 @@ class ForkPinControls(unittest.TestCase):
                 parity.validate_fork(fork)
 
 
+class HousingNamespaceControls(unittest.TestCase):
+    def test_isolation_changes_only_exact_namespace_and_local_include_lines(self):
+        source = ('#include "simulation/World.h"\n'
+                  '#include "simulation/original/HouseEvolution.h"\n'
+                  'namespace openemperor::original {\n'
+                  'int authored_control(int value) { return value * 17 - 3; }\n'
+                  '}  // namespace openemperor::original\n')
+        expected = ('#include "simulation/World.h"\n'
+                    '#include "HouseEvolution.h"\n'
+                    'namespace openemperor::parity_fork_original {\n'
+                    'int authored_control(int value) { return value * 17 - 3; }\n'
+                    '}  // namespace openemperor::parity_fork_original\n')
+        self.assertEqual(parity.isolate_housing_source("OriginalHousingView.cpp", source), expected)
+        for suffix in ("", "\n"):
+            self.assertEqual(parity.isolate_housing_source("ModelData.h", source.rstrip("\n") + suffix),
+                             expected.rstrip("\n") + suffix)
+
+    def test_unreviewed_namespace_includes_and_module_names_are_rejected(self):
+        source = 'namespace openemperor::original {\n}  // namespace openemperor::original\n'
+        for altered in (source.replace("namespace openemperor::original {", "namespace other {"),
+                        source + source,
+                        source + '#include "simulation/original/FutureRules.h"\n',
+                        source + 'openemperor::original::HouseState other;\n'):
+            with self.subTest(altered=altered), self.assertRaises(ValueError):
+                parity.isolate_housing_source("ModelData.h", altered)
+        with self.assertRaises(ValueError):
+            parity.isolate_housing_source("FutureRules.cpp", source)
+
+    def test_generated_copies_keep_input_pins_and_record_exact_transformation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fork = root / "fork"
+            output = root / "output"
+            output.mkdir()
+            pins = {}
+            originals = {}
+            for module in parity.HOUSING_FORK_MODULES:
+                for suffix in (".h", ".cpp"):
+                    name = module + suffix
+                    relative = "src/simulation/original/" + name
+                    text = ('#include "simulation/World.h"\n'
+                            f'#include "simulation/original/{module}.h"\n'
+                            'namespace openemperor::original {\n'
+                            'int authored_control = 37;\n'
+                            '}  // namespace openemperor::original\n')
+                    path = fork / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(text)
+                    originals[relative] = path.read_bytes()
+                    pins[relative] = hashlib.sha256(originals[relative]).hexdigest()
+            with mock.patch.object(parity, "FORK_SHA256", pins):
+                generated = parity.prepare_housing_fork(fork, output)
+                with self.assertRaises(FileExistsError):
+                    parity.prepare_housing_fork(fork, output)
+                manifest = json.loads((generated / "transform-manifest.json").read_text())
+                self.assertEqual(len(manifest["files"]), 8)
+                for relative, original in originals.items():
+                    self.assertEqual((fork / relative).read_bytes(), original)
+                    name = Path(relative).name
+                    emitted = (generated / name).read_bytes()
+                    self.assertEqual(emitted.decode(), parity.isolate_housing_source(name, original.decode()))
+                    self.assertEqual(manifest["files"][name], {
+                        "source_sha256": pins[relative],
+                        "generated_sha256": hashlib.sha256(emitted).hexdigest()})
+                changed = fork / "src/simulation/original/ModelData.h"
+                changed.write_text(changed.read_text() + "// unauthorized source mutation\n")
+                other = root / "other-output"
+                other.mkdir()
+                with self.assertRaisesRegex(ValueError, "pinned housing fork source mismatch"):
+                    parity.prepare_housing_fork(fork, other)
+
+    def test_only_fourth_probe_uses_namespace_isolated_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            isolated = root / "isolated"
+            with mock.patch.object(parity, "prepare_housing_fork", return_value=isolated), \
+                    mock.patch.object(parity, "checked_run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run:
+                parity.compile_probes(root / "fork", root, "unused-compiler", "debug", root / "simulation.a")
+            commands = [call.args[0] for call in run.call_args_list]
+            self.assertEqual(len(commands), 4)  # pkg-config and three compilers.
+            fork, current, housing = commands[1:]
+            self.assertIn(str(root / "fork/src/simulation/original/HouseEvolution.cpp"), fork)
+            self.assertIn(str(parity.ROOT / "src/simulation/original/HouseEvolution.cpp"), current)
+            self.assertNotIn(str(root / "fork/src"), housing)
+            for module in parity.HOUSING_FORK_MODULES:
+                self.assertIn(str(isolated / (module + ".cpp")), housing)
+
+
 class OutputAndStatusControls(unittest.TestCase):
     def test_cli_dangling_fork_is_failure_before_path_resolution(self):
         with tempfile.TemporaryDirectory() as directory:
