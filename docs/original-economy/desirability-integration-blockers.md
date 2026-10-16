@@ -11,6 +11,14 @@ erlaubt keine neue Bau-/Restore-Authority, zusätzliche Funds oder erfundene
 World→Model-Zuordnung. Ein Dokumentationscommit dieses Befunds ist keine
 Featurefreigabe.
 
+**Entwurf zur Entscheidung:** Der Nutzer hat inzwischen ausdrücklich einen
+[konkreten Quellen-/Bau-/Restore-/Finanzierungsvertrag](source-contract-v1-proposal.md)
+beauftragt. Dieser empfiehlt Rule8/Schema24, einen eigenständigen authored
+Well72-Quellencontainer,2000 feste Start-Funds und einen ausdrücklich geänderten
+City-v13-Algorithmusvergleich. Er ist **NICHT FREIGEGEBEN** und ändert keinen
+der hier beschriebenen Rule7-Blocker. Auch sein Dokumentationsmerge ist keine
+Umsetzungsfreigabe; OE-12/Gate B bleiben BLOCKED.
+
 Der [OE-12-Auftrag](../codex-original-economy/prompts/12-originales-desirability-modell-produktiv-verbinden.md)
 verlangt tatsächliche bezahlte Quellen, verifizierte Model-IDs, Quellenbau und
 Entfernung, Reload sowie eine Szene mit 20 Häusern. Seine Stop-Regel verbietet,
