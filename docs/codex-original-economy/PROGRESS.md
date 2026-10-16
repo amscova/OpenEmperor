@@ -18,7 +18,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation), `c50ff69941c60c61d7d37c69354e3113bdc7f58c` (Quellenforschung), `5f30abc9b053ad700199604b4cf0c320dd5a5336` (Zustandsforschung) | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
+| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation); Forschung zuletzt `c3234ae4c397a84aaad533d3ccc63a90d6755d73`, frühere SHAs im Protokoll | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
@@ -1338,3 +1338,49 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
 - Keine Footprint-/Parser-/World-/Save-/Status-/Sourcebau-/Restore-/Fundsänderung
   oder Quellenfreigabe. Bezahlte Quellenidentität, sichere Bau-/Entfernungskette
   und20-Haus-Finanzierung bleiben getrennte ungelöste Verträge. Kein OE-13.
+
+### OE-12 Fortsetzung – 2026-10-16, Basisff3953c – Markt-Rechteck, weiter BLOCKED
+
+- Beginn am sauberen, live/origin bestätigten `main`
+  `ff3953cb3115c05fdbe00d7f5c0001d120eaae2d`; Feature-Branch per Fast-forward
+  angeglichen. Vorige Factory-Forschungs-SHA `c3234ae4c397a84aaad533d3ccc63a90d6755d73`
+  oben nachgetragen. Strenge Grenze bleibt bestehen, keine Quellen-/Budgetprobe
+  bloß wiederholt und kein weiterer Task freigegeben.
+- [Markt-Descriptor und Rechteckspread](../reverse/original-market-desirability-shape.md):
+  tatsächlicher Typ59-Descriptor liefert für die beiden geprüften Selectorblöcke
+  inklusive4×7/7×4-Einfluss-Boundingrechtecke. Position und Selector sind
+  zusätzlicher Runtime-/NonHouseInfo-Zustand; dessen Byte+60 wird bei Raw-Info94
+  archiviert. Keine physische Belegung, universelle Selector0/1-, Load- oder
+  Lifecyclegarantie. Manager-Callbackparameter separat symbolisch nachvollzogen.
+- Tatsächlich ausgeführte private Python3-Checkers unter
+  `.local/original-economy/oe12/market-shape-research/`, vollständige Befehle
+  im verlinkten Beleg: `geometry-audit/check_market_geometry.py` **PASS**,
+  13 Fenster/228 Instruktionen/666 Bytes/43 Codeassertions; vier Slots/zwei
+  Parameterweitergaben/zwei private Tabellenblöcke. `descriptor-audit/check_market_descriptor.py`
+  **PASS**,27 Fenster/653 Instruktionen/2047 Bytes/56 Assertions/elf Slots.
+  `spread-audit/check_rectangle_spread.py` **PASS**,8 Fenster/689 Instruktionen/
+  2161 Bytes/40 Assertions; zusätzlich acht abgeleitete Wrappertraces und360
+  algebraische Perimeterfälle. `root/check_market_call_bridge.py` **PASS**,
+  6 Fenster/260 Instruktionen/674 Bytes/34 Assertions. Fenster überlappen;
+  keine addierte einzigartige Abdeckung oder Ausführung der Original-EXE.
+- `root/run_square_contrast.py`: **PASS**, neue private C++-Probe frisch mit
+  unveränderten `Desirability.cpp`, `ModelSchema.cpp`, `ModelData.cpp` kompiliert,
+  ohne Compiler-Meldung. Vier synthetische Eingaben auf tatsächlichem Quadratkern
+  verglichen mit separat abgeleiteten Rechtecktraces: Phase1 statt0, kein
+  Initial-DES0-Return und keine Vorzeichenabsorption im Rechteckwrapper.
+  Keine Originalmodellwerte, World oder Platzierung. Der Probe behauptet weder
+  originale Rectangle-/Wall-/Clipping-/Overflowparität noch Gameplayabnahme.
+- Unabhängige Descriptor-/Geometrie-/Spread- und Skriptreviews abgeschlossen;
+  Zellwertsättigung nach jeder Addition und signed Periodenvergleich präzisiert.
+  Historischer OE-03-PASS bleibt auf den bisherigen Quadratvertrag begrenzt.
+  Abschlussaudit `root/final-validation.json`: Forschung/Dokumentation **PASS**,
+  OE-12/Gate B **BLOCKED**. CMake-/Source-/Test-/Tool-/Resource-SHA256 weiterhin
+  `2a0257193d1ba22a5395ad34c78ba27629e45d0f977a9a3e8aae868d8b6669fe`;
+  Originalinventar1464 Dateien/819711091 Bytes, Manifest weiterhin
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  EXE-/Modell-Bytes, Modus und mtime unverändert; Dokumentationsverweise und
+  Diff-Whitespace geprüft. Keine erneuten CTests oder Produktionsbuilds für
+  diese Forschungsdokumentation; Gate-B-Vollsuites **NOT_RUN**.
+- Keine produktive Rechteckerweiterung, World-Quellenidentität, Parser-/
+  Footprint-/Save-/Bau-/Restore-/Fundsänderung. Quellenvertrag und Finanzierung
+  bleiben ungelöst; keine OE-13-Freigabe.
