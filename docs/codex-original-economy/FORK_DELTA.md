@@ -58,3 +58,16 @@ Keine produktiven Quelländerungen oder pauschalen Fork-Merges in OE-00.
 Originaldateien bleiben read-only und außerhalb von Git. Ein späterer gezielter
 Codeimport benötigt Lizenz-/Urheberzuordnung und unabhängige Tests; fremder Code
 ist kein unabhängiger Originalbeleg.
+
+## OE-06 – unabhängig belegte Präzisierung
+
+Der [Liefervertrag](../reverse/original-goods-delivery-contract.md) bestätigt
+sechs getrennte Bestände, zeigt aber nächste Modellzeile/Zeile7-Ausnahme,
+Elitefaktor und eine quellenabhängige Nachfüllformel, die dem Fork fehlen. Der
+[Konsum-/Qualitätsvertrag](../reverse/original-goods-consumption-food-contract.md)
+bestätigt den unabhängigen Bronze-/Lackverbrauch über Feld13; die ODER-Needs
+sind kein Beleg für alternativen Konsum. Food-Blending verwendet Vorbestand
+statt Foodbedarf und speichert einen binary32-Quotienten. Der neue sichere
+Kernel verweigert negative Inventare und erhält Quality bei Lieferung0; diese
+Grenzen sind ausdrücklich authored. Die vollständige unabhängige Vergleichs-
+und Gate-A-Abnahme folgt OE-07.

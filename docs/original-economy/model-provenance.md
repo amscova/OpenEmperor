@@ -108,6 +108,11 @@ All names/indices are `verified original` from M1's a–x legend, lines30–54.
 `0x51a3f0–0x51a651` additionally establishes the relevant presence, food-score
 and stored-quantity comparisons. These checks do not establish delivery
 quantity, consumption amount, visit duration or period.
+The table records that model/needs evidence scope. The later OE-06
+[delivery](../reverse/original-goods-delivery-contract.md) and
+[consumption/quality](../reverse/original-goods-consumption-food-contract.md)
+contracts establish separate numerical operations; physical tonnage and clock
+mapping remain unresolved.
 
 | Index | Typed field | Meaning and supported unit | M1 line |
 |---:|---|---|---:|
@@ -124,7 +129,7 @@ quantity, consumption amount, visit duration or period.
 | 10 | `HouseField::Ceramics` | Threshold against stored signed-short Ceramics quantity. Physical tonnage, delivery amount, consumption amount and period unknown. | 41 |
 | 11 | `HouseField::Tea` | Threshold against stored signed-short Tea quantity. Physical tonnage, delivery amount, consumption amount and period unknown. | 42 |
 | 12 | `HouseField::Silk` | Threshold against stored signed-short Silk quantity. Physical tonnage, delivery amount, consumption amount and period unknown. | 43 |
-| 13 | `HouseField::BronzewareOrLacquerware` | One shared threshold; either stored signed-short Bronzeware or Lacquerware quantity must meet it independently. Consumption selection and physical tonnage unknown. | 44 |
+| 13 | `HouseField::BronzewareOrLacquerware` | One shared threshold; either stored signed-short Bronzeware or Lacquerware quantity must meet it independently. The independent consumption of both stocks is established in the [OE-06 contract](../reverse/original-goods-consumption-food-contract.md); physical tonnage remains unknown. | 44 |
 | 14 | `HouseField::CrimeIncrement` | Crime risk increment; risk scale and update interval unknown. | 45 |
 | 15 | `HouseField::CrimeBase` | Crime risk base; scale and application unknown. | 46 |
 | 16 | `HouseField::Unused16` | Explicitly unused; no unit or new authority assigned. | 47 |
@@ -151,10 +156,11 @@ is not this predicate. F1 `HouseEvolution.cpp:136` uses their maximum, while
 line130 accepts either Daoist or Buddhist access for field23. Requirement
 acceptance is distinct from proof of original consumption.
 F1 lines50–51 independently subtract field13 from **both** goods stocks during
-consumption. That is a separately identified behavior, not established by the
-one shared requirement column. OE-02 does not import it, invent a second field,
-or choose a consumption priority. Allocation, consumed-good selection and
-consumption timing remain `unknown` pending bounded evidence.
+consumption. That behavior is not established by the shared requirement column.
+OE-02 did not import it or choose a consumption priority. OE-06 independently
+checks the callback at `0x519f90`: both stocks consume the same field amount
+independently. Its explicit selector events do not establish a monthly cadence
+or a World-tick mapping.
 
 ## House row IDs: ordered file identity, not Building type
 

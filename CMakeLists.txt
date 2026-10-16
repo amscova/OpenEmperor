@@ -275,6 +275,12 @@ add_library(openemperor-original-service-rules STATIC
 target_include_directories(openemperor-original-service-rules PUBLIC src)
 target_link_libraries(openemperor-original-service-rules PUBLIC openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-original-service-rules)
+# Pure goods transfers/consumption/quality observations; no World/app linkage.
+add_library(openemperor-original-goods-rules STATIC
+    src/simulation/original/GoodsRules.cpp)
+target_include_directories(openemperor-original-goods-rules PUBLIC src)
+target_link_libraries(openemperor-original-goods-rules PUBLIC openemperor-original-house-evolution)
+openemperor_enable_warnings(openemperor-original-goods-rules)
 # Independent preparation kernel; no production World or app link.
 add_library(openemperor-original-desirability STATIC
     src/simulation/original/Desirability.cpp)
@@ -368,6 +374,16 @@ if(BUILD_TESTING)
     set_tests_properties(original-service-rules-synthetic original-service-rules-real
         PROPERTIES TIMEOUT 30)
     set_tests_properties(original-service-rules-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-goods-rules-tests tests/OriginalGoodsRulesTests.cpp)
+    target_link_libraries(openemperor-original-goods-rules-tests PRIVATE
+        openemperor-original-goods-rules OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-goods-rules-tests)
+    add_test(NAME original-goods-rules-synthetic COMMAND openemperor-original-goods-rules-tests)
+    add_test(NAME original-goods-rules-real COMMAND openemperor-original-goods-rules-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-goods-rules-synthetic original-goods-rules-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-goods-rules-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-great-wall-dependency-paths-tests tests/GreatWallDependencyPathsTests.cpp)
     target_link_libraries(openemperor-great-wall-dependency-paths-tests PRIVATE openemperor-maps)
     openemperor_enable_warnings(openemperor-great-wall-dependency-paths-tests)
