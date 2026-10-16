@@ -113,11 +113,14 @@ saved status0, introducing a new source type or widening its restore contract.
 
 ## Remaining boundary
 
-RE has narrowed original source admission and the square callback chain. It
-has not verified all seven type-specific source factories, their complete
-status/link-word/lifecycle conditions, special-shape sources, terrain or
-wall admission, or an identity between an authored World Object and an original
-influence source. Model-file identity remains separate from instance identity.
+RE has narrowed original source admission and the square callback chain. The
+later [seven-type factory study](original-desirability-source-factories.md)
+identifies their concrete constructor dispatch and callbacks, including the
+market's special-shape path and two differences from World geometry. Complete
+placement/status/link-word/lifecycle conditions, special-shape reconstruction,
+terrain/wall admission and an identity between an authored World Object and an
+original influence source remain unverified. Model-file identity remains
+separate from instance identity.
 
 The strict [OE-12 decision and blockers](../original-economy/desirability-integration-blockers.md)
 therefore continue to apply. There is no new production cache, source purchase,

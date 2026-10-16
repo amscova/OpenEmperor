@@ -56,6 +56,14 @@ in anderem Zustand, aber auch keine Freigabe zum Hochsetzen des gespeicherten
 World-Status. Die sieben Nicht-Haus-Analogien, Bau-/Restore-Gates und die
 Finanzgrenze bleiben ungelöst. Mehr EXE-Evidenz ersetzt diese Vertragsarbeit nicht.
 
+Die folgende [konkrete Factoryprüfung aller sieben Originaltypen](../reverse/original-desirability-source-factories.md)
+belegt zusätzlich zwei Geometrieabweichungen: Warehouse54 liefert Quadratseite3
+gegenüber World2; Farmhouse193 verwendet den initialen Side-Default3 gegenüber
+World1. CommonMarketSquare59 nimmt einen eigenen Sonderformpfad, trotz
+initialem Sidebyte1. Die vier anderen übereinstimmenden Defaults begründen
+ebenfalls keine World-Identität. Keiner dieser Befunde erlaubt, bestehende
+World-Footprints stillschweigend zu ändern oder eine Quellenanalogie hochzustufen.
+
 ## 2. Quellenbau, Entfernung und Source-Restore sind gesperrt
 
 Die exakten Rule7-Gates in

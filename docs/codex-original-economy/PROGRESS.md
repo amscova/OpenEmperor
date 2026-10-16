@@ -18,7 +18,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation), `c50ff69941c60c61d7d37c69354e3113bdc7f58c` (Quellenforschung) | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
+| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation), `c50ff69941c60c61d7d37c69354e3113bdc7f58c` (Quellenforschung), `5f30abc9b053ad700199604b4cf0c320dd5a5336` (Zustandsforschung) | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
@@ -1293,3 +1293,48 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
 - Quellenidentität, Sourcebau/Abriss/Restore und die Finanzierung der20-Haus-
   Szene bleiben ungelöste Vertragsvoraussetzungen. Keine Parser-/World-/
   Saveänderung, kein grüner Featurecommit und kein Fortgang zu OE-13.
+
+### OE-12 Fortsetzung – 2026-10-16, Basis837caf8 – sieben Factories, weiter BLOCKED
+
+- Sauberer, live/origin bestätigter `main`
+  `837caf8e48272fa48172c3cb7b815a95eda8883e`; Feature-Branch per Fast-forward
+  angeglichen. Vorige Zustandsforschungs-SHA `5f30abc9b053ad700199604b4cf0c320dd5a5336`
+  oben nachgetragen. Strenge Grenze unverändert, keine wiederholte Budgetprobe.
+- [Konkrete Originalfabriken](../reverse/original-desirability-source-factories.md):
+  Klassifikationen, frühere Dispatch-Ausschlüsse, tatsächliche Konstruktoren und
+  finale Callbacks für35/43/54/59/72/193/207 bytegeprüft. Warehouse54 liefert
+  im Quadratpfad konstant Seite3; Farm193 hat Side-Default3 und runtime-Getter.
+  Markt59 nimmt den Sonderformpfad; weder Initialside1 noch der für59 null
+  liefernde, dort ungenutzte Quadratseitengetter belegt seinen Einflussabdruck.
+- Tatsächlich ausgeführte private Python3-Checkers unter
+  `.local/original-economy/oe12/source-factory-research/`, vollständige Befehle
+  im verlinkten Beleg: `industry-audit/check_industry_factories.py` **PASS**,
+  57 Fenster/1276 Instruktionen/4036 Bytes/161 Code- und27 Datenassertions;
+  `market-farm-audit/check_market_farm_factory.py` **PASS**,42 Fenster/1021
+  Instruktionen/3211 Bytes/82 Codeassertions/18 Tabellenlesungen;
+  `well-health-audit/check_well_health_factories.py` **PASS**,26 Fenster/459
+  Instruktionen/1459 Bytes/55 Codeassertions. Vtable-Slots12/9/8; Fenster
+  überlappen, keine addierte einzigartige Abdeckung oder EXE-Ausführung.
+- Neue private `root/WorldFootprintProbe.cpp`, Compile/Run durch
+  `root/run_footprint_probe.py`: **PASS**, ohne Compiler-Meldung. Sieben reale
+  Aufrufe der vorhandenen Footprintfunktion aus den unveränderten, gegen den
+  vorigen OE-12-Lauf fingerprintgeprüften Release-Libraries. Keine World,
+  Platzierung oder Gratisquelle erzeugt. Warehousequery2×2 und Farmquery1×1
+  weichen von den überprüften Originalseiten ab; vier passende Lookupdefaults
+  beweisen keine Identität. Alle Kandidaten weiterhin `Inferred`/`Unknown`.
+- `root/check_footprint_comparison.py`: **PASS**,10 Fenster/54 Instruktionen/
+  169 Bytes/15 Assertions/28 Slots/sieben Sidebytes; unabhängig gegen die
+  tatsächliche Produktionsabfrage verglichen. Gesonderter Skript-/Datenfluss-
+  Review ohne Befund. Initial-/Lookupdefaults bleiben ausdrücklich von einer
+  vollständigen transitiven Initializer-/Lifecycle-/Restore-Invariante getrennt.
+- Abschlussaudit `root/final-validation.json`: Forschung/Dokumentation **PASS**,
+  OE-12/Gate B **BLOCKED**. CMake-/Source-/Test-/Tool-/Resource-SHA256 weiterhin
+  `2a0257193d1ba22a5395ad34c78ba27629e45d0f977a9a3e8aae868d8b6669fe`.
+  Originalinventar1464 Dateien/819711091 Bytes unverändert, Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`;
+  EXE-/Modell-Bytes, Modus und mtime unverändert. Dokumentationslinks und
+  Diff-Whitespace geprüft. Keine erneuten CTests/Produktionsbuilds für die
+  reine Forschungsdokumentation; Gate-B-Vollsuites **NOT_RUN**.
+- Keine Footprint-/Parser-/World-/Save-/Status-/Sourcebau-/Restore-/Fundsänderung
+  oder Quellenfreigabe. Bezahlte Quellenidentität, sichere Bau-/Entfernungskette
+  und20-Haus-Finanzierung bleiben getrennte ungelöste Verträge. Kein OE-13.
