@@ -263,6 +263,18 @@ add_executable(openemperor-model-inspect tools/model-inspector/main.cpp)
 target_link_libraries(openemperor-model-inspect PRIVATE
     openemperor-original-model nlohmann_json::nlohmann_json)
 openemperor_enable_warnings(openemperor-model-inspect)
+# Independent preparation kernel; no production World or app link.
+add_library(openemperor-original-desirability STATIC
+    src/simulation/original/Desirability.cpp)
+target_include_directories(openemperor-original-desirability PUBLIC src)
+target_link_libraries(openemperor-original-desirability PUBLIC openemperor-original-model)
+openemperor_enable_warnings(openemperor-original-desirability)
+add_executable(openemperor-desirability-compare tools/desirability-compare/main.cpp)
+target_link_libraries(openemperor-desirability-compare PRIVATE
+    openemperor-original-desirability openemperor-simulation nlohmann_json::nlohmann_json)
+target_compile_definitions(openemperor-desirability-compare PRIVATE
+    OPENEMPEROR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+openemperor_enable_warnings(openemperor-desirability-compare)
 target_link_libraries(openemperor-maps PUBLIC openemperor-simulation)
 add_library(openemperor-persistence STATIC src/persistence/SandboxSave.cpp
     src/platform/AtomicReplace.cpp)
@@ -314,6 +326,16 @@ if(BUILD_TESTING)
     set_tests_properties(original-model-schema-synthetic original-model-schema-real
         PROPERTIES TIMEOUT 30)
     set_tests_properties(original-model-schema-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-desirability-tests tests/OriginalDesirabilityTests.cpp)
+    target_link_libraries(openemperor-original-desirability-tests PRIVATE
+        openemperor-original-desirability OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-desirability-tests)
+    add_test(NAME original-desirability-synthetic COMMAND openemperor-original-desirability-tests)
+    add_test(NAME original-desirability-real COMMAND openemperor-original-desirability-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-desirability-synthetic original-desirability-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-desirability-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-great-wall-dependency-paths-tests tests/GreatWallDependencyPathsTests.cpp)
     target_link_libraries(openemperor-great-wall-dependency-paths-tests PRIVATE openemperor-maps)
     openemperor_enable_warnings(openemperor-great-wall-dependency-paths-tests)

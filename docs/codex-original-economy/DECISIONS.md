@@ -19,6 +19,54 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-03: isolierte Ausbreitung und ausdrücklich experimentelle Mauern
+
+- **Revision:** Start am live bestätigten, gemergten `main`
+  `d1a082d4f9457690367f27a5fe7099904f5b90ac`; Feature-Branch zuerst per
+  Fast-forward angeglichen. OE-02 bleibt als eigenständiger Commit
+  `df13b2e9bc0112d66c188276b5753c92ce6a5a40` erhalten. Eigene Task-SHA folgt
+  im Abschlussreport und bei OE-04. Die delegierte Commit-/PR-/Merge-Freigabe
+  gilt weiterhin für diesen Branch, ohne Tags/Releases.
+- **`exe`:** [Gebundene statische Belege](../reverse/original-desirability-contract.md)
+  bestätigen Quadratperimeter, ersten Initialwert, höchstens zehn Ringe,
+  absorbierende Null nach Vorzeichenwechsel und Sättigung nach jeder Addition.
+  `step <= 0` aktualisiert nach jedem Ring; die Fork-Auslegung „nie ändern“
+  wird ausdrücklich verworfen. Quellenreihenfolge bleibt erhalten, da ein
+  späterer globaler Clamp andere Ergebnisse liefert. Der Kern rekonstruiert
+  weder Manager-Zulassung noch Terrainquellen des vollständigen Originals.
+- **`model`:** Alle vier Spread-Felder werden über die geprüften OE-02-Named-
+  Zugriffe samt Difficulty vorbereitet. Der Caller liefert den Footprint
+  unabhängig; `SZE` ist ein Delta. Die Building-ID ist keine World-ID oder
+  Berechtigung. Fehlende/falsch gelabelte Daten erhalten keine Ersatzwerte.
+- **`authored` Sicherheitsgrenzen:** Dimensionen1–228, vollständig auf der
+  Karte liegende Quadrate1–6 und höchstens4096 Quellen pro atomarem Batch.
+  Halo-Ringe werden abgeschnitten; ungültige Abfragen erhalten keine erfundenen
+  neutralen Außen-Zellen. Verwendete Ringwerte müssen einschließlich möglicher
+  Zelladdition in int32 passen; benutzte Updates und Bonus werden vor Clamp
+  geprüft. Unbenutzte Updates nach dem letzten Ring werden nicht ausgewertet.
+  Keine Wrap-Emulation editierter Modelle oder Behauptung allgemeiner größerer
+  Original-Footprints.
+- **Query:** Vollständiges signiertes Footprint-Maximum, anschließend expliziter
+  optionaler Bonus ohne Zell-Clamp. Das originale bedingte+10 ist statisch
+  beobachtet, sein Trigger unbekannt. Default0 und int32-Bonusprüfung sind eine
+  eigene API-Grenze, keine Zuordnung des Originalflags oder Bytefelds.
+- **`authored` Mauerhypothese:** Default `None`. Nur ausdrücklich ausgewähltes
+  `ExperimentalUniform16` verwendet wahres Footprint-Zentrum, exakt ganzzahlig
+  klassifizierte22.5°-Sektoren und einen Ring-Vorlauf, der gleich weit liegende
+  Zellen nicht abschirmt. Nur negative Quellen; Mauerzellen bleiben davon frei.
+  Originale gemischte Einheiten, Richtungstabellen, Nachbarsektoren und
+  Randpfade sind ungeklärt. Keine Original-Mauerparität oder World-Bauoption.
+- **Alternative/Vergleich:** Unveränderte Produktionshelfer bilden die echte
+  authored City-v13-Spalte; ein gesonderter Same-Spec-Manhattan-Kontrollwert
+  isoliert allein die Geometrie. Funktionsanalogien Model→World und Szenen-
+  Footprints bleiben ausdrücklich inferred/authored. Einige Footprint-Probes
+  überlappen Quellen; sie sind reine Abfragen, keine legal gebauten Häuser.
+- **Runtime/Save:** Eigenständige Library und Diagnose-CLI, kein World-/App-
+  Link, keine Frame-/Tick-Hooks, kein Mapscan oder neue Save-Authority. Alle
+  alten Quellen und Snapshots bleiben unverändert. Review und tatsächlich
+  ausgeführte Prüfungen werden im Fortschrittsprotokoll festgehalten; Gate A
+  bleibt bis OE-07 offen.
+
 ### OE-00: tatsächliche Ausgangslage und Arbeitsgrenzen
 
 - **Revision:** `fef111deff4cedd3d3fa48663556d41b2e4b31a6`, nicht der historische
