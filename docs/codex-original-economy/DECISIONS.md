@@ -45,3 +45,39 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   [Architekturkarte](../original-economy/architecture-map.md) und
   [Forkvergleich](../original-economy/fork-comparison.md); tatsächliche Abnahme
   und zugehöriger Task-Commit werden im Fortschrittsprotokoll/Report dokumentiert.
+
+### OE-01: isolierter Raw-Reader mit exakter Quellenbindung
+
+- **Revision:** Folgeschritt von OE-00
+  `05470049fa4acfdf2d0104f5a25384c9277073ac`; eigener Task-Commit wird im
+  Abschlussreport und bei OE-02 nachgetragen. Upstream `main` weiterhin
+  `fef111deff4cedd3d3fa48663556d41b2e4b31a6`.
+- **Beleg `model`:** Der lokale Originaltext hat13 Building-/24 House-Spalten,
+  15 geordnete House-Zeilen und je5 Modifier. Führendes CSV-Leerfeld und
+  Komma-Padding sind Export-Syntax; House-Zeilen haben keine schließende Klammer.
+  Innere Leerfelder sind dagegen kein belegter Ersatz für einen Wert.
+- **Beleg `authored`:** 256KiB Text,4096Byte je Zeile, Building-ID0–4096 und
+  int32 sind explizite Reader-Bounds. Keine feldspezifischen Wertebereiche aus
+  beobachteten Minima/Maxima erfinden. Optionales Pluszeichen und schließende
+  House-Klammer sind dokumentierte Reader-Erlaubnisse, keine EXE-Behauptung.
+- **Alternative/Fork:** Keine mutable öffentliche Tabelle, kein stilles
+  Überschreiben/Kürzen, kein Überspringen innerer Leerfelder, keine geklemmte
+  Difficulty und keine Ersatzwerte. Getypte const-Zugriffe lesen ausschließlich
+  die geprüften Rohwerte. Schwierigkeitstransformationen bleiben bewusst bei den
+  folgenden Regelaufgaben; OE-01 bestätigt diese Fork-Arithmetik nicht.
+- **Identität:** Building-ID bezeichnet den Dateiindex, HouseRowId die geordnete
+  Zeile0–14. Dies ist keine World-Building-Zuordnung. Distinkte House-Labels
+  verhindern doppelte Zeilen; beliebige semantische Umordnung eines editierten
+  Modells wird damit nicht ausgeschlossen. Symbolische IDs/Units folgen OE-02.
+- **Quelle:** SHA-256 bindet genau dieselben unveränderten Bytes, die geparst
+  werden. Hash, Pfad, Byte-/Zeilenzahlen und Reader-Version sind ein
+  Provenance-Report, keine Originalsignatur. Geänderte gültige Modelle bekommen
+  ihren tatsächlichen Hash; keine globale Whitelist des einen GOG-Hashes.
+- **Laufzeit/Save:** Eigenständige SDL-/World-freie Library plus Diagnose-CLI,
+  ohne App-/World-/Save-Link. Keine neue Rule oder Migration, kein Tick-/Frame-I/O.
+  Create-/Restore-Hashbindung kommt erst mit OE-11. Originale Daten bleiben lokal
+  und read-only; Git enthält ausschließlich synthetische Testwerte.
+- **Review/Tests:** Unabhängige Grammatik- und API-/I/O-Prüfung gegen die lokale
+  Quelle und den gebundenen Fork; Befehle und tatsächliche Ergebnisse werden in
+  PROGRESS dokumentiert. Fehlende optionale Originaldaten ergeben ausschließlich
+  im separaten Real-CTest SKIP77; vorhandene kaputte Daten dürfen nicht skippen.

@@ -253,6 +253,15 @@ add_library(openemperor-simulation STATIC
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
+# Read-only evidence module. It is deliberately not linked into World or the app.
+add_library(openemperor-original-model STATIC src/simulation/original/ModelData.cpp)
+target_include_directories(openemperor-original-model PUBLIC src)
+target_link_libraries(openemperor-original-model PRIVATE OpenSSL::Crypto)
+openemperor_enable_warnings(openemperor-original-model)
+add_executable(openemperor-model-inspect tools/model-inspector/main.cpp)
+target_link_libraries(openemperor-model-inspect PRIVATE
+    openemperor-original-model nlohmann_json::nlohmann_json)
+openemperor_enable_warnings(openemperor-model-inspect)
 target_link_libraries(openemperor-maps PUBLIC openemperor-simulation)
 add_library(openemperor-persistence STATIC src/persistence/SandboxSave.cpp
     src/platform/AtomicReplace.cpp)
@@ -282,6 +291,18 @@ openemperor_enable_warnings(openemperor-assets)
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(openemperor-original-model-data-tests tests/OriginalModelDataTests.cpp)
+    target_link_libraries(openemperor-original-model-data-tests PRIVATE
+        openemperor-original-model OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-model-data-tests)
+    add_test(NAME original-model-data-synthetic COMMAND openemperor-original-model-data-tests)
+    set(OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT "${CMAKE_SOURCE_DIR}/.local/gog-extracted/app"
+        CACHE PATH "Optional read-only original installation for ModelData CTest")
+    add_test(NAME original-model-data-real COMMAND openemperor-original-model-data-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-model-data-synthetic original-model-data-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-model-data-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-great-wall-dependency-paths-tests tests/GreatWallDependencyPathsTests.cpp)
     target_link_libraries(openemperor-great-wall-dependency-paths-tests PRIVATE openemperor-maps)
     openemperor_enable_warnings(openemperor-great-wall-dependency-paths-tests)
