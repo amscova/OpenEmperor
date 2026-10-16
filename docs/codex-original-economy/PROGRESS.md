@@ -11,8 +11,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-02 | PASS | df13b2e9bc0112d66c188276b5753c92ce6a5a40 | `.local/original-economy/oe02/`, OE-00/`oe02-verification/` | Faktenregister v1/typed IDs/5 Goldens;12 CTests PASS;72 Saves/1485 Policyfälle identisch |
 | OE-03 | PASS | 12e2f22c94f60402824d8dd0898b9d36086da503 | `.local/original-economy/oe03/`, OE-00/`oe03-verification/` | Isolierter Kern/experimentelle Mauern/Vergleich;33 CTests plus6 finale Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-04 | PASS | a8fd0ce0615d7009eecc373359c8c00b1a3207d4 | `.local/original-economy/oe04/`, OE-00/`oe04-verification/` | Pure16-Typ-/15-Zeilen-Evolution;39 CTests plus12 gezielte Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
-| OE-05 | PASS | im Folgecommit | `.local/original-economy/oe05/`, OE-00/`oe05-verification/` | Neun Timer/drei Visitpfade/elf Provider;33 CTests plus6 Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
-| OE-06 | TODO | — | — | — |
+| OE-05 | PASS | 269e80d850ea7d0e8d90b4853a48cf86f8140bf8 | `.local/original-economy/oe05/`, OE-00/`oe05-verification/` | Neun Timer/drei Visitpfade/elf Provider;33 CTests plus6 Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
+| OE-06 | PASS | im Folgecommit | `.local/original-economy/oe06/`, OE-00/`oe06-verification/` | Pure sechs Waren/Delivery/Konsum/Quality;48 CTests PASS;72 Saves/1485 Policyfälle identisch |
 | OE-07 | TODO | — | — | — |
 | OE-08 | TODO | — | — | — |
 | OE-09 | TODO | — | — | — |
@@ -581,3 +581,78 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Gate A bleibt bis OE-07 offen. Originale Flagproducer, vollständige Actor-
   Effekte, echtes bezahltes Versorgungs-Gameplay sowie Zeitmapping/Human-Parität
   bleiben ausdrücklich offen. Nächster geplanter Task: OE-06.
+
+
+### OE-06 – 2026-10-16, Basis ed24702
+
+- Sauberen Checkout und Live-`main`
+  `ed2470256912bf8c70e700b1d30553f6d226c15e` bestätigt; bestehenden Feature-
+  Branch per Fast-forward angeglichen. Originalinventar unverändert1464Dateien /
+  819711091Byte mit identischem OE-00-Manifesthash; Beleg
+  `.local/original-economy/oe06/source-state.json`.
+- **Lieferbelege:**
+  `python3 .local/original-economy/oe06/delivery-check-evidence.py`: **PASS**,
+  elf begrenzte Fenster/428Instruktionen/1240Bytes,15 semantische Assertions,
+  sechs Pointer- und sechs Warenbindungen,64821 arithmetische Kontrollfälle,
+  null Byteabweichungen. [Liefervertrag](../reverse/original-goods-delivery-contract.md)
+  belegt nächste kanonische Zeile/Zeile7-Ausnahme, Größe>1 ×4, Elite ×2,
+  exact-zero Hemp/Tea10 und getrennte Admission. Quellabhängige Fallbackformel
+  statt Fork-Bedarfsvergleich/finalem Bedarfscap. Originalspiel nicht ausgeführt.
+- **Konsum-/Qualitätsbelege:**
+  `python3 .local/original-economy/oe06/consumption-food-check-evidence.py`:
+  **PASS**, elf Fenster/465Instruktionen/1361Bytes,40 semantische Assertions,
+  fünf Pointerbindungen/vier binary32-Schwellen/drei double-rounding-
+  Gegenbeispiele, null Byteabweichungen. [Vertrag](../reverse/original-goods-consumption-food-contract.md)
+  bestätigt beide unabhängigen Feld13-Verbräuche ohne Größenfaktor, bei exakt
+  null Bewohnern kein Konsum. Food-Blending verwendet Vorbestand, nicht Bedarf;
+  strikte Floatgrenzen und Integer-Mittel sind getrennt. Quellen unverändert.
+- **Pure Library:** `GoodsRules.h/.cpp`, sechs getypte Waren, getrennte Quality,
+  Bedarf/Ziel/Admission, vollständige wertbasierte Transfer-/Konsumresultate mit
+  expliziter Mengenbilanz. Nichtnegative Inventare auch bei No-op, bounded
+  Quellcap/word-Headroom und deterministische int64-Rundungsmittelpunkte. Die
+  Byte-Score-Grenze, nearest-even-Modus und Lieferung0 erhält Quality sind
+  ausdrücklich authored; keine originale Markt-/Actor-/Food-Score-Produktion
+  oder World-/Save-/App-Verbindung.
+- **Build/CTest:**
+  `python3 .local/original-economy/oe06/run_validation.py`: **PASS**. Debug,
+  Release und ASan+UBSan/RelWithDebInfo jeweils explizit konfiguriert, vor CTest
+  über `ctest --test-dir BUILD -N` alle168 registrierten Tests und beide neuen
+  Tests ermittelt, relevante Targets frisch und ohne Compilerwarnung gebaut.
+  Je16/16 CTests, zusammen **48 PASS, null Skip/Fail**: vier Modell-, je zwei
+  Desirability-/House-/Service-/Goods-Tests sowie `sandbox-production-chain`,
+  `sandbox-household-supply`, `sandbox-city-v7-food` und `sandbox-city-v8-service`.
+  Exakte Targetlisten, CTest-Regex und Logs in `{debug,release,sanitizer}.json`.
+- **Unabhängige Testvektoren:** `OriginalGoodsRulesTests.cpp` synthetisch
+  **1937389 Assertions**, real **9382 Assertions/4320 Warenabfragen** mit
+  gepinntem Modelhash. Alle16 Typen/fünf Difficulties, Raw+Modifier unabhängig,
+  leere/große/Elite-Häuser, unterschiedliche Next-/Current-Zeilen, null/negative
+  Bedarfe, leere/volle/maximale Bestände, Quell-/Zielsumme bei Teillieferung,
+  konsumierte Mengen und unveränderte Fremdfelder/Inputs. Alle256² Qualitypaare
+  über20 klassifizierte Quotienten, acht exakte/skalierte Mittelpunkttripel
+  und drei hohe int32-double-rounding-Gegenbeispiele. Keine Originaltabelle in Git.
+- **Negative Dateipfade:** Finales Debug-Real-Binary gegen acht isolierte Pfade:
+  fehlend→77/SKIP; beschädigt, >256KiB, Sourceverzeichnis, Rootdatei und drei
+  dangling-Symlink-Fälle jeweils1/FAIL wie erwartet. Vollständige Befehle und
+  Ausgaben `real-source-negative.json`; vorhandene Fehler werden nie geskippt.
+- **Quellenschutz/Review:** Alle445 zuvor getrackten Dateien unter
+  `src/tests/tools/resources` bytegleich zur Startrevision; additive CMake-
+  Library-/Testregistrierung. `legacy-source-identity.json` und finale Code-/
+  Build-Hashes in `validated-task-source.json`. Getrennte Liefer-, Konsum-/Food-,
+  Test- und Gesamtvertragsreviews ohne verbleibende Befunde. Lokale Dokulinks
+  und Diffprüfung sauber. Keine alten Tests oder Snapshots verändert.
+- **Vollständiger Legacy-Vergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe06-verification`:
+  **PASS**. Alle72 vollständigen Savebyte-Verträge und72 tatsächlichen Snapshot-
+  Projektionen,1485 Policyfälle auf167 vollständigen Managern (165 vorbereitet/
+  zwei alte Konflikte), elf Rampen- und zehn Brücken-Neustartpaare bleiben exakt.
+  Bezahlte Rule4-/Transport-, Pixel- und scripted-UI-Fixtures laufen über alte,
+  unveränderte Produktionspfade. Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  Sourcehash während des gesamten Runs
+  `6cb557ac8f1a3691b10c15e965378b5f3ada53936307a0023591f67160c50efe`
+  und gesamtes Originalinventar identisch. Bericht/Logs im genannten Output.
+- Abschluss: finale Code-/Build-Hashes, lokale Dokumentationslinks und Diff
+  geprüft. Eigener OE-06-Commit und delegierter PR/Merge folgen nach diesem PASS.
+  Gate A bleibt bis OE-07 offen. Echte neue Producer-/Courier-/Food-Score-
+  Produktion, Zeitmapping, ursprüngliche Runtime-/Human-Parität bleiben offen.
+  Nächster geplanter Task: OE-07, unabhängiger Forkvergleich und Gate A.

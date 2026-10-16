@@ -19,6 +19,53 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-06: getrennte Warenbedarfe, konservative Transfers und Food Quality
+
+- **Revision:** Start am sauberen, live bestätigten `main`
+  `ed2470256912bf8c70e700b1d30553f6d226c15e`; Feature-Branch per Fast-forward
+  angeglichen. OE-05 bleibt eigener Commit
+  `269e80d850ea7d0e8d90b4853a48cf86f8140bf8`. Eigene SHA folgt im Report und
+  bei OE-07. Delegierte Commit-/PR-/Merge-Freigabe gilt weiter, ohne Tags/Release.
+- **`exe` Lieferung:** [Liefervertrag](../reverse/original-goods-delivery-contract.md)
+  bindet sechs unabhängige Warenbestände. Lieferung verwendet die nächste
+  kanonische Modellzeile, mit aktueller Zeile7 als Ausnahme, Sizebyte>1 ×4 und
+  Elite ×2. Genau null Bewohner setzt Hemp/Tea vor beiden Faktoren auf10;
+  nichtelite Häuser brauchen dennoch positive Bewohner. Bedarf und Admission
+  bleiben getrennt. Nachfüllziel `max(Bedarf,10)` ist keine physische Kapazität.
+  Der Fallback vergleicht mit Quellverfügbarkeit, ohne abschließendes Bedarfscap;
+  die Fork-Formel verändert diese belegten Teillieferungsgrenzen.
+- **`exe` Konsum:** [Konsum-/Qualitätsvertrag](../reverse/original-goods-consumption-food-contract.md)
+  bindet aktuelle Modellzeile und sechs unabhängige Abzüge, ohne Size-/Elite-
+  Multiplikation. Genau null Bewohner überspringt den expliziten Konsumaufruf.
+  Bronze und Lack verbrauchen tatsächlich beide unabhängig Feld13. Die ODER-
+  Voraussetzung der Evolution begründet keine Prioritäts- oder Ersatzregel.
+  Damit ist die frühere OE-02-Konsumaussage präzisiert; der Fork ist in diesem
+  einzelnen Punkt bestätigt. Selektoren0/7 sind Aufrufbelege, keine bestätigten
+  Monate, Worldticks oder implementierte Scheduler-Verbindung.
+- **`exe` Food Quality:** Separates Byte, keine siebte Warenmenge. Der Nenner
+  des Blendings ist der Lebensmittelbestand **vor** Lieferung, nicht Modell-
+  FoodQuality oder Foodbedarf. Die EXE speichert den Quotienten als binary32,
+  nutzt strikte Grenzen und ganzzahlige gewichtete Mittel. Das widerlegt den
+  Fork-Parameternamen `food_need`; eine einfache double-Division genügt im
+  verbreiterten int32-Beobachtungsbereich nicht an allen Rundungsgrenzen.
+- **`authored` Sicherheit/Numerik:** Reine Rückgaben erhalten Caller-Inputs,
+  Fremdfelder und explizite Mengenbilanz. Alle sechs Zielbestände und der
+  aufgelöste Quellpool müssen nichtnegativ sein, auch bei No-op. Signed-word-
+  Headroom und Quellcap verhindern Wrap; Modellbedarf<=0 liefert nichts.
+  Originale unchecked Slot-Aggregation/Bytewrap werden nicht emuliert. Quality-
+  Inputs sind begrenzte Bytebeobachtungen; eine universelle Original-Score-
+  Grenze ist nicht bewiesen. Lieferung0 erhält Quality ausdrücklich, obwohl der
+  rohe Originalzweig eine frühe Verbesserung erlauben kann. Exakte int64-
+  Mittelpunktvergleiche modellieren nearest-even binary32 ohne globalen FPU-
+  Zustand; der historische x87-Controlword ist nicht nachgewiesen.
+- **Integration/Abnahme:** Eigene SDL-/World-freie Library ohne App-, Tick-,
+  Frame-, Producer-, Navigator-, Save- oder UI-Verbindung. Keine realen Waren
+  oder Besuche aus reinen Queries. Typen/Zeilen/Sizebyte sind Beobachtungen,
+  keine Geometry-Authority. Originaldateien und alte Quellen bleiben exakt.
+  Tatsächlich gelaufene Tests und Legacy-Bytevergleiche stehen in PROGRESS;
+  bezahlte neue Quellen, vollständige Markt-/Food-Score-Produktion und Human-
+  Gameplay bleiben offen. Gate A folgt erst mit OE-07.
+
 ### OE-05: getrennte Besuchseffekte, Verfall und Spawnversuche
 
 - **Revision:** Start am gemergten Live-`main`
@@ -257,8 +304,9 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
 - **`model`:** 13 Building-/24 House-Spalten,15 geordnete Hauszeilen und sieben
   relevante Building-Typen besitzen explizite getrennte Enum-IDs. Ein gemeinsames
   Feld13 bedeutet Bronze- oder Lackwaren; Feld23 Daoist oder Buddhist. Kein
-  zusätzliches Feld und keine doppelte Warenkonsumregel. Genau fünf begrenzte
-  Goldenwerte werden als einzelne Testfakten dokumentiert, keine Massentabelle.
+  zusätzliches Feld; Konsum und ODER-Bedarf sind getrennte Verträge (OE-06).
+  Genau fünf begrenzte Goldenwerte werden als einzelne Testfakten dokumentiert,
+  keine Massentabelle.
 - **`exe`:** SHA
   `6373328bfc5c4886d9abc9544eb706e89e7d465b18176ea8205fe27aaee53c0e` bindet
   die statischen Belege. Loader0x5d1830 transformiert Building-Felder als
