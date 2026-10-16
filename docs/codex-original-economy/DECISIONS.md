@@ -19,6 +19,53 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-05: getrennte Besuchseffekte, Verfall und Spawnversuche
+
+- **Revision:** Start am gemergten Live-`main`
+  `7f5742400b4fbac9c31fb653d7562601df6d9111`; Feature-Branch zuerst per
+  Fast-forward angeglichen. Voriger Task-Commit bleibt
+  `a8fd0ce0615d7009eecc373359c8c00b1a3207d4`. Eigene SHA folgt im Report und
+  bei OE-06. Delegierte Commit-/PR-/Merge-Freigabe gilt weiter für diesen
+  Branch, ohne Tags/Releases.
+- **`exe` Zeit/Visit:** [Timervertrag](../reverse/original-service-timer-contract.md)
+  bindet fünf Servicebytes mit Grant96 und vier Religionen mit Grant40.
+  Wiederholung ersetzt statt addiert; Verfall ist unsigned byte minus eins,
+  bei null begrenzt. House-Caller benötigt Status1/3 und Byte09, ohne
+  Occupancy-Gate. Phase35 verfällt vor Evolution39; mögliche Zwischenbesuche
+  bleiben explizite Ereignisse. Keine 96-Worldtick-, Realzeit- oder Monatsannahme
+  und kein fusionierter Scheduler.
+- **`exe` Pfade statt Fork-Pauschale:** DirectService benötigt positive
+  Bewohnerzahl auch bei Elite; DirectReligion und SharedWalker erlauben leere
+  Elite. Direct verlangt Status1/3; Sharedcallback prüft ihn lokal nicht.
+  Religion benötigt zusätzlich ggf. eine aufgelöste Elite-only-Sourcebedingung,
+  deren Spielproducer unklar bleibt. Sharedactor kann mehrere Services/
+  Religionen zugleich bewirken; `ServiceVisit` ist bewusst ein bereits
+  aufgelöster Timereffekt, kein vollständiger Actorcallback. Paired Acrobat/
+  Drama sowie unabhängige Religionseffekte werden explizit komponiert.
+- **`exe` Spawn:** [Spawnvertrag](../reverse/original-service-spawn-contract.md)
+  bindet elf Provider an fünf unterschiedliche Staffing-Funktionen. Die zwei
+  Fork-Tabellen sind für Herbalist, Drama und höhere Religionen unvollständig.
+  Effektives signed Staffing und alle vorgelagerten Prerequisites kommen vom
+  Caller. Kein Staffing oder geschlossenes Gate erhält den Counter; sonst
+  uint8-Wrap, danach strikt `new > threshold`, Reset vor Actorfactory.
+  `attempt_due` beweist keinen Actor oder Besuch; kein Servicegrant aus Nähe
+  oder bloßer Dispatchfälligkeit. Threshold1 bedeutet zweiten erlaubten Aufruf.
+- **`model` Namensbindung:** Religionsquelle214/215–216/217–218/219 bindet
+  Index0/1/2/3. Damit +0e Daoist/+0f Buddhist eindeutig benannt; die frühere
+  gemeinsame ODER-Anforderung bleibt exakt. Im alten Needs-Dokument nur die
+  Namen präzisiert, kein HouseEvolution- oder Save-Verhalten verändert.
+- **`authored` API-/Integrationsgrenze:** Getrennte Rollen/Actions/Provider-
+  Enums sind API-IDs, keine Originalactor-/WorldIDs. Gültige House-Domäne,
+  Enum-/Kombinationschecks und wertbasierte Rückgaben sind eigene Grenzen.
+  Default Housekontext ist inaktiv, Elite-only bleibt explizite Sourcefakt-
+  Eingabe. Reine Transformationen erhalten Input und alle fremden Felder.
+  Keine World-, UI-, Navigator-, Asset-, Frame-, Tick- oder Save-Verbindung.
+  Echte Kauf-/Routen-/Ankunftsketten und Clock-Mapping folgen später.
+- **Review/Tests:** Getrennte Visit-/Spawn-Belege und unabhängige Core-/Test-
+  Reviews ohne verbleibende Befunde; ausgeführte Debug-/Release-/Sanitizer-
+  CTests und Legacy-Vergleich in PROGRESS. City-v8-Service und alle alten
+  Profile behalten ihren 1200t-Ankunftsvertrag. Gate A bleibt bis OE-07 offen.
+
 ### OE-04: geprüfte House-Entscheidung und kontextgebundene Kapazitätszeilen
 
 - **Revision:** Start am gemergten Live-`main`

@@ -55,7 +55,7 @@ occupant multiplier.
 | Herbalist | 2 | Field is zero, or own-info byte `+0x2d` is nonzero. |
 | Ancestor | 21 | Field is zero, or own-info byte `+0x0d` is nonzero. |
 | Confucian | 22 | Field is zero, or own-info byte `+0x10` is nonzero. |
-| Daoist or Buddhist | 23 | Field is zero, or either own-info byte `+0x0f` or `+0x0e` is nonzero. |
+| Daoist or Buddhist | 23 | Field is zero, or Daoist own-info byte `+0x0e` or Buddhist byte `+0x0f` is nonzero. |
 | Food quality | 8 | The unsigned quality byte at own-info `+0x36` is at least the field value. |
 | Hemp | 9 | Signed-short stock at own-info `+0x14` is at least the field value. |
 | Ceramics | 10 | Signed-short stock at own-info `+0x16` is at least the field value. |
@@ -126,6 +126,11 @@ separate. Modified negative capacity rows stay readable as signed model facts;
 the local floor in one consumer is not authority to globally clamp all getters.
 
 ## Scope of the result
+
+OE-05's independently bound religion producers clarify the individual names of
+the two alternative bytes: Daoist is `+0x0e`, Buddhist is `+0x0f`. This naming
+clarification leaves the commutative OR predicate and OE-04 behavior unchanged;
+see the [timer contract](original-service-timer-contract.md).
 
 These observations support deterministic, SDL-free needs and row-capacity
 queries across the 15 checked source rows. They establish no runtime mapping

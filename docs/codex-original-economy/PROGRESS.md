@@ -10,8 +10,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-01 | PASS | 11211bbe6f579b6171615f6e75ed6fffbfd53cdf | `.local/original-economy/oe01/`, OE-00/`oe01-verification/` | Raw-Reader/Provenance;6 finale CTests PASS;72 Saves/1485 Policyfälle identisch; keine World-Anbindung |
 | OE-02 | PASS | df13b2e9bc0112d66c188276b5753c92ce6a5a40 | `.local/original-economy/oe02/`, OE-00/`oe02-verification/` | Faktenregister v1/typed IDs/5 Goldens;12 CTests PASS;72 Saves/1485 Policyfälle identisch |
 | OE-03 | PASS | 12e2f22c94f60402824d8dd0898b9d36086da503 | `.local/original-economy/oe03/`, OE-00/`oe03-verification/` | Isolierter Kern/experimentelle Mauern/Vergleich;33 CTests plus6 finale Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
-| OE-04 | PASS | im Folgecommit | `.local/original-economy/oe04/`, OE-00/`oe04-verification/` | Pure16-Typ-/15-Zeilen-Evolution;39 CTests plus12 gezielte Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
-| OE-05 | TODO | — | — | — |
+| OE-04 | PASS | a8fd0ce0615d7009eecc373359c8c00b1a3207d4 | `.local/original-economy/oe04/`, OE-00/`oe04-verification/` | Pure16-Typ-/15-Zeilen-Evolution;39 CTests plus12 gezielte Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
+| OE-05 | PASS | im Folgecommit | `.local/original-economy/oe05/`, OE-00/`oe05-verification/` | Neun Timer/drei Visitpfade/elf Provider;33 CTests plus6 Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-06 | TODO | — | — | — |
 | OE-07 | TODO | — | — | — |
 | OE-08 | TODO | — | — | — |
@@ -483,3 +483,101 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   diesem PASS. Gate A bleibt bis OE-07 offen; Original-Flagproducer, effektive
   Bevölkerungsaufnahme, Geometry-Transaktionen und Originalspiel-/Human-Parität
   bleiben ausdrücklich unbestätigt. Nächster geplanter Task: OE-05.
+
+
+### OE-05 – 2026-10-16, Basis 7f57424
+
+- Sauberen Checkout und Live-`main`
+  `7f5742400b4fbac9c31fb653d7562601df6d9111` bestätigt; bestehenden Feature-
+  Branch per Fast-forward angeglichen. Originalinventar unverändert1464Dateien /
+  819711091Byte und derselbe OE-00-Manifesthash. Beleg
+  `.local/original-economy/oe05/source-state.json`.
+- **Visit-/Zeitbelege:**
+  `python3 .local/original-economy/oe05/visit-check-evidence.py`: **PASS**,
+  23 begrenzte Fenster /656Instruktionen /1957Bytes,27 semantische
+  Instruktionsprüfungen/fünf Pointerbindungen, null Byteabweichungen.
+  [Timervertrag](../reverse/original-service-timer-contract.md) bindet96/40,
+  neun Bytefelder, wiederholte Grants, Verfall, pfadspezifische Admission,
+  Elite-only-Sourcebedingungen und Phasen35→39. EXE/Model unverändert,
+  Originalspiel nicht ausgeführt. Keine Worldtick-/Realzeit-/Monatsabbildung.
+- **Spawnbelege:**
+  `python3 .local/original-economy/oe05/spawn-check-evidence.py`: **PASS**,
+  17 begrenzte Fenster /524Instruktionen /1538Bytes, fünf Thresholdfunktionen,
+  acht Klassen-/VTable-/Konstruktorbindungen und sechs Religions-Factoryzweige;
+  null Byteabweichungen, EXE unverändert. Der
+  [Spawnvertrag](../reverse/original-service-spawn-contract.md) belegt elf
+  Provider mit fünf Staffing-Tabellen, Gates, uint8-Wrap, strikt größer und
+  Reset vor Actorfactory. Fälliger Versuch ist kein erfolgreicher Actor.
+- **API und Forkabweichungen:** Eigene SDL-/World-freie `ServiceRules`-Library
+  mit neun Rollen, drei Besuchspfaden, 25 gültigen aufgelösten Effekten,
+  getrenntem Raw-/House-Countdown und Spawnqueries. DirectService erbt nicht
+  die leere-Elite-Ausnahme der Religion-/Sharedpfade; Status und Byte09 bleiben
+  explizit. Sharedactor kann mehrere Timereffekte bewirken; die API projektiert
+  nur bereits aufgelöste Effekte, keinen vollständigen Actorcallback. Der Fork
+  pauschalisiert Eligibility und zwei Spawn-Tabellen und lässt Byte-Wrap/Caller-
+  Freeze aus. Keine Gratisversorgung aus Nähe oder bloßer Spawnfälligkeit.
+  Reproduktions-/APIgrenzen: [service-rules.md](../original-economy/service-rules.md).
+- **Modellnamen:** Religionsproducer bindet +0e eindeutig als Daoist und +0f
+  als Buddhist. Im alten Needs-Dokument diese Namen präzisiert und den neuen
+  Beleg verlinkt. Die gemeinsame ODER-Regel und alle alten HouseEvolution-
+  Ergebnisse bleiben identisch; keine alte Source-/Saveänderung.
+- **Build/CTest:** Debug, Release und RelWithDebInfo mit ASan/UBSan neu
+  konfiguriert, jeweils `ctest --test-dir BUILD -N` vor dem ersten CTest:
+  166 registrierte Tests. Neue Library/Tests und bestehende Model-,
+  Desirability-, HouseEvolution- und City-v8-Service-Targets gebaut. Je
+  Konfiguration **11/11 ausgewählte CTests PASS**, insgesamt33 Ausführungen:
+  vier Model-, zwei Desirability-, zwei HouseEvolution-, zwei ServiceRules-
+  Tests und `sandbox-city-v8-service`. Laufzeiten Debug7.64s/Release0.92s/
+  Sanitizer2.89s. Exakte Configure-/Inventory-/Build-/CTestbefehle und Logs:
+  `.local/original-economy/oe05/{debug,release,sanitizer}.json`, gleichnamige
+  `*-*.log`. Alle alten Tests/Snapshots unverändert. Die bestehende City-v8-
+  Suite prüft tatsächliche Ankunft/1200t-Expiry, fehlende Route, Reparatur,
+  Save/Restore und deterministischen Langlauf. Keine Presentation-Suite allein
+  aufgrund des Wortes Service erweitert; kein vorgezogenes Gate A.
+- Die begrenzte Originaldatei-Leseprüfung des neuen Real-Tests ergänzt,
+  anschließend nur die beiden neuen CTests in allen drei Konfigurationen
+  erneut gebaut und mit `-V` ausgeführt: **6/6 zusätzliche PASS**.
+  Finale Werte je Konfiguration **177171 synthetische und50047 reale Checks**,
+  675 Rollen-/Row-/Difficulty-Visitabläufe und230 reale positive Anforderungen,
+  kein Skip. Originalhash, vollständige Bytes, Größe und Änderungszeit gleich.
+  Belege `*-services-final.json` samt Logs. Direkte Debug-Vorprobe bestand
+  ebenfalls mit allen Warnungen; finale CTest-Abnahme bleibt maßgeblich.
+- **Testinhalt:** 25 erlaubte Visitkombinationen ×16Typen ×fünf signed
+  Occupants ×sechs Status ×Accessflags; jedes Feld/alle anderen Felder erhalten,
+  abwesende/abgelehnte Visits ohne Erneuerung, mehrere Grants ohne Stacking.
+  Alle neun Bytes0…255, Grenzen0/1/39/40/95/96/255, vollständiger96-/40-Ablauf,
+  Renewal und explizite Mehrfacheffekte. Phase35-Verfall vor Evolution39 und
+  zwischenzeitlicher Grant getrennt. Elf literal Providerprofile ×17Staffing-
+  Werte ×256 Counter ×zwei Gates =95744 Spawn-Schrittprüfungen, signedExtreme,
+  Equality/StrictGreater, Threshold+1 und255→0.1000 erlaubte volle Herbalist-
+  Aufrufe erzeugen500 fällige Versuche und unveränderte unversorgte Housebytes.
+  Alle ungültigen Enums/Pfadkombinationen werfen statt stillen Defaults.
+- **Negative Datenpfade:** Fehlender Originalroot liefert77/SKIP; vorhandenes
+  beschädigtes oder übergroßes synthetisches Modell liefert1/FAIL wie erwartet.
+  Reale Originaldaten liefen in allen Konfigurationen. Befehle/Diagnosen:
+  `real-source-negative.json`; bounded Readerprüfung verhindert unbegrenztes
+  Vorab-Einlesen auch im separaten Testprogramm.
+- **Quellenschutz/Review:** Alle442 bereits getrackten Dateien unter
+  `src/tests/tools/resources` bytegleich zur Startrevision. CMake ergänzt nur
+  getrennte Library-/CTest-Targets, kein produktiver Link oder Frame-/Tickhook.
+  `legacy-source-identity.json`, vier finale Code-/Build-Hashes in
+  `validated-task-source.json`. Unabhängige Visit-, Spawn-, Core- und
+  Testreviews ohne verbleibende Befunde. Originalbytes/Disassembly bleiben
+  privat; Git enthält keine Model-Zahlenkopie oder Originalgrafik.
+- **Vollständiger Legacy-Vergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe05-verification`:
+  **PASS**.72 vollständige Savebyte-Verträge/72 Snapshot-Projektionen,
+  1485 Policyfälle auf167 vollständigen Managern (165 vorbereitet/zwei alte
+  Konflikte), elf Rampen-/zehn Brücken-Neustartpaare und50 vorhandene historische
+  Savebyte-Vergleiche bleiben exakt. Unveränderte bezahlte Rule4-Xia-/Handan-,
+  Transport-, Pixel- und scripted-UI-Fixtures bestanden ebenfalls. Berichte
+  `.local/original-economy/oe00/oe05-verification/`; Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`.
+  Während des gesamten Runs identischer Sourcehash
+  `026f932fc91867cb77b8e9b8736318d1e5de3b56815a3b4912bac4487f391f09`
+  und unverändertes Originalinventar.
+- Abschluss: finale Code-/Build-Hashes, Dokumentationslinks und Diffprüfung
+  sauber. Eigener OE-05-Commit und delegierter PR/Merge folgen nach diesem PASS.
+  Gate A bleibt bis OE-07 offen. Originale Flagproducer, vollständige Actor-
+  Effekte, echtes bezahltes Versorgungs-Gameplay sowie Zeitmapping/Human-Parität
+  bleiben ausdrücklich offen. Nächster geplanter Task: OE-06.
