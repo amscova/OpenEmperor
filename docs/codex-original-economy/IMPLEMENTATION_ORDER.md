@@ -10,6 +10,7 @@ Jeder Task benötigt die erfolgreichen Vorgänger. Wenn sich Scope/Schema durch 
 - Beginn am aktuellen `main`, nicht am Windows-Fork. Fork nur als Referenz für Original-Regeln und testbare Differenzen.
 - Geplante **City-v16 Rule7 / MapPermissions policy3 / Save schema23** nur als bedingte Architekturentscheidung. Die freien Nummern zu Laufzeit prüfen; verbindliche Wahl in `DECISIONS.md` festhalten.
 - OE-12-Ausnahme nach konkreter Nutzerfreigabe: der [Quellenvertrag V1](../original-economy/source-contract-v1-proposal.md) wird als Rule8/Schema24 bei unveränderter policy3 implementiert. Bestehendes Rule7/Schema23 bleibt eingefroren. Diese Entscheidung erledigt keine späteren Tasks.
+- OE-13-Ausnahme nach eigener ausdrücklicher Nutzerfreigabe: der [Warenvertrag V1](../original-economy/goods-ledger-v1-proposal.md) nutzt Rule9/Schema25 bei unveränderter policy3. Rule7/8 und Schemas1–24 bleiben exakt. Positive reine Transaktionstests und echte0/unsupported-Worldabnahme sind getrennt; keine automatische Producer-/Courier-/Bewohnerfreigabe.
 - Alte 1–23 Saves **byte-identisch**, insbesondere Rule7, Rule6-Rampen und Rule5-Brücken. Neue Regeln nie Default, nie automatische Save-Migration.
 - Je erfolgreich abgeschlossenem OE-Task **ein Commit**; die aktuelle Nutzerfreigabe ersetzt ausdrücklich alte `no commit`-Arbeitsnotizen aus AGENTS.md für dieses Paket, nicht deren übrige Schutzregeln. Keine leeren PASS-Commits. Push/PR/regulärer Merge dieses Branches nach dem späteren [Nutzer-Handoff](DECISIONS.md#merge-handoff--ausdrückliche-nutzerfreigabe-am-2026-10-16); keine Tags/Releases.
 - Gewünschte neuen Regeln müssen mit echten kaufbaren Quellen, Dispatcher, Walker-Ankunft, Beständen, Konsum und House-State laufen, nicht nur in einer separaten read-only Ansicht.
@@ -47,7 +48,7 @@ Jeder Task benötigt die erfolgreichen Vorgänger. Wenn sich Scope/Schema durch 
 
 | Nr. | Prompt | Benötigt | Ergebnis / Schwerpunkt |
 |---|---|---|---|
-| OE-13 | [Typisierte Warenbestände und Conservation-Ledger](prompts/13-typisierte-warenbestaende-und-conservation-ledger.md) | OE-06, OE-09, OE-11 | Getypte Rule-7-Warenbuchhaltung über Gebäude und Courier |
+| OE-13 | [Typisierte Warenbestände und Conservation-Ledger](prompts/13-typisierte-warenbestaende-und-conservation-ledger.md) | OE-06, OE-09, OE-11 | Freigegebener Rule9-/Schema25-Nachfolger: typisiertes Buchhaltungsfundament, echte World vorerst0/unsupported |
 | OE-14 | [Vorhandene Pottery-Produktion als Ceramics-Versorgung adaptieren](prompts/14-vorhandene-pottery-produktion-als-ceramics-versorgung-adaptieren.md) | OE-13 | Vollständiger Rule-7-Ceramics-Ursprung aus realen Quellen |
 | OE-15 | [Markttransport für originale Waren durch reale Courier-Routen](prompts/15-markttransport-fuer-originale-waren-durch-reale-courier-routen.md) | OE-13, OE-14 | Real transportierter Bestand vom Markt zum Haus, nicht durch Setzen eines Zustands |
 | OE-16 | [Hemp als bezahlten Produktions- und Lieferkreislauf ergänzen](prompts/16-hemp-als-bezahlten-produktions-und-lieferkreislauf-ergaenzen.md) | OE-13, OE-15 | Echter Hemp-Kreislauf einschließlich kostenpflichtiger Quelle |

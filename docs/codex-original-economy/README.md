@@ -8,7 +8,7 @@
 
 1. ZIP im Repository-Root entpacken (sie enthält bereits den Ordner `docs/codex-original-economy/`), sodass `docs/codex-original-economy/IMPLEMENTATION_ORDER.md` existiert.
 2. In Codex `CODEX_ORCHESTRATOR.md` als Auftrag übergeben. Beim ersten Lauf nur `prompts/00-...md` bearbeiten lassen.
-3. Je Prompt ein eigener Review-fähiger Commit. **Commit ja; Push, Merge, Tag und Release nein.** Das ist eine aktuelle ausdrückliche Nutzeranweisung, die nur den historischen `no commit`-Teil früherer Arbeitsnotizen ersetzt.
+3. Je Prompt ein eigener Review-fähiger Commit. Der spätere ausdrückliche [Nutzer-Handoff](DECISIONS.md#merge-handoff--ausdrückliche-nutzerfreigabe-am-2026-10-16) erlaubt für `feature/original-economy-v1` außerdem Push, PR nach `main` und regulären Merge nach bestandenen Prüfungen. Tags und Releases bleiben ausgeschlossen; die übrigen Schutzregeln gelten weiter.
 4. `PROGRESS.md` und `DECISIONS.md` nach jedem Schritt mit Resultaten, SHA und Blockern fortschreiben; diese Dateien gehören jeweils in den Task-Commit.
 5. Bei Blockern **stoppen**. Nichts als PASS verbuchen, was nicht getestet wurde.
 

@@ -1,17 +1,22 @@
-# OE-13: Vorschlag für Goods Ledger V1
+# OE-13: freigegebener Goods-Ledger-Vertrag V1
 
-**Status: NICHT FREIGEGEBEN, NICHT IMPLEMENTIERT. OE-13 bleibt BLOCKED.**
+**ANGENOMMENER VERTRAG; technische Abnahme des Buchhaltungsfundaments siehe
+[OE-13-Testprotokoll](../codex-original-economy/PROGRESS.md#oe-13-umsetzung--2026-10-16-basisaf660b72).**
 
-Dieser Entwurf beschreibt eine mögliche, ausdrücklich zu bestätigende Anpassung
+Dieser Vertrag beschreibt die ausdrücklich angenommene Anpassung
 des [OE-13-Auftrags](../codex-original-economy/prompts/13-typisierte-warenbestaende-und-conservation-ledger.md).
-Er erteilt keine Freigabe für Code, neue Warenquellen oder einen Folgetask.
+Der Nutzer hat die konkrete Freigabefrage mit „Ja, diesen Vertrag umsetzen
+(empfohlen)“ beantwortet. Dies beauftragt Rule9/Schema25 und genau die unten
+beschriebene gestufte Abnahme; keine neuen Warenquellen oder Folgetasks.
 Prüfstand ist der zunächst saubere HEAD
 `bf4e821a591f141b0a300c848b4ecbdbe3e40fe8`. Die unten genannte Boundaryprobe
 prüft ausschließlich die vorhandenen Rule7-/Rule8-Verweigerungen. Diese
 private Probe und drei vorhandene Release-CTests sind tatsächlich gelaufen;
 Resultate stehen im [Fortschrittsregister](../codex-original-economy/PROGRESS.md).
-Es gibt keine Warenimplementierung, keinen neuen Produktionsbuild und keinen
-OE-13-Featuretestnachweis.
+Diese historischen Vertragsprüfungen waren keine Warenimplementierung. Die
+Umsetzung beginnt am sauberen `main`
+`af660b72c281e5c1b8735a29a941f474a3f33d8d`; aktuelle Ergebnisse stehen im
+Fortschrittsregister, nicht in den historischen Proberesultaten.
 
 ## Warum eine Entscheidung erforderlich ist
 
@@ -48,12 +53,13 @@ Modell-/Kartendaten; sie ist kein Originalwaren- oder OE-13-Implementierungs-PAS
 Befehl und Exitcodes stehen in
 `.local/original-economy/oe13/contract/probe-run.json`.
 
-## Vorgeschlagener Versions- und Runtimevertrag
+## Angenommener Versions- und Runtimevertrag
 
-Empfohlen wird **City-v16 Rule9 / Schema25 / unveränderte policy3** als eigener,
-expliziter Entwicklernachfolger von Rule8. Die Nummern sind am Prüfstand noch
-nicht belegt; ihre Verfügbarkeit muss vor einer Umsetzung erneut geprüft
-werden. Rule1–8 und Schema1–24 behalten ihre bisherigen Authority-, Tick-,
+Freigegeben ist **City-v16 Rule9 / Schema25 / unveränderte policy3** als eigener,
+expliziter Entwicklernachfolger von Rule8. Die Nummern waren am historischen
+Prüfstand frei und wurden vor Umsetzung erneut geprüft. Die getrennte
+[Implementierung](goods-ledger-runtime.md) verwendet jetzt genau diese Nummern.
+Rule1–8 und Schema1–24 behalten ihre bisherigen Authority-, Tick-,
 Restore- und Byteverträge. Es gibt keine automatische Migration und keine
 Neudeutung eines vorhandenen Rule7- oder Rule8-Spielstands.
 
@@ -235,11 +241,11 @@ ein rechnerisch ausgeglichenes manipuliertes Dokument mit beispielsweise
 Map-/Policy-/Modellbindung und atomarer Austausch von World und Sessionmodell
 bleiben wie im bisherigen Entwicklervertrag erforderlich.
 
-## Vorgeschlagene, ausdrücklich geänderte OE-13-Abnahme
+## Angenommene, ausdrücklich geänderte OE-13-Abnahme
 
 Die Pflichtfälle aus dem ursprünglichen Prompt werden auf zwei belegbare
-Ebenen aufgeteilt. Diese Änderung benötigt die Zustimmung des Nutzers; sie
-darf nicht stillschweigend als unveränderte ursprüngliche Abnahme gelten.
+Ebenen aufgeteilt. Der Nutzer hat diese Änderung ausdrücklich angenommen;
+sie wird nicht als unveränderte ursprüngliche Abnahme ausgegeben.
 
 | Ebene | Verpflichtender Nachweis | Grenze der Aussage |
 |---|---|---|
@@ -263,7 +269,7 @@ Restore-/Commandfälle vergleichen den vollständigen Zustand und relevante
 abgeleitete Cachezähler vor und nach der Verweigerung. Mehrere unabhängige
 Sessions dürfen weder ihre Bestände noch ihre Modellbindung teilen.
 
-Nach Umsetzung wären die neuen Tests und relevanten bisherigen Goods-,
+Zur Abnahme sind die neuen Tests und relevanten bisherigen Goods-,
 Rule7-/Rule8-, Save-, SDL- und Bridge-/Ramp-Tests in Debug, Release und
 ASan/UBSan auszuführen. Die vollständigen Suiten sind zusätzlich am jeweils
 zuständigen Phasen-Gate erforderlich; OE-13 zieht Gate C nach OE-19 nicht vor.
@@ -272,17 +278,17 @@ Rule8-/Schema24-Belege zu ergänzen; die frühere OE-00-Referenz allein enthält
 beide späteren Verträge noch nicht. Bestehende Schema23-Goldenfälle bleiben
 zusätzlich erhalten. Originaldaten und private
 Reports bleiben innerhalb der bestehenden Read-only-/`.local`-Grenzen.
-Tatsächliche Resultate würden ausschließlich im
+Tatsächliche Resultate werden ausschließlich im
 [Fortschrittsregister](../codex-original-economy/PROGRESS.md) eingetragen.
 
-Ein möglicher Abschluss wäre ausschließlich **„OE-13 Buchhaltungsfundament
-nach diesem geänderten Vertrag technisch abgenommen“**. Er wäre kein PASS
+Der begrenzte Abschluss lautet ausschließlich **„OE-13 Buchhaltungsfundament
+nach diesem geänderten Vertrag technisch abgenommen“**. Er ist kein PASS
 für einen Warenkreislauf, Gate C, positive Produktion, Transport oder Konsum.
 Eine Freigabe von OE-14 oder späteren Aufgaben folgt daraus nicht automatisch;
 deren noch offenen Quellen-, Worker-, Housing- und Arrival-Verträge sind
 gesondert zu behandeln.
 
-## Konkret zustimmungsbedürftig
+## Konkret freigegeben
 
 1. Rule9/Schema25 als eigener Entwicklernachfolger bei unveränderten Regeln
    1–8, Schemas1–24 und policy3; weiterhin kein normaler Spielerzugang.
@@ -294,9 +300,11 @@ gesondert zu behandeln.
    keine Bestands-, Import-, Worker-, Bevölkerungs- oder Zeitinjektion zur
    Herstellung eines positiven Tests.
 
-Ohne diese Entscheidung bleibt der ursprüngliche OE-13-Auftrag an seiner
-Versions- und Abnahmegrenze **BLOCKED**. Dieser Text allein ändert weder Prompt,
-Quality-Gates, Statusregister noch Programmverhalten.
+Diese drei Punkte sind angenommen. Prompt und Quality-Gates wurden vor
+Implementierung entsprechend fortgeschrieben. Die tatsächliche begrenzte
+Abnahme ist im Fortschrittsregister dokumentiert; Gate C bleibt bis zu seinem
+eigenen späteren Nachweis offen. Historische Boundaryproben oben werden dadurch
+nicht nachträglich zu Implementierungstests.
 
 ## Geprüfte Grundlagen
 

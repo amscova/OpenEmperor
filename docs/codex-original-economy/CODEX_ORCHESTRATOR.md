@@ -17,6 +17,7 @@ Du implementierst die Aufgaben in `docs/codex-original-economy/prompts/` in **ex
 - Der Fork `amscova/windows-port` ist **nur** eine Quell-/Vergleichsreferenz. **Keine Windows-Integration**, keine pauschalen Cherry-Picks, kein fremdes README-Replace.
 - Bestehendes `main`, City-v16 Rule4/5/6, MapPermissions, Bridge/Ramp-Rendering/Authority und Save-Schemas 1–22 bleiben exakt. Neuen Regelstand niemals automatisch aktivieren.
 - Für OE-12 gilt die konkret angenommene Ausnahme in `DECISIONS.md` und dem Quellenvertrag V1: eigener Rule8-/Schema24-Entwicklerpfad, zusätzlich Rule7/Schema23 exakt erhalten. Keine automatische Freigabe späterer Wirtschaftsregeln.
+- OE-13 besitzt die zusätzliche ausdrückliche Freigabe des Warenvertrags V1: eigener Rule9-/Schema25-Entwicklerpfad, alle früheren1–24-Saveverträge erhalten, echte Waren vorerst0/unsupported. Kein vollständiger Warenkreislauf oder vorgezogenes Gate C.
 - In der neuen Regelgeneration: `Model/EmperorBuildingModels.txt` read-only zur Laufzeit laden, mit überprüfter Quelle/Fingerprint; Modellwerte nicht in Git oder alte Saves kopieren.
 - Eigene Simulation darf fehlende Waren/Services nicht mit Fake-Boolean, Gratisinventar, visuellen Walkern oder Test-only World-Mutationen ersetzen.
 - Unverifizierte Regeln als experimentell markieren; negative Ergebnisse behalten. Keine Behauptung vollständiger Originaltreue ohne reproduzierbare Originalquelle.

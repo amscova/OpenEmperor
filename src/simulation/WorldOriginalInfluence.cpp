@@ -60,7 +60,7 @@ World World::create_original_influence_development(std::shared_ptr<const MapPerm
 World World::restore_original_influence_development(const WorldSnapshot& snapshot,
     std::shared_ptr<const MapPermissions> permissions,
     std::shared_ptr<const original::OriginalRulesModel> model) {
-    if (!simulation::original_influence_enabled(snapshot.profile,snapshot.rule_version) ||
+    if (snapshot.profile!=RulesProfile::CityV16 || snapshot.rule_version!=kOriginalInfluenceRuleVersion ||
         !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model)
         invalid("original influence restore requires explicit rule 8, policy 3 and prepared model");
     validate_original_influence_snapshot(snapshot);

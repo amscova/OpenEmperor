@@ -19,7 +19,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-12 | PASS | `ec3a2d60c7541f8a11338c80d5398ce54e51f3a8` | `.local/original-economy/oe12/implementation/`, OE-00/`oe12-final-verification/` | Rule8/Schema24: bezahlte Well72-Quellen,20 Häuser, Abriss/Wiederkauf/Prozessreplay;181 unterschiedliche CTests je Konfiguration belegt;72 Legacy-Saves/Snapshots und1485 Policyfälle exakt;Gate B PASS |
-| OE-13 | BLOCKED | Dokumentations-SHA in Abschlussantwort; Basis `bf4e821a591f141b0a300c848b4ecbdbe3e40fe8` | `.local/original-economy/oe13/contract/` | Prompt verlangt gefrorenes Rule7; Rule8 erlaubt ebenfalls keine Waren. Konkreter Rule9-/Schema25- und gestufter Abnahmevertrag zur Entscheidung; keine Runtime-Implementierung, kein Feature-PASS |
+| OE-13 | PASS | Vertragsdokumentation `aaecabd638359a48d513f2d5146457fdd1c9e67a`; Task-SHA im Folgecommit | `.local/original-economy/oe13/implementation/`, `oe13/goods-fixtures/run-d4mm76cf/`, OE-00/`oe13-final-verification/` | Rule9/Schema25-Buchhaltungsfundament;117 relevante Konfigurations-CTests, echte F5/F9-/40k-Prozessfortsetzungen;72 Legacy-Saves/Snapshots und1485 Policyfälle sowie eingefrorene7/23-/8/24-Bytes exakt; reale Waren0/unsupported, Gate C offen |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
 | OE-16 | TODO | — | — | — |
@@ -1616,3 +1616,129 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   **OE-13 BLOCKED**, Gate B **PASS**, OE-14 **TODO**; keine Native-/Human-
   oder Warenkreislaufabnahme. Geprüfter Dokumentationscommit/PR/regulärer Merge
   nach bestehendem Nutzer-Handoff; SHA in Abschlussantwort.
+
+### OE-13 Umsetzung – 2026-10-16, Basisaf660b72
+
+- **Auftrag und Start:** Nutzer nimmt den geprüften Rule9-/Schema25-Vertrag
+  ausdrücklich an. Sauberer, frisch live/origin bestätigter `main`
+  `af660b72c281e5c1b8735a29a941f474a3f33d8d`; Feature per Fast-forward
+  angeglichen. Vor dem ersten Neubuild separat eingefrorene Rule7-/Schema23-
+  und Rule8-/Schema24-Belege ergänzen die ältere OE-00-Referenz. Die29
+  eingefrorenen Dateien bleiben unverändert; Capture-SHA
+  `d6b5f91d767a632aba8e95600f8cbe9660f36d45e5ccf3d29502be54cd655d1e`.
+- **Implementierter Umfang:** [Runtimevertrag](../original-economy/goods-ledger-runtime.md)
+  mit eigenem expliziten Entwickleradapter, typisierten sechs Originalwaren,
+  reinem atomarem Transaktionskern, lesenden World-Bilanzen und strengem
+  Schema25. HouseState bleibt einzige Hausmengenauthority; Reservations sind
+  keine zusätzliche Masse. Reale Worldkonten bleiben0/unsupported, Listen
+  leer; kein Producer, Import, Worker, Bewohner, Verbrauch oder Waren-Courier
+  freigegeben. Alte Rule1–8/Schema1–24 und numerische Enums bleiben erhalten.
+- **Debug, Release, ASan+UBSan:** Jeweils frisch konfiguriert und vor erstem
+  CTest alle186 registrierten Tests mit `ctest --test-dir BUILD -N` erfasst.
+  Danach27 relevante Targets gebaut, einschließlich normaler Anwendung und
+  bisheriger Save-/SDL-/Bridge-/Ramp-Pfade. Finale Auswahl aus
+  `.local/original-economy/oe13/implementation/test-plan.json`:
+  **je39/39 PASS**, insgesamt117 Konfigurations-CTests ohne Skip.
+  Testlaufzeiten Debug82.499s, Release8.077s, Sanitizer28.094s.
+  Exakte Configure-/Build-/CTestbefehle, Exitcodes und Zeiten stehen in
+  `implementation/{debug,release,sanitizer}-targeted-result.json`, vollständige
+  Logs/JUnit in gleichnamigen `*-targeted-*` beziehungsweise `*-targeted.xml`.
+  Keine Compilerwarnungen oder Sanitizerdiagnosen. Dies ist die relevante
+  OE-13-Auswahl, keine Behauptung einer vollständigen186er-Suite oder Gate C.
+- **Positive reine Transaktionen:** Alle sechs Waren; Erzeugung/Import,
+  Quell- und Zielreservierung ohne zusätzliche Masse, einmalige Teilbeladung,
+  Teilankünfte, Abbruch vor/nach Beladung und bestätigte Teilrückgabe.
+  Volle Rückquelle verweigert atomisch; alte/doppelte Transferhandles und
+  Sequenzen, fremde Owner/Courier, volle/fehlende Stocks, fehlerhafte andere
+  Waren und int16-/int32-/uint64-Grenzen geprüft. Vorher-/Nachher-Conservation
+  über den ganzen Kandidaten; Aufruferzustand bleibt auch bei Erfolg gleich.
+  Positive Mengen sind ausschließlich authored numerische Tests.
+- **Save- und Quellenangriffe:** Finaler Save-Test verweigert575 beschädigte
+  oder nicht autorisierte Fälle, darunter ausgeglichene Warenfälschungen,
+  unbekannte/fehlende/doppelte/falsch typisierte Keys und Crossloads.
+  Der erste neue Save-Test scheiterte an einer falschen Testannahme:
+  Der bestehende Reader erlaubt innerhalb des Datenroots liegende,
+  byteidentische Modell-Symlinks. Der Test prüft diese erlaubte Variante nun
+  positiv auf vollständigen Snapshot-/Byteerhalt und entweichende/dangling
+  Links weiterhin negativ für Writer und Restore. Keine Produktionslockerung.
+  Erster Fehler bleibt in `release-world-save-view-first.log` sichtbar;
+  korrigierter Einzeltest und alle drei finalen Konfigurationsläufe bestanden.
+- **Bezahlte echte World und Prozessfortsetzung:**
+  `python3 tools/test_original_goods.py .local/gog-extracted/app --build-dir .local/reswall/release-build`:
+  **PASS**, Bericht `oe13/goods-fixtures/run-d4mm76cf/report.json`, SHA
+  `1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2`.
+  Hashidentische private echte Modellkopie, authored24×20-Karte, regulär40
+  Straßen/20 Häuser/Well72 A+B gekauft. Abrissstand Funds200/spent1800,
+  Wiederkauf140/1860, alte SourceID21/neue23/nächste24. Keine Snapshot- oder
+  Bestandsinjektion; vier tatsächliche Producerbefehle atomisch verweigert.
+  Je ein separater OS-Prozess setzt beide Stände mit20k Ticks, einer realen
+  bezahlten Straße und weiteren20k Ticks fort. Vollständige SaveDocuments,
+  kanonische Bytes, Modellprovenance und sechs Nullbilanzen an Zwischen- und
+  Endpunkten exakt. Finale Funds198/138 bei41 Straßen; Revisionen jeweils+1.
+  Alle47 Ausgabedateien geprüft, zwölf Python-Outputguards bestanden;
+  außerhalb des privaten Roots wird ohne Schreiben verweigert.
+- **Zusätzliche eingefrorene Verträge:** Rule7-/Schema23-Golden6778 Bytes,
+  SHA `4e70a04b19700c86d974d53df4edb2fdcf3bb264622ef76c4c32a1be5b63ca68`,
+  und sechs Rule8-/Schema24-Saves wörtlich gleich zum vor OE-13 gesicherten
+  Stand; Originalquellen und Eingabesaves unverändert. Gleiche bezahlte Szene
+  unter9 und8 zusätzlich semantisch verglichen, nach ausdrücklichem Entfernen
+  allein der Version und des Nullwaren-DTO; keine Crossversions-Bytegleichheit
+  behauptet.
+- **Geerbte Infrastruktur in Rule9:** Zusätzlicher World-Test kauft13 Straßen,
+  Bridge60, Ramp40, House80 und Source60; reale Trennung/Reparatur von Rampen-
+  und Brückenbankstraße je2 Funds, finale1730/spent270. Exakte signed Höhen,
+  gemeinsame Traversierungsregeln, erhaltene IDs, atomische Schutz-/Wasser-
+  Verweigerungen und kompletter Schema25-Byte-/SaveDocument-Restore bestanden.
+  Authored Karte/Modell und ausschließlich Nullwaren; alle drei Konfigurationen.
+- **Tatsächliche SDL-Handler und geöffnete Darstellung:** `I` und Mauskauf,
+  bezahltes Haus/Quelle, F5/F9, volle Snapshotgleichheit, Modell-/Cacheerhalt
+  bei abgewiesenem manipuliertem F9, beide8↔9-Crossloads und geschlossener
+  Normal-/Recoveryzugang bestanden.30 Idleframes und Bilanzqueries ohne
+  zusätzliche Dateien, Decode/Upload, Worldkopien, Commands oder BFS.
+  Finales `implementation/goods-view-final.png` tatsächlich geöffnet:
+  Rule9/Policy3/Save25, Funds1860, Desirability12/Quelle#2/Beitrag0+12→12 und
+  Modell-SHA sichtbar, Producerbuttons deaktiviert. Authored Software-SDL,
+  keine Originalgrafik- oder native/humane Spielabnahme. Neuer ausgeschlossener
+  Launcher gebaut; `sh -n tools/play_original_goods.sh` PASS. Startbefehl
+  `sh tools/play_original_goods.sh`, eigener Rule9-Savepfad; Rule8 unverändert.
+- **Forkvergleich:** Finale Debug-/Release-/Sanitizerberichte jeweils
+  **74/74 PASS**,46 parity/18 corrected_bug/6 unverified/4 unsupported.
+  Alle18 Housingbeobachtungen und1800 Modellwerte im gebundenen Digest exakt.
+  Sieben tatsächlich verlinkte Archive je Konfiguration live nachgehasht;
+  alle öffentlichen ABI-Blobs geprüft. Numerische Originalmodule und ältere
+  nichtaktuelle Berichte unverändert. Portable aktuelle Berichte stimmen mit
+  `core-parity.json` überein, SHA
+  `caa72a45508c54d5ed44a008b19b05dde83087af08fb59b51c28b6c5f8e2de85`.
+  Der erste28er-Pythonlauf verweigerte korrekt veraltete aktuelle Quellhashes;
+  nach dem tatsächlich ausgeführten74-Fall-Vergleich wurden ausschließlich
+  dessen aktuelle Fingerprints eingetragen. Finale28/28 Pythonprüfungen PASS,
+  historische Fallwerte/Klassifikationen nicht geändert. Strenger zusätzlicher
+  Sanitizervergleich ohne stderr; `implementation/parity-validation-summary.json`.
+- **Vollständiger finaler Legacyvergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe13-final-verification`:
+  **PASS**. Contract und alle72 vollständigen SaveDocuments sowie72
+  WorldSnapshots zusätzlich wörtlich bytegleich zur eingefrorenen OE-00-
+  Referenz nachverglichen.1485 Policyfälle,167 komplette Maps/165 vorbereitet/
+  zwei bestehende Konflikte, elf Rampen-/zehn Brücken-Restartpaare und
+  tatsächliche bezahlte Rule3-/Rule4-Xia-/Handan-Kontrollen bestanden.
+  Vertragsdigest unverändert
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  `run.json` SHA
+  `65c2901975a80fc7eaa26f7210ce02c44acbbfb47c0e40f6ca6426009ccae2ce`.
+  `implementation/legacy-literal-proof.json` nennt alle72 Paare und ihre
+  tatsächlich geprüften Byte-/Snapshot-SHAs, Bericht-SHA
+  `f350f8a5f09e32949fdf51623279331adb357f30baccfc2a17cc15a3f48ee5bf`.
+- **Abschluss und Aussagegrenze:** Originalinventar1464 Dateien/819711091
+  Bytes unverändert, Byte-Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  Finaler Source-/Test-/Tool-/Resourcehash
+  `532129727902f7d36a251ad6eafc25fcb62f6cdb84a4ce5250db0eed6e3490b4`.
+  Unabhängige Ledger-/Authority-/Persistenz-/Replayreviews ohne blockierenden
+  Befund. Private `implementation/final-validation.json` prüft36 eigene
+  Änderungspfade, Sourcefreeze, Links/Anker, finale Tests/Archive/Fixtures,
+  eingefrorene spätere Saves, Originalinventar und vollständigen Legacyvertrag.
+  **OE-13 Buchhaltungsfundament technisch PASS**, Gate B weiterhin PASS,
+  Gate C TODO. Keine positive reale Warenproduktion/-lieferung/-konsum-
+  oder Originalspiel-Gesamtparität. Native/human **NOT_RUN**. Task-Commit
+  und delegierter PR/regulärer Merge folgen nach Abschlussprüfung, SHA in
+  Antwort. Nächster vorgesehener Task **OE-14 TODO**, hier nicht begonnen.

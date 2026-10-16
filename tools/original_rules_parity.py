@@ -23,6 +23,7 @@ MODEL_SHA256 = "7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6
 HOUSING_EXPECTED = [35,43,54,59,193,72,207,1,0,3,3,4,4,1,1,3,4,1]
 HOUSING_FORK_MODULES = ("ModelData", "Desirability", "HouseEvolution", "OriginalHousingView")
 HOUSING_SIMULATION_DEPENDENCIES = ("original-rules-model", "original-desirability",
+                                   "original-goods-ledger", "original-goods-rules",
                                    "original-house-evolution", "original-model")
 # OE-00's independently retrieved, pinned file identities. A mutable local
 # manifest is not trusted as the source of the expected hashes.
@@ -430,7 +431,7 @@ def public_report(report: dict[str, Any]) -> dict[str, Any]:
 def current_source_hashes() -> dict[str,str]:
     module = ROOT / "src/simulation/original"
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
-    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h"]
+    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h"]
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
 
 
@@ -460,11 +461,11 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-12 reviewed: Rule 8 appends source state and transient influence cache;
+    # OE-13: Rule9 appends separate accounting state with zero live capability;
     # the probe keeps its original HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "439965d45315d80af86e233cb3fc03b5683b7afc":
+    if world_blob != "9d0d6fef04d52fb8e8a84cbb5988ad9db41cd169":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -474,8 +475,12 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     influence_blob = hashlib.sha1(b"blob " + str(influence_dto.stat().st_size).encode() + b"\0" + influence_dto.read_bytes()).hexdigest()
     if influence_blob != "ee4947358cbf3c221650970a9071e39b30f2b5ae":
         raise ValueError("Original-influence API drift: fourth-module adapter needs a reviewed compatibility contract")
+    goods_dto = ROOT / "src/simulation/OriginalGoodsState.h"
+    goods_blob = hashlib.sha1(b"blob " + str(goods_dto.stat().st_size).encode() + b"\0" + goods_dto.read_bytes()).hexdigest()
+    if goods_blob != "2bdcb4b1e9bc0e0932c8cb64bcf9044d62d1d9e3":
+        raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     library_hashes = {str(path.resolve()):sha256(path) for path in libraries}
-    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob}
+    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob}
     authored = cases()
     validate_cases(authored)
     binaries = compile_probes(fork,output,args.compiler,args.configuration,library)

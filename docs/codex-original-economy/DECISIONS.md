@@ -6,18 +6,68 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 |---|---|---|
 | D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig testen | plan |
 | D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | OE-11: explizites unveränderliches Sessionmodell, einmalige typisierte Vorbereitung; Live-SHA/Größe bei Save/Restore; kein Modellzugriff im Tick |
-| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-12: Rule7/Schema23 eingefroren; ausdrücklich freigegebener Nachfolger Rule8/Schema24 ausschließlich Entwickler-Opt-in, policy3 unverändert; keine Standardprofil-/Menüfreigabe |
-| D-04 | Alte Save-Schemas 1–23 unverändert und keine Auto-Migration | zwingende Invariante;72 vollständige OE-00-Saves/Snapshots auch nach OE-12 bytegleich |
-| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08/12: explizite begrenzte Capability-Gates auch für Rule8; bezahlte Befehle/Restore und exakter Legacy-Replay bestanden |
+| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-13: Rule7/Schema23 und Rule8/Schema24 eingefroren; ausdrücklich angenommener Nachfolger Rule9/Schema25 ausschließlich Entwickler-Opt-in, policy3 unverändert; echte Waren0/unsupported, keine Standardprofil-/Menüfreigabe |
+| D-04 | Alte Save-Schemas 1–24 unverändert und keine Auto-Migration | zwingende Invariante;72 vollständige OE-00-Saves/Snapshots und separat eingefrorene7/23-/8/24-Bytes nach OE-13 exakt |
+| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08/12/13: explizite begrenzte Capability-Gates auch für Rule8/9; bezahlte Befehle/Restore und exakter Legacy-Replay bestanden |
 | D-06 | Original-Model-IDs nur nach eindeutiger Quelle als VERIFIED führen | einzelne IDs offen |
 | D-07 | Originalspiel-Simulationsschritte nicht automatisch mit 20Hz World-Ticks gleichsetzen | OE-10: authored Mappingversion1 bindet 1 Tick/Phase an Rule7/Schema23; 51/16/12-Counterstruktur beobachtet, elapsed-Kalenderepoche0 getrennt vom Originaljahr; tatsächliche Prüfungen im Fortschritt |
 | D-08 | 15 House-Zeilen sind nicht gleich dem aktuellen World-Level 0..2 | eigene Authority erforderlich |
-| D-09 | Goods inklusive Alternativen nur mit Realproducer/RealCourier/Conservation | Bedarfssemantik prüfen |
+| D-09 | Goods inklusive Alternativen nur mit Realproducer/RealCourier/Conservation | OE-13: reines Buchhaltungsfundament technisch geprüft, reale Waren0/unsupported; positive World-Produktion/Transport/Verbrauch bleiben OE-14/15/17 |
 | D-10 | Versions-Gates bis zu einer echten paid Hut->Plain-Cottage-Szene nicht im Standardmenü anbieten | ab OE-21 nachweisen |
 
 ## Neue Entscheidungen
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
+
+### OE-13: Warenvertrag V1 ausdrücklich zur Umsetzung beauftragt
+
+- **Nutzerfreigabe:** Auf die konkrete Frage „Soll ich den geprüften
+  OE-13-Vertrag umsetzen: Rule9/Schema25, alte Verträge unverändert, positive
+  Transaktionstests synthetisch und echte World zunächst mit0/unsupported?
+  Reale Produktion und Lieferungen bleiben OE-14/15 zugeordnet.“ antwortet
+  der Nutzer ausdrücklich „Ja, diesen Vertrag umsetzen (empfohlen)“.
+  Damit sind genau die Versionsentscheidung und die gestufte Abnahme des
+  [Warenvertrags V1](../original-economy/goods-ledger-v1-proposal.md) angenommen.
+- **Beginn:** sauberer, frisch live/origin bestätigter `main`
+  `af660b72c281e5c1b8735a29a941f474a3f33d8d`, Feature per Fast-forward
+  angeglichen. Vertragsdokumentation
+  `aaecabd638359a48d513f2d5146457fdd1c9e67a` aus PR20 bleibt historischer
+  Entscheidungsstand. Rule9 und Schema25 vor Umsetzung weiterhin frei.
+- **Umfang:** Eigener expliziter Entwicklernachfolger von Rule8, policy3
+  unverändert;2000 Funds, bezahlte Vacant-Häuser/Well72 und Infrastruktur
+  unverändert. Sechs Originalwaren, ein reiner vollständiger atomarer
+  Transaktionskern und lesende Bilanz. Echte Worldzustände ausschließlich
+  unsupported/0; keine neue Warenquelle, Population, Worker, Produktion,
+  Courierrolle, Import-, Verbrauchs- oder Gratis-Credit-Authority.
+- **Save/Tests:** Eigener Schema25-/Restorepfad; Rule1–8 und Schemas1–24
+  bleiben exakt. HouseState ist einzige Hausbestandsauthority; Reservations
+  keine zusätzliche Masse. Positive numerische Transaktionsfälle sind
+  synthetisch, echte bezahlte20-Haus-/Well-/F5F9-/Prozessnachweise bleiben
+  bei erlaubten Nullbeständen. Eigenständige eingefrorene7/23- und8/24-
+  Referenzen ergänzen OE-00. Kein voller Warenkreislauf- oder Gate-C-PASS.
+- **Umsetzung und Review:** Eigene reine Ledgerlibrary mit vollständigen
+  Kandidatentransaktionen und checked Summen; sechs existierende Hausfelder
+  bleiben alleinige Hausmengenauthority. Worldqueries verwenden begrenzte
+  const-Spans/Stack-Kontexte, keinen World-/Bestandsklon. Transfersequenz plus
+  begrenzte terminale Historie verhindern stale/doppelte Buchungen; höchstens
+  46 Owner/26 Courier/26 Historienzeilen im authored numerischen Kontext,
+  keine realen Warenactoren. Schema25 validiert zusätzlich den zulässigen
+  Ursprung, sodass auch ausgeglichene positive Fälschungen verweigert werden.
+  Echte Rule9-Zustände bleiben exakt Nullkonten und leere Warenlisten.
+- **Abnahme:** Je39 relevante CTests in Debug/Release/ASan+UBSan, positive
+  reine Transaktionen,575 Saveverweigerungen, echte bezahlte20-Haus-Szene,
+  tatsächliches F5/F9 und zwei separate40k-Prozessfortsetzungen bestanden.
+  Drei74-Fall-Forkvergleiche, eingefrorene7/23-/8/24-Bytes und vollständiger
+  OE-00-Corpusvergleich sichern die alten Verträge. Einzelne anfänglich
+  falsche Symlink-Testannahme korrigiert, keine Produktionslockerung und
+  keine entfernte Negativprüfung; Details im Fortschrittsprotokoll.
+  Unabhängige Authority-/Persistenz-/Prozessreviews ohne blockierenden Befund.
+- **Status:** OE-13 **Buchhaltungsfundament technisch PASS**, kein
+  Warenkreislauf- oder Gate-C-PASS. Der frühere BLOCKED-Befund unten bleibt
+  historisch. OE-14 bleibt TODO; Bewohner-/Workforce-/Producer-/Arrival-
+  Verträge werden durch diese Freigabe nicht vorweggenommen. Software-SDL
+  ist geprüft; native/human NOT_RUN. Tatsächliche Belege und abschließende
+  Source-/Originalhashes stehen im Fortschrittsregister.
 
 ### OE-13: Versions- und Abnahmeentscheidung erforderlich
 
