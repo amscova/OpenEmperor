@@ -269,6 +269,12 @@ add_library(openemperor-original-house-evolution STATIC
 target_include_directories(openemperor-original-house-evolution PUBLIC src)
 target_link_libraries(openemperor-original-house-evolution PUBLIC openemperor-original-model)
 openemperor_enable_warnings(openemperor-original-house-evolution)
+# Explicit visit/countdown/spawn queries, without a World scheduler connection.
+add_library(openemperor-original-service-rules STATIC
+    src/simulation/original/ServiceRules.cpp)
+target_include_directories(openemperor-original-service-rules PUBLIC src)
+target_link_libraries(openemperor-original-service-rules PUBLIC openemperor-original-house-evolution)
+openemperor_enable_warnings(openemperor-original-service-rules)
 # Independent preparation kernel; no production World or app link.
 add_library(openemperor-original-desirability STATIC
     src/simulation/original/Desirability.cpp)
@@ -352,6 +358,16 @@ if(BUILD_TESTING)
     set_tests_properties(original-house-evolution-synthetic original-house-evolution-real
         PROPERTIES TIMEOUT 30)
     set_tests_properties(original-house-evolution-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-service-rules-tests tests/OriginalServiceRulesTests.cpp)
+    target_link_libraries(openemperor-original-service-rules-tests PRIVATE
+        openemperor-original-service-rules OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-service-rules-tests)
+    add_test(NAME original-service-rules-synthetic COMMAND openemperor-original-service-rules-tests)
+    add_test(NAME original-service-rules-real COMMAND openemperor-original-service-rules-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-service-rules-synthetic original-service-rules-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-service-rules-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-great-wall-dependency-paths-tests tests/GreatWallDependencyPathsTests.cpp)
     target_link_libraries(openemperor-great-wall-dependency-paths-tests PRIVATE openemperor-maps)
     openemperor_enable_warnings(openemperor-great-wall-dependency-paths-tests)
