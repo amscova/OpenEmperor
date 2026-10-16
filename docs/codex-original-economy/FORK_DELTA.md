@@ -71,3 +71,20 @@ statt Foodbedarf und speichert einen binary32-Quotienten. Der neue sichere
 Kernel verweigert negative Inventare und erhält Quality bei Lieferung0; diese
 Grenzen sind ausdrücklich authored. Die vollständige unabhängige Vergleichs-
 und Gate-A-Abnahme folgt OE-07.
+
+## OE-07 – ausführbarer Vergleich und Entscheidungskatalog
+
+Der [portable JSON-Bericht](../original-economy/core-parity.json) enthält74
+unabhängige synthetische Kontrollfälle mit getrennten erwarteten und tatsächlichen
+Fork-/Kernwerten. Alle vier gepinnten Forkmodule werden tatsächlich kompiliert
+und aufgerufen, einschließlich eines separaten read-only HousingView-Probes.
+Die [Entscheidungsmatrix](../original-economy/core-parity.md) trennt46
+Vektorenparitäten,18 begründete Korrekturen, sechs ungeklärte Annahmen und vier
+bewusst ausgeschlossene Verhaltensweisen; zusätzliche Sourceaudits werden
+ausdrücklich getrennt. Originalvergleich:1800 vorbereitete Housewerte, Hash
+und Digest ohne Zahlentabelle.
+
+`max(population,1)`, ein gesetzter Food-Quality-Wert und stetige Herbalist-
+Wiederbesuche bleiben Diagnoseannahmen. Der Forkvergleich übernimmt daraus
+keine Gameplay-Authority. Gate-A-/Build-/CTest-/Legacy-Resultate und deren
+konkrete Grenzen stehen in [PROGRESS](PROGRESS.md).
