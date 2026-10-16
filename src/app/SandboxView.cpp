@@ -196,6 +196,11 @@ std::unique_ptr<SandboxView> SandboxView::create_original_influence_save_fixture
     return std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
         simulation::RulesProfile::CityV16,simulation::kOriginalInfluenceRuleVersion,true));
 }
+std::unique_ptr<SandboxView> SandboxView::create_original_goods_save_fixture(
+        maps::StoredMapSession session) {
+    return std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalGoodsRuleVersion,true));
+}
 #endif
 
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
@@ -260,7 +265,8 @@ void SandboxView::load_now() {
             document.world.rule_version)!=original_save_fixture_ ||
             (original_save_fixture_ && document.world.rule_version!=requested_rule_version_))
         throw std::runtime_error("Original economy saves require the explicit scheduler-only development fixture");
-    auto replacement=original_influence_fixture() ?
+    auto replacement=original_goods_fixture() ?
+        persistence::restore_original_goods_development(document,data_root_,buildable_mask_) : original_influence_fixture() ?
         persistence::restore_original_influence_development(document,data_root_,buildable_mask_) : original_save_fixture_ ?
         persistence::restore_original_economy_development(document,data_root_,buildable_mask_) :
         persistence::restore_save(document,data_root_,buildable_mask_);
@@ -351,7 +357,9 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(original_influence_fixture() ?
+        world_=std::make_unique<simulation::World>(original_goods_fixture() ?
+            persistence::restore_original_goods_development(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) : original_influence_fixture() ?
             persistence::restore_original_influence_development(*initial_save_,data_root_,
                 buildable_mask_,std::move(permissions)) : original_save_fixture_ ?
             persistence::restore_original_economy_development(*initial_save_,data_root_,
@@ -362,6 +370,9 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (original_goods_fixture()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_goods_development(
+            std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
     } else if (original_influence_fixture()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_influence_development(
             std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
@@ -394,7 +405,8 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(original_influence_fixture())title+=" | save schema 24 | Well72 influence development";
+    if(original_goods_fixture())title+=" | save schema 25 | goods accounting development";
+    else if(original_influence_fixture())title+=" | save schema 24 | Well72 influence development";
     else if(original_save_fixture_)title+=" | save schema 23 | scheduler-only development fixture";
     else if(world_->ramps_supported())title+=" | save schema 22 | Ramps V1 + Bridges V1";
     else if (world_->bridges_supported())title+=" | save schema 21 | Bridges V1";
@@ -4607,7 +4619,8 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(original_influence_fixture())overview+=" | Policy 3 | Save 24 | Well72 influence development";
+        if(original_goods_fixture())overview+=" | Policy 3 | Save 25 | Goods accounting development";
+        else if(original_influence_fixture())overview+=" | Policy 3 | Save 24 | Well72 influence development";
         else if(original_save_fixture_)overview+=" | Policy 3 | Save 23 | Scheduler-only fixture";
         else if(world_->ramps_supported())overview+=" | Policy 3 | Save 22 | Ramps "+std::to_string(world_->ramps().size())+" | Bridges "+std::to_string(world_->bridges().size());
         else if(world_->bridges_supported())overview+=" | Policy 3 | Save 21 | Bridges "+std::to_string(world_->bridges().size());

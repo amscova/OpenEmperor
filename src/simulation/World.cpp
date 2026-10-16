@@ -269,7 +269,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=8;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=9;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -298,7 +298,9 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v7{7,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==7) return city_v16_v7;
     static constexpr ProfileRules city_v16_v8{8,32,64,32,5,800};
-    if (original_influence_enabled(profile,version)) return city_v16_v8;
+    if (profile==RulesProfile::CityV16 && version==8) return city_v16_v8;
+    static constexpr ProfileRules city_v16_v9{9,32,64,32,5,800};
+    if (original_goods_enabled(profile,version)) return city_v16_v9;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};
@@ -354,6 +356,7 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
             original_economy_->model_source=original_model_source(*original_rules_model_);
     }
     if (original_influence_enabled()) original_influence_.emplace();
+    if (original_goods_enabled()) original_goods_.emplace();
     treasury_=city_profile(profile) ? starting_treasury_for(profile,rule_version_):0;
     objects_.assign(buildable_.size(),Object::Empty);
     owners_.assign(buildable_.size(),0);
@@ -413,6 +416,7 @@ World World::create_original_economy_development(std::shared_ptr<const MapPermis
 }
 
 void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
+    validate_original_goods_snapshot(s);
     const bool influence=simulation::original_influence_enabled(s.profile,s.rule_version);
     if (!influence && s.original_influence)
         throw std::invalid_argument("original influence authority requires City-v16 rule 8");
@@ -3410,6 +3414,14 @@ std::string World::canonical_state() const {
             out<<'|'<<static_cast<std::uint32_t>(removed.building_id)<<','<<static_cast<unsigned>(removed.type)
                <<','<<removed.placed_tick<<','<<removed.removed_tick;
     }
+    if (original_goods_) {
+        out<<"|original-goods:";
+        for (const auto& total:original_goods_->totals)
+            out<<'|'<<total.produced<<','<<total.imported<<','<<total.consumed<<','<<total.demolished;
+        // The OE-13 runtime validator permits no stock, cargo or reservation rows.
+        out<<'|'<<original_goods_->stocks.size()<<','<<original_goods_->cargo.size()<<','
+            <<original_goods_->reservations.size();
+    }
     return out.str();
 }
 
@@ -3461,6 +3473,7 @@ WorldSnapshot World::snapshot() const {
     s.ramps=ramps_;s.next_ramp_id=next_ramp_id_;
     s.original_economy=original_economy_;
     s.original_influence=original_influence_;
+    s.original_goods=original_goods_;
     for (int y=0;y<height_;++y) for (int x=0;x<width_;++x)
         if (object_at({x,y})==Object::Road) s.roads.push_back({x,y});
     s.workshop=workshop_; s.warehouse=warehouse_;
@@ -3521,6 +3534,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development,std::move(model));
     w.original_economy_=s.original_economy;
     w.original_influence_=s.original_influence;
+    w.original_goods_=s.original_goods;
     if (!maintenance_profile(s.profile) && s.maintenance_spent_total)
         throw std::invalid_argument("maintenance authority requires City-v16");
     w.maintenance_spent_total_=s.maintenance_spent_total;

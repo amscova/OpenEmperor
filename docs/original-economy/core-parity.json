@@ -3648,6 +3648,7 @@
   "current": {
     "files": {
       "src/simulation/OriginalEconomyState.h": "213f8b02abd2e50115356d367b843b94f82867684d08dc8809eaea3dae923ca7",
+      "src/simulation/OriginalGoodsState.h": "615775ef915e9ef8eb3ad697ec2b7dde4e0e03e5a203d22cf0d705ce39e10e68",
       "src/simulation/OriginalInfluenceState.h": "330831641a98171a586347a3037e26c39761a044490c1bf6ecbbb8e36af30c33",
       "src/simulation/original/Desirability.cpp": "129b12fd5f009e3eeec33a1ab8ea80e5c79c0124c4fa8c7cf82cfa85d454e3fb",
       "src/simulation/original/Desirability.h": "bd41dcbd5b975c0586fc5b9f21cf90efa335d9645fd5354b6ccd055569858754",
@@ -3667,7 +3668,7 @@
       "src/simulation/original/ServiceRules.h": "4152e969bb95d5ba28f2400beef4032f8a3026ca225aed364deb0f7da805d944",
       "tools/original-rules-parity/HousingViewProbe.cpp": "d3efec7c21c7b361f96aa245c0a4929e48f3bebd0b51e02bed6be838ddc69d80",
       "tools/original-rules-parity/RuleProbe.cpp": "70f8e715f7be03d6c2ae4ec04afc5b69f13e90b05ba82174066ac208e8c8caa2",
-      "tools/original_rules_parity.py": "f9fb99f1c05779576b70c06b268b32fdeb67ca2a6562e834fa7504d6a2a3229e"
+      "tools/original_rules_parity.py": "4d6f9d996b0d047c0de4c1ae4c7e174128fa4e7ee9a4536b03e691507513e2ba"
     }
   },
   "fork": {

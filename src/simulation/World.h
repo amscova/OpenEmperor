@@ -4,6 +4,7 @@
 #include "simulation/Ramp.h"
 #include "simulation/OriginalEconomyState.h"
 #include "simulation/OriginalInfluenceState.h"
+#include "simulation/OriginalGoodsState.h"
 #include "simulation/original/Desirability.h"
 
 #include "core/PerformanceDiagnostics.h"
@@ -220,22 +221,28 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version);
 
 inline constexpr std::uint32_t kOriginalEconomyRuleVersion=7;
 inline constexpr std::uint32_t kOriginalInfluenceRuleVersion=8;
+inline constexpr std::uint32_t kOriginalGoodsRuleVersion=9;
 inline constexpr std::int64_t original_influence_starting_treasury=2000;
 inline constexpr std::int64_t original_influence_source_cost=60;
 inline constexpr std::size_t original_influence_source_limit=4;
 inline constexpr std::size_t original_influence_purchase_limit=33;
 constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && version==kOriginalInfluenceRuleVersion;
+    return profile==RulesProfile::CityV16 &&
+        (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion);
+}
+constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalGoodsRuleVersion;
 }
 constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
-        (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion);
+        (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
+         version==kOriginalGoodsRuleVersion);
 }
 constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8);
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9);
 }
 constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8);
+    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9);
 }
 
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
@@ -552,6 +559,7 @@ struct WorldSnapshot {
     std::uint32_t next_ramp_id=1;
     std::optional<OriginalEconomyState> original_economy;
     std::optional<OriginalInfluenceState> original_influence;
+    std::optional<OriginalGoodsState> original_goods;
     bool operator==(const WorldSnapshot&) const = default;
 };
 struct ResourceInventory {
@@ -568,8 +576,12 @@ class World {
 public:
     bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
     bool original_influence_enabled() const { return simulation::original_influence_enabled(profile_,rule_version_); }
+    bool original_goods_enabled() const { return simulation::original_goods_enabled(profile_,rule_version_); }
     const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
     const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
+    const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
+    OriginalGoodsBalance original_goods_balance(original::Goods good) const;
+    std::array<OriginalGoodsBalance,original::goods_count> original_goods_balances() const;
     // Transient on-demand test/diagnostic observation, never save authority.
     std::uint64_t original_influence_cache_build_count() const { return original_influence_cache_build_count_; }
     OriginalInfluenceProvenance original_influence_provenance(BuildingId household) const;
@@ -609,6 +621,13 @@ public:
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
     static void validate_original_influence_snapshot(const WorldSnapshot& snapshot);
+    // Explicit Rule9/Schema25 accounting foundation; no active goods capability.
+    static World create_original_goods_development(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_goods_development(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static void validate_original_goods_snapshot(const WorldSnapshot& snapshot);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -812,6 +831,7 @@ private:
     std::shared_ptr<const MapPermissions> permissions_;
     std::optional<OriginalEconomyState> original_economy_;
     std::optional<OriginalInfluenceState> original_influence_;
+    std::optional<OriginalGoodsState> original_goods_;
     std::shared_ptr<const OriginalInfluenceCache> original_influence_cache_;
     std::uint64_t original_influence_cache_build_count_=0;
     std::shared_ptr<const original::OriginalRulesModel> original_rules_model_;

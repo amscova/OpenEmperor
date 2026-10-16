@@ -2,8 +2,8 @@
 
 ## Dauerhafte Invarianten (alle Phasen)
 
-- Keine Änderung des Standardprofils. Rule7 bleibt bisheriger Entwicklerstand; der ausdrücklich beauftragte Quellenvertrag V1 nutzt Rule8/Schema24 nur mit eigenem Entwickler-Opt-in. Versionsverfügbarkeit vor Umsetzung erneut prüfen.
-- Keine Mutation der 1–23 SaveDocument-Serialisierung. Besonders Rule7/Schema23, Rule6/Schema22 RampLink, Rule5/Schema21 BridgeSpan und unveränderte MapPermissions policy3 müssen identisch bleiben.
+- Keine Änderung des Standardprofils. Rule7 und Rule8 bleiben eingefrorene Entwicklerstände; der ausdrücklich angenommene [Warenvertrag V1](../original-economy/goods-ledger-v1-proposal.md) nutzt Rule9/Schema25 nur mit eigenem Entwickler-Opt-in. Versionsverfügbarkeit vor Umsetzung erneut prüfen.
+- Keine Mutation der 1–24 SaveDocument-Serialisierung. Besonders Rule8/Schema24, Rule7/Schema23, Rule6/Schema22 RampLink, Rule5/Schema21 BridgeSpan und unveränderte MapPermissions policy3 müssen identisch bleiben.
 - Keine neue Berechtigung aus Sprite-/Modell-IDs. World, Route und Objektgeometrie bleiben authoritative; Spieleraktionen kosten reale Funds.
 - Keine Gratisressourcen, Teleportlieferungen, Zeit-Vorsprünge oder reine Render-Events als Versorgungsbesuche.
 - Reproduzierbare Saved-Persistence, separates neues Prozess-Restore, Determinismus nach Save/Load und negative Manipulationsprüfungen.
@@ -29,6 +29,7 @@
 
 ## GATE C – nach OE-19: bezahlte Güter und Service
 
+- OE-13 wird nach dem angenommenen Warenvertrag als Buchhaltungsfundament abgenommen: positiver synthetischer Transaktionskern, echte Rule9-World und Schema25 zunächst ausschließlich0/unsupported. Das allein ist kein Gate-C- oder Warenkreislauf-PASS.
 - Ceramics und Hemp haben reale bezahlte Sources, echte Market-Couriers, Reservations und Arrival-Events.
 - Food Quality beruht auf echter Lieferung, nicht einem angenommenen Standardwert.
 - Consumption erhält Conservation und Replay; bestehende Services geben originale Kategorien nur nach wirklichem Besuch.
