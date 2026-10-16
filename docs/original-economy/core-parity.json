@@ -1,0 +1,3796 @@
+{
+  "cases": [
+    {
+      "area": "model",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-model-contract.md",
+      "expected": {
+        "current": [
+          -123,
+          -92
+        ],
+        "fork": [
+          -123,
+          -92
+        ]
+      },
+      "id": "model.signed_percent",
+      "input": {
+        "fixture": "arithmetic",
+        "operation": "building_value",
+        "values": [
+          72,
+          0,
+          2
+        ]
+      },
+      "observed": {
+        "current": [
+          -123,
+          -92
+        ],
+        "fork": [
+          -123,
+          -92
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "model",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-model-contract.md",
+      "expected": {
+        "current": [
+          150,
+          100
+        ],
+        "fork": [
+          150,
+          100
+        ]
+      },
+      "id": "model.house_upper_clamp",
+      "input": {
+        "fixture": "arithmetic",
+        "operation": "house_value",
+        "values": [
+          0,
+          17,
+          2
+        ]
+      },
+      "observed": {
+        "current": [
+          150,
+          100
+        ],
+        "fork": [
+          150,
+          100
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "model",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-model-contract.md",
+      "expected": {
+        "current": [
+          -110,
+          -99
+        ],
+        "fork": [
+          -110,
+          -99
+        ]
+      },
+      "id": "model.house_lower_clamp",
+      "input": {
+        "fixture": "arithmetic",
+        "operation": "house_value",
+        "values": [
+          1,
+          17,
+          2
+        ]
+      },
+      "observed": {
+        "current": [
+          -110,
+          -99
+        ],
+        "fork": [
+          -110,
+          -99
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "model",
+      "classification": "unsupported",
+      "evidence": "docs/original-economy/model-provenance.md",
+      "expected": {
+        "current": [
+          0
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "id": "parser.duplicate_building",
+      "input": {
+        "fixture": "duplicate_building",
+        "operation": "parse",
+        "values": []
+      },
+      "observed": {
+        "current": [
+          0
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "model",
+      "classification": "unsupported",
+      "evidence": "docs/original-economy/model-provenance.md",
+      "expected": {
+        "current": [
+          0
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "id": "parser.extra_house_value",
+      "input": {
+        "fixture": "extra_house_value",
+        "operation": "parse",
+        "values": []
+      },
+      "observed": {
+        "current": [
+          0
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "model",
+      "classification": "unsupported",
+      "evidence": "docs/original-economy/model-provenance.md",
+      "expected": {
+        "current": [
+          0
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "id": "parser.missing_end",
+      "input": {
+        "fixture": "missing_end",
+        "operation": "parse",
+        "values": []
+      },
+      "observed": {
+        "current": [
+          0
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "desirability",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-desirability-contract.md",
+      "expected": {
+        "current": [
+          0,
+          9,
+          6,
+          3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          9,
+          6,
+          3,
+          0,
+          0
+        ]
+      },
+      "id": "rings.positive_decay",
+      "input": {
+        "fixture": "base",
+        "operation": "spread",
+        "values": [
+          5,
+          5,
+          1,
+          9,
+          1,
+          -3,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          9,
+          6,
+          3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          9,
+          6,
+          3,
+          0,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "desirability",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-desirability-contract.md",
+      "expected": {
+        "current": [
+          0,
+          -9,
+          -6,
+          -3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          -9,
+          -6,
+          -3,
+          0,
+          0
+        ]
+      },
+      "id": "rings.negative_decay",
+      "input": {
+        "fixture": "base",
+        "operation": "spread",
+        "values": [
+          5,
+          5,
+          1,
+          -9,
+          1,
+          3,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          -9,
+          -6,
+          -3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          -9,
+          -6,
+          -3,
+          0,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "desirability",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-desirability-contract.md",
+      "expected": {
+        "current": [
+          0,
+          9,
+          6,
+          3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          9,
+          9,
+          9,
+          9,
+          9
+        ]
+      },
+      "id": "rings.zero_step",
+      "input": {
+        "fixture": "base",
+        "operation": "spread",
+        "values": [
+          5,
+          5,
+          1,
+          9,
+          0,
+          -3,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          9,
+          6,
+          3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          9,
+          9,
+          9,
+          9,
+          9
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "desirability",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-desirability-contract.md",
+      "expected": {
+        "current": [
+          0,
+          -9,
+          -6,
+          -3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          -9,
+          -9,
+          -9,
+          -9,
+          -9
+        ]
+      },
+      "id": "rings.negative_step",
+      "input": {
+        "fixture": "base",
+        "operation": "spread",
+        "values": [
+          5,
+          5,
+          1,
+          -9,
+          -2,
+          3,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          -9,
+          -6,
+          -3,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          -9,
+          -9,
+          -9,
+          -9,
+          -9
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "desirability",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-desirability-contract.md",
+      "expected": {
+        "current": [
+          0,
+          0,
+          7,
+          7,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          0,
+          7,
+          7,
+          0,
+          0
+        ]
+      },
+      "id": "rings.footprint_two",
+      "input": {
+        "fixture": "base",
+        "operation": "spread",
+        "values": [
+          5,
+          5,
+          2,
+          7,
+          1,
+          0,
+          2
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          0,
+          7,
+          7,
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          0,
+          7,
+          7,
+          0,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "desirability",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-desirability-contract.md",
+      "expected": {
+        "current": [
+          0
+        ],
+        "fork": [
+          0
+        ]
+      },
+      "id": "rings.order_ppn",
+      "input": {
+        "fixture": "base",
+        "operation": "order",
+        "values": [
+          100,
+          100,
+          -100
+        ]
+      },
+      "observed": {
+        "current": [
+          0
+        ],
+        "fork": [
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "desirability",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-desirability-contract.md",
+      "expected": {
+        "current": [
+          100
+        ],
+        "fork": [
+          100
+        ]
+      },
+      "id": "rings.order_pnp",
+      "input": {
+        "fixture": "base",
+        "operation": "order",
+        "values": [
+          100,
+          -100,
+          100
+        ]
+      },
+      "observed": {
+        "current": [
+          100
+        ],
+        "fork": [
+          100
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-needs",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-house-needs-contract.md",
+      "expected": {
+        "current": [
+          1
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "id": "needs.religion_or",
+      "input": {
+        "fixture": "religion",
+        "operation": "needs",
+        "values": [
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-needs",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-house-needs-contract.md",
+      "expected": {
+        "current": [
+          0
+        ],
+        "fork": [
+          0
+        ]
+      },
+      "id": "needs.religion_missing",
+      "input": {
+        "fixture": "religion",
+        "operation": "needs",
+        "values": [
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          0
+        ],
+        "fork": [
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-needs",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-house-needs-contract.md",
+      "expected": {
+        "current": [
+          0
+        ],
+        "fork": [
+          0
+        ]
+      },
+      "id": "needs.bronze_lacquer_not_sum",
+      "input": {
+        "fixture": "bronze",
+        "operation": "needs",
+        "values": [
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          3
+        ]
+      },
+      "observed": {
+        "current": [
+          0
+        ],
+        "fork": [
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-needs",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-house-needs-contract.md",
+      "expected": {
+        "current": [
+          1
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "id": "needs.lacquer_alternative",
+      "input": {
+        "fixture": "bronze",
+        "operation": "needs",
+        "values": [
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          1
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-evolution",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-house-evolution-contract.md",
+      "expected": {
+        "current": [
+          5,
+          0
+        ],
+        "fork": [
+          5,
+          0
+        ]
+      },
+      "id": "evolution.threshold_equality",
+      "input": {
+        "fixture": "base",
+        "operation": "evolve",
+        "values": [
+          4,
+          5,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          5,
+          0
+        ],
+        "fork": [
+          5,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-evolution",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-house-evolution-contract.md",
+      "expected": {
+        "current": [
+          3,
+          0
+        ],
+        "fork": [
+          3,
+          0
+        ]
+      },
+      "id": "evolution.devolve_limit",
+      "input": {
+        "fixture": "base",
+        "operation": "evolve",
+        "values": [
+          4,
+          -5,
+          1,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          3,
+          0
+        ],
+        "fork": [
+          3,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-evolution",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-house-evolution-contract.md",
+      "expected": {
+        "current": [
+          2,
+          0
+        ],
+        "fork": [
+          3,
+          0
+        ]
+      },
+      "id": "evolution.vacant_needs",
+      "input": {
+        "fixture": "required_water",
+        "operation": "evolve",
+        "values": [
+          2,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          2,
+          0
+        ],
+        "fork": [
+          3,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-evolution",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-house-evolution-contract.md",
+      "expected": {
+        "current": [
+          3,
+          0
+        ],
+        "fork": [
+          4,
+          0
+        ]
+      },
+      "id": "evolution.empty_shelter",
+      "input": {
+        "fixture": "base",
+        "operation": "evolve",
+        "values": [
+          3,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          3,
+          0
+        ],
+        "fork": [
+          4,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "house-evolution",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-house-evolution-contract.md",
+      "expected": {
+        "current": [
+          13,
+          0
+        ],
+        "fork": [
+          13,
+          0
+        ]
+      },
+      "id": "evolution.elite_abandoned",
+      "input": {
+        "fixture": "base",
+        "operation": "evolve",
+        "values": [
+          12,
+          -100,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          13,
+          0
+        ],
+        "fork": [
+          13,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          0,
+          0,
+          1,
+          39,
+          95,
+          126,
+          127,
+          253,
+          254
+        ],
+        "fork": [
+          0,
+          0,
+          1,
+          39,
+          95,
+          126,
+          127,
+          253,
+          254
+        ]
+      },
+      "id": "timers.byte_edges",
+      "input": {
+        "fixture": "base",
+        "operation": "timers",
+        "values": [
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          2,
+          40,
+          96,
+          127,
+          128,
+          254,
+          255,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          0,
+          1,
+          39,
+          95,
+          126,
+          127,
+          253,
+          254
+        ],
+        "fork": [
+          0,
+          0,
+          1,
+          39,
+          95,
+          126,
+          127,
+          253,
+          254
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "id": "visit.occupied_role_0",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          0,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "id": "visit.occupied_role_1",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "id": "visit.occupied_role_2",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          2,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "id": "visit.occupied_role_3",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          3,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "id": "visit.occupied_role_4",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          4,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          96
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "id": "visit.occupied_role_5",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          5,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "id": "visit.occupied_role_6",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          6,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "id": "visit.occupied_role_7",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          7,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "id": "visit.occupied_role_8",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          8,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          0,
+          0
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "id": "visit.empty_elite_service",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          0,
+          13,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          0
+        ],
+        "fork": [
+          1,
+          96
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-timer-contract.md",
+      "expected": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "id": "visit.empty_elite_religion",
+      "input": {
+        "fixture": "base",
+        "operation": "visit",
+        "values": [
+          5,
+          13,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          1,
+          40
+        ],
+        "fork": [
+          1,
+          40
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          7
+        ],
+        "fork": [
+          7
+        ]
+      },
+      "id": "spawn.acupuncture",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn",
+        "values": [
+          1,
+          50,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          7
+        ],
+        "fork": [
+          7
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          5
+        ],
+        "fork": [
+          7
+        ]
+      },
+      "id": "spawn.herbalist",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn",
+        "values": [
+          0,
+          50,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          5
+        ],
+        "fork": [
+          7
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          3
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "id": "spawn.music",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn",
+        "values": [
+          2,
+          100,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          3
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          6
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "id": "spawn.drama",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn",
+        "values": [
+          4,
+          100,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          6
+        ],
+        "fork": [
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          3
+        ],
+        "fork": [
+          3
+        ]
+      },
+      "id": "spawn.shrine",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn",
+        "values": [
+          5,
+          100,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          3
+        ],
+        "fork": [
+          3
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          6
+        ],
+        "fork": [
+          3
+        ]
+      },
+      "id": "spawn.temple",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn",
+        "values": [
+          7,
+          100,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          6
+        ],
+        "fork": [
+          3
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          0,
+          1
+        ],
+        "fork": [
+          0,
+          1
+        ]
+      },
+      "id": "spawn.strict_threshold",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn_tick",
+        "values": [
+          1,
+          100,
+          1
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          1
+        ],
+        "fork": [
+          0,
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          64,
+          0
+        ],
+        "fork": [
+          0,
+          1
+        ]
+      },
+      "id": "spawn.no_staff",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn_tick",
+        "values": [
+          1,
+          0,
+          64
+        ]
+      },
+      "observed": {
+        "current": [
+          64,
+          0
+        ],
+        "fork": [
+          0,
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "service",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-service-spawn-contract.md",
+      "expected": {
+        "current": [
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          1
+        ]
+      },
+      "id": "spawn.byte_wrap",
+      "input": {
+        "fixture": "base",
+        "operation": "spawn_tick",
+        "values": [
+          1,
+          100,
+          255
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          0
+        ],
+        "fork": [
+          0,
+          1
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "composition",
+      "classification": "unverified",
+      "evidence": "docs/original-economy/core-parity.md#clock-and-wrapper",
+      "expected": {
+        "current": [
+          4,
+          0,
+          1,
+          2
+        ],
+        "fork": [
+          4,
+          0,
+          1,
+          2
+        ]
+      },
+      "id": "composition.authored_phase_0",
+      "input": {
+        "fixture": "three",
+        "operation": "composition",
+        "values": [
+          0,
+          4,
+          0,
+          1,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          4,
+          0,
+          1,
+          2
+        ],
+        "fork": [
+          4,
+          0,
+          1,
+          2
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "composition",
+      "classification": "unverified",
+      "evidence": "docs/original-economy/core-parity.md#clock-and-wrapper",
+      "expected": {
+        "current": [
+          4,
+          0,
+          1,
+          5
+        ],
+        "fork": [
+          4,
+          0,
+          1,
+          5
+        ]
+      },
+      "id": "composition.authored_phase_1",
+      "input": {
+        "fixture": "three",
+        "operation": "composition",
+        "values": [
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          4,
+          0,
+          1,
+          5
+        ],
+        "fork": [
+          4,
+          0,
+          1,
+          5
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "composition",
+      "classification": "unverified",
+      "evidence": "docs/original-economy/core-parity.md#clock-and-wrapper",
+      "expected": {
+        "current": [
+          4,
+          0,
+          1,
+          2
+        ],
+        "fork": [
+          4,
+          0,
+          1,
+          2
+        ]
+      },
+      "id": "composition.authored_phase_7",
+      "input": {
+        "fixture": "three",
+        "operation": "composition",
+        "values": [
+          7,
+          4,
+          0,
+          1,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          4,
+          0,
+          1,
+          2
+        ],
+        "fork": [
+          4,
+          0,
+          1,
+          2
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          4
+        ],
+        "fork": [
+          3
+        ]
+      },
+      "id": "goods.next_row",
+      "input": {
+        "fixture": "goods",
+        "operation": "need",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          4
+        ],
+        "fork": [
+          3
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          104
+        ],
+        "fork": [
+          48
+        ]
+      },
+      "id": "goods.large_elite",
+      "input": {
+        "fixture": "goods",
+        "operation": "need",
+        "values": [
+          0,
+          2,
+          13,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          104
+        ],
+        "fork": [
+          48
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          9
+        ],
+        "fork": [
+          9
+        ]
+      },
+      "id": "goods.luxury_row_stays",
+      "input": {
+        "fixture": "goods",
+        "operation": "need",
+        "values": [
+          0,
+          1,
+          10,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          9
+        ],
+        "fork": [
+          9
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          10
+        ],
+        "fork": [
+          10
+        ]
+      },
+      "id": "goods.empty_hemp_query",
+      "input": {
+        "fixture": "goods",
+        "operation": "need",
+        "values": [
+          0,
+          2,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          10
+        ],
+        "fork": [
+          10
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          2
+        ],
+        "fork": [
+          2
+        ]
+      },
+      "id": "goods.distinct_field_0",
+      "input": {
+        "fixture": "distinct_goods",
+        "operation": "need",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          2
+        ],
+        "fork": [
+          2
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          4
+        ],
+        "fork": [
+          4
+        ]
+      },
+      "id": "goods.distinct_field_1",
+      "input": {
+        "fixture": "distinct_goods",
+        "operation": "need",
+        "values": [
+          1,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          4
+        ],
+        "fork": [
+          4
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          6
+        ],
+        "fork": [
+          6
+        ]
+      },
+      "id": "goods.distinct_field_2",
+      "input": {
+        "fixture": "distinct_goods",
+        "operation": "need",
+        "values": [
+          2,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          6
+        ],
+        "fork": [
+          6
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          8
+        ],
+        "fork": [
+          8
+        ]
+      },
+      "id": "goods.distinct_field_3",
+      "input": {
+        "fixture": "distinct_goods",
+        "operation": "need",
+        "values": [
+          3,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          8
+        ],
+        "fork": [
+          8
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          10
+        ],
+        "fork": [
+          10
+        ]
+      },
+      "id": "goods.distinct_field_4",
+      "input": {
+        "fixture": "distinct_goods",
+        "operation": "need",
+        "values": [
+          4,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          10
+        ],
+        "fork": [
+          10
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          10
+        ],
+        "fork": [
+          10
+        ]
+      },
+      "id": "goods.distinct_field_5",
+      "input": {
+        "fixture": "distinct_goods",
+        "operation": "need",
+        "values": [
+          5,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          10
+        ],
+        "fork": [
+          10
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          10,
+          90,
+          10
+        ],
+        "fork": [
+          3,
+          97,
+          3
+        ]
+      },
+      "id": "delivery.large_source",
+      "input": {
+        "fixture": "three",
+        "operation": "delivery",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          100
+        ]
+      },
+      "observed": {
+        "current": [
+          10,
+          90,
+          10
+        ],
+        "fork": [
+          3,
+          97,
+          3
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          3,
+          2,
+          3
+        ],
+        "fork": [
+          3,
+          2,
+          3
+        ]
+      },
+      "id": "delivery.partial_source",
+      "input": {
+        "fixture": "three",
+        "operation": "delivery",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          3,
+          2,
+          3
+        ],
+        "fork": [
+          3,
+          2,
+          3
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          2,
+          0,
+          2
+        ],
+        "fork": [
+          2,
+          0,
+          2
+        ]
+      },
+      "id": "delivery.tiny_source",
+      "input": {
+        "fixture": "three",
+        "operation": "delivery",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2
+        ]
+      },
+      "observed": {
+        "current": [
+          2,
+          0,
+          2
+        ],
+        "fork": [
+          2,
+          0,
+          2
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          0,
+          100,
+          0
+        ],
+        "fork": [
+          10,
+          90,
+          10
+        ]
+      },
+      "id": "delivery.empty_common",
+      "input": {
+        "fixture": "three",
+        "operation": "delivery",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          100
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          100,
+          0
+        ],
+        "fork": [
+          10,
+          90,
+          10
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          0,
+          1,
+          7
+        ],
+        "fork": [
+          1,
+          0,
+          8
+        ]
+      },
+      "id": "delivery.stock_above_need_tiny_source",
+      "input": {
+        "fixture": "three",
+        "operation": "delivery",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          1,
+          7
+        ],
+        "fork": [
+          1,
+          0,
+          8
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          8,
+          92,
+          10
+        ],
+        "fork": [
+          1,
+          99,
+          3
+        ]
+      },
+      "id": "delivery.stock_below_need_large_source",
+      "input": {
+        "fixture": "three",
+        "operation": "delivery",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          100
+        ]
+      },
+      "observed": {
+        "current": [
+          8,
+          92,
+          10
+        ],
+        "fork": [
+          1,
+          99,
+          3
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-delivery-contract.md",
+      "expected": {
+        "current": [
+          0,
+          2147483647,
+          32767
+        ],
+        "fork": [
+          0,
+          2147483647,
+          32767
+        ]
+      },
+      "id": "delivery.full_storage",
+      "input": {
+        "fixture": "three",
+        "operation": "delivery",
+        "values": [
+          0,
+          1,
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          32767,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2147483647
+        ]
+      },
+      "observed": {
+        "current": [
+          0,
+          2147483647,
+          32767
+        ],
+        "fork": [
+          0,
+          2147483647,
+          32767
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "fork": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      },
+      "id": "consume.separate_alternatives",
+      "input": {
+        "fixture": "three",
+        "operation": "consume",
+        "values": [
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "observed": {
+        "current": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "fork": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          29,
+          25,
+          17,
+          11,
+          7,
+          3
+        ],
+        "fork": [
+          29,
+          25,
+          17,
+          11,
+          7,
+          3
+        ]
+      },
+      "id": "consume.distinct_fields",
+      "input": {
+        "fixture": "distinct_goods",
+        "operation": "consume",
+        "values": [
+          4,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          31,
+          29,
+          23,
+          19,
+          17,
+          13
+        ]
+      },
+      "observed": {
+        "current": [
+          29,
+          25,
+          17,
+          11,
+          7,
+          3
+        ],
+        "fork": [
+          29,
+          25,
+          17,
+          11,
+          7,
+          3
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "fork": [
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "id": "consume.empty",
+      "input": {
+        "fixture": "three",
+        "operation": "consume",
+        "values": [
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "fork": [
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "corrected_bug",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "fork": [
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "id": "consume.negative_occupants",
+      "input": {
+        "fixture": "three",
+        "operation": "consume",
+        "values": [
+          4,
+          0,
+          -1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "observed": {
+        "current": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "fork": [
+          5,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          20
+        ],
+        "fork": [
+          20
+        ]
+      },
+      "id": "food.improved",
+      "input": {
+        "fixture": "base",
+        "operation": "food",
+        "values": [
+          10,
+          20,
+          1,
+          10
+        ]
+      },
+      "observed": {
+        "current": [
+          20
+        ],
+        "fork": [
+          20
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          70
+        ],
+        "fork": [
+          70
+        ]
+      },
+      "id": "food.weighted_half",
+      "input": {
+        "fixture": "base",
+        "operation": "food",
+        "values": [
+          90,
+          30,
+          50,
+          100
+        ]
+      },
+      "observed": {
+        "current": [
+          70
+        ],
+        "fork": [
+          70
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "parity",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          60
+        ],
+        "fork": [
+          60
+        ]
+      },
+      "id": "food.weighted_above_half",
+      "input": {
+        "fixture": "base",
+        "operation": "food",
+        "values": [
+          90,
+          30,
+          51,
+          100
+        ]
+      },
+      "observed": {
+        "current": [
+          60
+        ],
+        "fork": [
+          60
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "unsupported",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          10
+        ],
+        "fork": [
+          20
+        ]
+      },
+      "id": "food.zero_delivery_boundary",
+      "input": {
+        "fixture": "base",
+        "operation": "food",
+        "values": [
+          10,
+          20,
+          0,
+          1
+        ]
+      },
+      "observed": {
+        "current": [
+          10
+        ],
+        "fork": [
+          20
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "unverified",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          70
+        ],
+        "fork": [
+          60
+        ]
+      },
+      "id": "food.binary32_half",
+      "input": {
+        "fixture": "base",
+        "operation": "food",
+        "values": [
+          90,
+          30,
+          50000001,
+          100000000
+        ]
+      },
+      "observed": {
+        "current": [
+          70
+        ],
+        "fork": [
+          60
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "unverified",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          75
+        ],
+        "fork": [
+          70
+        ]
+      },
+      "id": "food.binary32_third_decimal",
+      "input": {
+        "fixture": "base",
+        "operation": "food",
+        "values": [
+          90,
+          30,
+          33000001,
+          100000000
+        ]
+      },
+      "observed": {
+        "current": [
+          75
+        ],
+        "fork": [
+          70
+        ]
+      },
+      "passed": true
+    },
+    {
+      "area": "goods",
+      "classification": "unverified",
+      "evidence": "docs/reverse/original-goods-consumption-food-contract.md",
+      "expected": {
+        "current": [
+          50
+        ],
+        "fork": [
+          45
+        ]
+      },
+      "id": "food.binary32_three",
+      "input": {
+        "fixture": "base",
+        "operation": "food",
+        "values": [
+          90,
+          30,
+          300000001,
+          100000000
+        ]
+      },
+      "observed": {
+        "current": [
+          50
+        ],
+        "fork": [
+          45
+        ]
+      },
+      "passed": true
+    }
+  ],
+  "current": {
+    "files": {
+      "src/simulation/original/Desirability.cpp": "129b12fd5f009e3eeec33a1ab8ea80e5c79c0124c4fa8c7cf82cfa85d454e3fb",
+      "src/simulation/original/Desirability.h": "bd41dcbd5b975c0586fc5b9f21cf90efa335d9645fd5354b6ccd055569858754",
+      "src/simulation/original/GoodsRules.cpp": "e937e825796dd921fa804779fc543c9c4a9fb88c43a5f2d37ba5cd01d0111f63",
+      "src/simulation/original/GoodsRules.h": "84751cc7e8007feec64e8c014ec30d38e8a36079b5138be771ea6b85794d82f9",
+      "src/simulation/original/HouseEvolution.cpp": "9fb107d14fb91aa5959f9a1bed3ee893aaf080a376d0ca669493b44fc32e02fe",
+      "src/simulation/original/HouseEvolution.h": "fca07a8dc7856eaa0540d1d7d0189f334537791ab00d53520c3f1fff30959a98",
+      "src/simulation/original/ModelData.cpp": "88a037808b18577c7c4c853cd357ec3a6a37eaa3a414a6200254e203f4ed1389",
+      "src/simulation/original/ModelData.h": "bcfab29c0f68fce286cdad8f0b94a7dfe8c166848cf76e3fe5abb5f91be71d28",
+      "src/simulation/original/ModelSchema.cpp": "13245f667c71c538b5671cca2973bb43aa35a6767dd81a4594b5859cfeb991fc",
+      "src/simulation/original/ModelSchema.h": "7fcf4a9ae3d05c0bee5596a97f08afd7623fd3b1fa88f4bd5227bc03f49debb2",
+      "src/simulation/original/OriginalModelMapping.h": "5d60ab273d67884f9f269716ea13783e8ae896b3da798a598ff3e071c0cc6482",
+      "src/simulation/original/ServiceRules.cpp": "687bb097d1fcdaed21d96f6022fd402016ce7a99b2722a241a17caa02c4960df",
+      "src/simulation/original/ServiceRules.h": "4152e969bb95d5ba28f2400beef4032f8a3026ca225aed364deb0f7da805d944",
+      "tools/original-rules-parity/HousingViewProbe.cpp": "800070a9712263f32c162577c65200c84146cbba9c4714db7088b42e24da020d",
+      "tools/original-rules-parity/RuleProbe.cpp": "70f8e715f7be03d6c2ae4ec04afc5b69f13e90b05ba82174066ac208e8c8caa2",
+      "tools/original_rules_parity.py": "540adec079783d84bd5109d04c0ed0a775e0837fefa995dd1a56a237a94f14b3"
+    }
+  },
+  "fork": {
+    "code_permalinks": {
+      "src/simulation/original/Desirability.cpp": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/Desirability.cpp",
+      "src/simulation/original/Desirability.h": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/Desirability.h",
+      "src/simulation/original/HouseEvolution.cpp": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/HouseEvolution.cpp",
+      "src/simulation/original/HouseEvolution.h": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/HouseEvolution.h",
+      "src/simulation/original/ModelData.cpp": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/ModelData.cpp",
+      "src/simulation/original/ModelData.h": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/ModelData.h",
+      "src/simulation/original/OriginalHousingView.cpp": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/OriginalHousingView.cpp",
+      "src/simulation/original/OriginalHousingView.h": "https://github.com/amscova/OpenEmperor/blob/d861d2912337c09751cb68196f85d5a30752726e/src/simulation/original/OriginalHousingView.h"
+    },
+    "files": {
+      "CMakeLists.txt": "fe08f23fb8116aa82df4aa1e7a1b68a951b2762247750c0a48f80795e6edc8b6",
+      "LICENSE": "8dce34779ad07c246757a4e8ecb0ad9df60a89f49c3d61db7c60d9aea6740b15",
+      "src/simulation/original/Desirability.cpp": "69988ee13253eb979f9407cc27e1678804132e88b32320565182a865af066476",
+      "src/simulation/original/Desirability.h": "26949b26de3f085382121e04617c79d6cd5115ef12cdcba5a7c0ab73248e6eb1",
+      "src/simulation/original/HouseEvolution.cpp": "2cc416aa263b867664a174b979b3cab8f25d2880ed68f0e8f00acaba37d67f75",
+      "src/simulation/original/HouseEvolution.h": "0ebf2055fd477dd46c453e0555d5e0fc9977e9da5d386119b68bdf314246b306",
+      "src/simulation/original/ModelData.cpp": "b56961fd7533ff93ae5c281824d5092cdfd3f5292e813a29c9e9a250764dbc8d",
+      "src/simulation/original/ModelData.h": "ce06e760bdf8ad7171c9afda52f1c90e1b6e3d0a5e07970855406fb2ff509afc",
+      "src/simulation/original/OriginalHousingView.cpp": "054f4cdf4f25c5aeb521cfacf7003c2c662b6ceeac7df2d3959b6a00af00357d",
+      "src/simulation/original/OriginalHousingView.h": "54e6cc589381fda9c90567fa71a9aa31555c2623a399a8357c48c414d8b0307e",
+      "tests/OriginalRulesTests.cpp": "389f154cff0e3f1583ece58d51fd35778c78bd51b33202982220ee05fc8f9c25"
+    },
+    "revision": "d861d2912337c09751cb68196f85d5a30752726e"
+  },
+  "housing_view": {
+    "classification": "unsupported",
+    "current": "No World-to-original-house projection: intentionally absent in Phase A.",
+    "evidence": "docs/original-economy/core-parity.md#originalhousingview",
+    "fork_expected": [
+      35,
+      43,
+      54,
+      59,
+      193,
+      72,
+      207,
+      1,
+      0,
+      3,
+      3,
+      4,
+      4,
+      1,
+      1,
+      3,
+      4,
+      1
+    ],
+    "fork_observed": [
+      35,
+      43,
+      54,
+      59,
+      193,
+      72,
+      207,
+      1,
+      0,
+      3,
+      3,
+      4,
+      4,
+      1,
+      1,
+      3,
+      4,
+      1
+    ],
+    "observation_fields": [
+      "ClaySource model",
+      "Pottery model",
+      "Warehouse model",
+      "Market model",
+      "Farm model",
+      "Well model",
+      "HealthPost model",
+      "empty reports",
+      "World population",
+      "zero-step peak",
+      "zero-step settled",
+      "one-step peak",
+      "one-step settled",
+      "empty World unchanged",
+      "real food present",
+      "quality option 0 settled",
+      "quality option 100 settled",
+      "fed World unchanged"
+    ],
+    "passed": true
+  },
+  "limitations": [
+    "Static EXE evidence is independent of fork comparison; no original executable was run.",
+    "World tick/month scheduling and step_house composition are unsupported; no inferred clock contract.",
+    "Original wall sectors/coordinate-unit mismatch remain unverified; no original wall-parity claim.",
+    "Food binary32 nearest-even modeling does not establish the original global FPU environment.",
+    "No production World, navigation, renderer, input or save integration is introduced."
+  ],
+  "real_model": {
+    "observed": {
+      "current": [
+        1800,
+        477508576,
+        4125568101
+      ],
+      "fork": [
+        1800,
+        477508576,
+        4125568101
+      ]
+    },
+    "scope": "15 rows x 24 fields x 5 difficulties; bounded FNV-1a digest, no numeric table",
+    "sha256": "7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6",
+    "status": "PASS"
+  },
+  "schema_version": 1,
+  "status": "PASS",
+  "summary": {
+    "cases": 74,
+    "classifications": {
+      "corrected_bug": 18,
+      "parity": 46,
+      "unsupported": 4,
+      "unverified": 6
+    },
+    "passed": 74
+  }
+}

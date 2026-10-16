@@ -19,6 +19,62 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-07: ausführbarer Forkvergleich und begrenzte Gate-A-Abnahme
+
+- **Revision:** Start am sauberen, live bestätigten `main`
+  `6f6be387128a7f72a64ac6e5439faf2b81df5666`; bestehenden Feature-Branch per
+  Fast-forward angeglichen. OE-06 bleibt eigener Commit
+  `88e070865600b39d7296be7a6c821724c5cbe682`. Eigene SHA folgt im Report und
+  bei OE-08. Delegierte Commit-/PR-/Merge-Freigabe gilt weiter, ohne Tags/Release.
+- **Referenz/Evidenz:** Vier tatsächliche Forkmodule am unveränderten Stand
+  `d861d2912337c09751cb68196f85d5a30752726e`; elf Dateien gegen fest im Tool
+  gebundene SHA-256 geprüft, nicht gegen frei umschreibbare Manifestwerte allein.
+  Eigene Adapter werden separat gegen Fork und aktuelle Kerne kompiliert.
+  [Maschinenbericht](../original-economy/core-parity.json) und
+  [Entscheidungen](../original-economy/core-parity.md) binden Quellen, unabhängig
+  formulierte synthetische Inputs und die erwarteten/ermittelten Ergebnisse.
+  Forkimplementierung, Originaltabellen und Windows-Änderungen bleiben außerhalb
+  des Commits. Original-EXE wird nicht ausgeführt.
+- **Abweichungen:**74 numerische Kontrollfälle:46 `parity`,18 `corrected_bug`,
+  sechs `unverified`, vier `unsupported`; der HousingView-Probe steht separat.
+  `corrected_bug` bezeichnet im JSON die lesbare Kategorie `corrected bug`.
+  Erwartete Unterschiede bestehen nur bei nachgewiesenen Zahlen auf beiden
+  Seiten. Eigenständige Belege unterscheiden Originalzweige von authored
+  Bounds; verworfene Parserinputs/Quality-Grants und ungeklärte Float-/Clock-
+  Annahmen bleiben ausdrücklich als solche gekennzeichnet. Gleiche Ergebnisse
+  sind begrenzte Vektorenparität, keine universelle Funktionsäquivalenz.
+- **`model` Vergleich:** Optionaler Originalvergleich bindet denselben read-only
+  Modelhash.15 Housezeilen ×24 Felder ×fünf Difficulties ergeben1800 vorbereitete
+  Werte, verglichen als Digest ohne Zahlentabelle. Synthetische Parser-/Building-
+  Arithmetic-Vektoren sowie bestehende Raw-/Schema-CTests sind getrennt.
+  Ein fehlender optionaler Input ergibt77/SKIP; vorhandene kaputte Inputs,
+  falsche Pins, Compilerfehler und ein altes Outputverzeichnis ergeben FAIL.
+  Ohne angeforderten Originalpfad steht der Real-Teil ausdrücklich NOT_RUN.
+- **`READ-ONLY INTEGRATION`:** Der tatsächliche vierte Forkbaustein läuft gegen
+  die unveränderte passende Simulation-Library; Libraryhash und World-Headerblob
+  werden protokolliert. Legal erzeugte alte Profile beobachten ein gespeichertes
+  Populationsfeld0 (damals noch ohne Populationssimulation), während der Fork
+  `max(population,1)` und Shelter als Diagnosebasis einsetzt. Eine reale bezahlte
+  CityV7-Foodlieferung plus umgeschaltete Quality-Option verändert den Bericht
+  bei identischem WorldSnapshot. Das beweist die Annahme im Bericht, keine
+  originale Bewohner-/Food-Quality-Authority. Sieben funktionale Modelkandidaten
+  bleiben Inferred; der stetige Herbalist-Regrant ist separat Sourceaudit.
+- **Pure Fähigkeiten/Integrationsgrenze:** Countdown, Evolution und Konsum sind
+  einzeln verfügbar und werden zusätzlich gegen den tatsächlichen Fork-
+  `step_house` als ausdrücklich authored Komposition getestet. Diese Kontrolle
+  rekonstruiert keinen Kalender. Originale Mauersektoren, Flagproducer,
+  vollständige Actor-/Food-Score-Produktion und neue bezahlte Warenketten bleiben
+  offen. Eine Gate-A-Freigabe betrifft den abgegrenzten Kernvergleich und die
+  Legacy-Nichtregression; Phase B beginnt frühestens mit dem folgenden OE-08.
+- **Review/Regression:** Der Runner prüft Beobachtungen strikt numerisch,
+  kanonische Vektoren, vollständige Ergebnisse und aktuelle Codehashes vor einer
+  öffentlichen Berichtsausgabe. Ein CLI-Regressionstest bindet den gefundenen
+  Dangling-Fork-Fix: Eingabepfad vor `resolve()` prüfen, damit ein vorhandener
+  Defekt kein SKIP wird. Der getrackte Bericht wird ohne private Quellen durch
+  den neuen CTest überprüft. Alle alten Kern-/World-/Save-/Render-/Input-Dateien
+  bleiben bytegleich; tatsächliche Gesamtsuites, Negativfälle und Legacy-Replay
+  stehen in PROGRESS. Unabhängige Vector-/Tool-/Vertragsreviews abgeschlossen.
+
 ### OE-06: getrennte Warenbedarfe, konservative Transfers und Food Quality
 
 - **Revision:** Start am sauberen, live bestätigten `main`

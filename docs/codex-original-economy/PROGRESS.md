@@ -12,8 +12,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-03 | PASS | 12e2f22c94f60402824d8dd0898b9d36086da503 | `.local/original-economy/oe03/`, OE-00/`oe03-verification/` | Isolierter Kern/experimentelle Mauern/Vergleich;33 CTests plus6 finale Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-04 | PASS | a8fd0ce0615d7009eecc373359c8c00b1a3207d4 | `.local/original-economy/oe04/`, OE-00/`oe04-verification/` | Pure16-Typ-/15-Zeilen-Evolution;39 CTests plus12 gezielte Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-05 | PASS | 269e80d850ea7d0e8d90b4853a48cf86f8140bf8 | `.local/original-economy/oe05/`, OE-00/`oe05-verification/` | Neun Timer/drei Visitpfade/elf Provider;33 CTests plus6 Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
-| OE-06 | PASS | im Folgecommit | `.local/original-economy/oe06/`, OE-00/`oe06-verification/` | Pure sechs Waren/Delivery/Konsum/Quality;48 CTests PASS;72 Saves/1485 Policyfälle identisch |
-| OE-07 | TODO | — | — | — |
+| OE-06 | PASS | 88e070865600b39d7296be7a6c821724c5cbe682 | `.local/original-economy/oe06/`, OE-00/`oe06-verification/` | Pure sechs Waren/Delivery/Konsum/Quality;48 CTests PASS;72 Saves/1485 Policyfälle identisch |
+| OE-07 | PASS | im Folgecommit | `.local/original-economy/oe07/`, OE-00/`oe07-verification/`; `core-parity.json` | 74 echte Vergleichsfälle/vier Forkmodule;507 CTests PASS;Gate A bestanden;72 Saves/1485 Policyfälle identisch |
 | OE-08 | TODO | — | — | — |
 | OE-09 | TODO | — | — | — |
 | OE-10 | TODO | — | — | — |
@@ -45,7 +45,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 
 | Gate | Status | Beleg |
 |---|---|---|
-| A | TODO | — |
+| A | PASS | OE-07: gepinnter Vier-Modul-Vergleich/74 Vektoren, Parser-/Quellenbindung/Negativfälle,507 CTests in drei Konfigurationen und exakter Legacy-Replay; begrenzte Kernabnahme, keine Gesamt-Originalparität |
 | B | TODO | — |
 | C | TODO | — |
 | D | TODO | — |
@@ -656,3 +656,106 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Gate A bleibt bis OE-07 offen. Echte neue Producer-/Courier-/Food-Score-
   Produktion, Zeitmapping, ursprüngliche Runtime-/Human-Parität bleiben offen.
   Nächster geplanter Task: OE-07, unabhängiger Forkvergleich und Gate A.
+
+
+### OE-07 – 2026-10-16, Basis 6f6be38
+
+- Sauberen Checkout und Live-`main`
+  `6f6be387128a7f72a64ac6e5439faf2b81df5666` bestätigt; bestehenden Feature-
+  Branch per Fast-forward angeglichen. Originalinventar unverändert1464Dateien /
+  819711091Byte, identischer OE-00-Manifesthash. Beleg
+  `.local/original-economy/oe07/source-state.json`.
+- **Ausführbarer Vergleich:** `tools/original_rules_parity.py` kompiliert eigene
+  numerische Adapter getrennt gegen die tatsächlichen gepinnten Forkmodule und
+  die bestehenden Kerne. Elf Forkdateien am Commit
+  `d861d2912337c09751cb68196f85d5a30752726e` gegen eingebettete SHA-256 geprüft;
+  keine Windows-Integration oder Forkimplementierung in Git. [JSON-Bericht](../original-economy/core-parity.json)
+  und [Entscheidungsmatrix](../original-economy/core-parity.md) enthalten Inputs,
+  erwartete und beobachtete Zahlen, Quellenhashes und Belegverweise.
+- **Finale echte Vergleichsläufe:**
+  `python3 .local/original-economy/oe07/run_final_comparisons.py`: **PASS**.
+  Für Debug/Release/ASan+UBSan jeweils tatsächlich
+  `python3 tools/original_rules_parity.py --fork .local/original-economy/oe00/fork --data .local/gog-extracted/app --configuration NAME --output .local/original-economy/oe07/final-NAME`:
+  **74/74 PASS**,46 `parity`,18 `corrected_bug`, sechs `unverified`, vier
+  `unsupported`. Parserwerte/Negativsyntax, Ringe/Sättigungsreihenfolge, Needs/
+  Evolution, neun Timerrollen/Provider, Konsum, alle sechs Waren und
+  Teillieferungen, FoodQuality und die ausdrücklich authored Schrittkomposition.
+  Eigenständige Goldens unterscheiden insbesondere Warenfelder, Next-/Current-
+  Zeile, Elitefaktor, Quellfallback, leere Häuser und binary32-Grenzen.
+- **Viertes Forkmodul:** Der separate `HousingViewProbe.cpp` ruft tatsächlich
+  `OriginalHousingView` auf.18 Beobachtungen prüfen sieben funktionale Kandidaten,
+  Populationsfeld0 in legal erzeugten alten Profilen, Shelter-/`max(population,1)`-
+  Diagnoseannahme und die Wirkung einer wählbaren FoodQuality nach echter CityV7-
+  Farm-/Road-/Courierlieferung. Vollständige WorldSnapshots bleiben gleich.
+  Alte Profile modellierten noch keine Population; daraus wird keine physisch
+  leere Original-House abgeleitet. Stetiger Herbalist-Regrant ist Sourceaudit,
+  kein zusätzlicher beobachteter Besuch. Ein vollständiger Originalreport als
+  neue Gameplay-Authority bleibt bewusst unsupported.
+- **Originalmodell:** Je Konfiguration1800 vorbereitete Housewerte (15×24×5)
+  auf beiden Seiten in gleicher Reihenfolge als FNV-Digest verglichen, mit
+  demselben Model-SHA. Keine Originalzahlentabelle ausgegeben/committet.
+  Building-/Parserkontrollen sind getrennte synthetische Fälle; Raw-/Schema-
+  Suites laufen zusätzlich. Öffentliche Projektionen aller drei finalen Reports
+  identisch. Compilerflags `-Wall -Wextra -Wpedantic -Wconversion -Wshadow`,
+  keine Warnungen; Quellen, Libraryhash und Realmodell vor/nach dem Run geprüft.
+- **Runner-Vertrag/Negativfälle:**24 hermetische Tests in
+  `tests/test_original_rules_parity.py`, darunter unabhängige Goldens, strikte
+  numerische Resultate, verfälschte Pins/Manifestwerte, defekte Pfade, vorhandene
+  fehlerhafte Modelldaten, Outputschutz und manipulierte/veraltete Reports.
+  Die gemockten Orchestrierungskontrollen sind ausdrücklich getrennt von den
+  oben tatsächlich kompilierten/ausgeführten Kernvergleichen. Der verpflichtende
+  Berichtstest braucht keine privaten Quellen und prüft den getrackten Report
+  gegen kanonische Fälle/Quellenhashes. Root-Review fand und behob zusätzlich
+  einen CLI-Dangling-Fork-SKIP vor `resolve()`; finaler Regressionstest PASS.
+- **Direkte CLI-Kontrollen:** Sechs tatsächliche Aufrufe in
+  `cli-negative-final.json`: fehlender Fork→77, vorhandene Rootdatei/defekter
+  Symlink/falscher Sourcepin/altes Outputverzeichnis→1, ausdrücklich fehlendes
+  Originalmodell→77 mit weiterhin74 bestandenen synthetischen Fällen und
+  erfolgreichem HousingView-Probe. Vorhandener alter Output bleibt bytegleich;
+  echte beschädigte Quellen werden nicht als fehlend geskippt. Ohne `--data`
+  steht der Real-Teil NOT_RUN, geprüft im Runner-Vertragstest.
+- **Vollständige Phasen-Gate-Suites:**
+  `python3 .local/original-economy/oe07/run_full_validation.py`: **PASS**.
+  Je Debug, Release und ASan+UBSan/RelWithDebInfo explizit konfiguriert, vor dem
+  ersten CTest mit `ctest --test-dir BUILD -N` alle168 damals registrierten
+  Tests ermittelt und sämtliche Targets frisch gebaut. Danach vollständiges
+  `ctest --test-dir BUILD --output-on-failure -j 2`: je168/168 PASS, keine
+  Skips/Fehler und keine Compilerwarnungen. Getrennte TMPDIRs verhindern
+  Kollisionen der alten Dateifixtures zwischen Konfigurationen. Laufzeiten:
+  Debug1182.83s, Release83.80s, ASan/UBSan322.32s; einschließlich aller neuen
+  Kerntests und sämtlicher alter City-v13/v16-Suites/Endurance/Determinismus.
+  Vollständige Befehle und Logs in `{debug,release,sanitizer}-full.json`.
+- **Neue CTest-Registrierung:** Nach Abschluss aller Builds nur den unabhängigen
+  Python-Vertragstest addiert; alte Targets unverändert. Anschließend
+  `python3 .local/original-economy/oe07/run_new_ctest.py release sanitizer` und
+  separat `... debug`: Konfiguration/`ctest -N` mit169 registrierten Tests,
+  danach `ctest --test-dir BUILD --output-on-failure -V -R '^original-rules-parity-contract$'`:
+  je1/1 PASS mit allen24 Untertests. Zusammen **507 CTests PASS**, jede finale
+  Registrierung in jeder Konfiguration tatsächlich ausgeführt. Keine privaten
+  Quellen für den neuen getrackten Berichtstest erforderlich. Genaue Logs in
+  `{debug,release,sanitizer}-contract.json`; alte komplette LastTest-Logs separat
+  aufbewahrt. Die unveränderten168 alten Tests wurden nicht unnötig wiederholt.
+- **Vollständiger Legacy-Vergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe07-verification`:
+  **PASS**. Alle72 vollständigen Savebyte-Verträge und72 tatsächlichen Snapshot-
+  Projektionen,1485 Policyfälle auf167 vollständigen Managern (165 vorbereitet/
+  zwei alte Konflikte), elf Rampen- und zehn Brücken-Neustartpaare bleiben exakt.
+  Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  Sourcehash während des gesamten Runs
+  `a529b777738f2d7607a5fb54fce062c93515206af660d986283ef4958b724622`.
+  Originalinventar bleibt unverändert; tatsächliche Berichte/Logs im genannten
+  Output. Scripted/Software-/Save-Belege sind keine native Human-Abnahme.
+- **Quellenschutz/Review:** Alle448 vorher getrackten Dateien unter
+  `src/tests/tools/resources` bytegleich zur Startrevision. CMake erhält nur
+  die neue Python-Testregistrierung. Finale Code-/Build-Hashes in
+  `validated-task-source.json`, alte Quellen in `legacy-source-identity.json`.
+  Unabhängige Vector-, Compiler-/Runner-, HousingView- und Gesamtvertragsreviews
+  ohne verbleibende Befunde; Quellenhashes/öffentliche Daten/Links/Diff geprüft.
+- **Gate A: PASS** für Parser-/Quellenbindung, unabhängigen tatsächlichen
+  Vier-Modul-Kernvergleich, dokumentierte Korrekturen/Annahmen und exakte alte
+  World-/Save-Verträge. Die isolierten Kernfähigkeiten sind verfügbar; bewusst
+  ausgeschlossene Diagnose-/Kalenderwrapper und unbestätigte Originalmechanik
+  werden nicht als implementiertes Gameplay gezählt. Originale Gesamtparität,
+  bezahlte neue Versorgung und Human-Akzeptanz bleiben offen. Eigener OE-07-
+  Commit und delegierter PR/Merge folgen nach diesem PASS. Nächster Task: OE-08.
