@@ -8,8 +8,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
 | OE-01 | PASS | 11211bbe6f579b6171615f6e75ed6fffbfd53cdf | `.local/original-economy/oe01/`, OE-00/`oe01-verification/` | Raw-Reader/Provenance;6 finale CTests PASS;72 Saves/1485 Policyfälle identisch; keine World-Anbindung |
-| OE-02 | PASS | im Folgecommit | `.local/original-economy/oe02/`, OE-00/`oe02-verification/` | Faktenregister v1/typed IDs/5 Goldens;12 CTests PASS;72 Saves/1485 Policyfälle identisch |
-| OE-03 | TODO | — | — | — |
+| OE-02 | PASS | df13b2e9bc0112d66c188276b5753c92ce6a5a40 | `.local/original-economy/oe02/`, OE-00/`oe02-verification/` | Faktenregister v1/typed IDs/5 Goldens;12 CTests PASS;72 Saves/1485 Policyfälle identisch |
+| OE-03 | PASS | im Folgecommit | `.local/original-economy/oe03/`, OE-00/`oe03-verification/` | Isolierter Kern/experimentelle Mauern/Vergleich;33 CTests plus6 finale Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-04 | TODO | — | — | — |
 | OE-05 | TODO | — | — | — |
 | OE-06 | TODO | — | — | — |
@@ -287,3 +287,101 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Task-Source eingefroren. Eigener OE-02-Commit sowie delegierter PR/Merge
   folgen nach diesem PASS. Originalspiel-/Human-Parität und Gate A bleiben
   ausdrücklich offen; nächster geplanter Task OE-03.
+
+
+### OE-03 – 2026-10-16, Basis d1a082d
+
+- Sauberen Checkout und Live-`main`
+  `d1a082d4f9457690367f27a5fe7099904f5b90ac` geprüft; vorhandenen Feature-
+  Branch per Fast-forward angeglichen. Originalinventar weiterhin 1464 Dateien /
+  819711091 Byte, derselbe Manifesthash wie OE-00/OE-02. Quelle:
+  `.local/original-economy/oe03/source-state.json`.
+- **EXE-Belege:** `python3 .local/original-economy/oe03/check-desirability-evidence.py`:
+  **PASS**, 15 begrenzte Fenster / 1233 Instruktionen / 3853 Bytes und zwei
+  Datenprüfungen, null Abweichungen, EXE unverändert. Der neue
+  [statische Vertrag](../reverse/original-desirability-contract.md) bindet diese
+  Belege an EXE-/Modellhash und benennt die offenen Mauergrenzen. Originalspiel
+  nicht ausgeführt. Wesentliche Fork-Korrektur: `step <= 0` ändert den Wert
+  nach jedem Ring. Keine Übernahme des unbewiesenen Default-`Intended`.
+- **Kern:** Eigenständige SDL-/World-freie Library mit modelgetriebenem
+  Vier-Feld-Adapter, expliziten Footprints, geordneten Quellen, Quadratperimetern,
+  Vorzeichen-/Nullbehandlung, Clamp je Addition und vollständigem Hausmaximum.
+  Grenzen und Reproduktion in
+  [desirability.md](../original-economy/desirability.md). Konstruktor und ganze
+  Batches werden vor Mutation geprüft; Original-Mauerparität bleibt unbekannt,
+  `ExperimentalUniform16` ausdrücklich optional/defaultOFF.
+- **Build/CTest:** Vor dem ersten Lauf in allen drei neu konfigurierten Builds
+  `ctest --test-dir BUILD -N` ausgeführt: 162 registrierte Tests. Debug,
+  Release und RelWithDebInfo mit ASan/UBSan bauten die beiden Model-Testtargets,
+  Model-Inspector, Desirability-Test/Compare sowie City-v13-Testtarget sauber.
+  Jeweils **11/11 ausgewählte CTests PASS**, insgesamt 33 Ausführungen:
+  vier `original-model-{data,schema}-{synthetic,real}`, zwei
+  `original-desirability-{synthetic,real}` und fünf
+  `sandbox-city-v13-{base,persistence,districts,determinism,endurance}`.
+  Laufzeiten der Auswahl: Debug 278.46 s, Release 12.32 s, Sanitizer 60.22 s.
+  Exakte Configure-/Inventory-/Build-/CTestbefehle und Exitcodes:
+  `.local/original-economy/oe03/{debug,release,sanitizer}.json`; vollständige
+  Ausgaben in den gleichnamigen `*-*.log`. Keine Compilerwarnung oder
+  Sanitizerdiagnose. Dies ist die relevante Auswahl, kein vorgezogenes Gate A.
+- Nach Ergänzung der Richtungs-/Mehrzellen-Mauerfälle, Translation und falscher
+  Quellenlabels den finalen neuen Testtarget in **allen drei Konfigurationen
+  erneut gebaut** und die beiden neuen CTests mit `-V` ausgeführt:
+  **6/6 PASS**. Je Konfiguration 59.481 synthetische Checks sowie 306 reale
+  Checks / 35 vorbereitete Quellen aus sieben Typen × fünf Difficulties,
+  ohne Skip. Belege `*-desirability-final.json` und zugehörige Logs. Die
+  unveränderten alten Model-/City-v13-Tests benötigen deshalb keinen neuen
+  Produktionsstand. Direkte Vorproben waren ebenfalls grün, ersetzen diese
+  CTest-Abnahme aber nicht.
+- Unabhängiges Distanzorakel statt Ringnachbau; 180 deterministische
+  Zufallsszenen, Spiegelung/Translation, Seiten 1–6, Rand-Clipping, Null-/negative
+  Quellen, reihenfolgeabhängige Sättigung, Hausmaximum/Bonus, alle Eingabe- und
+  int32-Grenzen, atomare späte Batch-Fehler. Mauern: defaultOFF, positive Quellen,
+  acht Richtungen, gleich weit liegende Zellen, gerades Footprint-Zentrum und
+  unabhängiges `atan2`-Orakel für die ausdrücklich authored Hypothese.
+- **Datenfehler:** Direkter finaler Real-Test mit fehlendem Root liefert
+  **77 / SKIP**; vorhandene beschädigte synthetische Modelldatei liefert
+  **1 / FAIL**, wie erwartet. Bericht `real-source-negative.json`. Die echten
+  Datentests lasen dagegen das unveränderte Original mit dokumentiertem SHA;
+  Dateibytes und Änderungszeit bleiben gleich.
+- **Vergleichs-CLI:** Zwei frische Läufe erzeugten JSON, zwei CSVs, SVG und HTML
+  vollständig bytegleich; 675 Zellzeilen und fünf Hausabfragen unabhängig in
+  Python nachgerechnet. Fünf negative Ausgaben-/Quellenfälle verweigern bestehende
+  Ziele, Pfade außerhalb `.local`, Originalverzeichnis, Symlink und fehlendes
+  Modell ohne Schreibzugriff auf diese Ziele. Protokoll:
+  `.local/original-economy/oe03/comparison-check-_je9gm6h/validation.json`.
+  Der stabile Reviewstand unter `oe03/comparison/` ist ebenfalls bytegleich.
+  SVG gerastert und das PNG tatsächlich angesehen: drei lesbare Panels mit
+  identischer Skala, Zellzahlen und Footprint-Markierungen. Keine Grafik- oder
+  Originalzahlenkopie im Git.
+- Gleiche geordnete Pottery-/Market-/Clay-Quellen: Quadratring gegenüber
+  Same-Spec-Manhattan **207/675 unterschiedliche Zellen**, maximal 25 Punkte;
+  gegenüber echten authored City-v13-Helfern **359/675**, maximal 29 Punkte.
+  Der getrennte Geometriekontrollwert wird nicht als tatsächliche alte Regel
+  ausgegeben. Hausaggregation und reine, teilweise überlappende Footprint-
+  Abfragen sind explizit beschrieben; kein bezahlter Spielablauf daraus
+  behauptet. Lokaler Vergleich:
+  `.local/original-economy/oe03/comparison/index.html`.
+- **Quellenschutz:** Alle 435 bereits getrackten Dateien unter
+  `src/tests/tools/resources` bytegleich zum Start-HEAD. CMake erhält nur neue
+  getrennte Library-/CLI-/CTest-Targets; keine produktive App-/World-Verbindung.
+  Bericht `legacy-source-identity.json`, fünf finale Task-Code-/Build-Hashes
+  unter `validated-task-source.json`. Keine Snapshots oder Assertions der
+  alten Tests geändert. API, Arithmetic, CLI und unabhängige Tests separat
+  reviewed, keine blockierenden Befunde.
+- **Vollständiger Legacy-Vergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe03-verification`:
+  **PASS**. Alle 72 vollständigen Savebyte-Verträge und 72 Snapshot-Projektionen,
+  1485 Policyfälle auf 167 vollständigen Managern (165 vorbereitet / zwei alte
+  Konflikte), elf Rampen- und zehn Brücken-Neustartpaare sowie die vorhandenen
+  50 historischen Savebyte-Vergleiche bleiben exakt. Unveränderte bezahlte
+  Rule4-Xia-/Handan-, Transport-, Pixel- und scripted-UI-Fixtures liefen über
+  die bisherigen Produktionspfade. Bericht/Logs unter
+  `.local/original-economy/oe00/oe03-verification/`. Vertragsdigest unverändert
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  während des Runs identischer Sourcehash
+  `9eaf74957381aa5bab88007c829ab84834e831832874a6d9f2cfb8074d039a02` und
+  unverändertes Originalinventar.
+- Abschluss: Dokumentationslinks und Diffprüfung sauber, exakt validierter
+  Task-Code eingefroren. Eigener OE-03-Commit und delegierter PR/Merge folgen
+  nach diesem PASS. Gate A bleibt bis OE-07 offen; keine Originalspiel- oder
+  Human-Parität behauptet. Nächster geplanter Task ist OE-04.
