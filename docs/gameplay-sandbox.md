@@ -1,69 +1,85 @@
-# Logistics sandbox (`sandbox-logistics-v1`)
+# Gameplay sandbox
 
-Optional [Bridges V1](city-v16-bridges.md): explicitly enable rule 5 with City-v16 in
-New Sandbox, or load a schema 21 bridge save. B drags between existing equal-height
-normal bank roads over 1..8 straight water cells. Green/amber/red distinguishes
-affordable, unaffordable and blocked geometry; price 40 + 20/cell, upkeep 0. F3 keeps
-B's diagnostic light. Selection shows ownership/longitudinal restrictions; span
-removal is unavailable in V1. Older saves/defaults keep their versions. Starter:
-`sh tools/test_city_v16_bridges.sh DATA --ui` shows a paid crossing;
-`--ui-build` starts before construction so the player builds it with B and a
-bank-to-bank drag.
+OpenEmperor's sandbox is an independent, authored simulation over read-only
+original map/asset files. It does not load Emperor savegames or claim original
+economy, construction, service or mission rules. Saves keep the explicit
+OpenEmperor profile, rule version and schema; selecting a newer profile never
+rewrites an older save.
 
-The explicit `sandbox-city-v16` rule 1 inherits City-v15 and adds ownership maintenance only. Costs are charged at positive building ages divisible by 400, after real Household taxes, regardless of staffing, pause or fire. Funds may become negative; actual taxes repay debt and sufficiently funded paid construction becomes available again. Existing operations continue normally. Schema 18 adds only `maintenance_spent_total` and signed treasury; schemas 1–17 have no maintenance and retain their old validation. Demolition stops future bills without refunds. Houses and roads have no maintenance; no loans, interest, bankruptcy, new goods or entities are introduced. These are authored OpenEmperor rules. See [maintenance table, exact ordering, persistence and budget acceptance](city-v16.md).
+## Current city play
 
-The opt-in **City-v15** (`sandbox-city-v15`, rule 1/schema 17) adds authored deterministic Health to City-v14. Every 100 placement-relative ticks a healthy, unprotected House gains +1 risk with water, +3 without; risk 100 starts 1,200-tick illness. A paid 120-fund, 1×1 Health Post needs two workers and sends a cargo-free Health Worker by road, prioritizing reachable sick and high-risk Houses. Actual arrival cures and grants 2,400-tick protection. Sick Houses miss demand once, retain goods/current workforce and earn no tax/growth. The starter, Water/quality level caps, goal, economy and older profiles stay exact. J/K select the Post/House-only Health overlay; schema 17 persists authoritative health without migration. No RNG, medicine or reconstructed original rules. See [City-v15](city-v15.md).
+Select **City-v16** in New Sandbox for the current combined city systems. Its
+ordinary default is rule 4; fresh general settings still select City-v11 rule 3.
+Existing preferences and saves retain their choices. See [City systems](city-systems.md)
+for Markets, staffing/operations, demolition, Fire, quality, Water and Health;
+[City-v16](city-v16.md) covers maintenance and its versioned map/geometry rules.
+The [paid city playthrough](city-v16-playthrough.md),
+[startup guidance](economy-start-guidance.md) and
+[long-play diagnosis](city-v16-longplay-stability.md) explain real progression
+without granting inventory, workforce or hidden ticks.
 
-The opt-in **City-v14** (`sandbox-city-v14`, rule 1/schema 16) adds a paid 1×1 Well to City-v13. Four Wells cost 60 each and provide water within inclusive minimum-footprint Manhattan distance five. Water is read-only proximity infrastructure, independent of roads, workers, goods, Service, fire and desirability; it owns no inventory, courier or operation controls. Dry Houses remain effective Level 0/capacity six, but ordinary complete demand still earns 25 tax and historical development. Water restoration immediately unlocks historically earned levels subject to quality; water loss preserves residents until gradual one-per-deadline over-cap decline. The unchanged paid starter costs 1,280, leaves 20 and earns genuine income before a Well purchase. I/U select Well/House-only water overlay; save/recovery derives coverage rather than storing it. Older profiles/defaults are unchanged. The goal remains ten Houses/eight effective Level 2/population 100. See [exact rules, tests and remaining native acceptance](city-v14.md).
+Optional [Bridges V1](city-v16-bridges.md) requires explicit City-v16 rule 5
+(policy 3/schema 21); B drags between equal-height normal bank roads across
+1..8 straight water cells. Price is 40 + 20 per water cell, upkeep zero. F3 keeps
+B's diagnostic-light meaning. Removal is unavailable in V1. The paid starter is
+`sh tools/test_city_v16_bridges.sh DATA --ui`; `--ui-build` starts before construction.
 
-The opt-in **City-v13** (`sandbox-city-v13`, rule 1/schema 15) adds authored residential desirability to City-v12. Building footprint distances within eight logical cells determine a derived score; infrastructure improves spatial quality and industry lowers it. Roads, original terrain, fire, pause and neighboring Houses do not change the score. Effective levels cap historical 2/5-demand development and set resident capacity and actual supplied tax; over-cap residents leave one per demand rather than immediately. Actual House taxes are persisted and transferred into existing accounting on safe demolition; no score or overlay is saved. D/toolbar overlays Houses only, the inspector lists strongest sources, and House placement predicts quality read-only. Existing supply, fire, workforce, goods and road requirements still apply. No original desirability mechanics are inferred and all older profiles/defaults remain unchanged. See [exact rules, scoring, starter and verification](city-v13.md).
+Optional [Ramps V1](city-v16-ramps.md) requires explicit rule 6
+(policy 3/schema 22). P links adjacent normal roads differing by exactly one
+signed level for 40 funds. It adds no workers/goods/upkeep and has no removal in
+V1. The [cliff/ramp visual starter](rendering/cliff-ramp-integration.md) uses
+explicitly authored terrain, not verified original-map slopes. Bridge/Ramp
+selection, preview and owned links do not migrate older saves or defaults.
 
+## Legacy profiles and save compatibility
 
-## City-v12 fire safety
+These profiles remain selectable/readable for compatibility; their milestone
+diaries are not separate current instructions. Rules are authored and frozen per
+profile/version. All values are integer funds/ticks. Base paid construction from
+City-v6 is Road 2, Clay Source 120, Pottery 180, Warehouse 150 and House 80. Road
+removal gives no refund; rejected/unchanged commands spend nothing.
 
-The separately selected `sandbox-city-v12` rule 1 retains City-v11-v4 economy, operations and safe demolition, adding authored deterministic temporary fires. Eligible buildings gain risk every 20 placement-relative ticks; threshold 100 starts a 600-tick incident. A connected, staffed 80-fund/two-worker Fire Watch sends its cargo-free Inspector through existing roads, preferring reachable burning targets before ordinary cyclic patrol. Actual arrival extinguishes and refreshes 2,400-tick protection. Fire Watch itself is immune. Burning work suspends production, worker assignment and new owner dispatch without deleting goods/recipes or blocking active/inbound trips. Houses keep supplying workforce but miss demands during fire with ordinary population decline and no consumption or tax. There is no destruction, RNG, new good or claim of original fire mechanics. Schema 14 stores exact fire state; old profiles remain unchanged. The paid prepared starter adds a Watch on an existing road, costs 1,280, leaves 20 and staffs 24/24. `F` selects its visible tool; primitive fire visuals are tick-derived. City-v11 stays the menu default. See [rules and validation](city-v12.md).
+| Profile | Save schema | Start funds | Added option/cost | Derived goal |
+| --- | --- | ---: | --- | --- |
+| City-v6 | 6 | 1000 | Economy/workforce; base costs above | Four Houses, each with three fulfilled Pottery demands |
+| City-v7 | 7 | 1000 | Farm 160; Food + Pottery demand | Four historical Level-2 Houses |
+| City-v8 | 8 | 1000 | Service Post 100; actual visit coverage required | Four historical Level-2 Houses |
+| City-v9 | 9 | 1000 | Resident workforce and 6/10/16 capacity | Four historical Level-2 Houses and population 48 |
+| City-v10 | 10 | 1000 | Stable variable collections, scalable limits, core 2×2 footprints | Ten Houses, eight historical Level 2, population 100 |
+| City-v11 rules 1/2 | 11 | 1300 | Market 140; rule 2 changes rates/move-in grace | City-v10 goal |
+| City-v11 rule 3 | 12 | 1300 | Operation controls/priorities, no construction-price change | City-v10 goal |
+| City-v11 rule 4 | 13 | 1300 | Safe demolition without refund | City-v10 goal |
+| City-v12 rule 1 | 14 | 1300 | Fire Watch 80 | City-v10 goal |
+| City-v13 rule 1 | 15 | 1300 | Desirability/effective-level caps | Ten Houses, eight current effective Level 2, population 100 |
+| City-v14 rule 1 | 16 | 1300 | Well 60, proximity Water | City-v13 goal |
+| City-v15 rule 1 | 17 | 1300 | Health Post 120 | City-v13 goal |
+| City-v16 rules 1/2 | 18 | 1300 | Ownership maintenance; rule 2 uses 2×2 Well/Post | City-v13 goal |
+| City-v16 rule 3 | 19 | 1300 | Original map permission policy 1 | City-v13 goal |
+| City-v16 rule 4 | 20 | 1300 | Original road/map permission policy 2 | City-v13 goal |
+| City-v16 rule 5 | 21 | 1300 | Authored Bridges, policy 3 | City-v13 goal |
+| City-v16 rule 6 | 22 | 1300 | Authored Ramps, policy 3 | City-v13 goal |
 
-## City-v11 Market and operation profile
+Schemas 1–9 keep their historical fixed collection/one-cell semantics. City-v7
+has ten building/six courier entries; City-v8/v9 have eleven/seven. City-v6–8
+supply eight workers per House; City-v9 and later use actual residents. City-v6
+requires only Pottery, City-v7 adds Food, City-v8 adds Service. From City-v10,
+entities are sorted by stable monotone IDs, core foundations are 2×2 and each
+courier has its own cyclic target cursor. No historical profile acquires a later
+feature on ordinary load.
 
-`sandbox-city-v11` preserves City-v10 and changes only goods distribution. Warehouses deliver Pottery to reachable Markets and Farms deliver Food to reachable Markets. A staffed Market then uses two independent couriers to deliver those goods to Houses. Service Posts still visit Houses directly. There is no Market coverage flag or new good.
+The two explicitly confirmed City-v11 copy upgrades are rule 2→3 (schema 11→12,
+initializing Running/Normal controls) and rule 3→4 (schema 12→13, adding demolition
+history). Both preserve the source and exact saved tick. Other City upgrades,
+including City-v16 geometry/Bridge/Ramp versions, have no implicit migration.
+[City systems](city-systems.md#rule-versions-and-demand) records rates and demand;
+[versioned Water geometry](city-systems.md#water) retains the older 1×1 Well/Post.
+The production schema-1 compatibility adapter described below is a separate
+historical exception.
 
-Markets cost 140, require four workers, occupy 1×1, and hold 16 units of each good. City-v11 starts with 1,300 funds and permits four Markets, 38 buildings and 22 couriers. Inbound deliveries may complete at an unstaffed Market; new outbound dispatch waits for staffing. Stable-ID cyclic selection, target reservations, fixed active targets, road protection and rerouting use the shared City-v10 paths. Disconnected roads therefore define local distribution districts without a stored district field.
-
-The paid Demo spends 1,200, leaves 100 and completes every placement at tick 0. It injects no goods, coverage, population or money. New v11 Worlds retain rule version 3 until native v4 acceptance; v4 remains explicit through validated copy upgrade/restore. Both preserve the unchanged v2 economy: Clay/Food take 32 staffed ticks, Pottery takes 64 processing ticks after its zero-progress start tick, and couriers take five ticks per edge. A new House has an 800-tick population-only move-in grace; failed demand is still recorded and grants no goods, growth or tax. Rule v3 adds player-controlled Running/Paused state and High/Normal/Low workforce priority to working buildings. Schema 12 stores those controls; schema 11 and v1/v2 behavior remain readable and unchanged. See [the complete City-v11 contract](city-v11.md).
-
-City-v11 rule 4 keeps the v3 economy and operations and adds safe typed building demolition. Only physically empty buildings with idle empty owned couriers and no active inbound targets/reservations can be removed; active recipes block at progress zero. There is no refund or goods destruction. Houses lose their population immediately, and earlier Service delivery remains until its own expiry. Active entities are erased, exact footprints and limits freed, IDs never reused and caches refreshed once. Schema 13 retains historical accounting; old rules/schemas load unchanged and v3 requires the explicit **Enable demolition in a copy** upgrade. The modal blocks ticks and map input and Cancel changes no World state. See [City-v11 demolition](city-v11.md#safe-demolition-v4-only).
-
-## City-v10 scaling profile
-
-`sandbox-city-v10` extends City-v9 with scalable stable entity collections rather than new goods or rules. Its maximum city has 20 Houses, four Clay Sources, four Potteries, two Warehouses, two Farms and two Service Posts. Each producer, warehouse and service building owns a courier selected by role, and each courier cycles independently through reachable targets with free capacity.
-
-City-v10 and City-v11 give Clay Sources, Potteries, Warehouses and Houses 2×2 logical occupancy; Farms and Service Posts remain 1×1. The stored cell is the origin and the bottom/right cell is the visual/depth front. Roads stay outside foundations, and couriers select shortest deterministic pairs of orthogonal road entrances. Profiles v1–v9 and their saves keep one-cell behavior.
-
-Two disconnected road networks are supported. Each district needs its own reachable production, storage, Food and Service chain; a route failure in one district leaves the other running. The City-v10 goal is ten Houses, eight Level-2 Houses and population 100. Construction costs, demand timing, population changes, staffing order and tax rates are unchanged from City-v9. See [the complete City-v10 contract](city-v10.md).
-
-## City-v9 population and workforce
-
-`sandbox-city-v9` preserves City-v8 Pottery, Food, Service, tax, route and construction rules and adds authored Household population. A fresh House has 6 residents and the 400-tick demand is its only population clock. A full Pottery + Food + active-Service demand increments the fulfilled count, derives the resulting House level and 6/10/16 capacity, then grows population by at most one. A miss consumes neither ware and reduces population by at most one to a minimum of 2. House level remains historical and never falls. Population rules and numbers are OpenEmperor balance choices, not recovered Emperor mechanics. See [City-v9 rules](city-v9.md).
-
-City-v9 workforce supply is the resident total. A tick-start staffing snapshot allocates complete requirements in ascending Building ID order and is used by both production and new dispatch. Demand changes therefore affect staffing on the next tick. The three-House demo costs 980, leaves 20 funds, and supplies exactly the 18 workers required by its core. Full production needs 28 workers, while four undeveloped Houses provide 24. The goal is four Level-2 Houses and population at least 48. Save schema 9 adds only population to the existing 11/7 City-v8 records; schemas 1–8 remain unchanged.
-
-## City-v8 Service coverage
-
-`sandbox-city-v8` extends City v7 with one 100-fund, two-worker Service Post and cargo-free Courier 7. The walker cycles over reachable Houses through placed sandbox Roads and gives each visited House 1,200 ticks of coverage. City-v8 demand consumes one Pottery and one Food only when coverage is active; any missing input records a miss without consuming either ware. The paid three-House demo costs 980, leaves 20 funds and staffs all core buildings at 18 of 24 available workers. Save schema 8 stores 11 buildings, 7 couriers, coverage expiry ticks and the independent service cursor. See [City-v8 rules](city-v8.md).
-
-City v7 remains independently selectable and retains Food-plus-Pottery demand without Service. Its schema 7 continues to use 10 building and 6 courier entries.
-
-## City-v7 Food and House development
-
-`sandbox-city-v7` preserves City-v6 and adds the authored Farm → Household Food chain. A 160-fund Farm uses 4 workers, produces one Food per 80 staffed ticks, stores 12 and dispatches Courier 6 directly to Houses. Houses reserve and store Food independently from Pottery. Their 400-tick demand consumes one of each only when both are present. Derived levels begin at fulfilled-demand counts 2 and 5; resulting levels pay 25, 40 and 60 funds. The goal is four Level-2 Houses. See [City v7 rules](city-v7.md).
-
-The paid City-v7 demo costs 794 and leaves 206 funds. Its Food number is Farm output plus Food stored in Houses. Farm and Food courier deliberately use muted OpenEmperor marker fallbacks rather than an original asset assignment. Save schema 7 stores the new authoritative Food fields and cursor; schemas 1–6 keep their prior structures.
-
-## City-v6 economy
-
-`sandbox-city-v6` retains the Industry-v5 production, routing, road-removal and capacity rules. It adds the authored treasury, paid construction, derived workforce, 25-fund successful-demand tax, and the four-house/three-fulfilled-demand goal described in [City v6 rules](city-v6.md). Industry-v5 remains available as the legacy alpha sandbox and receives none of these rules.
-
-The City-v6 demo is a paid starter settlement with one production chain and two Houses. Empty mode starts with 1000 funds. Tool buttons show costs and disable when the treasury cannot cover their construction command. The header shows funds and used/supplied workers; the inspector shows staffing and per-House tax contribution. Save schema 6 persists only authoritative economy counters, while workforce and goal progress are derived from the existing building records.
+City-v6's schema-6 treasury identity is `1000 + taxes_collected_total -
+construction_spent_total`; upkeep is absent before City-v16. Its fixed layout has
+nine building/five courier entries, extended to ten/six in City-v7 and eleven/seven
+in City-v8/v9. The legacy goal conditions and fields remain independently checked.
 
 ## Start from the menu
 

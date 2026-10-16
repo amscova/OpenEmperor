@@ -261,20 +261,70 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldHealth.cpp
     src/simulation/WorldMaintenance.cpp
     src/simulation/WorldDesirability.cpp
-    src/simulation/original/ModelData.cpp
-    src/simulation/original/Desirability.cpp
-    src/simulation/original/HouseEvolution.cpp
-    src/simulation/original/OriginalHousingView.cpp
+    src/simulation/WorldOriginalInfluence.cpp
+    src/simulation/WorldOriginalGoods.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
+# Read-only model parser shared by bounded preparation and source fingerprints.
+add_library(openemperor-original-model STATIC
+    src/simulation/original/ModelData.cpp src/simulation/original/ModelSchema.cpp)
+target_include_directories(openemperor-original-model PUBLIC src)
+target_link_libraries(openemperor-original-model PRIVATE OpenSSL::Crypto)
+openemperor_enable_warnings(openemperor-original-model)
+add_executable(openemperor-model-inspect tools/model-inspector/main.cpp)
+target_link_libraries(openemperor-model-inspect PRIVATE
+    openemperor-original-model nlohmann_json::nlohmann_json)
+openemperor_enable_warnings(openemperor-model-inspect)
+# Numerical house rules; Rule7 preparation validates immutable model values.
+# Active evolution/needs processing remains a later World contract.
+add_library(openemperor-original-house-evolution STATIC
+    src/simulation/original/HouseEvolution.cpp)
+target_include_directories(openemperor-original-house-evolution PUBLIC src)
+target_link_libraries(openemperor-original-house-evolution PUBLIC openemperor-original-model)
+openemperor_enable_warnings(openemperor-original-house-evolution)
+add_library(openemperor-original-rules-model STATIC
+    src/simulation/original/OriginalRulesModel.cpp)
+target_include_directories(openemperor-original-rules-model PUBLIC src)
+target_link_libraries(openemperor-original-rules-model PUBLIC openemperor-original-house-evolution)
+openemperor_enable_warnings(openemperor-original-rules-model)
+target_link_libraries(openemperor-simulation PUBLIC openemperor-original-rules-model openemperor-original-desirability openemperor-original-goods-ledger)
+# Explicit visit/countdown/spawn queries, without a World scheduler connection.
+add_library(openemperor-original-service-rules STATIC
+    src/simulation/original/ServiceRules.cpp)
+target_include_directories(openemperor-original-service-rules PUBLIC src)
+target_link_libraries(openemperor-original-service-rules PUBLIC openemperor-original-house-evolution)
+openemperor_enable_warnings(openemperor-original-service-rules)
+# Pure goods transfers/consumption/quality observations; no World/app linkage.
+add_library(openemperor-original-goods-rules STATIC
+    src/simulation/original/GoodsRules.cpp)
+target_include_directories(openemperor-original-goods-rules PUBLIC src)
+target_link_libraries(openemperor-original-goods-rules PUBLIC openemperor-original-house-evolution)
+openemperor_enable_warnings(openemperor-original-goods-rules)
+# Authored transaction accounting; no World, movement or source-generation API.
+add_library(openemperor-original-goods-ledger STATIC src/simulation/OriginalGoodsLedger.cpp)
+target_include_directories(openemperor-original-goods-ledger PUBLIC src)
+target_link_libraries(openemperor-original-goods-ledger PUBLIC openemperor-original-goods-rules)
+openemperor_enable_warnings(openemperor-original-goods-ledger)
+# Independent preparation kernel; no production World or app link.
+add_library(openemperor-original-desirability STATIC
+    src/simulation/original/Desirability.cpp)
+target_include_directories(openemperor-original-desirability PUBLIC src)
+target_link_libraries(openemperor-original-desirability PUBLIC openemperor-original-model)
+openemperor_enable_warnings(openemperor-original-desirability)
+add_executable(openemperor-desirability-compare tools/desirability-compare/main.cpp)
+target_link_libraries(openemperor-desirability-compare PRIVATE
+    openemperor-simulation nlohmann_json::nlohmann_json)
+target_compile_definitions(openemperor-desirability-compare PRIVATE
+    OPENEMPEROR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+openemperor_enable_warnings(openemperor-desirability-compare)
 target_link_libraries(openemperor-maps PUBLIC openemperor-simulation)
 add_library(openemperor-persistence STATIC src/persistence/SandboxSave.cpp
     src/platform/AtomicReplace.cpp)
 target_include_directories(openemperor-persistence PUBLIC src)
 target_link_libraries(openemperor-persistence PUBLIC openemperor-maps openemperor-simulation
-    nlohmann_json::nlohmann_json OpenSSL::Crypto)
+    nlohmann_json::nlohmann_json OpenSSL::Crypto openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-persistence)
 add_library(openemperor-recovery STATIC
     src/persistence/RecoveryStore.cpp
@@ -298,6 +348,76 @@ openemperor_enable_warnings(openemperor-assets)
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(openemperor-original-model-data-tests tests/OriginalModelDataTests.cpp)
+    target_link_libraries(openemperor-original-model-data-tests PRIVATE
+        openemperor-original-model OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-model-data-tests)
+    add_test(NAME original-model-data-synthetic COMMAND openemperor-original-model-data-tests)
+    set(OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT "${CMAKE_SOURCE_DIR}/.local/gog-extracted/app"
+        CACHE PATH "Optional read-only original installation for ModelData CTest")
+    add_test(NAME original-model-data-real COMMAND openemperor-original-model-data-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-model-data-synthetic original-model-data-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-model-data-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-model-schema-tests tests/OriginalModelSchemaTests.cpp)
+    target_link_libraries(openemperor-original-model-schema-tests PRIVATE
+        openemperor-original-model OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-model-schema-tests)
+    add_test(NAME original-model-schema-synthetic COMMAND openemperor-original-model-schema-tests)
+    add_test(NAME original-model-schema-real COMMAND openemperor-original-model-schema-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-model-schema-synthetic original-model-schema-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-model-schema-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-rules-model-tests tests/OriginalRulesModelTests.cpp)
+    target_link_libraries(openemperor-original-rules-model-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-rules-model-tests)
+    add_test(NAME original-rules-model-synthetic COMMAND openemperor-original-rules-model-tests)
+    add_test(NAME original-rules-model-real COMMAND openemperor-original-rules-model-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-rules-model-synthetic original-rules-model-real PROPERTIES TIMEOUT 60)
+    set_tests_properties(original-rules-model-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-desirability-tests tests/OriginalDesirabilityTests.cpp)
+    target_link_libraries(openemperor-original-desirability-tests PRIVATE
+        openemperor-original-desirability OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-desirability-tests)
+    add_test(NAME original-desirability-synthetic COMMAND openemperor-original-desirability-tests)
+    add_test(NAME original-desirability-real COMMAND openemperor-original-desirability-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-desirability-synthetic original-desirability-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-desirability-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-house-evolution-tests tests/OriginalHouseEvolutionTests.cpp)
+    target_link_libraries(openemperor-original-house-evolution-tests PRIVATE
+        openemperor-original-house-evolution OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-house-evolution-tests)
+    add_test(NAME original-house-evolution-synthetic COMMAND openemperor-original-house-evolution-tests)
+    add_test(NAME original-house-evolution-real COMMAND openemperor-original-house-evolution-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-house-evolution-synthetic original-house-evolution-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-house-evolution-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-service-rules-tests tests/OriginalServiceRulesTests.cpp)
+    target_link_libraries(openemperor-original-service-rules-tests PRIVATE
+        openemperor-original-service-rules OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-service-rules-tests)
+    add_test(NAME original-service-rules-synthetic COMMAND openemperor-original-service-rules-tests)
+    add_test(NAME original-service-rules-real COMMAND openemperor-original-service-rules-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-service-rules-synthetic original-service-rules-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-service-rules-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-goods-rules-tests tests/OriginalGoodsRulesTests.cpp)
+    target_link_libraries(openemperor-original-goods-rules-tests PRIVATE
+        openemperor-original-goods-rules OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-goods-rules-tests)
+    add_test(NAME original-goods-rules-synthetic COMMAND openemperor-original-goods-rules-tests)
+    add_test(NAME original-goods-rules-real COMMAND openemperor-original-goods-rules-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-goods-rules-synthetic original-goods-rules-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-goods-rules-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-great-wall-dependency-paths-tests tests/GreatWallDependencyPathsTests.cpp)
     target_link_libraries(openemperor-great-wall-dependency-paths-tests PRIVATE openemperor-maps)
     openemperor_enable_warnings(openemperor-great-wall-dependency-paths-tests)
@@ -357,6 +477,21 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-sandbox-view-tests PRIVATE openemperor-recovery SDL3::SDL3
         openemperor-version)
     openemperor_enable_warnings(openemperor-sandbox-view-tests)
+    add_executable(openemperor-original-economy-save-view-tests tests/OriginalEconomySaveViewTests.cpp
+        src/app/SandboxView.cpp src/renderer/BridgeRenderer.cpp src/renderer/RampRenderer.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/FireSpriteSet.cpp src/app/WalkerPose.cpp src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
+        src/app/VisualSelection.cpp
+        src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
+        src/renderer/WalkerSpriteSet.cpp)
+    target_sources(openemperor-original-economy-save-view-tests PRIVATE src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    target_link_libraries(openemperor-original-economy-save-view-tests PRIVATE openemperor-recovery SDL3::SDL3
+        openemperor-version)
+    openemperor_enable_warnings(openemperor-original-economy-save-view-tests)
+    target_compile_definitions(openemperor-original-economy-save-view-tests PRIVATE
+        OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    add_test(NAME original-economy-save-view COMMAND openemperor-original-economy-save-view-tests)
+    set_tests_properties(original-economy-save-view PROPERTIES TIMEOUT 60)
+
     add_executable(openemperor-sandbox-gate-budget-view-tests
         tests/SandboxGateBudgetViewTests.cpp tests/GateBudgetPreflightShim.cpp
         src/app/SandboxView.cpp src/renderer/BridgeRenderer.cpp src/renderer/RampRenderer.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/FireSpriteSet.cpp src/app/WalkerPose.cpp src/app/SandboxUiLayout.cpp
@@ -490,13 +625,6 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-map-rules-preflight-tests)
     add_test(NAME map-rules-selected-worker COMMAND openemperor-map-rules-preflight-tests)
     set_tests_properties(map-rules-selected-worker PROPERTIES TIMEOUT 30)
-    add_executable(openemperor-original-rules-tests tests/OriginalRulesTests.cpp)
-    target_link_libraries(openemperor-original-rules-tests PRIVATE openemperor-simulation)
-    openemperor_enable_warnings(openemperor-original-rules-tests)
-    add_test(NAME original-rules COMMAND openemperor-original-rules-tests)
-    set_tests_properties(original-rules PROPERTIES TIMEOUT 30
-        ENVIRONMENT "OPENEMPEROR_GAME_DIR=$ENV{OPENEMPEROR_GAME_DIR}")
-
     add_executable(openemperor-map-input-tests tests/MapViewInputTests.cpp
         src/app/MapBrowser.cpp tests/MapDebugViewInputAdapter.cpp src/renderer/TerrainPreviewRenderer.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
@@ -683,6 +811,61 @@ if(BUILD_TESTING)
         set_tests_properties(sandbox-city-v16-${maintenance_test} PROPERTIES TIMEOUT 900)
     endforeach()
 
+    add_executable(openemperor-original-scheduler-tests tests/OriginalSchedulerTests.cpp)
+    target_include_directories(openemperor-original-scheduler-tests PRIVATE src)
+    openemperor_enable_warnings(openemperor-original-scheduler-tests)
+    add_test(NAME original-scheduler COMMAND openemperor-original-scheduler-tests)
+    set_tests_properties(original-scheduler PROPERTIES TIMEOUT 30)
+
+    add_executable(openemperor-original-scheduler-world-tests tests/OriginalSchedulerWorldTests.cpp)
+    target_link_libraries(openemperor-original-scheduler-world-tests PRIVATE openemperor-simulation)
+    openemperor_enable_warnings(openemperor-original-scheduler-world-tests)
+    add_test(NAME original-scheduler-world COMMAND openemperor-original-scheduler-world-tests)
+    set_tests_properties(original-scheduler-world PROPERTIES TIMEOUT 120)
+
+    add_executable(openemperor-original-economy-save-tests tests/OriginalEconomySaveTests.cpp)
+    target_link_libraries(openemperor-original-economy-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-economy-save-tests)
+    add_test(NAME original-economy-save COMMAND openemperor-original-economy-save-tests)
+    set_tests_properties(original-economy-save PROPERTIES TIMEOUT 30)
+
+    add_executable(openemperor-original-influence-world-tests tests/OriginalInfluenceWorldTests.cpp)
+    target_link_libraries(openemperor-original-influence-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-influence-world-tests)
+    add_test(NAME original-influence-world COMMAND openemperor-original-influence-world-tests)
+    set_tests_properties(original-influence-world PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-influence-save-tests tests/OriginalInfluenceSaveTests.cpp)
+    target_link_libraries(openemperor-original-influence-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-influence-save-tests)
+    add_test(NAME original-influence-save COMMAND openemperor-original-influence-save-tests)
+    set_tests_properties(original-influence-save PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-goods-ledger-tests tests/OriginalGoodsLedgerTests.cpp)
+    target_link_libraries(openemperor-original-goods-ledger-tests PRIVATE openemperor-original-goods-ledger)
+    openemperor_enable_warnings(openemperor-original-goods-ledger-tests)
+    add_test(NAME original-goods-ledger COMMAND openemperor-original-goods-ledger-tests)
+    set_tests_properties(original-goods-ledger PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-goods-world-tests tests/OriginalGoodsWorldTests.cpp)
+    target_link_libraries(openemperor-original-goods-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-goods-world-tests)
+    add_test(NAME original-goods-world COMMAND openemperor-original-goods-world-tests)
+    set_tests_properties(original-goods-world PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-goods-save-tests tests/OriginalGoodsSaveTests.cpp)
+    target_link_libraries(openemperor-original-goods-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-goods-save-tests)
+    add_test(NAME original-goods-save COMMAND openemperor-original-goods-save-tests)
+    set_tests_properties(original-goods-save PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-economy-rule-gate-tests
+        tests/OriginalEconomyRuleGateTests.cpp)
+    target_link_libraries(openemperor-original-economy-rule-gate-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-economy-rule-gate-tests)
+    add_test(NAME original-economy-rule-gate COMMAND openemperor-original-economy-rule-gate-tests)
+    set_tests_properties(original-economy-rule-gate PROPERTIES TIMEOUT 30)
+
     add_executable(openemperor-city-start-guidance-tests
         tests/CityStartGuidanceTests.cpp)
     target_link_libraries(openemperor-city-start-guidance-tests
@@ -704,6 +887,22 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-alpha-endurance)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME original-economy-cli COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/tests/test_original_economy_cli.py --executable $<TARGET_FILE:openemperor>)
+        set_tests_properties(original-economy-cli PROPERTIES TIMEOUT 60
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME original-rules-parity-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_original_rules_parity.py)
+        set_tests_properties(original-rules-parity-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME original-influence-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_original_influence_runner.py)
+        set_tests_properties(original-influence-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME original-goods-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_original_goods_runner.py)
+        set_tests_properties(original-goods-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME map-corpus-runner COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_verify_map_corpus.py)
         set_tests_properties(map-corpus-runner PROPERTIES TIMEOUT 20
@@ -1191,6 +1390,36 @@ openemperor_enable_warnings(openemperor-original-roads-fixture)
 
 get_target_property(bridge_fixture_sources openemperor-city-v16-playthrough-fixture SOURCES)
 list(REMOVE_ITEM bridge_fixture_sources tools/CityV16PlaythroughFixture.cpp)
+add_executable(openemperor-original-influence-fixture EXCLUDE_FROM_ALL tools/OriginalInfluenceFixture.cpp)
+target_link_libraries(openemperor-original-influence-fixture PRIVATE openemperor-persistence)
+openemperor_enable_warnings(openemperor-original-influence-fixture)
+add_executable(openemperor-original-influence-play EXCLUDE_FROM_ALL
+    tools/OriginalInfluencePlay.cpp ${bridge_fixture_sources})
+target_compile_definitions(openemperor-original-influence-play PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+target_link_libraries(openemperor-original-influence-play PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+openemperor_enable_warnings(openemperor-original-influence-play)
+add_executable(openemperor-original-goods-fixture EXCLUDE_FROM_ALL tools/OriginalGoodsFixture.cpp)
+target_link_libraries(openemperor-original-goods-fixture PRIVATE openemperor-persistence)
+openemperor_enable_warnings(openemperor-original-goods-fixture)
+add_executable(openemperor-original-goods-play EXCLUDE_FROM_ALL
+    tools/OriginalGoodsPlay.cpp ${bridge_fixture_sources})
+target_compile_definitions(openemperor-original-goods-play PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+target_link_libraries(openemperor-original-goods-play PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+openemperor_enable_warnings(openemperor-original-goods-play)
+if(BUILD_TESTING)
+    add_executable(openemperor-original-influence-view-tests tests/OriginalInfluenceViewTests.cpp ${bridge_fixture_sources})
+    target_compile_definitions(openemperor-original-influence-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    target_link_libraries(openemperor-original-influence-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-influence-view-tests)
+    add_test(NAME original-influence-view COMMAND openemperor-original-influence-view-tests)
+    set_tests_properties(original-influence-view PROPERTIES TIMEOUT 60)
+    add_executable(openemperor-original-goods-view-tests tests/OriginalGoodsViewTests.cpp ${bridge_fixture_sources})
+    target_compile_definitions(openemperor-original-goods-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    target_link_libraries(openemperor-original-goods-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-goods-view-tests)
+    add_test(NAME original-goods-view COMMAND openemperor-original-goods-view-tests)
+    set_tests_properties(original-goods-view PROPERTIES TIMEOUT 60)
+endif()
 add_executable(openemperor-city-v16-bridges-fixture EXCLUDE_FROM_ALL
     tools/CityV16BridgesFixture.cpp ${bridge_fixture_sources})
 target_link_libraries(openemperor-city-v16-bridges-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
@@ -1219,6 +1448,21 @@ add_executable(openemperor-multi-ramp-visual-fixture EXCLUDE_FROM_ALL
     tools/MultiRampVisualFixture.cpp ${bridge_fixture_sources})
 target_link_libraries(openemperor-multi-ramp-visual-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-multi-ramp-visual-fixture)
+
+# Explicit standalone experiment: no production renderer, World or save hooks.
+add_executable(openemperor-original-ramp-prototype EXCLUDE_FROM_ALL
+    tools/OriginalRampPrototype.cpp tools/original-ramp/CellTerrain.cpp)
+target_link_libraries(openemperor-original-ramp-prototype PRIVATE openemperor-maps SDL3::SDL3 ZLIB::ZLIB)
+target_compile_definitions(openemperor-original-ramp-prototype PRIVATE
+    OPENEMPEROR_PROTOTYPE_RESOURCES="${CMAKE_CURRENT_SOURCE_DIR}/resources/compatibility/gog-derived-2.0.0.2-en-assetset-1")
+openemperor_enable_warnings(openemperor-original-ramp-prototype)
+if(BUILD_TESTING)
+    add_executable(openemperor-original-ramp-cell-tests
+        tests/OriginalRampCellTerrainTests.cpp tools/original-ramp/CellTerrain.cpp)
+    target_include_directories(openemperor-original-ramp-cell-tests PRIVATE tools)
+    openemperor_enable_warnings(openemperor-original-ramp-cell-tests)
+    add_test(NAME original-ramp-cell-terrain COMMAND openemperor-original-ramp-cell-tests)
+endif()
 
 if(BUILD_TESTING)
     add_executable(openemperor-ramp-rendering-tests tests/RampRenderingTests.cpp src/renderer/RampRenderer.cpp)

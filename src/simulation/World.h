@@ -2,6 +2,10 @@
 #include "simulation/MapPermissions.h"
 #include "simulation/Bridge.h"
 #include "simulation/Ramp.h"
+#include "simulation/OriginalEconomyState.h"
+#include "simulation/OriginalInfluenceState.h"
+#include "simulation/OriginalGoodsState.h"
+#include "simulation/original/Desirability.h"
 
 #include "core/PerformanceDiagnostics.h"
 
@@ -12,6 +16,8 @@
 #include <span>
 #include <string>
 #include <vector>
+
+namespace openemperor::original { class OriginalRulesModel; }
 
 namespace openemperor::simulation {
 
@@ -213,14 +219,44 @@ std::uint32_t current_rule_version(RulesProfile profile);
 bool rule_version_supported(RulesProfile profile,std::uint32_t version);
 const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version);
 
+inline constexpr std::uint32_t kOriginalEconomyRuleVersion=7;
+inline constexpr std::uint32_t kOriginalInfluenceRuleVersion=8;
+inline constexpr std::uint32_t kOriginalGoodsRuleVersion=9;
+inline constexpr std::int64_t original_influence_starting_treasury=2000;
+inline constexpr std::int64_t original_influence_source_cost=60;
+inline constexpr std::size_t original_influence_source_limit=4;
+inline constexpr std::size_t original_influence_purchase_limit=33;
+constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 &&
+        (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion);
+}
+constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalGoodsRuleVersion;
+}
+constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 &&
+        (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
+         version==kOriginalGoodsRuleVersion);
+}
+constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9);
+}
+constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9);
+}
+
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
     return market_profile(profile) ? Rules::city_v11_starting_treasury:
         Rules::starting_treasury;
 }
+constexpr std::int64_t starting_treasury_for(RulesProfile profile,std::uint32_t version) {
+    return original_influence_enabled(profile,version) ? original_influence_starting_treasury:
+        starting_treasury_for(profile);
+}
 
 enum class Object : std::uint8_t {
     Empty, Road, Workshop, Warehouse, ClaySource, Pottery, Household, Farm, ServicePost, Market,
-    FireWatch, Well, HealthPost
+    FireWatch, Well, HealthPost, OriginalInfluenceSource
 };
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
@@ -231,6 +267,28 @@ struct BuildingFootprint {
     int width=1;
     int height=1;
     bool operator==(const BuildingFootprint&) const = default;
+};
+struct OriginalInfluenceContribution {
+    BuildingId building_id=static_cast<BuildingId>(0);
+    OriginalInfluenceSourceType type=OriginalInfluenceSourceType::Well72;
+    Cell origin{};
+    BuildingFootprint footprint{2,2};
+    original::SpreadSpec spread{};
+    int before=0,contribution=0,after=0;
+};
+struct OriginalInfluenceProvenance {
+    BuildingId household_id=static_cast<BuildingId>(0);
+    Cell selected_cell{};
+    int value=0;
+    original::Difficulty difficulty=original::Difficulty::Normal;
+    std::string model_sha256;
+    std::vector<OriginalInfluenceContribution> sources;
+};
+struct OriginalInfluenceCache;
+struct OriginalInfluenceInspection {
+    Cell selected_cell{};
+    int value=0;
+    std::vector<OriginalInfluenceContribution> entries;
 };
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind);
 std::vector<Cell> building_footprint_cells(RulesProfile profile,std::uint32_t rule_version,Object kind,Cell origin);
@@ -260,7 +318,8 @@ const char* workforce_priority_name(WorkforcePriority priority);
 enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySource, PlacePottery,
                          RemoveRoad, PlaceHousehold, PlaceFarm, PlaceServicePost, PlaceMarket,
                          SetBuildingOperation, SetBuildingWorkforcePriority, DemolishBuilding,
-                         PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge, PlaceRamp, RemoveRamp };
+                         PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge, PlaceRamp, RemoveRamp,
+                         PlaceOriginalInfluenceSource };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 struct Command {
@@ -273,6 +332,7 @@ struct Command {
     BridgeId bridge_id{};
     Cell ramp_end{};
     RampId ramp_id{};
+    OriginalInfluenceSourceType source_type=OriginalInfluenceSourceType::Well72;
 };
 Command place_bridge(Cell bank_a,Cell bank_b);
 Command place_ramp(Cell endpoint_a,Cell endpoint_b);
@@ -497,6 +557,9 @@ struct WorldSnapshot {
     std::uint32_t next_bridge_id=1;
     std::vector<RampLink> ramps;
     std::uint32_t next_ramp_id=1;
+    std::optional<OriginalEconomyState> original_economy;
+    std::optional<OriginalInfluenceState> original_influence;
+    std::optional<OriginalGoodsState> original_goods;
     bool operator==(const WorldSnapshot&) const = default;
 };
 struct ResourceInventory {
@@ -511,8 +574,21 @@ const char* delivery_phase_name(CourierPhase phase);
 
 class World {
 public:
-    bool bridges_supported() const { return profile_==RulesProfile::CityV16 && (rule_version_==5 || rule_version_==6); }
-    bool ramps_supported() const { return profile_==RulesProfile::CityV16 && rule_version_==6; }
+    bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
+    bool original_influence_enabled() const { return simulation::original_influence_enabled(profile_,rule_version_); }
+    bool original_goods_enabled() const { return simulation::original_goods_enabled(profile_,rule_version_); }
+    const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
+    const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
+    const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
+    OriginalGoodsBalance original_goods_balance(original::Goods good) const;
+    std::array<OriginalGoodsBalance,original::goods_count> original_goods_balances() const;
+    // Transient on-demand test/diagnostic observation, never save authority.
+    std::uint64_t original_influence_cache_build_count() const { return original_influence_cache_build_count_; }
+    OriginalInfluenceProvenance original_influence_provenance(BuildingId household) const;
+    OriginalInfluenceInspection original_influence_inspection(BuildingId household) const;
+    std::shared_ptr<const original::OriginalRulesModel> original_rules_model() const { return original_rules_model_; }
+    bool bridges_supported() const { return bridges_rule_enabled(profile_,rule_version_); }
+    bool ramps_supported() const { return ramps_rule_enabled(profile_,rule_version_); }
     std::span<const RampLink> ramps() const { return ramps_; }
     const RampLink* ramp_endpoint(Cell cell) const;
     const RampLink* ramp_between(Cell a,Cell b) const;
@@ -528,6 +604,30 @@ public:
           RulesProfile profile=RulesProfile::LogisticsV1,std::uint32_t rule_version=0);
     World(std::shared_ptr<const MapPermissions> permissions,
           RulesProfile profile=RulesProfile::CityV16,std::uint32_t rule_version=0);
+    // Explicit development fixture for infrastructure and paid vacant containers.
+    // Bound models are explicit immutable session inputs. Unbound infrastructure
+    // and clock fixtures remain possible, but never acquire save authority.
+    static World create_original_economy_development(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+    static World restore_original_economy_development(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+    // Map-independent authority validation shared by schema-23 parsing and
+    // explicit development restore. Geometry/accounting still require restore.
+    static void validate_original_economy_snapshot(const WorldSnapshot& snapshot);
+    static World create_original_influence_development(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_influence_development(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static void validate_original_influence_snapshot(const WorldSnapshot& snapshot);
+    // Explicit Rule9/Schema25 accounting foundation; no active goods capability.
+    static World create_original_goods_development(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_goods_development(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static void validate_original_goods_snapshot(const WorldSnapshot& snapshot);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -679,10 +779,16 @@ public:
 private:
     World(int width,int height,std::vector<std::uint8_t> buildable,
           RulesProfile profile,std::uint32_t rule_version,
-          std::shared_ptr<const MapPermissions> permissions);
+          std::shared_ptr<const MapPermissions> permissions,bool original_development=false,
+          std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
     void update_health();
     void update_fire();
-    CommandResult execute_impl(Command command,bool refresh_after);
+    CommandResult execute_impl(Command command,bool refresh_after,bool influence_prepared=false);
+    CommandResult validate_original_influence_command(Command command) const;
+    CommandResult execute_original_influence_command(Command command,bool refresh_after);
+    bool original_influence_finance_valid() const;
+    void rebuild_original_influence_cache();
+    int original_influence_value_at(Cell origin) const;
     std::size_t index(Cell cell) const;
     bool permission_edge_allowed(Cell from,Cell to) const;
     BuildBlocker ramp_land_blocker(Cell cell) const;
@@ -691,7 +797,9 @@ private:
     void restore_bridges(const WorldSnapshot& snapshot);
     void index_bridge(const BridgeSpan& span);
     static World restore_impl(const WorldSnapshot& snapshot,std::vector<std::uint8_t> buildable,
-                              std::shared_ptr<const MapPermissions> permissions);
+                              std::shared_ptr<const MapPermissions> permissions,
+                              bool original_development=false,
+                              std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
     std::optional<std::vector<Cell>> find_road_route(Cell start,Cell goal) const;
     std::optional<std::vector<Cell>> find_route_to_building(Cell start,BuildingId target) const;
     const std::vector<Cell>* route_for_revision();
@@ -721,6 +829,12 @@ private:
     std::uint32_t rule_version_=1;
     std::vector<std::uint8_t> buildable_;
     std::shared_ptr<const MapPermissions> permissions_;
+    std::optional<OriginalEconomyState> original_economy_;
+    std::optional<OriginalInfluenceState> original_influence_;
+    std::optional<OriginalGoodsState> original_goods_;
+    std::shared_ptr<const OriginalInfluenceCache> original_influence_cache_;
+    std::uint64_t original_influence_cache_build_count_=0;
+    std::shared_ptr<const original::OriginalRulesModel> original_rules_model_;
     std::vector<Object> objects_;
     std::vector<std::uint32_t> owners_;
     std::vector<BuildingState> buildings_;

@@ -1,5 +1,13 @@
 # Authored cliff and ramp integration
 
+The later [original ramp asset audit](original-ramp-asset-audit.md) inspects all
+regular Elevation/Terrain records and verifies actual original ramp sprites
+233–244. Direct unchanged-sprite placement fails the existing RampLink fit
+comparison; original foot/surface restoration remains open. Its native-road
+texel correction supersedes the reflected/blended material treatment below.
+The historical key`0x601` observations refer to Terrain slot3/group1 fallback,
+not the newly traced slot16 ordinary ramp groups.
+
 The current renderer groups matching lateral RampLinks and prepares road-derived
 earth/stone material with coherent internal cuts. See
 [joined ramp surfaces](multi-ramp-integration.md) for the four-ramp reproduction,

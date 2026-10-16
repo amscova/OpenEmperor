@@ -163,6 +163,7 @@ struct Layout { std::array<Part,4> parts; };
 using Layouts=std::array<Layout,16>; // X/Y * descending/ascending * adjacency.
 constexpr int raster_side=192,raster_origin=64;
 constexpr std::size_t max_part_runs=4096,max_cache_bytes=3U*1024U*1024U;
+constexpr unsigned material_phases=8;
 std::size_t index(bool x,int slope,unsigned adjacency) {
     return std::size_t((x?0:1)*8+(slope>0?4:0)+(adjacency&3U));
 }
@@ -202,35 +203,39 @@ const assets::RgbaImage* road_image(const assets::RoadVisualProfile* profile,boo
     if(image.width!=78||image.height!=40||image.pixels.size()!=78U*40U*4U)return nullptr;
     return &image;
 }
-SDL_Color surface_material(const assets::RgbaImage* image,bool axis,double t,double side,unsigned adjacency) {
+SDL_Color surface_material(const assets::RgbaImage* image,bool axis,double t,double side,unsigned adjacency,unsigned phase) {
     if(image) {
         const double local=t<.5?t:t-1.;
-        double source_x=39+(axis?40*local-40*side:40*side-40*local);
-        double source_y=20+20*local+20*side;
-        if((side<0&&(adjacency&1U))||(side>=0&&(adjacency&2U))) {
-            // Existing junction art has corner curb clusters. Repeating the
-            // full junction tile on a broad joined slope turns those corners
-            // into new interior stone rows. The authored widened corridor
-            // therefore uses the same image's bounded central earth patch,
-            // selected only by matching-link topology and geometric UVs.
-            // Smooth UV transitions retain both endpoint road joins; no RGB
-            // classification, physical-record table or original-art rewrite.
-            const auto smooth=[](double a,double b,double value) {
-                const auto u=std::clamp((value-a)/(b-a),0.,1.);return u*u*(3-2*u);
-            };
-            const double weight=smooth(.10,.25,t)*(1-smooth(.75,.90,t))*smooth(.08,.20,std::abs(side));
-            const auto fold=[](double value,double span) {
-                double at=std::fmod(value,span*2);if(at<0)at+=span*2;
-                return at<span?at:span*2-at;
-            };
-            // Reflection avoids hard wrap seams. Two incommensurate native
-            // coordinate periods retain the selected road's fine grain.
-            const double earth_x=33+fold(source_x+source_y*.25,11.999);
-            const double earth_y=16+fold(source_y-source_x*.125,7.999);
-            source_x+=(earth_x-source_x)*weight;
-            source_y+=(earth_y-source_y)*weight;
+        int x=int(std::floor(39+(axis?40*local-40*side:40*side-40*local)));
+        int y=int(std::floor(20+20*local+20*side));
+        // A coordinate interpolation between the road and its earth patch
+        // magnified individual source texels into flowing beige streaks. Keep
+        // native texels instead: each prepared pixel selects either the exact
+        // endpoint/outer-road sample or a native central-earth sample.
+        const auto smooth=[](double a,double b,double value) {
+            const auto u=std::clamp((value-a)/(b-a),0.,1.);return u*u*(3-2*u);
+        };
+        const bool joined=side<0?(adjacency&1U):(adjacency&2U);
+        const double weight=smooth(.04,.18,t)*(1-smooth(.82,.96,t))*
+            (joined?1.:1-smooth(.20,.34,std::abs(side)));
+        // Continuous ungraded coordinates cross both the half seam and a
+        // lateral neighbor unchanged. Eight eagerly prepared phases prevent
+        // the same small patch from recurring on every neighboring link.
+        // Wrap the coordinate itself, so phase7/+0.5 and phase0/-0.5
+        // address the same field at the cache boundary as well.
+        const double material_side=std::fmod(side+phase+material_phases,double(material_phases));
+        const int u=int(std::floor(39+(axis?40*t-40*material_side:40*material_side-40*t)));
+        const int v=int(std::floor(20+20*t+20*material_side));
+        const auto positive=[](int value,int divisor){const int r=value%divisor;return r<0?r+divisor:r;};
+        const int chunk_x=int(std::floor(double(u)/6)),chunk_y=int(std::floor(double(v)/4));
+        const auto chunk=material_hash(chunk_x,chunk_y),pixel=material_hash(u,v);
+        if(double(pixel&65535U)/65535.<weight) {
+            // Six-by-four native pieces preserve short grain runs. Offsets
+            // select only this same image's bounded 12x8 earth rectangle;
+            // there is no color classification or additional asset table.
+            x=33+positive(positive(u,6)+int(chunk%12),12);
+            y=16+positive(positive(v,4)+int((chunk>>8)%8),8);
         }
-        const int x=int(std::floor(source_x)),y=int(std::floor(source_y));
         if(x>=0&&y>=0&&x<78&&y<40) {
             const auto at=std::size_t((y*78+x)*4);
             if(image->pixels[at+3]==255)return {image->pixels[at],image->pixels[at+1],image->pixels[at+2],255};
@@ -266,7 +271,7 @@ Parameters parameters(Point p,bool axis,int slope,unsigned adjacency) {
     return result;
 }
 struct Pixel { SDL_Color color{};int owner=0; };
-Pixel slope_pixel(int x,int y,bool axis,int slope,unsigned adjacency,const assets::RgbaImage* image) {
+Pixel slope_pixel(int x,int y,bool axis,int slope,unsigned adjacency,const assets::RgbaImage* image,unsigned phase) {
     const Point center{x+.5,y+.5};auto at=parameters(center,axis,slope,adjacency);
     unsigned count=0;Parameters sample=at;
     for(int i=0;i<4;++i) {
@@ -281,7 +286,7 @@ Pixel slope_pixel(int x,int y,bool axis,int slope,unsigned adjacency,const asset
     }
     if(!count)return {};
     if(at.inside)sample=at;
-    auto color=surface_material(image,axis,std::clamp(sample.t,0.,1.-1e-9),sample.side,adjacency);
+    auto color=surface_material(image,axis,std::clamp(sample.t,0.,1.-1e-9),sample.side,adjacency,phase);
     color.a=Uint8(count*255/4);
     // Only the external near shoulder uses the front painter component. The
     // tread and every joined interior have one back/surface owner.
@@ -293,11 +298,11 @@ void append(Part& part,Run run) {
     if(part.size()==max_part_runs)throw std::logic_error("prepared ramp run bound exceeded");
     part.push_back(run);
 }
-Layout graded_layout(bool axis,int slope,unsigned adjacency,const assets::RgbaImage* image) {
+Layout graded_layout(bool axis,int slope,unsigned adjacency,const assets::RgbaImage* image,unsigned phase=0) {
     Layout result;
     for(int y=-24;y<88;++y) {
         std::array<Pixel,128> row{};
-        for(int x=-64;x<64;++x)row[std::size_t(x+64)]=slope_pixel(x,y,axis,slope,adjacency,image);
+        for(int x=-64;x<64;++x)row[std::size_t(x+64)]=slope_pixel(x,y,axis,slope,adjacency,image,phase);
         for(int x=0;x<128;) {
             const auto pixel=row[std::size_t(x)];if(!pixel.color.a){++x;continue;}
             int end=x+1;while(end<128&&row[std::size_t(end)].owner==pixel.owner&&same(row[std::size_t(end)].color,pixel.color))++end;
@@ -370,7 +375,7 @@ bool hit_runs(Point p,const Part& part) {
     return false;
 }
 }
-struct RampPresentation::Data { Layouts layouts; };
+struct RampPresentation::Data { std::array<Layouts,material_phases> phases; };
 RampPresentation::RampPresentation()=default;
 RampPresentation::~RampPresentation()=default;
 RampPresentation::RampPresentation(RampPresentation&&) noexcept=default;
@@ -378,16 +383,21 @@ RampPresentation& RampPresentation::operator=(RampPresentation&&) noexcept=defau
 void RampPresentation::prepare(const assets::RoadVisualProfile* profile) {
     if(!profile||!profile->replaces_ground){clear();return;}
     auto candidate=std::make_unique<Data>();
-    for(const bool axis:{true,false})for(const int slope:{-1,1})for(unsigned adjacency=0;adjacency<4;++adjacency) {
-        const auto* image=road_image(profile,axis,adjacency);
-        if(image)candidate->layouts[index(axis,slope,adjacency)]=graded_layout(axis,slope,adjacency,image);
+    std::size_t total=bytes(fallback);
+    for(unsigned phase=0;phase<material_phases;++phase) {
+        for(const bool axis:{true,false})for(const int slope:{-1,1})for(unsigned adjacency=0;adjacency<4;++adjacency) {
+            const auto* image=road_image(profile,axis,adjacency);
+            if(image)candidate->phases[phase][index(axis,slope,adjacency)]=graded_layout(axis,slope,adjacency,image,phase);
+        }
+        total+=bytes(candidate->phases[phase]);
     }
-    if(bytes(fallback)+bytes(candidate->layouts)>max_cache_bytes)throw std::logic_error("combined ramp material cache budget exceeded");
+    if(total>max_cache_bytes)throw std::logic_error("combined ramp material cache budget exceeded");
     data_=std::move(candidate);
 }
 void RampPresentation::clear(){data_.reset();}
 std::size_t RampPresentation::geometry_bytes() const {
-    std::size_t count=bytes(fallback)+(data_?bytes(data_->layouts):0)+sizeof(opaque);
+    std::size_t count=bytes(fallback)+sizeof(opaque);
+    if(data_)for(const auto& phase:data_->phases)count+=bytes(phase);
     for(const auto& part:flat)count+=part.capacity()*sizeof(Run);return count;
 }
 bool RampPresentation::draw_part(SDL_Renderer* renderer,const scene::Camera2D& camera,Point ground,const simulation::RampLink& ramp,
@@ -395,9 +405,12 @@ bool RampPresentation::draw_part(SDL_Renderer* renderer,const scene::Camera2D& c
     if(!valid(ramp,half))return false;
     const Layouts* layouts=&fallback;
     if(elevated&&road_material&&data_) {
+        const int lateral=ramp.endpoint_a.x!=ramp.endpoint_b.x?ramp.endpoint_a.y:ramp.endpoint_a.x;
+        const auto phase=unsigned((lateral%int(material_phases)+int(material_phases))%int(material_phases));
+        const auto& prepared=data_->phases[phase];
         const auto i=index(ramp.endpoint_a.x!=ramp.endpoint_b.x,int(ramp.height_b)-int(ramp.height_a),adjacency);
-        bool available=false;for(const auto& p:data_->layouts[i].parts)available|=!p.empty();
-        if(available)layouts=&data_->layouts;
+        bool available=false;for(const auto& p:prepared[i].parts)available|=!p.empty();
+        if(available)layouts=&prepared;
     }
     return draw_runs(renderer,camera,ground,selected(*layouts,ramp,half,front,elevated,adjacency),tint,!elevated);
 }

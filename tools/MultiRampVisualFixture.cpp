@@ -3,6 +3,7 @@
 #include "app/SandboxView.h"
 #include "app/VisualSelection.h"
 #include "assets/RgbaPngEncoder.h"
+#include "assets/RoadVisualProfile.h"
 #include "core/PerformanceDiagnostics.h"
 #include "renderer/RampRenderer.h"
 #include <SDL3/SDL.h>
@@ -40,6 +41,15 @@ void write_png(const oe::assets::RgbaImage& image,const fs::path& path) {
     const auto encoded=oe::assets::encode_rgba_png(image);std::ofstream file(path,std::ios::binary);
     file.write(reinterpret_cast<const char*>(encoded.data()),std::streamsize(encoded.size()));check(bool(file),"PNG write failed");
 }
+void write_crop(const oe::assets::RgbaImage& image,SDL_Rect area,const fs::path& path) {
+    area.x=std::clamp(area.x,0,int(image.width)-1);area.y=std::clamp(area.y,0,int(image.height)-1);
+    area.w=std::min(area.w,int(image.width)-area.x);area.h=std::min(area.h,int(image.height)-area.y);
+    oe::assets::RgbaImage crop;crop.width=std::uint16_t(area.w);crop.height=std::uint16_t(area.h);
+    crop.pixels.resize(std::size_t(area.w*area.h*4));
+    for(int y=0;y<area.h;++y)std::copy_n(image.pixels.data()+std::size_t(((area.y+y)*image.width+area.x)*4),
+        area.w*4,crop.pixels.data()+std::size_t(y*area.w*4));
+    write_png(crop,path);
+}
 void center(oe::SandboxView& view,oe::scene::Point aim) {
     for(int i=0;i<800;++i) {
         const auto screen=view.camera().world_to_screen(aim);const auto map=view.layout().map;
@@ -61,7 +71,7 @@ J scan(const oe::assets::RgbaImage& image,const oe::SandboxView& view,std::uint3
     // No classifier changes art or selects an asset; values are diagnostics only.
     J lines=J::array();
     for(const int y:{114,117,118,119})for(const double side:{-.85,-.5,0.,.5,.85}) {
-        if((state==1)!=(y==114))continue;
+        if((state==1||state==4)!=(y==114))continue;
         s::RampLink link{};link.endpoint_a={115,y};link.endpoint_b={116,y};link.height_a=1;link.height_b=0;
         auto origin=m::terrain_ground({115,std::uint32_t(y)},border);origin.y-=40;
         J samples=J::array();std::set<std::array<int,3>> colors;double luminance=0;int dark=0,background=0;
@@ -80,6 +90,75 @@ J scan(const oe::assets::RgbaImage& image,const oe::SandboxView& view,std::uint3
             {"mean_luminance",luminance/25},{"dark_samples",dark},{"background_samples",background},{"rgb",samples}});
     }
     return lines;
+}
+J walker_witness(const oe::SandboxView& view) {
+    for(const auto& c:view.world().couriers())if(c.path_vertex+1<c.path.size()&&c.edge_progress==2) {
+        const auto a=c.path[c.path_vertex],b=c.path[c.path_vertex+1];
+        if(const auto* ramp=view.world().ramp_between(a,b))return {{"courier",unsigned(c.id)},
+            {"role",unsigned(c.role)},{"cargo",c.cargo},{"edge_progress",c.edge_progress},
+            {"a",{a.x,a.y}},{"b",{b.x,b.y}},{"ramp_id",ramp->id.value}};
+    }
+    return nullptr;
+}
+// This atlas calls the production prepared RampPresentation directly. Its
+// authored links are renderer inputs only, never injected into a World/save.
+// The separate paid Sandbox captures above remain the scene-composition proof.
+J material_atlas(SDL_Renderer* renderer,const fs::path& data,const fs::path& road,const fs::path& root,int lateral_start=10) {
+    const auto profile=oe::assets::load_road_visual_profile(data,road);
+    oe::RampPresentation presentation;presentation.prepare(&profile);J cases=J::array();
+    const auto out=root/"material-atlas";fs::create_directories(out);
+    for(const bool axis:{true,false})for(const int delta:{-1,1})for(const int base:{-2,0,2})
+    for(const int count:{1,2,3,4})for(const double zoom:{1.,2.,4.}) {
+        const auto name=std::string(axis?"x":"y")+"-d"+std::to_string(delta)+"-h"+std::to_string(base)+
+            "-n"+std::to_string(count)+"-z"+std::to_string(int(zoom));
+        std::vector<s::RampLink> links;std::vector<oe::scene::Point> origins;
+        for(int i=0;i<count;++i) {
+            const s::Cell a{axis?10:lateral_start+i,axis?lateral_start+i:10},b{a.x+(axis?1:0),a.y+(axis?0:1)};
+            links.push_back({s::RampId{unsigned(i+1)},a,b,std::int8_t(base),std::int8_t(base+delta),40,0});
+            origins.push_back({double((axis?-40:40)*i),double(20*i-base*40)});
+        }
+        oe::scene::Camera2D camera;camera.zoom=zoom;
+        const auto midpoint=oe::ramp_surface_point(origins[std::size_t(count/2)],links[std::size_t(count/2)],.5,0);
+        camera.offset={700-midpoint.x*zoom,480-midpoint.y*zoom};
+        const auto draw=[&](Uint8 red,Uint8 green,Uint8 blue) {
+            check(SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE)&&SDL_SetRenderDrawColor(renderer,red,green,blue,255)&&SDL_RenderClear(renderer),SDL_GetError());
+            for(int i=0;i<count;++i) {
+                const unsigned adjacency=(i?1U:0U)|(i+1<count?2U:0U);
+                for(int half=0;half<2;++half)for(const bool front:{false,true})
+                    check(presentation.draw_part(renderer,camera,origins[std::size_t(i)],links[std::size_t(i)],half,front,true,
+                        oe::BridgeTint::Normal,adjacency,true),"atlas production Ramp draw failed");
+            }
+            return pixels(renderer);
+        };
+        const auto first=draw(21,56,101),second=draw(200,20,70);
+        J witnesses=J::array();int xmin=1400,ymin=1000,xmax=0,ymax=0;
+        for(int y=0;y<1000;++y)for(int x=0;x<1400;++x) {
+            const auto at=std::size_t((y*1400+x)*4);
+            if(first.pixels[at]==21&&first.pixels[at+1]==56&&first.pixels[at+2]==101)continue;
+            xmin=std::min(xmin,x);ymin=std::min(ymin,y);xmax=std::max(xmax,x);ymax=std::max(ymax,y);
+        }
+        check(xmin>0&&ymin>0&&xmax<1399&&ymax<999,"atlas geometry clipped by viewport");
+        for(int i=0;i<count;++i)for(const double t:{.10,.25,.48,.50,.52,.75,.90})
+        for(const double side:{-.20,0.,.20}) {
+            const auto point=camera.world_to_screen(oe::ramp_surface_point(origins[std::size_t(i)],links[std::size_t(i)],t,side));
+            const int x=int(std::floor(point.x)),y=int(std::floor(point.y));const auto at=std::size_t((y*1400+x)*4);
+            const bool opaque=std::equal(first.pixels.begin()+std::ptrdiff_t(at),first.pixels.begin()+std::ptrdiff_t(at+3),second.pixels.begin()+std::ptrdiff_t(at));
+            // Ascending slopes are exactly edge-on under the unchanged2:1
+            // projection. Only their authoritative center footline is an
+            // interior witness; lateral coordinates collapse onto its border.
+            const bool required=delta<0||side==0.;
+            check(!required||opaque,"atlas slope/half seam depends on clear background: "+name+" t="+std::to_string(t)+" side="+std::to_string(side));
+            witnesses.push_back({{"ramp",i},{"t",t},{"side",side},{"opaque",opaque},{"opacity_required",required},
+                {"rgb",{first.pixels[at],first.pixels[at+1],first.pixels[at+2]}}});
+        }
+        const SDL_Rect crop{xmin-4,ymin-4,xmax-xmin+9,ymax-ymin+9};draw(21,56,101);
+        write_png(pixels(renderer,&crop),out/(name+".png"));
+        cases.push_back({{"file",std::string("material-atlas/")+name+".png"},{"axis",axis?"X":"Y"},
+            {"delta",delta},{"base_height",base},{"ramps",count},{"zoom",zoom},
+            {"two_background_witnesses",witnesses},{"crop",{crop.x,crop.y,crop.w,crop.h}}});
+    }
+    return {{"evidence","production RampPresentation; authored renderer inputs, no World/save authority"},
+        {"cases",cases},{"lateral_start",lateral_start},{"geometry_bytes",presentation.geometry_bytes()}};
 }
 void paid_roads(oe::SandboxView& view,J& commands) {
     std::vector<s::Cell> roads;
@@ -173,9 +252,11 @@ std::size_t ramp_geometry_bytes(const oe::SandboxView& view) {
 int main(int argc,char** argv) {
     SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;
     try {
-        check(argc==4||(argc==5&&(std::string(argv[4])=="--quick"||std::string(argv[4])=="--resume")),
-            "usage: multi-ramp-visual-fixture AUTHORED-DATA PAID-PREBUILD-SAVE FRESH-.local-ROOT [--quick|--resume]");
+        check(argc==4||(argc==5&&(std::string(argv[4])=="--quick"||std::string(argv[4])=="--resume"||std::string(argv[4])=="--atlas"||std::string(argv[4])=="--atlas-wrap")),
+            "usage: multi-ramp-visual-fixture AUTHORED-DATA PAID-PREBUILD-SAVE FRESH-.local-ROOT [--quick|--resume|--atlas|--atlas-wrap]");
         const bool quick=argc==5&&std::string(argv[4])=="--quick",resume=argc==5&&std::string(argv[4])=="--resume";
+        const bool wrap=argc==5&&std::string(argv[4])=="--atlas-wrap";
+        const bool atlas_only=argc==5&&(std::string(argv[4])=="--atlas"||wrap);
         const auto data=fs::canonical(argv[1]),save=fs::canonical(argv[2]),root=fs::weakly_canonical(argv[3]);
         const auto relative=root.lexically_relative(fs::canonical(".local"));
         check(!relative.empty()&&relative!="."&&*relative.begin()!=".."&&!fs::exists(root),"fresh ignored output root required");
@@ -188,9 +269,10 @@ int main(int argc,char** argv) {
         check(!visuals.road.empty(),"real runtime road profile required");
         J report={{"evidence","actual SandboxView; existing authored terrain; paid commands; software/scripted only"},
             {"map",initial.map_relative.generic_string()},{"road_profile",visuals.road.generic_string()},{"states",J::array()}};
-        const std::array<const char*,4> names{"zero","isolated","group","four"};
-        for(int state=0;state<4;++state) {
-            if(resume&&initial.world.ramps.size()!=std::array<std::size_t,4>{0,1,3,4}[std::size_t(state)])continue;
+        const std::array<const char*,5> names{"zero","isolated","group","four","walker"};
+        for(int state=0;state<5&&!atlas_only;++state) {
+            if(resume&&(initial.world.ramps.size()!=std::array<std::size_t,5>{0,1,3,4,4}[std::size_t(state)]||
+                (initial.world.ticks>0)!=(state==4)))continue;
             auto session=m::load_stored_map_session(data,initial.map_relative,m::FootprintPolicy::EdgeByte4x4Preview,m::StoredGraphicsProfile::Slot8);
             const auto border=session.plan.border;oe::SandboxView view(std::move(session),false,s::RulesProfile::CityV16,6);
             view.set_authored_terrain_sides(true);view.set_road_visuals(visuals.road,visuals.road_source);
@@ -200,14 +282,18 @@ int main(int argc,char** argv) {
             if(!view.paused())key(view,SDLK_SPACE);J commands=J::array();
             if(!resume) {
                 paid_roads(view,commands);
-                if(state==1||state==3)paid_ramp(view,114,commands);
+                if(state==1||state>=3)paid_ramp(view,114,commands);
                 if(state>=2)for(const int y:{117,118,119})paid_ramp(view,y,commands);
+                if(state==4) {
+                    for(int tick=0;tick<1000&&walker_witness(view).is_null();++tick)view.tick_once();
+                    check(!walker_witness(view).is_null(),"no actual courier reached the paid Ramp");
+                }
             }
             const auto authority=view.world().snapshot();const auto initial_topology=topology(view);
             check(view.authored_terrain_open_edges()==authority.ramps.size(),"prepared openings differ from owned ramp count");
             key(view,SDLK_F5);key(view,SDLK_F9);park(view);view.save_now();
             fs::copy_file(manual,root/(std::string(names[std::size_t(state)])+".json"));
-            auto focus=m::terrain_ground({115,state==1?114U:117U},border);focus.y-=10;
+            auto focus=m::terrain_ground({115,state==1||state==4?114U:117U},border);focus.y-=10;
             J captures=J::array();
             for(int zoom=0;zoom<4;++zoom) {
                 if(zoom==3) {
@@ -221,9 +307,24 @@ int main(int argc,char** argv) {
                 const auto prefix=std::string(names[std::size_t(state)])+"-z"+std::to_string(zoom);
                 const auto rgba=pixels(renderer);
                 if(!quick||zoom==0||zoom==2)write_png(rgba,root/(prefix+"-full.png"));
-                captures.push_back({{"file",prefix+"-full.png"},{"camera",camera(view)},{"projected_lines",scan(rgba,view,border,state)}});
-                if(!quick&&zoom==0) {
+                J joins=J::array();
+                for(const int y:(state==1||state==4?std::vector<int>{114}:std::vector<int>{118}))
+                for(const int x:{115,116}) {
+                    auto ground=m::terrain_ground({unsigned(x),unsigned(y)},border);
+                    ground.y-=view.world().map_permissions()->cell_height({x,y})*40;
+                    const auto point=view.camera().world_to_screen(ground);const double scale=view.camera().zoom;
+                    const auto file=prefix+(x==115?"-upper-join.png":"-lower-join.png");
+                    const SDL_Rect crop{int(std::floor(point.x-48*scale)),int(std::floor(point.y-40*scale)),int(96*scale),int(80*scale)};
+                    if(!quick)write_crop(rgba,crop,root/file);
+                    joins.push_back({{"file",file},{"cell",{x,y}},{"screen",{point.x,point.y}},
+                        {"height",view.world().map_permissions()->cell_height({x,y})}});
+                }
+                captures.push_back({{"file",prefix+"-full.png"},{"camera",camera(view)},
+                    {"joins",joins},{"projected_lines",scan(rgba,view,border,state)}});
+                if(!quick) {
                     key(view,SDLK_F6);park(view);check(view.render(),SDL_GetError());write_png(pixels(renderer),root/(prefix+"-f6-off.png"));key(view,SDLK_F6);
+                }
+                if(!quick&&zoom==0) {
                     key(view,SDLK_F1);
                     for(int mode=0;mode<8;++mode) {key(view,SDLK_F8);if(mode==0||mode==1||mode==3){park(view);check(view.render(),SDL_GetError());write_png(pixels(renderer),root/(prefix+"-f8-"+std::to_string(mode)+".png"));}}
                     key(view,SDLK_F1);
@@ -248,7 +349,8 @@ int main(int argc,char** argv) {
             oe::performance::set_enabled(false);
             check(view.world().snapshot()==authority,"visual controls mutated World");
             report["states"].push_back({{"name",names[std::size_t(state)]},{"ramps",authority.ramps.size()},
-                {"funds",authority.treasury},{"commands",commands},{"captures",captures},{"pure_frames",100},
+                {"funds",authority.treasury},{"tick",authority.ticks},{"walker",walker_witness(view)},
+                {"commands",commands},{"captures",captures},{"pure_frames",100},
                 {"pure_ms",elapsed},{"counters",counters},{"terrain_edges",view.authored_terrain_side_count()},
                 {"terrain_bytes",view.authored_terrain_geometry_bytes()},{"ramp_geometry_bytes",ramp_geometry_bytes(view)},
                 {"cutouts",view.authored_terrain_open_edges()},
@@ -256,9 +358,14 @@ int main(int argc,char** argv) {
             if(state==0&&!resume)report["preview"]=preview_checks(view,renderer,border,root);
             std::ofstream(root/"summary.json")<<report.dump(2)<<'\n';view.shutdown();
         }
+        if(!resume&&!quick) {
+            report["material_atlas"]=material_atlas(renderer,data,visuals.road,root,wrap?6:10);
+            std::ofstream(root/"summary.json")<<report.dump(2)<<'\n';
+        }
         check(oe::StoredGraphicsRenderer::live_texture_count()==0,"runtime textures leaked");
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
-        std::cout<<"Paid isolated/three-adjacent/four-ramp production scene, pure frames and F5/F9 PASS\n";return 0;
+        std::cout<<(atlas_only?"Production material atlas and two-background seam witnesses PASS\n":
+            "Paid isolated/three-adjacent/four-ramp/Walker production scene, pure frames and F5/F9 PASS\n");return 0;
     } catch(const std::exception& error) {
         oe::performance::set_enabled(false);SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();std::cerr<<error.what()<<'\n';return 1;
     }

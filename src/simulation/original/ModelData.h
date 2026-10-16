@@ -1,56 +1,128 @@
 #pragma once
-// Reader for the game's own balance file (Model/EmperorBuildingModels.txt).
-// The numbers are read from the user's installation at runtime and are never
-// embedded in this repository.
+
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <map>
+#include <optional>
+#include <string>
 #include <string_view>
-#include <vector>
 
 namespace openemperor::original {
 
-inline constexpr int building_field_count = 13;
-inline constexpr int house_field_count = 24;
-inline constexpr int house_row_count = 15;
-inline constexpr int difficulty_count = 5;
+inline constexpr std::size_t building_field_count = 13;
+inline constexpr std::size_t house_field_count = 24;
+inline constexpr std::size_t house_row_count = 15;
+inline constexpr std::size_t difficulty_count = 5;
+inline constexpr std::size_t max_model_bytes = 256 * 1024;
+inline constexpr std::size_t max_model_line_bytes = 4096;
+inline constexpr std::uint16_t max_building_id = 4096;
 
-// Building model field indices (the file's legend letters a..m).
-enum BuildingField : int {
-    BF_Cost, BF_DesValue, BF_DesStep, BF_DesStepSize, BF_DesRange, BF_Employees,
-    BF_FireRisk, BF_DamageRisk, BF_Resource, BF_RiskReducer, BF_EvolveDes,
-    BF_Integrity, BF_FengShui
+// These names identify file columns, not World rules or units.
+enum class BuildingField : std::size_t {
+    Cost = 0, Desirability = 1, DesirabilityStep = 2, DesirabilityStepSize = 3,
+    DesirabilityRange = 4, Employees = 5, FireRisk = 6, DamageRisk = 7,
+    Resource = 8, RiskReducer = 9, EvolveDesirability = 10, Integrity = 11,
+    FengShui = 12
 };
 
-// House model field indices (legend letters a..x).
-enum HouseField : int {
-    HF_DesLow, HF_DesHigh, HF_Herbalist, HF_Water, HF_Acupuncture, HF_Music,
-    HF_Acrobat, HF_Drama, HF_FoodQuality, HF_Hemp, HF_Ceramics, HF_Tea, HF_Silk,
-    HF_Bronzeware, HF_CrimeInc, HF_CrimeBase, HF_Unused16, HF_Capacity, HF_TaxRate,
-    HF_Unused19, HF_DiseaseInc, HF_Ancestor, HF_Confucian, HF_Buddhist
+enum class HouseField : std::size_t {
+    DesirabilityLow = 0, DesirabilityHigh = 1, Herbalist = 2, Water = 3,
+    Acupuncture = 4, Music = 5, Acrobat = 6, Drama = 7, FoodQuality = 8,
+    Hemp = 9, Ceramics = 10, Tea = 11, Silk = 12, BronzewareOrLacquerware = 13,
+    CrimeIncrement = 14, CrimeBase = 15, Unused16 = 16, Capacity = 17,
+    TaxRate = 18, Unused19 = 19, DiseaseIncrement = 20, Ancestor = 21,
+    Confucian = 22, DaoistOrBuddhist = 23
 };
 
-using BuildingRow = std::array<int, building_field_count>;
-using HouseRow = std::array<int, house_field_count>;
+struct ModelBuildingId { std::uint16_t value; };
+struct HouseRowId { std::uint8_t value; };
+enum class Difficulty : std::size_t { VeryEasy = 0, Easy = 1, Normal = 2, Hard = 3, VeryHard = 4 };
 
-struct ModelData {
-    // Indexed by building type; types absent from the file stay all-zero.
-    std::vector<BuildingRow> buildings;
-    std::vector<bool> building_present;
-    std::vector<BuildingRow> building_mods;   // percent, per difficulty
-    std::vector<HouseRow> house_mods;         // additive, per difficulty
-    std::vector<HouseRow> houses;             // base values, 15 rows
+using BuildingRow = std::array<std::int32_t, building_field_count>;
+using HouseRow = std::array<std::int32_t, house_field_count>;
 
-    // Building value after the difficulty percentage (base * pct / 100).
-    int building_value(int type, int field, int difficulty) const;
-    // House value after the additive modifier, clamped to [-99, 100].
-    int house_value(int row, int field, int difficulty) const;
-    bool has_building(int type) const {
-        return type >= 0 && type < static_cast<int>(building_present.size()) && building_present[static_cast<std::size_t>(type)];
-    }
+enum class ModelSourceKind { Memory, File };
+
+struct ModelProvenance {
+    std::uint32_t format_version = 1;
+    ModelSourceKind source_kind = ModelSourceKind::Memory;
+    std::string source_path;
+    std::string sha256;
+    std::size_t byte_count = 0;
+    std::size_t building_count = 0;
+    std::size_t house_count = 0;
+    std::size_t building_modifier_count = 0;
+    std::size_t house_modifier_count = 0;
 };
 
-// Throws std::runtime_error with a readable message on malformed input.
-ModelData parse_model_data(std::string_view text);
-ModelData load_model_data(const std::filesystem::path& game_directory);
+enum class ModelErrorCode {
+    EmptyInput, InputTooLarge, LineTooLong, InvalidCharacter, InvalidSection,
+    UnexpectedText, InvalidRow, InvalidNumber, FieldCount, DuplicateBuilding,
+    DuplicateHouse, RowCount, MissingEndMarker, InvalidPath, MissingFile,
+    NotRegularFile, FileTooLarge, IoFailure, HashFailure
+};
 
-}  // namespace openemperor::original
+struct ModelError {
+    ModelErrorCode code;
+    std::size_t line = 0; // Zero identifies an input/path error without a line.
+    std::string section;
+    std::string reason;
+};
+
+struct ModelDataParser;
+
+// Created only by a successful parse. No absent row has a default model value.
+class ModelData {
+public:
+    [[nodiscard]] bool has_building(ModelBuildingId id) const noexcept;
+    [[nodiscard]] std::size_t building_count() const noexcept;
+    [[nodiscard]] std::int32_t building(ModelBuildingId id, BuildingField field) const;
+    [[nodiscard]] std::int32_t house(HouseRowId row, HouseField field) const;
+    [[nodiscard]] std::int32_t building_modifier(Difficulty difficulty, BuildingField field) const;
+    [[nodiscard]] std::int32_t house_modifier(Difficulty difficulty, HouseField field) const;
+    [[nodiscard]] std::string_view building_label(ModelBuildingId id) const;
+    [[nodiscard]] std::string_view house_label(HouseRowId row) const;
+    [[nodiscard]] const ModelProvenance& provenance() const noexcept;
+
+private:
+    ModelData() = default;
+    friend struct ModelDataParser;
+
+    struct BuildingRecord { BuildingRow values; std::string label; };
+    std::map<std::uint16_t, BuildingRecord> buildings_;
+    std::array<HouseRow, house_row_count> houses_{};
+    std::array<std::string, house_row_count> house_labels_;
+    std::array<BuildingRow, difficulty_count> building_modifiers_{};
+    std::array<HouseRow, difficulty_count> house_modifiers_{};
+    ModelProvenance provenance_;
+};
+
+struct ModelResult {
+    std::optional<ModelData> model;
+    std::optional<ModelError> error;
+    [[nodiscard]] explicit operator bool() const noexcept { return model.has_value(); }
+};
+
+struct ModelFileFingerprint {
+    std::string sha256;
+    std::uint64_t byte_count=0;
+    bool operator==(const ModelFileFingerprint&) const = default;
+};
+
+struct ModelFingerprintResult {
+    std::optional<ModelFileFingerprint> fingerprint;
+    std::optional<ModelError> error;
+    [[nodiscard]] explicit operator bool() const noexcept { return fingerprint.has_value(); }
+};
+
+// Raw signed values only. Difficulty arithmetic and semantic validation belong
+// to the later original-rule contract, not this isolated reader.
+[[nodiscard]] ModelResult parse_model_data(std::string_view bytes);
+[[nodiscard]] ModelResult load_model_data(const std::filesystem::path& game_root);
+// Same bounded, contained, read-only file access as load_model_data. This only
+// hashes bytes; it never parses or prepares model rows at a save I/O boundary.
+[[nodiscard]] ModelFingerprintResult inspect_model_source(const std::filesystem::path& game_root);
+
+} // namespace openemperor::original

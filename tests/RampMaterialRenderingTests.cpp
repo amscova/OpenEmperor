@@ -105,6 +105,29 @@ int main(){SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;try {
     }
     for(const double t:{.02,.98})for(const double side:{-.4,.4})
         check(sample(3,t,side)==sample(0,t,side),"interior material treatment changed the endpoint road join");
+    // Identical full-strip material on consecutive interior links was visible
+    // in the real four-ramp scene. Compare native, opaque samples at identical
+    // local coordinates, independent of the cache's phase count or UV formula.
+    presentation.prepare(&profile);camera.zoom=2;
+    for(const bool axis:{false,true})for(const int delta:{-1,1})for(const int start:{6,10}) {
+        std::array<std::vector<std::uint8_t>,4> strips;
+        for(int neighbor=0;neighbor<4;++neighbor) {
+            const s::Cell a=axis?s::Cell{10,start+neighbor}:s::Cell{start+neighbor,10};
+            const s::Cell b=axis?s::Cell{11,start+neighbor}:s::Cell{start+neighbor,11};
+            const s::RampLink r{{1},a,b,-1,std::int8_t(-1+delta),40,0};
+            clear(renderer);
+            for(int half=0;half<2;++half)for(const bool front:{false,true})
+                check(presentation.draw_part(renderer,camera,ground,r,half,front,true,oe::BridgeTint::Normal,3,true),"neighbor material draw failed");
+            const auto output=pixels(renderer);
+            for(int along=0;along<24;++along)for(const double side:{-.30,0.,.30}) {
+                const auto p=camera.world_to_screen(oe::ramp_surface_point(ground,r,.20+along*.025,side));
+                const auto offset=std::size_t((int(p.y)*700+int(p.x))*4);
+                strips[std::size_t(neighbor)].insert(strips[std::size_t(neighbor)].end(),output.begin()+std::ptrdiff_t(offset),output.begin()+std::ptrdiff_t(offset+3));
+            }
+        }
+        for(std::size_t i=1;i<strips.size();++i)
+            check(strips[i-1]!=strips[i],"neighboring ramp interiors repeat the complete native material strip");
+    }
     // Profile invalidation restores the precomputed authored style atomically.
     presentation.clear();check(presentation.geometry_bytes()==fallback_bytes,"profile clear retained runtime material storage");
     SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();

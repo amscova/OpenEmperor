@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 from author_ramp_terrain import author
-from check_multi_ramp_visuals import check
+from check_multi_ramp_visuals import check, compare
 from run_city_v16_longplay import inventory
 from run_city_v16_bridges import source_digest
 
@@ -43,9 +43,11 @@ def main():
         args.append("--quick")
     run("four-ramp-production-scene", "openemperor-multi-ramp-visual-fixture", args)
     check(root / "captures")
+    if os.environ.get("OE_MULTI_RAMP_BEFORE"):
+        compare(Path(os.environ["OE_MULTI_RAMP_BEFORE"]).resolve(strict=True), root / "captures")
     comparisons = 0
     if mode != "--ui":
-        for state in ("zero", "isolated", "group", "four"):
+        for state in ("zero", "isolated", "group", "four", "walker"):
             run("new-process-" + state, "openemperor-multi-ramp-visual-fixture",
                 [authored, root / f"captures/{state}.json", root / f"restart-{state}", "--resume"])
             for suffix in (".json", "-stable.png"):

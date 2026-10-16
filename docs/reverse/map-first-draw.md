@@ -1,5 +1,14 @@
 # Original map first-draw evidence
 
+The [original ramp audit](../rendering/original-ramp-asset-audit.md) now traces
+the147-row primary height table, ordinary ramp editor bit`0x400`, Elevation
+233–236 and road-dependent237–244. It corroborates21 saved ordinary ramps on
+Banpo/Anyi/Badaling without replaying the complete first-draw mutation order.
+Literal`0x601` below is specifically Terrain slot3/group1 fallback, not an
+Elevation group. The conditional normalization setter stores
+`max(signed height−1,0)` for admitted fallback-list cells. Original surface
+feet, anchors and whole-scene restoration remain open.
+
 The later [MP56 General registration correction](../rendering/mp56-original-structure-fallbacks.md)
 closes nine saved-image fallbacks in the normal app. It preserves this report's
 post-load saved-ID clear and unresolved restored selection/composition boundary;

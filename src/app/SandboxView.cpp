@@ -14,6 +14,7 @@
 #include "app/SandboxVisualOrder.h"
 #include "core/Version.h"
 #include "simulation/CityStartGuidance.h"
+#include "simulation/original/OriginalRulesModel.h"
 
 #include <SDL3/SDL.h>
 
@@ -116,12 +117,13 @@ const char* object_name(simulation::Object object) {
     case simulation::Object::ServicePost: return "Service post";
     case simulation::Object::Market: return "Market";
     case simulation::Object::Well: return "Well";
+    case simulation::Object::OriginalInfluenceSource: return "Well72 influence source";
     case simulation::Object::HealthPost: return "Health Post";
     case simulation::Object::FireWatch: return "Fire Watch";
     }
     return "Unknown";
 }
-simulation::CommandType command_type(simulation::RulesProfile rules,int tool) {
+simulation::CommandType command_type(simulation::RulesProfile rules,int tool,bool influence=false) {
     if (simulation::production_profile(rules)) {
         switch (tool) {
         case 0: return simulation::CommandType::PlaceMarket;
@@ -133,7 +135,8 @@ simulation::CommandType command_type(simulation::RulesProfile rules,int tool) {
         case 8: return simulation::CommandType::PlaceFarm;
         case 9: return simulation::CommandType::PlaceServicePost;
         case 11: return simulation::CommandType::PlaceFireWatch;
-        case 12: return simulation::CommandType::PlaceWell;
+        case 12: return influence ? simulation::CommandType::PlaceOriginalInfluenceSource:
+            simulation::CommandType::PlaceWell;
         case 13: return simulation::CommandType::PlaceHealthPost;
         case 15: return simulation::CommandType::PlaceRamp;
         case 14: return simulation::CommandType::PlaceBridge;
@@ -180,13 +183,42 @@ std::string joined_buildings(const std::vector<simulation::Object>& kinds) {
 
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version)
+    : SandboxView(std::move(session),demo,rules,rule_version,false) {}
+
+#if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
+std::unique_ptr<SandboxView> SandboxView::create_original_economy_save_fixture(
+        maps::StoredMapSession session) {
+    return std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalEconomyRuleVersion,true));
+}
+std::unique_ptr<SandboxView> SandboxView::create_original_influence_save_fixture(
+        maps::StoredMapSession session) {
+    return std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalInfluenceRuleVersion,true));
+}
+std::unique_ptr<SandboxView> SandboxView::create_original_goods_save_fixture(
+        maps::StoredMapSession session) {
+    return std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalGoodsRuleVersion,true));
+}
+#endif
+
+SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
+                         std::uint32_t rule_version,bool original_save_fixture)
     : geometry_(session.map.declared_map_size),background_(std::move(session.plan)),demo_(demo),
       rules_(rules),requested_rule_version_(rule_version ? rule_version:
-          simulation::current_rule_version(rules)),original_map_(std::move(session.map)),
+          simulation::current_rule_version(rules)),original_save_fixture_(original_save_fixture),
+      original_map_(std::move(session.map)),
       expected_map_input_sha256_(std::move(session.input_sha256)) {
     if (!geometry_.supported) throw std::invalid_argument("sandbox requires supported map geometry");
     if (!simulation::rule_version_supported(rules_,requested_rule_version_))
         throw std::invalid_argument("unsupported sandbox rule version");
+    if (simulation::original_economy_enabled(rules_,requested_rule_version_) && !original_save_fixture_)
+        throw std::invalid_argument("Rule 7 original economy runtime is not available yet; "
+            "use --sandbox-original-economy-check for developer diagnostics");
+    if (original_save_fixture_ && (demo_ ||
+        !simulation::original_economy_enabled(rules_,requested_rule_version_)))
+        throw std::invalid_argument("Original economy save fixture requires explicit rule 7 without a starter");
     if (simulation::production_profile(rules_)) tool_=5;
 }
 SandboxView::~SandboxView() { shutdown(); }
@@ -194,6 +226,10 @@ SandboxView::~SandboxView() { shutdown(); }
 void SandboxView::configure_save(std::filesystem::path root,std::filesystem::path map,
                                  std::filesystem::path save,
                                  std::optional<persistence::SaveDocument> initial) {
+    if (initial && (simulation::original_economy_enabled(initial->world.profile,
+            initial->world.rule_version)!=original_save_fixture_ ||
+            (original_save_fixture_ && initial->world.rule_version!=requested_rule_version_)))
+        throw std::invalid_argument("Original economy saves require the explicit scheduler-only development fixture");
     data_root_=std::move(root); map_relative_=std::move(map); save_path_=std::move(save);
     initial_save_=std::move(initial);
 }
@@ -215,7 +251,7 @@ persistence::SaveDocument SandboxView::capture_save_document() const {
 }
 
 bool SandboxView::recovery_safe_point() const {
-    return world_ && !budget_warning_ && !pending_demolition_ && !road_start_ && !bridge_start_ && !ramp_start_ && !map_pressed_ && !ui_pressed_ &&
+    return !original_influence_fixture() && world_ && !budget_warning_ && !pending_demolition_ && !road_start_ && !bridge_start_ && !ramp_start_ && !map_pressed_ && !ui_pressed_ &&
         !pending_command_ && !pending_road_;
 }
 
@@ -225,7 +261,15 @@ void SandboxView::load_now() {
     const auto document=persistence::read_save(save_path_);
     if (document.map_relative!=map_relative_ || document.world.profile!=rules_)
         throw std::runtime_error("Save map or rules differ from current sandbox");
-    auto replacement=persistence::restore_save(document,data_root_,buildable_mask_);
+    if (simulation::original_economy_enabled(document.world.profile,
+            document.world.rule_version)!=original_save_fixture_ ||
+            (original_save_fixture_ && document.world.rule_version!=requested_rule_version_))
+        throw std::runtime_error("Original economy saves require the explicit scheduler-only development fixture");
+    auto replacement=original_goods_fixture() ?
+        persistence::restore_original_goods_development(document,data_root_,buildable_mask_) : original_influence_fixture() ?
+        persistence::restore_original_influence_development(document,data_root_,buildable_mask_) : original_save_fixture_ ?
+        persistence::restore_original_economy_development(document,data_root_,buildable_mask_) :
+        persistence::restore_save(document,data_root_,buildable_mask_);
     auto candidate=std::make_unique<simulation::World>(std::move(replacement));
     background_.set_original_road_ground(candidate->map_permissions());
     world_=std::move(candidate);
@@ -313,12 +357,28 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(persistence::restore_save(*initial_save_,data_root_,
-            buildable_mask_,std::move(permissions)));
+        world_=std::make_unique<simulation::World>(original_goods_fixture() ?
+            persistence::restore_original_goods_development(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) : original_influence_fixture() ?
+            persistence::restore_original_influence_development(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) : original_save_fixture_ ?
+            persistence::restore_original_economy_development(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) :
+            persistence::restore_save(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)));
         clock_.pause_and_reset();
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (original_goods_fixture()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_goods_development(
+            std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
+    } else if (original_influence_fixture()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_influence_development(
+            std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
+    } else if (original_save_fixture_) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_economy_development(
+            std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
     } else if (permissions)
         world_=std::make_unique<simulation::World>(std::move(permissions),rules_,active_version);
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,
@@ -336,6 +396,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         saved_tick_=world_->ticks(); saved_command_=world_->command_sequence();
     }
     if (!builtin_errors.empty()) last_message_=builtin_errors.front();
+    if (original_save_fixture_) clock_.pause_and_reset();
     update_window_title();
 }
 void SandboxView::update_window_title() {
@@ -344,7 +405,10 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(world_->ramps_supported())title+=" | save schema 22 | Ramps V1 + Bridges V1";
+    if(original_goods_fixture())title+=" | save schema 25 | goods accounting development";
+    else if(original_influence_fixture())title+=" | save schema 24 | Well72 influence development";
+    else if(original_save_fixture_)title+=" | save schema 23 | scheduler-only development fixture";
+    else if(world_->ramps_supported())title+=" | save schema 22 | Ramps V1 + Bridges V1";
     else if (world_->bridges_supported())title+=" | save schema 21 | Bridges V1";
     SDL_SetWindowTitle(window_,title.c_str());
 }
@@ -834,6 +898,9 @@ const assets::BuildingVisualEntry* SandboxView::building_entry(assets::BuildingV
 }
 std::optional<assets::BuildingVisualRole> SandboxView::visual_role(simulation::Cell cell,
     simulation::Object object,bool placement_preview) const {
+    if (original_save_fixture_ && object==simulation::Object::Household) return std::nullopt;
+    if (original_influence_fixture() && object==simulation::Object::OriginalInfluenceSource)
+        return assets::BuildingVisualRole::Well; // Presentation only; no legacy Well authority.
     const auto role=building_visual_role(object);
     if (role==assets::BuildingVisualRole::Household && building_profile_ &&
         simulation::desirability_profile(rules_)) {
@@ -1544,7 +1611,7 @@ simulation::CommandResult SandboxView::preview(simulation::Cell cell) const {
         return {false,false,"Select tool",world_->command_sequence()+1,world_->ticks()};
     if (tool_==1 && world_->object_at(cell)==simulation::Object::Road)
         return {true,false,"Existing road",world_->command_sequence()+1,world_->ticks()};
-    return world_->validate({command_type(rules_,tool_),cell});
+    return world_->validate({command_type(rules_,tool_,original_influence_fixture()),cell});
 }
 void SandboxView::set_tool(int tool) {
     cancel_gesture();
@@ -1572,6 +1639,17 @@ void SandboxView::set_tool(int tool) {
     if (action_enabled(action)) perform_action(action);
 }
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
+    if (original_influence_fixture()) {
+        using A=sandbox_ui::Action;
+        if (action==A::Clay || action==A::Pottery || action==A::Warehouse || action==A::Farm ||
+            action==A::ServicePost || action==A::Market || action==A::FireWatch ||
+            action==A::HealthPost || action==A::Health || action==A::ServiceOverlay ||
+            action==A::Water || action==A::Reset) return false;
+        if (action==A::Well)
+            return world_->original_influence_state() &&
+                world_->original_influence_state()->sources.size()<4 && world_->treasury()>=60;
+    }
+    if (original_save_fixture_ && action==sandbox_ui::Action::Reset) return false;
     if(action==sandbox_ui::Action::Ramp)return world_->ramps_supported();
     if(action==sandbox_ui::Action::Bridge)return world_->bridges_supported();
     if (action==sandbox_ui::Action::ToggleIncome) return simulation::market_profile(rules_);
@@ -1819,7 +1897,8 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
             action==A::Warehouse ? (simulation::production_profile(rules_) ? 4:3) :
             action==A::RemoveRoad ? 6:action==A::Household ? 7:action==A::Farm ? 8:
             action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:action==A::Ramp ? 15:0;
-        last_message_=tool_==15 ? "Ramp: neighboring roads, one signed level, $40":tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
+        last_message_=original_influence_fixture() && tool_==12 ? "Well72 influence source: 2x2, $60, no water":
+            tool_==15 ? "Ramp: neighboring roads, one signed level, $40":tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
     } else if (action==A::ServiceOverlay) {
         cancel_gesture();
         service_overlay_=!service_overlay_;
@@ -1956,7 +2035,7 @@ void SandboxView::refresh_hover(bool force_road_plan) {
     } else {
         predicted_desirability_.reset(); desirability_preview_cell_.reset();
     }
-    if (simulation::water_profile(rules_) && (tool_==7 || tool_==12) && hovered_) {
+    if (!original_influence_fixture() && simulation::water_profile(rules_) && (tool_==7 || tool_==12) && hovered_) {
         if (water_preview_cell_!=hovered_ || water_preview_tool_!=tool_ ||
             water_preview_revision_!=world_->road_revision()) {
             predicted_water_.reset(); predicted_well_coverage_.reset();
@@ -2347,7 +2426,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                 clear_visual_selection();
                 selected_=cell;
             }
-            else (void)request_execute({command_type(rules_,tool_),*cell});
+            else (void)request_execute({command_type(rules_,tool_,original_influence_fixture()),*cell});
         }
         cancel_gesture();
         refresh_hover();
@@ -2415,7 +2494,7 @@ simulation::CommandResult SandboxView::request_execute(simulation::Command comma
     std::optional<simulation::StarterBudgetWarning> warning;
     try {
         performance::ScopedTimer timer(performance::Timing::BudgetCheck);
-        warning=simulation::starter_budget_warning(*world_,command);
+        if (!original_influence_fixture()) warning=simulation::starter_budget_warning(*world_,command);
     } catch (const std::exception& error) {
         // This read-only preflight has not executed a source command. Reject
         // the purchase here; mutation/commit failures stay outside this guard.
@@ -2441,7 +2520,7 @@ bool SandboxView::request_road(const sandbox_ui::RoadPlan& plan) {
     std::optional<simulation::StarterBudgetWarning> warning;
     {
         performance::ScopedTimer timer(performance::Timing::BudgetCheck);
-        if (plan.valid) warning=simulation::starter_budget_warning_for_road_purchase(
+        if (plan.valid && !original_influence_fixture()) warning=simulation::starter_budget_warning_for_road_purchase(
             *world_,plan.total_cost);
     }
     if (warning) {
@@ -2592,9 +2671,11 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
         hit.width=image.width; hit.height=image.height;
         append(hit); return;
     }
-    if (instance.object==simulation::Object::Well || instance.object==simulation::Object::HealthPost) {
+    if (instance.object==simulation::Object::Well || instance.object==simulation::Object::HealthPost ||
+        instance.object==simulation::Object::OriginalInfluenceSource) {
         const int side=simulation::building_footprint(rules_,world_->rule_version(),instance.object).width;
-        hit.mesh=instance.object;hit.mesh_ground=ground;hit.footprint_side=side;
+        hit.mesh=instance.object==simulation::Object::OriginalInfluenceSource ? simulation::Object::Well:instance.object;
+        hit.mesh_ground=ground;hit.footprint_side=side;
         hit.origin={ground.x-30*side,ground.y-48*side-20*(side-1)};
         hit.width=60*side;hit.height=62*side;append(hit);return;
     }
@@ -2914,12 +2995,13 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
                     if (!placement_preview) ++building_drawn_instances_[assets::role_index(*role)];
                     return draw_fire_overlay(cell,center,placement_preview) && draw_sickness(cell,center,placement_preview);
                 }
-                if (placement_preview && object!=simulation::Object::Well && object!=simulation::Object::HealthPost) return true;
+                if (placement_preview && object!=simulation::Object::Well && object!=simulation::Object::HealthPost &&
+                    object!=simulation::Object::OriginalInfluenceSource) return true;
 
             }
             if (role && !placement_preview) ++building_placeholder_fallbacks_[assets::role_index(*role)];
             const auto side=simulation::building_footprint(rules_,world_->rule_version(),object).width;
-            if (object==simulation::Object::Well)
+            if (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource)
                 return draw_well_fallback(renderer_,center,camera_.zoom,placement_preview,side);
             if (object==simulation::Object::HealthPost)
                 return draw_health_post_fallback(renderer_,center,camera_.zoom,placement_preview,side) &&
@@ -3091,12 +3173,12 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==8 ? simulation::Object::Farm:
             tool_==9 ? simulation::Object::ServicePost:
             tool_==13 ? simulation::Object::HealthPost:
-            tool_==12 ? simulation::Object::Well:
+            tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
             tool_==11 ? simulation::Object::FireWatch:
             tool_==0 ? simulation::Object::Market:simulation::Object::Empty;
         const auto role=simulation::production_profile(rules_) ?
             visual_role(*hovered_,object,true):std::nullopt;
-        if (result.accepted && (object==simulation::Object::Well || object==simulation::Object::HealthPost ||
+        if (result.accepted && (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
             (role && building_visuals_active() && building_sprite_ &&
              building_profile_ && building_entry(*role)))) {
             const auto ground=building_visual_ground(*hovered_,object);
@@ -3396,7 +3478,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==8 ? simulation::Object::Farm:
             tool_==9 ? simulation::Object::ServicePost:
             tool_==13 ? simulation::Object::HealthPost:
-            tool_==12 ? simulation::Object::Well:
+            tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
             tool_==11 ? simulation::Object::FireWatch:
             tool_==0 ? simulation::Object::Market:simulation::Object::Empty;
         const auto role=simulation::production_profile(rules_) ?
@@ -3404,7 +3486,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         const auto* entry=role && building_profile_ ? building_entry(*role):nullptr;
         for (const auto cell:simulation::building_footprint_cells(rules_,world_->rule_version(),object,*hovered_)) {
             const auto top=world_for({static_cast<double>(cell.x),static_cast<double>(cell.y)});
-            const bool outline=result.accepted && (object==simulation::Object::Well || object==simulation::Object::HealthPost ||
+            const bool outline=result.accepted && (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
                 (entry && building_visuals_active() && building_sprite_));
             if (!draw_diamond({top.x,top.y-20},result.accepted?70:255,
                 result.accepted?245:65,result.accepted?100:65,!outline)) return false;
@@ -3577,7 +3659,8 @@ bool SandboxView::fire_watch_selected() const {
 }
 bool SandboxView::status_first_selected() const {
     const auto id=selected_building();
-    return (id && world_->building(*id).kind==simulation::Object::Well) ||
+    return (id && (world_->building(*id).kind==simulation::Object::Well ||
+        world_->building(*id).kind==simulation::Object::OriginalInfluenceSource)) ||
         fire_watch_selected() || (simulation::desirability_profile(rules_) && id &&
         world_->building(*id).kind==simulation::Object::Household);
 }
@@ -3826,6 +3909,40 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         return wrap_panel_lines(lines);
     }
     const auto house_id=selected_building();
+    if (original_influence_fixture() && house_id) {
+        const auto& b=world_->building(*house_id);
+        if (b.kind==simulation::Object::OriginalInfluenceSource)
+            return wrap_panel_lines({"Well72 influence source #"+
+                std::to_string(static_cast<std::uint32_t>(*house_id)),
+                "Authored binding; footprint 2x2; paid 60 Funds",
+                "Desirability only; no water, workers, goods or upkeep",
+                "Model SHA: "+world_->original_rules_model()->provenance().sha256,
+                "Remove: no refund; a new purchase gets a new ID"});
+        if (b.kind==simulation::Object::Household) {
+            const auto info=world_->original_influence_inspection(*house_id);
+            lines={"OriginalHouse #"+std::to_string(static_cast<std::uint32_t>(*house_id)),
+                "Paid vacant container; no residents or supply simulation",
+                "Desirability: "+std::to_string(info.value),
+                "Maximum cell: "+std::to_string(info.selected_cell.x)+","+std::to_string(info.selected_cell.y)};
+            for (const auto& entry:info.entries)
+                lines.push_back("Source #"+std::to_string(static_cast<std::uint32_t>(entry.building_id))+
+                    " Well72 at "+std::to_string(entry.origin.x)+","+std::to_string(entry.origin.y)+
+                    ": "+std::to_string(entry.before)+" + "+std::to_string(entry.contribution)+
+                    " -> "+std::to_string(entry.after));
+            const std::array names{"Very easy","Easy","Normal","Hard","Very hard"};
+            lines.push_back(std::string("Difficulty: ")+names[static_cast<unsigned>(world_->original_rules_model()->difficulty())]);
+            lines.push_back("Model SHA: "+world_->original_rules_model()->provenance().sha256);
+            lines.push_back("Well72 fields: DES/STP/SZE/RGE; SZE is value delta");
+            return wrap_panel_lines(lines);
+        }
+    }
+    if (original_save_fixture_ && house_id &&
+        world_->building(*house_id).kind==simulation::Object::Household)
+        return wrap_panel_lines({"OriginalHouse #"+
+            std::to_string(static_cast<std::uint32_t>(*house_id)),
+            "Developer empty container; scheduler only",
+            "No active residents, goods, services or economy operations",
+            "Original housing art is not selected"});
     if (house_id && world_->building(*house_id).kind==simulation::Object::HealthPost) {
         const auto id=*house_id;
         const auto& b=world_->building(id);
@@ -4201,6 +4318,10 @@ std::vector<std::string> SandboxView::inspection_lines() const {
     return simulation::maintenance_profile(rules_) ? wrap_panel_lines(lines):lines;
 }
 std::vector<std::string> SandboxView::income_summary_lines() const {
+    if (original_influence_fixture()) return {"Funds "+std::to_string(world_->treasury()),
+        "Well72 influence development | no income or upkeep"};
+    if (original_save_fixture_) return {"Funds "+std::to_string(world_->treasury()),
+        "Scheduler-only development fixture; original economy unavailable"};
     const auto status=simulation::inspect_city_start(*world_);
     if (!status.applicable) return {};
     std::string funds="Funds "+std::to_string(status.funds_current)+" | ";
@@ -4248,6 +4369,10 @@ std::vector<std::string> SandboxView::income_summary_lines() const {
 }
 
 std::vector<std::string> SandboxView::income_lines() const {
+    if (original_influence_fixture()) return {"Well72 influence development",
+        "Paid sources affect desirability only; no water, workers, income or upkeep"};
+    if (original_save_fixture_) return {"Scheduler-only development fixture",
+        "Original economy unavailable; no income, goods or service simulation"};
     const auto status=simulation::inspect_city_start(*world_);
     if (!status.applicable) return {};
     std::vector<std::string> lines{
@@ -4494,7 +4619,10 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(world_->ramps_supported())overview+=" | Policy 3 | Save 22 | Ramps "+std::to_string(world_->ramps().size())+" | Bridges "+std::to_string(world_->bridges().size());
+        if(original_goods_fixture())overview+=" | Policy 3 | Save 25 | Goods accounting development";
+        else if(original_influence_fixture())overview+=" | Policy 3 | Save 24 | Well72 influence development";
+        else if(original_save_fixture_)overview+=" | Policy 3 | Save 23 | Scheduler-only fixture";
+        else if(world_->ramps_supported())overview+=" | Policy 3 | Save 22 | Ramps "+std::to_string(world_->ramps().size())+" | Bridges "+std::to_string(world_->bridges().size());
         else if(world_->bridges_supported())overview+=" | Policy 3 | Save 21 | Bridges "+std::to_string(world_->bridges().size());
         overview+=" | Tick "+
             std::to_string(world_->ticks())+" | "+(clock_.paused() ? "Paused ":"Running ")+
@@ -4525,13 +4653,13 @@ bool SandboxView::draw_hud() {
         tool_!=(simulation::production_profile(rules_) ? 5:4)) {
         const auto result=preview(*hovered_);
         if (!result.accepted && std::string_view(result.reason)=="Not enough money") {
-            const auto cost=world_->construction_cost(command_type(rules_,tool_));
+            const auto cost=world_->construction_cost(command_type(rules_,tool_,original_influence_fixture()));
             status="Need "+std::to_string(cost)+" funds; treasury "+
                 std::to_string(world_->treasury());
         }
     }
     if (simulation::maintenance_profile(rules_) && hovered_ && !road_start_ && tool_!=5 && tool_!=6 && tool_!=14 && tool_!=15) {
-        const auto type=command_type(rules_,tool_);
+        const auto type=command_type(rules_,tool_,original_influence_fixture());
         const auto cost=world_->construction_cost(type);
         const auto kind=simulation::placed_object(type);
         if (cost>0 && kind)
@@ -4554,7 +4682,7 @@ bool SandboxView::draw_hud() {
         std::to_string(*predicted_desirability_)+" | "+status;
     if (!recovery_status_.empty() && !budget_warning_ && !pending_demolition_ && !road_start_)
         status+=" | "+recovery_status_;
-    if (simulation::city_profile(rules_))
+    if (!original_influence_fixture() && simulation::city_profile(rules_))
         status+=world_->settlement_goal_reached() ?
             (simulation::population_profile(rules_) ?
                 " | GOAL REACHED - houses developed and population stable":
@@ -4564,7 +4692,7 @@ bool SandboxView::draw_hud() {
                 (simulation::food_profile(rules_) ?
                     ((simulation::scalable_profile(rules_)) ? "/8 houses at level 2":
                      "/4 houses at level 2"):"/4 households ready");
-    if (simulation::population_profile(rules_) && !world_->settlement_goal_reached())
+    if (!original_influence_fixture() && simulation::population_profile(rules_) && !world_->settlement_goal_reached())
         status+=" | Population "+std::to_string(world_->total_population())+"/"+
             std::to_string((simulation::scalable_profile(rules_)) ?
                 simulation::Rules::city_v10_population_goal:simulation::Rules::city_v9_population_goal);
@@ -4613,7 +4741,7 @@ bool SandboxView::draw_hud() {
         case A::ServiceOverlay: return service_overlay_ ? "V Service ON":"V Service";
         case A::Ramp: return "P Ramp $40";
         case A::Bridge: return "B Bridge $40 + $20/cell";
-        case A::Well: return "I Well $60";
+        case A::Well: return original_influence_fixture() ? "I Influence $60":"I Well $60";
         case A::Water: return water_overlay_ ? "U Water ON":"U Water";
         case A::Desirability: return desirability_overlay_ ? "D Desirability ON":"D Desirability";
         case A::FireWatch: return "F Fire Watch $"+
@@ -4676,7 +4804,7 @@ bool SandboxView::draw_hud() {
                 button.action==A::Farm ? simulation::Object::Farm:
                 button.action==A::ServicePost ? simulation::Object::ServicePost:
                 button.action==A::HealthPost ? simulation::Object::HealthPost:
-                button.action==A::Well ? simulation::Object::Well:
+                button.action==A::Well ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
                 button.action==A::FireWatch ? simulation::Object::FireWatch:
                 simulation::Object::Market;
             int count=0;
@@ -4797,7 +4925,9 @@ bool SandboxView::draw_hud() {
         std::string debug="Road revision "+std::to_string(world_->road_revision())+
             " | Commands "+std::to_string(world_->command_sequence())+
             " | Balance "+(balance_valid?"OK":"ERROR");
-        if (simulation::city_profile(rules_))
+        if (original_influence_fixture())
+            debug+=" | Influence cache builds "+std::to_string(world_->original_influence_cache_build_count());
+        else if (simulation::city_profile(rules_))
             debug+=" | Taxes "+std::to_string(world_->taxes_collected_total())+
                 " | Spent "+std::to_string(world_->construction_spent_total())+
                 " | Worker need "+std::to_string(world_->workforce_required())+

@@ -1902,6 +1902,27 @@ int main(int argc,char** argv) {
                   world.snapshot()==blocked,"obstacle partially committed road");
         }
         Temp temp;
+        {
+            auto session=fixture(temp);
+            namespace perf=openemperor::performance;
+            check(SDL_WasInit(0)==0,"Rule-7 constructor check must precede SDL initialization");
+            perf::set_enabled(true);perf::reset();
+            bool refused=false;
+            try {
+                openemperor::SandboxView unavailable(std::move(session),false,
+                    simulation::RulesProfile::CityV16,simulation::kOriginalEconomyRuleVersion);
+            } catch (const std::invalid_argument& error) {
+                const std::string reason=error.what();
+                refused=reason.find("runtime is not available yet")!=std::string::npos &&
+                    reason.find("--sandbox-original-economy-check")!=std::string::npos;
+            }
+            check(refused && SDL_WasInit(0)==0,
+                "Unfinished Rule 7 must refuse the view before SDL, assets or a World");
+            for (std::size_t i=0;i<static_cast<std::size_t>(perf::Counter::Count);++i)
+                check(perf::counter(static_cast<perf::Counter>(i))==0,
+                    "Rule-7 view refusal performed preparation, I/O or World work");
+            perf::set_enabled(false);
+        }
         check(SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy"),"dummy driver");
         check(SDL_SetHint(SDL_HINT_RENDER_DRIVER,"software"),"software renderer");
         check(SDL_Init(SDL_INIT_VIDEO),"SDL init");

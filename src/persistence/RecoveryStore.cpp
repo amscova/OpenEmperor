@@ -265,6 +265,8 @@ std::string RecoveryStore::create_history(const SaveDocument& document,
                                            const std::vector<std::uint8_t>& buildable,
                                            std::optional<RecoveryParent> parent,
                                            RecoveryWriteFaults faults) {
+    require(!simulation::original_economy_enabled(document.world.profile,document.world.rule_version),
+            "schema23 development saves are unavailable in normal recovery histories");
     if (parent) require(valid_id(parent->history_id),"invalid recovery parent history ID");
     require(storage_usage(recovery_root_)<budget_,"recovery storage budget is full");
     std::string history;
@@ -305,6 +307,8 @@ RecoveryEntry RecoveryStore::write_checkpoint(const std::string& history,
                                                const SaveDocument& document,
                                                const std::vector<std::uint8_t>& buildable,
                                                RecoveryWriteFaults faults) {
+    require(!simulation::original_economy_enabled(document.world.profile,document.world.rule_version),
+            "schema23 development saves are unavailable in normal recovery histories");
     require(valid_id(history),"invalid recovery history ID");
     ensure_directory_safe(app_root_,data_root_,recovery_root_);
     const auto dir=recovery_root_/history;

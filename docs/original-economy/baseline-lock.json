@@ -1,0 +1,33 @@
+{
+  "baseline_head": "fef111deff4cedd3d3fa48663556d41b2e4b31a6",
+  "contract_sha256": "12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5",
+  "evidence": "Hashes only; complete private saves/snapshots/permission contract remain under ignored .local/original-economy/oe00/reference. Do not regenerate this lock to conceal a legacy change.",
+  "fixture_sources_sha256": {
+    "tools/AuditOriginalOccupancy.cpp": "4c80ce526ad8d022f8066a736ed04d7d2da43424d1e713a2485254b80a876b73",
+    "tools/CityV16BridgesFixture.cpp": "2ee537eec75d26c62d4d8a8e844b5fd7480cb229a5b9b4dba1724902a72657dd",
+    "tools/CityV16LongplayFixture.cpp": "6042a4b392b35abfcfe830c7f8782de2f86c4e2a7ef7dc14f24677879a9a8657",
+    "tools/CityV16PlaythroughFixture.cpp": "addbd57f54cb6c03f2f51cd2fc0a48deb2730964cae8e63a2b7021f832cd8c64",
+    "tools/CityV16RampsFixture.cpp": "e7bae84fe739524ede6bdd2b4f98b1a43af104e3849b3accb1ccdd332fae53cf",
+    "tools/author_ramp_terrain.py": "ffe7edb4ea566a7a5968d809703649ca5f214526af0b14522ebf930dd1fb3d91",
+    "tools/run_city_v16_bridges.py": "4b56c1295045c7799f9f7dd4eec1b568ebd9990317e7e33f32080b861878f8ea",
+    "tools/run_city_v16_ramps.py": "0a88cc99703554efc2e9ef14d5117949bc6ee9db6c3da055084fa0be4ea91471"
+  },
+  "format": "openemperor-original-economy-baseline-lock-v1",
+  "known_conflicts": 2,
+  "original_inputs": {
+    "bytes": 819711091,
+    "files": 1464,
+    "manifest_sha256": "dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb"
+  },
+  "original_maps": 167,
+  "permission_cases": 1485,
+  "prepared_maps": 165,
+  "saved_document_schemas": {
+    "19": 14,
+    "20": 16,
+    "21": 20,
+    "22": 22
+  },
+  "saved_documents": 72,
+  "world_snapshot_projections": 72
+}

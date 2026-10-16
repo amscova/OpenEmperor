@@ -1,5 +1,12 @@
 # Original height transitions and authored Ramp V1
 
+The later [original ramp asset audit](../rendering/original-ramp-asset-audit.md)
+verifies the original Elevation233–236 ramp family and road-dependent237–244
+selectors. It does not add legal normal-land pairs, original traversal or a new
+permission classification. The zero eligible-pair census below remains exact;
+its historical "zero verified original ramp" statement describes the earlier
+investigation, not the newly identified graphic family.
+
 Pre-implementation decision at clean `bd0a8e856b21f4229acea011d3805c1d95a67206`:
 **City-v16 rule 6 / unchanged MapPermissions policy 3 / schema 22**.
 Complete original preparation already separates exact normal land permissions,

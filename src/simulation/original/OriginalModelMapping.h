@@ -1,0 +1,58 @@
+#pragma once
+
+#include "simulation/World.h"
+#include "simulation/original/ModelSchema.h"
+
+#include <optional>
+#include <stdexcept>
+
+namespace openemperor::original {
+
+struct FunctionalModelCandidate {
+    std::optional<ModelBuilding> candidate;
+    EvidenceStatus functional = EvidenceStatus::Unknown;
+    EvidenceStatus mechanics_identity = EvidenceStatus::Unknown;
+    EvidenceStatus presentation_identity = EvidenceStatus::Unknown;
+};
+
+// A functional analogy does not establish constructibility, original mechanics,
+// footprint, price, service timing or an original source identity for an Object.
+// Existing recovered Well/Herbalist image registrations are a separate fact.
+[[nodiscard]] inline FunctionalModelCandidate functional_model_candidate(
+    simulation::Object object) {
+    using simulation::Object;
+    switch (object) {
+    case Object::ClaySource:
+        return {ModelBuilding::ClayPit, EvidenceStatus::Inferred,
+                EvidenceStatus::Unknown, EvidenceStatus::Unknown};
+    case Object::Pottery:
+        return {ModelBuilding::Kiln, EvidenceStatus::Inferred,
+                EvidenceStatus::Unknown, EvidenceStatus::Unknown};
+    case Object::Warehouse:
+        return {ModelBuilding::Warehouse, EvidenceStatus::Inferred,
+                EvidenceStatus::Unknown, EvidenceStatus::Unknown};
+    case Object::Market:
+        return {ModelBuilding::CommonMarketSquare, EvidenceStatus::Inferred,
+                EvidenceStatus::Unknown, EvidenceStatus::Unknown};
+    case Object::Farm:
+        return {ModelBuilding::Farmhouse, EvidenceStatus::Inferred,
+                EvidenceStatus::Unknown, EvidenceStatus::Unknown};
+    case Object::Well:
+        return {ModelBuilding::Well, EvidenceStatus::Inferred,
+                EvidenceStatus::Unknown, EvidenceStatus::ReverseEngineered};
+    case Object::HealthPost:
+        return {ModelBuilding::HerbalistsStall, EvidenceStatus::Inferred,
+                EvidenceStatus::Unknown, EvidenceStatus::ReverseEngineered};
+    case Object::Empty:
+    case Object::Road:
+    case Object::Workshop:
+    case Object::Household:
+    case Object::ServicePost:
+    case Object::FireWatch:
+    case Object::OriginalInfluenceSource:
+        return {};
+    }
+    throw std::out_of_range("invalid Object for original model candidate");
+}
+
+} // namespace openemperor::original

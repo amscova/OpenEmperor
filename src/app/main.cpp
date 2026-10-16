@@ -82,6 +82,21 @@ void print_usage(const char* executable) {
               << "       " << executable << " --data <directory> --load-sandbox <save.json>\n";
     std::cerr << "       " << executable << " --data <directory> --sandbox <relative.map>"
               << " --sandbox-rules sandbox-production-v2 --sandbox-routing-check --report-json\n";
+    std::cerr << "       " << executable << " --data <directory> --sandbox <relative.map>"
+              << " --sandbox-rules sandbox-city-v16 --sandbox-original-economy-check --report-json"
+              << " (developer preflight only; Rule 7 cannot start yet)\n";
+}
+
+const char* map_rules_status_name(openemperor::maps::MapRulesStatus status) {
+    using Status=openemperor::maps::MapRulesStatus;
+    switch (status) {
+    case Status::Unchecked: return "unchecked";
+    case Status::Checking: return "checking";
+    case Status::MapRulesChecked: return "map_rules_checked";
+    case Status::UnsupportedForRules: return "unsupported_for_rules";
+    case Status::InputError: return "input_error";
+    }
+    return "input_error";
 }
 
 } // namespace
@@ -120,6 +135,7 @@ int main(int argc, char* argv[]) {
     bool sandbox_check = false;
     bool sandbox_resume_check = false;
     bool sandbox_routing_check = false;
+    bool sandbox_original_economy_check = false;
     bool sandbox_rules_supplied = false;
     bool sandbox_bridges = false;
     bool sandbox_ramps = false;
@@ -184,6 +200,8 @@ int main(int argc, char* argv[]) {
             sandbox_resume_check=true;
         } else if (argument == "--sandbox-routing-check" && !sandbox_routing_check) {
             sandbox_routing_check=true;
+        } else if (argument == "--sandbox-original-economy-check" && !sandbox_original_economy_check) {
+            sandbox_original_economy_check=true;
         } else if (argument == "--authored-terrain-sides" && !authored_terrain_sides) {
             authored_terrain_sides=true;
         } else if (argument == "--report-json" && !report_json) {
@@ -383,7 +401,8 @@ int main(int argc, char* argv[]) {
             scene_supplied || preview_supplied || sg3_supplied || view_supplied || graphics_profile_supplied)) ||
         (render_check && (!map_debug_supplied || !data_supplied || part_supplied ||
             map_view_mode!=openemperor::maps::MapViewMode::StoredGraphics || !report_json)) ||
-        (report_json && !render_check && !list_maps && !sandbox_check && !sandbox_routing_check) ||
+        (report_json && !render_check && !list_maps && !sandbox_check && !sandbox_routing_check &&
+            !sandbox_original_economy_check) ||
         (sandbox_demo && !sandbox_supplied) || (sandbox_check && (!sandbox_supplied || !report_json)) ||
         (sandbox_visuals_supplied && (!sandbox_supplied || sandbox_routing_check)) ||
         (building_visuals_supplied && ((!sandbox_supplied && !load_sandbox_supplied) ||
@@ -394,6 +413,13 @@ int main(int argc, char* argv[]) {
         (sandbox_routing_check && (!sandbox_supplied || !report_json || !sandbox_rules_supplied ||
             sandbox_rules!=openemperor::simulation::RulesProfile::ProductionV2 ||
             sandbox_check || sandbox_resume_check || sandbox_demo || sandbox_save_supplied)) ||
+        (sandbox_original_economy_check && (!data_supplied || !sandbox_supplied ||
+            !sandbox_rules_supplied || !report_json ||
+            sandbox_rules!=openemperor::simulation::RulesProfile::CityV16 ||
+            sandbox_demo || sandbox_check || sandbox_resume_check || sandbox_routing_check ||
+            sandbox_save_supplied || load_sandbox_supplied || sandbox_bridges || sandbox_ramps ||
+            sandbox_visuals_supplied || building_visuals_supplied || road_visuals_supplied ||
+            great_wall_supplied || authored_terrain_sides || app_root_supplied)) ||
         (sandbox_rules_supplied && !sandbox_supplied) ||
         ((sandbox_bridges || sandbox_ramps) && (!sandbox_supplied || !sandbox_rules_supplied || sandbox_check ||
             sandbox_routing_check || sandbox_rules!=openemperor::simulation::RulesProfile::CityV16)) ||
@@ -411,6 +437,30 @@ int main(int argc, char* argv[]) {
             ignore_alpha || diagnostic_alpha_addressing || browser_kind))) {
         print_usage(argv[0]);
         return 2;
+    }
+
+    if (sandbox_original_economy_check) {
+        // Map prerequisites are independent of model/runtime readiness. This
+        // diagnostic exits before resources, SDL, a World or a save are created.
+        std::error_code error;
+        auto root=fs::canonical(data_directory,error);
+        if (error) root=data_directory;
+        constexpr auto rule_version=openemperor::simulation::kOriginalEconomyRuleVersion;
+        const auto policy_version=openemperor::maps::map_rules_policy_version(
+            openemperor::simulation::RulesProfile::CityV16,rule_version);
+        const auto result=openemperor::maps::check_map_rules({root,sandbox_path,
+            openemperor::simulation::RulesProfile::CityV16,rule_version,policy_version});
+        std::cout<<nlohmann::json{{"schema","openemperor-original-economy-gate-v1"},
+            {"profile",openemperor::simulation::city_v16_profile_name},
+            {"rule_version",rule_version},{"policy_version",policy_version},
+            {"map_rules_status",map_rules_status_name(result.status)},
+            {"map_reason",result.reason.substr(0,2048)},
+            {"map_detail",result.detail.substr(0,2048)},
+            {"map_sha256",result.input_sha256},
+            {"runtime_ready",false},
+            {"reason","Rule 7 original economy runtime is not available yet; session start is refused."}}
+            .dump()<<'\n';
+        return 1;
     }
 
     if(authored_terrain_sides&&((!sandbox_supplied&&!load_sandbox_supplied)||sandbox_check||sandbox_routing_check)) {

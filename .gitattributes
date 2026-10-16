@@ -1,0 +1,9 @@
+# Evidence tooling hashes these files byte-for-byte against LF blobs; keep them
+# LF on Windows checkouts (core.autocrlf would otherwise change the hashes).
+/src/simulation/original/*.h text eol=lf
+/src/simulation/original/*.cpp text eol=lf
+/tools/original-rules-parity/*.cpp text eol=lf
+/tools/original_rules_parity.py text eol=lf
+/src/simulation/OriginalEconomyState.h text eol=lf
+/src/simulation/OriginalInfluenceState.h text eol=lf
+/src/simulation/OriginalGoodsState.h text eol=lf

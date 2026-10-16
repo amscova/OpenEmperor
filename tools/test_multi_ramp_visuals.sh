@@ -8,7 +8,7 @@ mode=${2---ui}
 case "$mode" in --ui|--capture|--regression) ;; *) echo 'Unknown multi-ramp mode' >&2; exit 2 ;; esac
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 data_dir=$(CDPATH= cd -- "$1" && pwd -P)
-build_dir="$repo_dir/.local/reswall/release-build"
+build_dir=${OE_MULTI_RAMP_BUILD_DIR-"$repo_dir/.local/build-original-ramp-visuals"}
 cmake -S "$repo_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release -DOPENEMPEROR_USE_SYSTEM_SDL3=ON
 cmake --build "$build_dir" --parallel 2 --target openemperor openemperor-city-v16-ramps-fixture \
     openemperor-multi-ramp-visual-fixture openemperor-authored-terrain-side-tests \

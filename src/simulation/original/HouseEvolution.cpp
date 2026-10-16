@@ -1,230 +1,167 @@
 #include "simulation/original/HouseEvolution.h"
 
+#include <algorithm>
+#include <stdexcept>
+
 namespace openemperor::original {
+namespace {
 
-void grant_service(int& timer) { timer = service_timer_start; }
-
-void grant_religion(int& timer) { timer = religion_timer_start; }
-
-void decay_services(HouseState& h) {
-    for (int* t : {&h.herbalist, &h.acupuncture, &h.music, &h.acrobat, &h.drama,
-                   &h.ancestor, &h.confucian, &h.daoist, &h.buddhist})
-        *t = *t < 2 ? 0 : *t - 1;
+void validate_type(HouseType type) {
+    if (!is_house_type(type)) throw std::out_of_range("invalid original house type");
 }
 
-int service_spawn_interval(int staffing) {
-    if (staffing >= 100) return 1;
-    if (staffing >= 75) return 3;
-    if (staffing >= 50) return 7;
-    if (staffing >= 25) return 15;
-    return staffing >= 1 ? 29 : 64;
-}
+} // namespace
 
-int religion_spawn_interval(int staffing) {
-    if (staffing >= 100) return 3;
-    if (staffing >= 75) return 6;
-    if (staffing >= 50) return 12;
-    if (staffing >= 25) return 24;
-    return staffing >= 1 ? 32 : 64;
-}
-
-bool service_spawn_tick(int& counter, int staffing) {
-    ++counter;
-    if (counter > service_spawn_interval(staffing)) { counter = 0; return true; }
-    return false;
-}
-
-bool is_consumption_step(int step_in_month) { return step_in_month == 0 || step_in_month == 7; }
-
-void consume_goods(const ModelData& m, int difficulty, HouseState& h) {
-    if (h.occupants <= 0 || !is_house_type(h.type)) return;
-    const int row = house_row(h.type);
-    auto use = [&](int& stock, int field) {
-        const int amount = m.house_value(row, field, difficulty);
-        if (amount > 0) stock = stock < amount ? 0 : stock - amount;
-    };
-    use(h.hemp, HF_Hemp);
-    use(h.ceramics, HF_Ceramics);
-    use(h.tea, HF_Tea);
-    use(h.silk, HF_Silk);
-    use(h.bronzeware, HF_Bronzeware);
-    use(h.lacquerware, HF_Bronzeware);
-}
-
-int& goods_stock(HouseState& h, Goods g) {
-    switch (g) {
-    case Goods::Hemp: return h.hemp;
-    case Goods::Tea: return h.tea;
-    case Goods::Ceramics: return h.ceramics;
-    case Goods::Bronzeware: return h.bronzeware;
-    case Goods::Lacquerware: return h.lacquerware;
-    default: return h.silk;
+HouseEvolutionRules::HouseEvolutionRules(const ModelData& model, Difficulty difficulty)
+    : difficulty_(difficulty), model_sha256_(model.provenance().sha256) {
+    for (std::size_t row = 0; row < house_row_count; ++row) {
+        for (std::size_t field = 0; field < house_field_count; ++field) {
+            rows_[row][field] = house_value(model, static_cast<ModelHouse>(row),
+                                            static_cast<HouseField>(field), difficulty);
+        }
     }
 }
 
-int goods_need(const ModelData& m, int difficulty, const HouseState& h, Goods g) {
-    if (h.occupants <= 0 && (g == Goods::Hemp || g == Goods::Tea)) return 10;
-    int field = HF_Silk;
-    switch (g) {
-    case Goods::Hemp: field = HF_Hemp; break;
-    case Goods::Tea: field = HF_Tea; break;
-    case Goods::Ceramics: field = HF_Ceramics; break;
-    case Goods::Bronzeware:
-    case Goods::Lacquerware: field = HF_Bronzeware; break;
-    default: break;
-    }
-    const int need = m.house_value(house_row(h.type), field, difficulty);
-    return h.size >= 2 ? need * 4 : need;
+std::int32_t HouseEvolutionRules::value(ModelHouse row, HouseField field) const {
+    const auto column = static_cast<std::size_t>(field);
+    if (column >= house_field_count) throw std::out_of_range("invalid original house field");
+    return rows_.at(model_row(row).value).at(column);
 }
 
-int deliver_goods(const ModelData& m, int difficulty, HouseState& h, Goods g, int& market_stock) {
-    const int need = goods_need(m, difficulty, h, g);
-    if (need <= 0 || market_stock <= 0) return 0;
-    int& stock = goods_stock(h, g);
-    const int target = need > 10 ? need : 10;
-    int amount = target - stock;
-    if (amount < 1 || amount > need) amount = need - stock;
-    if (amount < 0) amount = 0;
-    if (amount > target) amount = target;
-    if (amount > need) amount = need;
-    if (amount > market_stock) amount = market_stock;  // port: never move more than the market holds
-    if (amount <= 0) return 0;
-    stock += amount;
-    market_stock -= amount;
-    return amount;
+std::int32_t HouseEvolutionRules::row_capacity(ModelHouse row) const {
+    return value(row, HouseField::Capacity);
 }
 
-int blend_food_quality(int q, int m, int delivered, int food_need) {
-    if (m >= 1 && m > q) return m;
-    if (delivered < 1) return q;
-    const double r = food_need < 1 ? 10.0 : static_cast<double>(delivered) / food_need;
-    if (r > 3.0) return (q + 3 * m) / 4;
-    if (r > 2.0) return (q + 2 * m) / 3;
-    if (r > 0.5) return (q + m) / 2;
-    if (r > 0.33) return (m + 2 * q) / 3;
-    return (m + 3 * q) / 4;
+bool is_house_type(HouseType type) noexcept {
+    return type >= HouseType::Vacant && type <= HouseType::HeavenlyCompound;
 }
 
-bool is_house_type(int type) { return type >= house_type_first && type <= house_type_last; }
-bool is_elite(int type) { return type >= HT_EliteUnoccupied && type <= house_type_last; }
-
-int house_row(int type) { return type - 3 > 0 ? type - 3 : 0; }
-
-int next_row(int type) {
-    const int row = house_row(type);
-    if (type == HT_EliteUnoccupied) return row + 2;           // skips Abandoned
-    if (row == 14 || row == 8) return row;                    // top elite / unoccupied map to themselves
-    return row + 1;
+bool is_elite(HouseType type) {
+    validate_type(type);
+    return type >= HouseType::EliteUnoccupied;
 }
 
-bool needs_met(const ModelData& m, int difficulty, int row, const HouseState& h) {
-    auto v = [&](int f) { return m.house_value(row, f, difficulty); };
-    if (v(HF_Water) && !h.water) return false;
-    if (v(HF_Herbalist) && h.herbalist<=0) return false;
-    if (v(HF_Acupuncture) && h.acupuncture<=0) return false;
-    if (v(HF_Music) && h.music<=0) return false;
-    if (v(HF_Acrobat) && h.acrobat<=0) return false;
-    if (v(HF_Drama) && h.drama<=0) return false;
-    if (v(HF_Ancestor) && h.ancestor<=0) return false;
-    if (v(HF_Confucian) && h.confucian<=0) return false;
-    if (v(HF_Buddhist) && h.daoist<=0 && h.buddhist<=0) return false;
-    if (h.food_quality < v(HF_FoodQuality)) return false;
-    if (h.hemp < v(HF_Hemp)) return false;
-    if (h.ceramics < v(HF_Ceramics)) return false;
-    if (h.tea < v(HF_Tea)) return false;
-    if (h.silk < v(HF_Silk)) return false;
-    if ((h.bronzeware > h.lacquerware ? h.bronzeware : h.lacquerware) < v(HF_Bronzeware)) return false;
-    return true;
+ModelHouse house_row(HouseType type) {
+    validate_type(type);
+    const auto id = static_cast<std::uint16_t>(type);
+    return static_cast<ModelHouse>(id <= 3 ? 0 : id - 3);
 }
 
-Verdict desirability_verdict(const ModelData& m, int difficulty, const HouseState& h) {
-    const int row = house_row(h.type);
-    if (h.desirability <= m.house_value(row, HF_DesLow, difficulty)) return Verdict::Devolve;
-    if (h.desirability >= m.house_value(row, HF_DesHigh, difficulty)) return Verdict::Evolve;
+ModelHouse next_row(HouseType type) {
+    const auto row = house_row(type);
+    if (type == HouseType::EliteUnoccupied) return ModelHouse::ModestSiheyuan;
+    if (type == HouseType::HeavenlyCompound) return row;
+    return static_cast<ModelHouse>(model_row(row).value + 1U);
+}
+
+ModelHouse census_capacity_row(HouseType type) {
+    const auto row = house_row(type);
+    return type == HouseType::EliteUnoccupied ? ModelHouse::EliteAbandoned : row;
+}
+
+ModelHouse admission_capacity_row(HouseType type) {
+    const auto row = house_row(type);
+    return type == HouseType::EliteUnoccupied ? ModelHouse::LavishSiheyuan : row;
+}
+
+bool needs_met(const HouseEvolutionRules& rules, ModelHouse row, const HouseState& state) {
+    validate_type(state.type);
+    const auto v = [&](HouseField field) { return rules.value(row, field); };
+    // A negative prepared requirement is still nonzero. Access itself is a
+    // byte predicate, not a signed timer comparison or a grant of service.
+    if (v(HouseField::Water) != 0 && !state.water) return false;
+    if (v(HouseField::Herbalist) != 0 && state.herbalist == 0) return false;
+    if (v(HouseField::Acupuncture) != 0 && state.acupuncture == 0) return false;
+    if (v(HouseField::Music) != 0 && state.music == 0) return false;
+    if (v(HouseField::Acrobat) != 0 && state.acrobat == 0) return false;
+    if (v(HouseField::Drama) != 0 && state.drama == 0) return false;
+    if (v(HouseField::Ancestor) != 0 && state.ancestor == 0) return false;
+    if (v(HouseField::Confucian) != 0 && state.confucian == 0) return false;
+    if (v(HouseField::DaoistOrBuddhist) != 0 && state.daoist == 0 && state.buddhist == 0)
+        return false;
+    if (state.food_quality < v(HouseField::FoodQuality)) return false;
+    if (state.hemp < v(HouseField::Hemp)) return false;
+    if (state.ceramics < v(HouseField::Ceramics)) return false;
+    if (state.tea < v(HouseField::Tea)) return false;
+    if (state.silk < v(HouseField::Silk)) return false;
+    return std::max(state.bronzeware, state.lacquerware) >= v(HouseField::BronzewareOrLacquerware);
+}
+
+Verdict desirability_verdict(const HouseEvolutionRules& rules, const HouseState& state,
+                             EvolutionContext context) {
+    const auto row = house_row(state.type);
+    if (context.force_desirability_evolve) return Verdict::Evolve;
+    if (state.desirability <= rules.value(row, HouseField::DesirabilityLow)) return Verdict::Devolve;
+    if (state.desirability >= rules.value(row, HouseField::DesirabilityHigh)) return Verdict::Evolve;
     return Verdict::Stay;
 }
 
-Verdict combined_verdict(const ModelData& m, int difficulty, const HouseState& h) {
-    Verdict v = h.type == HT_EliteAbandoned ? Verdict::Evolve  // desirability is ignored
-                                            : desirability_verdict(m, difficulty, h);
-    if (!needs_met(m, difficulty, house_row(h.type), h)) return Verdict::Devolve;
-    if (v == Verdict::Evolve && !needs_met(m, difficulty, next_row(h.type), h)) return Verdict::Stay;
-    return v;
+Verdict evolution_verdict(const HouseEvolutionRules& rules, const HouseState& state,
+                           EvolutionContext context) {
+    const auto row = house_row(state.type);
+    const auto verdict = state.type == HouseType::EliteAbandoned ? Verdict::Evolve
+                      : desirability_verdict(rules, state, context);
+    if (!needs_met(rules, row, state)) return Verdict::Devolve;
+    if (verdict == Verdict::Evolve && !needs_met(rules, next_row(state.type), state))
+        return Verdict::Stay;
+    return verdict;
 }
 
-int devolve_limit(int type) {
-    if (type >= HT_Shelter && type <= HT_LuxuriousApartment) return 9;
-    if (type == HT_EliteAbandoned) return 11;
-    if (type == HT_ModestSiheyuan) return 49;
-    if (type >= HT_LavishSiheyuan && type <= HT_HeavenlyCompound) return 17;
+std::uint8_t devolve_limit(HouseType type) {
+    validate_type(type);
+    if (type >= HouseType::Shelter && type <= HouseType::LuxuriousApartment) return 9;
+    if (type == HouseType::EliteAbandoned) return 11;
+    if (type == HouseType::ModestSiheyuan) return 49;
+    if (type >= HouseType::LavishSiheyuan) return 17;
     return 0;
 }
 
-int evolve_target(int type) {
-    if (type >= HT_Vacant && type <= HT_OrnateApartment) return type + 1;
-    if (type >= HT_EliteAbandoned && type <= HT_ImpressiveCompound) return type + 1;
-    return -1;  // top common, Elite Unoccupied, top elite
-}
-
-int devolve_target(int type) {
-    if (type >= HT_Hut && type <= HT_LuxuriousApartment) return type - 1;
-    if (type >= HT_ModestSiheyuan && type <= HT_HeavenlyCompound) return type - 1;
-    return -1;  // Vacant, Shelter, Unoccupied, Abandoned
-}
-
-bool evolve_step(const ModelData& m, int difficulty, HouseState& h) {
-    if (!is_house_type(h.type)) return false;
-    if (h.type == HT_Vacant) {
-        if (h.occupants > 0) { h.type = HT_Shelter; return true; }
-        return false;
+std::optional<HouseType> evolve_target(HouseType type) {
+    validate_type(type);
+    if ((type >= HouseType::Vacant && type <= HouseType::OrnateApartment) ||
+        (type >= HouseType::EliteAbandoned && type <= HouseType::ImpressiveCompound)) {
+        return static_cast<HouseType>(static_cast<std::uint16_t>(type) + 1U);
     }
-    if (h.type == HT_EliteUnoccupied) return false;
+    return std::nullopt;
+}
 
-    const Verdict v = combined_verdict(m, difficulty, h);
-    if (v == Verdict::Evolve) {
-        h.devolve_counter = 0;
-        const int target = evolve_target(h.type);
-        if (target < 0) return false;
-        h.type = target;
-        return true;
+std::optional<HouseType> devolve_target(HouseType type) {
+    validate_type(type);
+    if ((type >= HouseType::Hut && type <= HouseType::LuxuriousApartment) ||
+        (type >= HouseType::ModestSiheyuan && type <= HouseType::HeavenlyCompound)) {
+        return static_cast<HouseType>(static_cast<std::uint16_t>(type) - 1U);
     }
-    if (v == Verdict::Stay) { h.devolve_counter = 0; return false; }
-
-    if (h.devolve_counter < devolve_limit(h.type)) { ++h.devolve_counter; return false; }
-    h.devolve_counter = 0;
-    const int target = devolve_target(h.type);
-    if (target < 0) return false;
-    h.type = target;
-    return true;
+    return std::nullopt;
 }
 
-bool accepts_service_visit(const HouseState& h) {
-    return is_house_type(h.type) && (h.occupants > 0 || is_elite(h.type));
-}
+HouseState evolve_step(const HouseEvolutionRules& rules, const HouseState& state,
+                       EvolutionContext context) {
+    validate_type(state.type);
+    // Unoccupied calls next-row needs and discards its Boolean result. Its
+    // type/counter do not change; this kernel models no additional observer.
+    if (state.type == HouseType::EliteUnoccupied) return state;
+    if ((state.type == HouseType::Vacant || state.type == HouseType::Shelter) &&
+        state.occupants <= 0) return state;
+    if (context.evaluation_blocked) return state;
 
-bool apply_service_visit(HouseState& h, ServiceKind kind) {
-    if (!accepts_service_visit(h)) return false;
-    switch (kind) {
-    case ServiceKind::Herbalist: grant_service(h.herbalist); break;
-    case ServiceKind::Acupuncture: grant_service(h.acupuncture); break;
-    case ServiceKind::Music: grant_service(h.music); break;
-    case ServiceKind::Acrobat: grant_service(h.acrobat); break;
-    case ServiceKind::Drama: grant_service(h.drama); break;
-    case ServiceKind::Ancestor: grant_religion(h.ancestor); break;
-    case ServiceKind::Confucian: grant_religion(h.confucian); break;
-    case ServiceKind::Daoist: grant_religion(h.daoist); break;
-    case ServiceKind::Buddhist: grant_religion(h.buddhist); break;
+    const auto verdict = evolution_verdict(rules, state, context);
+    auto next = state;
+    if (state.type == HouseType::Vacant) {
+        if (verdict == Verdict::Evolve) next.type = HouseType::Shelter;
+        return next; // Vacant never changes the devolution counter.
     }
-    return true;
+    if (verdict == Verdict::Evolve) {
+        next.devolve_counter = 0;
+        if (const auto target = evolve_target(state.type)) next.type = *target;
+    } else if (verdict == Verdict::Stay) {
+        next.devolve_counter = 0;
+    } else if (state.devolve_counter < devolve_limit(state.type)) {
+        ++next.devolve_counter;
+    } else {
+        next.devolve_counter = 0;
+        if (const auto target = devolve_target(state.type)) next.type = *target;
+    }
+    return next;
 }
 
-bool step_house(const ModelData& m, int difficulty, HouseState& h, int step_in_month) {
-    // Order as in the original: timers decay, then the evolution check, then
-    // goods consumption on its own steps.
-    decay_services(h);
-    const bool changed = evolve_step(m, difficulty, h);
-    if (is_consumption_step(step_in_month)) consume_goods(m, difficulty, h);
-    return changed;
-}
-
-}  // namespace openemperor::original
+} // namespace openemperor::original
