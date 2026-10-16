@@ -18,7 +18,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation); Forschung zuletzt `da94833b46c130514d24fa172dacad4a56e46e11`, frühere SHAs im Protokoll | `.local/original-economy/oe12/` | Strenge Grenze unverändert; konkreter Quellen-/Bau-/Restore-/Finanzierungsentwurf jetzt beauftragt und vorgelegt, noch NICHT FREIGEGEBEN; keine Implementierung |
+| OE-12 | PASS | Task-SHA in Abschlussantwort; Umsetzung ab `1be1863b643233781865158510b8ceb93e7c63e3` | `.local/original-economy/oe12/implementation/`, OE-00/`oe12-final-verification/` | Rule8/Schema24: bezahlte Well72-Quellen,20 Häuser, Abriss/Wiederkauf/Prozessreplay;181 unterschiedliche CTests je Konfiguration belegt;72 Legacy-Saves/Snapshots und1485 Policyfälle exakt;Gate B PASS |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
@@ -46,7 +46,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | Gate | Status | Beleg |
 |---|---|---|
 | A | PASS | OE-07: gepinnter Vier-Modul-Vergleich/74 Vektoren, Parser-/Quellenbindung/Negativfälle,507 CTests in drei Konfigurationen und exakter Legacy-Replay; begrenzte Kernabnahme, keine Gesamt-Originalparität |
-| B | BLOCKED | OE-12: erforderliche bezahlte Originalquellen und20-Häuser-Szene unter bisherigen Verträgen nicht zulässig; keine vollständige Gate-Suite und keine Freigabe |
+| B | PASS | OE-08–12: ausdrücklich freigegebener Rule8-/Schema24-Nachfolger; vollständige Gate-Suites und finale gezielte Wiederholungen in Debug/Release/ASan+UBSan, bezahlte20-Haus-/Quellen-/Reload-Szene und exakter Legacyvergleich; technische begrenzte Abnahme, native/human NOT_RUN |
 | C | TODO | — |
 | D | TODO | — |
 | E | TODO | — |
@@ -1425,3 +1425,125 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   **NOT_RUN**. OE-12/Gate B bleiben **BLOCKED**, OE-13 **TODO**. Der delegierte
   Git-Handoff erlaubt Dokumentationscommit/PR/Merge, keine implizite Annahme
   dieses Vorschlags. Nächster notwendiger Schritt ist die Nutzerentscheidung.
+
+
+### OE-12 Umsetzung – 2026-10-16, Basis1be1863 – Gate B PASS
+
+- **Auftrag und Ausgangspunkt:** Direktes „weiter gehts“ auf die konkrete
+  vierteilige Freigabefrage beauftragt den vorgelegten Quellenvertrag V1.
+  Sauberer, live/origin bestätigter `main`
+  `1be1863b643233781865158510b8ceb93e7c63e3`; Feature-Branch per Fast-forward
+  angeglichen. Vorheriger Entwurfscommit
+  `d62da85f2b1b3158f1e46b603d3ab7b10a7d7052` bleibt als Dokumentation erhalten.
+  Keine Fremdänderungen am Beginn. Die alten BLOCKED-Einträge oben sind
+  historische Ergebnisse vor dieser konkreten Freigabe.
+- **Umsetzung:** Expliziter Entwickler-Nachfolger Rule8/Schema24/policy3,
+  neuer angehängter Objekttyp und typisierter Well72-Container2×2, Kauf60/max4,
+  2000 Startfunds, atomarer Abriss ohne Refund und separates Entfernungsledger.
+  Cache/Prefixmaps entstehen nur bei Create/Restore und erfolgreichem
+  Quellenkauf/-abriss. Haus-/Inspectorwerte lesen bounded vorbereitete Zellen.
+  Originalmodell unveränderlich, bestehender Quadratkern bytegleich; weder
+  Wasser/Worker/Goods/Service/Einkommen noch neue House-Evolution freigegeben.
+  Schema24 prüft vollständig Modell/Map/Policy, Kosten, IDs und Ledger;
+  Schemas1–23 behalten ihre Bytes. Normaler App-/Menü-/Recoverypfad bleibt zu.
+  Bedienung und Authority im [Runtimevertrag](../original-economy/desirability-runtime.md).
+- **Vollständige Phasen-Gates:** Alle drei Konfigurationen mit
+  `cmake -S . -B BUILD -DCMAKE_BUILD_TYPE=TYPE -DOPENEMPEROR_USE_SYSTEM_SDL3=ON -DOPENEMPEROR_ENABLE_SANITIZERS=ON_OR_OFF`
+  konfiguriert und vollständig gebaut. Vor dem jeweiligen ersten Lauf reale
+  Targets per `ctest --test-dir BUILD -N` ermittelt. Danach jeweils
+  `ctest --test-dir BUILD --output-on-failure --parallel 2 --output-junit XML`.
+  Debug in `.local/market-walkers-finish/debug-build`: **180/180 PASS**,1687.85s.
+  Release in `.local/reswall/release-build`: zunächst176/180 PASS,122.52s;
+  vier obsolete Grenzen erwarteten Rule8 bzw. den jetzt angehängten Objekttyp
+  noch als unbekannt. Diese Negativfälle prüfen jetzt den wirklich nächsten
+  unbekannten Wert9 bzw. `OriginalInfluenceSource+1`; die alten Rule7-
+  Verweigerungen bleiben erhalten. ASan+UBSan in
+  `.local/market-walkers-finish/sanitizer-build`, RelWithDebInfo:
+  **180/180 PASS**,450.04s, keine Sanitizerdiagnose.
+- **Finaler Nachlauf:** Nach Testgrenzenkorrektur, Rule8-only Einzel-/Batch-
+  Command-Counterguard und Registrierung der Python-Runnerprüfung alle
+  betroffenen Targets in allen drei Konfigurationen erneut gebaut. Jeweils
+  **10/10 CTests PASS**, einschließlich aller vier initialen Releasefehler,
+  neuer World-/Save-/SDL-/Runnerprüfungen und Forkadaptervertrag. Damit sind
+  **181 unterschiedliche CTests je Konfiguration /543 insgesamt bestanden**,
+  ohne Skip; dies ist die Vereinigung vollständiger180er-Suite und finaler
+  gezielter10er-Auswahl, kein behaupteter neuer vollständiger181er-Lauf.
+  Finale gezielte Builds ohne Compiler-/Linkerwarnungen.
+  Exakte Befehle/Exitcodes und Ausgaben unter
+  `.local/original-economy/oe12/implementation/{debug,release,sanitizer}-gate-result.json`,
+  `*-gate-*.log`, `*-ctest.xml`, `*-targeted.json`, `*-targeted.xml`.
+- **World-/Save-Negativfälle:** Vierquellenlimit, falscher Typ/Footprint,
+  Originalschutz/Belegung/Bounds, unzureichende Funds, kein Refund/keine
+  ID-Wiederverwendung, Ledger-/Kostensumme, unbekannte/duplizierte/fehlende IDs,
+  Source-/Model-/Map-/Policy-Manipulation und fremde Schemas verweigert.
+  Letzter legaler Command-Counterstand bleibt restaurierbar; zu großer
+  Road-Batch wird vollständig atomisch verweigert. Idle-/House-/Tickabfragen
+  rebuilden den Cache nicht. Unabhängige Reviews von Simulation,
+  Persistenz/UI/Launcher und Szenengeometrie/Finanzen ohne blockierenden Befund.
+- **Tatsächliche20-Häuser-Szene mit echten Modelldaten:**
+  `python3 tools/test_original_influence.py .local/gog-extracted/app --build-dir .local/reswall/release-build`:
+  **PASS**, finaler Bericht
+  `.local/original-economy/oe12/influence-fixtures/run-6oyqms32/report.json`,
+  SHA256 `6eee343437827313e4d1d68598379b88e8d13c75d26bce028378d2601b572cbd`.
+  Hashidentische private Modellkopie, ausdrücklich authored24×20-Karte,
+  tatsächliche produktive Käufe von40 Straßen,20 Häusern und Quellen A/B.
+  Nach Abriss200 Funds/1800 spent; nach Rand-Wiederkauf140/1860, entfernte
+  ID21/neue23/nächste24. Hauswerte ändern sich nach jeder Quellenmutation.
+  Unveränderter City-v13-Algorithmus mit authored Well72→Well-Zuordnung liefert
+  hier für alle20 Häuser0; keine dort illegale World erzeugt.
+  Zwei getrennte neue OS-Prozesse simulieren je20k weitere Ticks und vergleichen
+  vollständige SaveDocuments, kanonische Bytes und Quellenprovenance exakt.
+  Alle19 Ausgabedateien geprüft, sechs Saves bytegleich zum Vorlauf; keine
+  Snapshot-Injektion. Acht Python-Outputguardtests bestehen, reales
+  `--output` außerhalb des privaten Roots wird ohne Schreiben verweigert.
+- **Scripted SDL und tatsächliche Darstellung:** Tastatur `I`, Mauskauf,
+  bezahlte Funds, neutrale Wasseranzeige, Haus-/Quelleninspector, F5/F9 mit
+  vollständigem Snapshotvergleich, Abriss und30 Idleframes geprüft. Keine
+  zusätzlichen Frame-I/O-/Asset-/Worldcopy-/BFS-Zähler. Finalen Capture
+  `.local/original-economy/oe12/implementation/influence-view-final.png`
+  tatsächlich geöffnet:2×2-Well-Fallback und Inspector mit Wert12,
+  Quelle#2/Beitrag0+12→12/Difficulty/Model-SHA sichtbar. Das sind authored
+  Software-SDL-Pixel, keine Originalgrafik- oder native/humane Abnahme.
+  `sh -n tools/play_original_influence.sh`: **PASS**.
+  `cmake --build .local/reswall/release-build --parallel 2 --target openemperor-original-influence-play`:
+  **PASS**, finaler ausgeschlossener Launcher ohne Warnungen gebaut.
+  Er startet über `sh tools/play_original_influence.sh` auf Xia;
+  er wurde nicht als native menschliche Spielrunde ausgegeben.
+- **Zusätzlicher Infrastrukturprobe:** Private
+  `implementation/InfrastructureProbe.cpp` gegen finale Produktionsarchive
+  frisch kompiliert und ausgeführt: **PASS**, keine Compilerwarnung.
+  Tatsächliche bezahlte13 Straßen/Bridge60/Ramp40/House80/Source60,
+  Quellen-Wasserüberlappung atomisch verweigert, Rampenendpoint getrennt und
+  gegen2 Funds repariert. Finale Funds1732/spent268; gemeinsame Traversierung
+  und kompletter Schema24-Restore inklusive Bridge/Ramp/Source exakt.
+  Synthetische Karte/Modell, kein Originalmap-Gameplaybeweis.
+- **Forkvergleich:** Finale Debug-/Release-/Sanitizerberichte jeweils
+  **74/74 PASS**;46 parity/18 corrected_bug/6 unverified/4 unsupported.
+  Alle18 Housingbeobachtungen und1800 echten Modellwerte im Digest exakt.
+  `implementation/parity-validation-summary.json` bindet aktuelle Library-
+  Hashes; portable Berichte stimmen mit `docs/original-economy/core-parity.json`
+  überein. Bestehende Fallklassifikationen/Forkpins/Numerik unverändert;
+  nur ABI-/DTO-Quellhashes ergänzt bzw. aktualisiert.28 Python-Werkzeugtests PASS.
+- **Vollständiger finaler Legacyvergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe12-final-verification`:
+  **PASS**. Contract und alle72 vollständigen SaveDocuments sowie72
+  WorldSnapshots wörtlich bytegleich zur eingefrorenen OE-00-Referenz.
+  1485 Policyfälle,167 komplette Maps/165 vorbereitet/2 bestehende Konflikte,
+  elf Rampen-/zehn Brücken-Prozessrestartpaare und tatsächliche bezahlte
+  Rule3-/Rule4-Xia-/Handan-Kontrollen bestanden. Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  finales `run.json` SHA256
+  `1fffcfdd3386d4563f72cf775c1cd43e8039600bceb7573395d4b77d4ade24c2`.
+- **Abschluss und Grenze:** Originalinventar1464 Dateien/819711091 Bytes
+  unverändert, Byte-Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`;
+  Modellbytes/Modus/mtime unverändert. Finaler Source-/Test-/Tool-/Resourcehash
+  `5418b481dd970ff55450f392ff91ac1f772e1e4dda3fd8c6400c3c895af95be5`.
+  Private Abschlussprüfung `implementation/final-validation.json` kontrolliert
+  eigene38 Pfade, Links/Anker, Diff, Testvereinigung, finale Archive/Fixtures,
+  Originalinventar und Legacyvertrag. OE-12 und Gate B **PASS** für den
+  angenommenen begrenzten Entwicklervertrag; alle sieben alten Analogien
+  weiter Inferred/Unknown, keine Rechteck-/Original-Lifecycle-Gesamtparität.
+  Native/human **NOT_RUN**. Eigener Task-Commit und delegierter PR/regulärer
+  Merge folgen nach diesem Nachweis; SHA in Abschlussantwort. Nächster Task
+  **OE-13 TODO**, in diesem Task nicht begonnen.

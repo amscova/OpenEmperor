@@ -1,15 +1,19 @@
-# OE-12: Quellen-, Bau-, Restore- und Finanzierungsvertrag V1 zur Entscheidung
+# OE-12: freigegebener Quellen-, Bau-, Restore- und Finanzierungsvertrag V1
 
-**ENTWURF / NICHT FREIGEGEBEN.** Stand 2026-10-16, geprüft gegen
-`main` `4fd586851e1f019dbeb9b9894e7437fd9b6d9e2c`.
-Der Nutzer hat ausdrücklich zuerst diesen konkreten Vertrag beauftragt.
-Das erlaubt seine Ausarbeitung, noch keine Implementierung. OE-12 und Gate B
-bleiben **BLOCKED**, OE-13 bleibt **TODO**. Auch ein Dokumentationsmerge ist
-keine Annahme dieses Vertrags.
+**IMPLEMENTIERT UND TECHNISCH GEPRÜFT: OE-12 / GATE B PASS.** Der ursprünglich
+gegen `main` `4fd586851e1f019dbeb9b9894e7437fd9b6d9e2c` geprüfte Entwurf wurde
+in PR18 ausschließlich als Dokumentation gemergt. Anschließend hat der Nutzer
+auf die konkrete vierteilige Freigabefrage direkt mit „weiter gehts“ geantwortet.
+Diese Antwort beauftragt die Umsetzung des unten beschriebenen Pakets; sie ist
+vom früheren allgemeinen Fortsetzungswunsch ohne vorgelegten Vertrag getrennt.
+Ausgangsrevision der Umsetzung ist `1be1863b643233781865158510b8ceb93e7c63e3`.
+Tatsächliche Build-, Szenen-, Prozess- und Legacybelege stehen im
+[Fortschrittsregister](../codex-original-economy/PROGRESS.md#oe-12-umsetzung--2026-10-16-basis1be1863--gate-b-pass).
+Native menschliche Abnahme bleibt NOT_RUN; OE-13 bleibt TODO.
 
 ## Entscheidungspaket
 
-Empfohlen ist eine kleine, ausdrücklich authored Erweiterung der bisherigen
+Umgesetzt ist eine kleine, ausdrücklich authored Erweiterung der bisherigen
 Rule7-Entwicklung: **City-v16 Rule8 / Schema24 / unveränderte policy3** mit
 genau einer Quellendefinition **Well72**, eigenem bezahltem Quellencontainer,
 sicherem Abriss und **2000 festen Start-Funds**. Die geprüften Modellfelder
@@ -17,7 +21,7 @@ speisen ausschließlich die Desirability. Die 20-Haus-Abnahme bleibt erhalten.
 Der City-v13-Vergleich wird ausdrücklich als Vergleich seines unveränderten
 Bewertungsalgorithmus auf der bezahlten Szene definiert.
 
-Das sind vier zustimmungspflichtige Änderungen der bisherigen Grenze:
+Freigegeben sind diese vier Änderungen der bisherigen Grenze:
 
 | Entscheidung | Konkreter Vorschlag | Bedeutung |
 |---|---|---|
@@ -26,9 +30,10 @@ Das sind vier zustimmungspflichtige Änderungen der bisherigen Grenze:
 | Finanzierung | Fester neuer Startwert2000; House80, Road2, Quelle60; kein Einkommen/Refund | Reguläre Käufe finanzieren20 Häuser und die Mutations-/Reload-Abnahme |
 | Vergleich | Unveränderter City-v13-Algorithmus auf derselben bezahlten Szene | Keine fingierte City-v13-World mit dort unzulässigen Wells |
 
-Ohne ausdrückliche Zustimmung bleiben alle heutigen Bau-/Restore-/Budgetgates
-und die [strenge Nutzerentscheidung](../codex-original-economy/DECISIONS.md#oe-12-strenge-grenze-und-blockierter-fortgang)
-in Kraft. Ein allgemeines „weiter“ gilt nicht als Annahme dieser vier Änderungen.
+Die [strenge frühere Nutzerentscheidung](../codex-original-economy/DECISIONS.md#oe-12-strenge-grenze-und-blockierter-fortgang)
+bleibt außerhalb genau dieser vier nun beauftragten Änderungen in Kraft.
+Weitere Typen, Wirtschaftsketten oder neue Originalparitätsbehauptungen sind
+damit nicht freigegeben.
 
 ## Beleggrenze und konkrete Quelle
 
@@ -307,8 +312,10 @@ Abrissledger, Schema24, Cache und Entwicklerbedienung mit diesen Abnahmen:
    Akzeptanz werden getrennt protokolliert. Kein ursprünglicher Gate-B-PASS
    allein durch Annahme dieses geänderten Vertrags.
 
-**Stand dieses Entwurfs:** nur Quellen-/Codeprüfung, unabhängige Designreviews,
+**Historischer Entwurfsstand vor der Nutzerfreigabe (Commitd62da85):** nur Quellen-/Codeprüfung, unabhängige Designreviews,
 Layout-/Finanzarithmetik und Dokumentationsprüfung. Keine Rule8-/Schema24-
 Implementierung, kein ausgeführter bezahlter20-Haus-Worldtest, kein Build,
-keine Gate-B-Suite, kein menschlicher Playtest. Der komplette Vorschlag ist
-die zur Entscheidung vorgelegte Änderung, nicht bereits gültiges Verhalten.
+keine Gate-B-Suite, kein menschlicher Playtest. Die nachfolgend beauftragte
+Umsetzung und ihre tatsächliche Prüfung stehen im
+[Laufzeitvertrag](desirability-runtime.md) und im
+[Fortschrittsregister](../codex-original-economy/PROGRESS.md).

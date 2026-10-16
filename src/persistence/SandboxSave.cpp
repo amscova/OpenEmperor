@@ -689,6 +689,9 @@ simulation::OriginalEconomyState parse_original_economy(const json& j) {
     return state;
 }
 json original_document_json(const SaveDocument& d) {
+    require(d.world.profile==simulation::RulesProfile::CityV16 &&
+            d.world.rule_version==simulation::kOriginalEconomyRuleVersion && !d.world.original_influence,
+            "schema23 requires unchanged City-v16 rule7 without influence sources");
     require(d.world.original_economy.has_value(),"schema23 requires separate original economy authority");
     require(d.source_schema_version==0 || d.source_schema_version==23,"rule7 requires schema23; legacy saves are not migrated");
     require(d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion &&
@@ -721,6 +724,100 @@ bool canonical_fields(const json& value,const json& canonical) {
     }
     return value==canonical;
 }
+json original_influence_json(const simulation::OriginalInfluenceState& state) {
+    using simulation::OriginalInfluenceSourceType;
+    require(state.sources.size()<=simulation::original_influence_source_limit &&
+            state.removed_sources.size()<=simulation::original_influence_purchase_limit,
+            "schema24 influence source collections exceed bounds");
+    json sources=json::array(),removed=json::array();
+    for (const auto& source:state.sources) {
+        require(source.type==OriginalInfluenceSourceType::Well72,"unsupported schema24 influence type");
+        sources.push_back({{"building_id",static_cast<std::uint32_t>(source.building_id)},{"type",72}});
+    }
+    for (const auto& source:state.removed_sources) {
+        require(source.type==OriginalInfluenceSourceType::Well72,"unsupported schema24 removed influence type");
+        removed.push_back({{"building_id",static_cast<std::uint32_t>(source.building_id)},
+            {"type",72},{"placed_tick",source.placed_tick},{"removed_tick",source.removed_tick}});
+    }
+    return {{"sources",std::move(sources)},{"removed_sources",std::move(removed)}};
+}
+simulation::OriginalInfluenceState parse_original_influence(const json& j) {
+    using namespace simulation;
+    OriginalInfluenceState state;
+    const auto& sources=field(j,"sources");const auto& removed=field(j,"removed_sources");
+    require(sources.is_array() && sources.size()<=original_influence_source_limit &&
+            removed.is_array() && removed.size()<=original_influence_purchase_limit,
+            "schema24 influence source collections exceed bounds");
+    std::uint32_t previous=0;
+    for (const auto& source:sources) {
+        const auto id=static_cast<std::uint32_t>(number(field(source,"building_id"),UINT32_MAX));
+        require(id>previous && number(field(source,"type"),72)==72,
+                "schema24 influence IDs must be sorted positive IDs of type72");
+        previous=id;
+        state.sources.push_back({static_cast<BuildingId>(id),OriginalInfluenceSourceType::Well72});
+    }
+    previous=0;
+    for (const auto& source:removed) {
+        const auto id=static_cast<std::uint32_t>(number(field(source,"building_id"),UINT32_MAX));
+        require(id>previous && number(field(source,"type"),72)==72,
+                "schema24 removed influence IDs must be sorted positive IDs of type72");
+        previous=id;
+        state.removed_sources.push_back({static_cast<BuildingId>(id),OriginalInfluenceSourceType::Well72,
+            number(field(source,"placed_tick")),number(field(source,"removed_tick"))});
+    }
+    return state;
+}
+json influence_document_json(const SaveDocument& d) {
+    require(simulation::original_influence_enabled(d.world.profile,d.world.rule_version) &&
+            d.world.original_influence && d.world.original_economy,
+            "schema24 requires separate City-v16 rule8 influence authority");
+    require(d.source_schema_version==0 || d.source_schema_version==24,
+            "rule8 requires schema24; existing saves are not migrated");
+    require(d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion &&
+            valid_hash(d.map_permissions_sha256),"schema24 requires immutable policy3 identity");
+    simulation::World::validate_original_economy_snapshot(d.world);
+    simulation::World::validate_original_influence_snapshot(d.world);
+    // Only a local DTO/JSON copy reuses the old canonical infrastructure fields.
+    // A live World is never cast to another rule or restored through that rule.
+    auto projected=d;
+    projected.world.rule_version=6;
+    projected.world.original_economy.reset();projected.world.original_influence.reset();
+    for (auto& building:projected.world.buildings)
+        if (building.kind==simulation::Object::OriginalInfluenceSource) building.kind=simulation::Object::Well;
+    auto result=document_json(projected);
+    result["schema_version"]=24;result["rules"]["version"]=simulation::kOriginalInfluenceRuleVersion;
+    for (std::size_t i=0;i<d.world.buildings.size();++i)
+        result["world"]["buildings"][i]["kind"]=static_cast<int>(d.world.buildings[i].kind);
+    result["world"]["original_economy"]=original_economy_json(*d.world.original_economy);
+    result["world"]["original_influence"]=original_influence_json(*d.world.original_influence);
+    return result;
+}
+SaveDocument parse_influence_document(const json& j) {
+    require(str(field(field(j,"rules"),"id"))==simulation::city_v16_profile_name &&
+            number(field(field(j,"rules"),"version"))==simulation::kOriginalInfluenceRuleVersion,
+            "schema24 requires City-v16 rule8");
+    auto projected=j;
+    projected["schema_version"]=22;projected["rules"]["version"]=6;
+    projected["world"].erase("original_economy");projected["world"].erase("original_influence");
+    auto& buildings=projected["world"]["buildings"];
+    require(buildings.is_array() && buildings.size()<=simulation::building_collection_limit(simulation::RulesProfile::CityV16),
+            "schema24 building collection exceeds bound");
+    for (auto& building:buildings) {
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalInfluenceSource));
+        if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
+            building["kind"]=static_cast<int>(simulation::Object::Well);
+    }
+    auto d=parse_document(projected);
+    d.source_schema_version=24;d.world.rule_version=simulation::kOriginalInfluenceRuleVersion;
+    for (std::size_t i=0;i<d.world.buildings.size();++i)
+        d.world.buildings[i].kind=static_cast<simulation::Object>(number(field(field(field(j,"world"),"buildings")[i],"kind")));
+    d.world.original_economy=parse_original_economy(field(field(j,"world"),"original_economy"));
+    d.world.original_influence=parse_original_influence(field(field(j,"world"),"original_influence"));
+    simulation::World::validate_original_economy_snapshot(d.world);
+    simulation::World::validate_original_influence_snapshot(d.world);
+    require(canonical_fields(j,influence_document_json(d)),"schema24 contains unknown or noncanonical save fields");
+    return d;
+}
 SaveDocument parse_original_document(const json& j) {
     require(str(field(field(j,"rules"),"id"))==simulation::city_v16_profile_name &&
             number(field(field(j,"rules"),"version"))==simulation::kOriginalEconomyRuleVersion,
@@ -740,6 +837,9 @@ SaveDocument parse_original_document(const json& j) {
     return d;
 }
 json document_json(const SaveDocument& d) {
+    if (simulation::original_influence_enabled(d.world.profile,d.world.rule_version))
+        return influence_document_json(d);
+    require(!d.world.original_influence,"influence source authority requires City-v16 rule8/schema24");
     if (simulation::original_economy_enabled(d.world.profile,d.world.rule_version))
         return original_document_json(d);
     require(!d.world.original_economy,"original economy authority requires City-v16 rule7/schema23");
@@ -775,10 +875,13 @@ json document_json(const SaveDocument& d) {
 SaveDocument parse_document(const json& j) {
     require(str(field(j,"format"))=="openemperor-sandbox-save","unknown save format");
     const auto schema=number(field(j,"schema_version"));
+    if (schema==24) return parse_influence_document(j);
     if (schema==23) return parse_original_document(j);
     require(schema>=1 && schema<=22,"unsupported save schema version");
     require(!j.contains("original_economy") && !field(j,"world").contains("original_economy"),
             "original economy authority requires schema23");
+    require(!j.contains("original_influence") && !field(j,"world").contains("original_influence"),
+            "influence source authority requires schema24");
     const auto& m=field(j,"map"); const auto& p=field(j,"profiles");
     const auto& r=field(j,"rules");
     SaveDocument d;
@@ -897,6 +1000,17 @@ SaveDocument make_document(const fs::path& root,const fs::path& relative,
     SaveDocument d;
     d.map_relative=relative;d.map_sha256=hash_file(map);
     d.buildable_sha256=digest(mask.data(),mask.size());d.world=world.snapshot();
+    if (simulation::original_influence_enabled(d.world.profile,d.world.rule_version)) {
+        d.prepared_permissions=world.map_permissions();
+        d.prepared_original_rules_model=world.original_rules_model();
+        require(static_cast<bool>(d.prepared_original_rules_model),"schema24 requires a prepared original rules model");
+        require(d.prepared_permissions && d.prepared_permissions->policy_version()==simulation::kBridgesMapPermissionsPolicyVersion,
+                "schema24 requires complete immutable policy3 map permissions");
+        d.map_permissions_policy_version=d.prepared_permissions->policy_version();
+        d.map_permissions_sha256=map_permissions_fingerprint(*d.prepared_permissions,d.map_sha256);
+        (void)restore_original_influence_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
+        return d;
+    }
     if (world.original_economy_enabled()) {
         d.prepared_permissions=world.map_permissions();
         d.prepared_original_rules_model=world.original_rules_model();
@@ -948,6 +1062,8 @@ SaveDocument read_save(const fs::path& path) {
     });
     if (j.is_object() && j.contains("schema_version") && j.at("schema_version")==23)
         require(!duplicate_key,"schema23 duplicate save key");
+    if (j.is_object() && j.contains("schema_version") && j.at("schema_version")==24)
+        require(!duplicate_key,"schema24 duplicate save key");
     return parse_document(j);
 }
 simulation::OriginalModelSource original_model_source(const fs::path& root,original::Difficulty difficulty) {
@@ -1008,6 +1124,8 @@ std::string map_permissions_fingerprint(const simulation::MapPermissions& permis
 simulation::World restore_save(const SaveDocument& d,const fs::path& root,
                                std::vector<std::uint8_t> mask,
                                std::shared_ptr<const simulation::MapPermissions> permissions) {
+    require(!simulation::original_influence_enabled(d.world.profile,d.world.rule_version),
+            "City-v16 rule8 requires explicit schema24 development restore");
     require(!simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
             "City-v16 rule 7 runtime is not ready; use explicit schema23 development restore");
     safe_relative(d.map_relative);
@@ -1042,7 +1160,8 @@ simulation::World restore_save(const SaveDocument& d,const fs::path& root,
 simulation::World restore_original_economy_development(const SaveDocument& d,const fs::path& root,
         std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model) {
-    require(simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
+    require(d.world.profile==simulation::RulesProfile::CityV16 &&
+            d.world.rule_version==simulation::kOriginalEconomyRuleVersion,
             "schema23 development restore requires City-v16 rule7");
     require(d.source_schema_version==0 || d.source_schema_version==23,
             "rule7 requires schema23; legacy saves are not migrated");
@@ -1073,6 +1192,40 @@ simulation::World restore_original_economy_development(const SaveDocument& d,con
             "map-permissions SHA-256 differs from save (permissions or topology changed)");
     return simulation::World::restore_original_economy_development(d.world,std::move(permissions),std::move(model));
 }
+simulation::World restore_original_influence_development(const SaveDocument& d,const fs::path& root,
+        std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model) {
+    require(simulation::original_influence_enabled(d.world.profile,d.world.rule_version),
+            "schema24 development restore requires City-v16 rule8");
+    require(d.source_schema_version==0 || d.source_schema_version==24,
+            "rule8 requires schema24; existing saves are not migrated");
+    require(d.world.original_economy && d.world.original_economy->model_source,
+            "schema24 requires an original model source identity");
+    (void)influence_document_json(d);
+    const auto& source=*d.world.original_economy->model_source;
+    if (!model) model=prepare_original_rules_model(root,source.difficulty);
+    const auto& provenance=model->provenance();
+    require(source.format_version==provenance.format_version && source.sha256==provenance.sha256 &&
+            source.byte_count==provenance.byte_count && source.difficulty==model->difficulty(),
+            "schema24 prepared original rules model identity differs from save");
+    const auto inspected=original::inspect_model_source(root);
+    require(inspected.fingerprint && inspected.fingerprint->sha256==source.sha256 &&
+            inspected.fingerprint->byte_count==source.byte_count,
+            "schema24 live original model source identity differs from save");
+    safe_relative(d.map_relative);
+    const auto map=maps::resolve_map_path(root,d.map_relative);
+    require(hash_file(map)==d.map_sha256,"original map SHA-256 differs from save");
+    require(digest(mask.data(),mask.size())==d.buildable_sha256,
+            "sandbox buildable mask SHA-256 differs from save");
+    if (!permissions) permissions=maps::read_sandbox_map_permissions(root,d.map_relative,mask,
+        simulation::kBridgesMapPermissionsPolicyVersion);
+    require(permissions && permissions->policy_version()==simulation::kBridgesMapPermissionsPolicyVersion &&
+            d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion,
+            "schema24 requires matching immutable policy3 map permissions");
+    require(map_permissions_fingerprint(*permissions,d.map_sha256)==d.map_permissions_sha256,
+            "map-permissions SHA-256 differs from save (permissions or topology changed)");
+    return simulation::World::restore_original_influence_development(d.world,std::move(permissions),std::move(model));
+}
 void validate_save_target(const fs::path& path,const fs::path& root) {
     require(!path.empty(),"save path is empty");
     const auto absolute=fs::absolute(path).lexically_normal();
@@ -1096,7 +1249,9 @@ void write_save(const fs::path& path,const SaveDocument& d,const fs::path& root,
     performance::increment(performance::Counter::FileWrites);
     validate_save_target(path,root);
     // Recheck original inputs and all world invariants before writing any bytes.
-    if (simulation::original_economy_enabled(d.world.profile,d.world.rule_version))
+    if (simulation::original_influence_enabled(d.world.profile,d.world.rule_version))
+        (void)restore_original_influence_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
+    else if (simulation::original_economy_enabled(d.world.profile,d.world.rule_version))
         (void)restore_original_economy_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
     else (void)restore_save(d,root,mask);
     const auto bytes=document_json(d).dump(2);

@@ -22,6 +22,8 @@ FORK_REVISION = "d861d2912337c09751cb68196f85d5a30752726e"
 MODEL_SHA256 = "7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6"
 HOUSING_EXPECTED = [35,43,54,59,193,72,207,1,0,3,3,4,4,1,1,3,4,1]
 HOUSING_FORK_MODULES = ("ModelData", "Desirability", "HouseEvolution", "OriginalHousingView")
+HOUSING_SIMULATION_DEPENDENCIES = ("original-rules-model", "original-desirability",
+                                   "original-house-evolution", "original-model")
 # OE-00's independently retrieved, pinned file identities. A mutable local
 # manifest is not trusted as the source of the expected hashes.
 FORK_SHA256 = {
@@ -354,6 +356,13 @@ def prepare_housing_fork(fork: Path, output: Path) -> Path:
     return isolated
 
 
+def housing_link_libraries(simulation_library: Path) -> tuple[Path, ...]:
+    # Match the production archive dependency order without compiling another
+    # copy of current rules into the namespace-isolated fork housing adapter.
+    return (simulation_library, *(simulation_library.parent / ("libopenemperor-" + name + ".a")
+                                  for name in HOUSING_SIMULATION_DEPENDENCIES))
+
+
 def compile_probes(fork: Path, output: Path, compiler: str, configuration: str, simulation_library: Path) -> dict[str, Path]:
     flags = ["-std=c++20", "-Wall", "-Wextra", "-Wpedantic", "-Wconversion", "-Wshadow", *CONFIGURATIONS[configuration][0]]
     openssl = shlex.split(checked_run(["pkg-config", "--cflags", "--libs", "openssl"]).stdout)
@@ -365,7 +374,7 @@ def compile_probes(fork: Path, output: Path, compiler: str, configuration: str, 
     commands = {
         "fork-probe": [compiler,*flags,"-DOE_PARITY_FORK=1","-I",str(fork / "src"),str(adapter),*common_fork,"-o",str(binaries["fork-probe"])],
         "current-probe": [compiler,*flags,"-I",str(ROOT / "src"),str(adapter),*[str(ROOT / (module+name+".cpp")) for name in ("ModelData","ModelSchema","Desirability","HouseEvolution","ServiceRules","GoodsRules")],*openssl,"-o",str(binaries["current-probe"])],
-        "housing-probe": [compiler,*flags,"-I",str(housing_fork),"-I",str(ROOT / "src"),str(ROOT / "tools/original-rules-parity/HousingViewProbe.cpp"),*[str(housing_fork / (name+".cpp")) for name in HOUSING_FORK_MODULES],str(simulation_library),"-o",str(binaries["housing-probe"])],
+        "housing-probe": [compiler,*flags,"-I",str(housing_fork),"-I",str(ROOT / "src"),str(ROOT / "tools/original-rules-parity/HousingViewProbe.cpp"),*[str(housing_fork / (name+".cpp")) for name in HOUSING_FORK_MODULES],*[str(path) for path in housing_link_libraries(simulation_library)],*openssl,"-o",str(binaries["housing-probe"])],
     }
     for key, command in commands.items():
         result = checked_run(command)
@@ -421,7 +430,7 @@ def public_report(report: dict[str, Any]) -> dict[str, Any]:
 def current_source_hashes() -> dict[str,str]:
     module = ROOT / "src/simulation/original"
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
-    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h"]
+    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h"]
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
 
 
@@ -448,18 +457,25 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
                               "configuration":args.configuration,"cases":[]}
     report["current"] = {"files":current_source_hashes()}
     library = args.simulation_library or ROOT / CONFIGURATIONS[args.configuration][1] / "libopenemperor-simulation.a"
-    if not library.is_file():
-        raise ValueError("matching prebuilt simulation library is missing; build the selected configuration first")
-    # OE-11 reviewed: immutable session model adds one transient shared pointer.
-    # Recompile probes against the matching library and pin both exact headers.
+    libraries = housing_link_libraries(library)
+    if any(not path.is_file() for path in libraries):
+        raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
+    # OE-12 reviewed: Rule 8 appends source state and transient influence cache;
+    # the probe keeps its original HouseholdV3/CityV7 calls and observations.
+    # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "f675b8c36a097451db036fe2a4b080f6966e0bd3":
+    if world_blob != "439965d45315d80af86e233cb3fc03b5683b7afc":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
     if dto_blob != "4c66306ee98c5408524187e910066d35a72ae857":
         raise ValueError("Original-state API drift: fourth-module adapter needs a reviewed compatibility contract")
-    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob}
+    influence_dto = ROOT / "src/simulation/OriginalInfluenceState.h"
+    influence_blob = hashlib.sha1(b"blob " + str(influence_dto.stat().st_size).encode() + b"\0" + influence_dto.read_bytes()).hexdigest()
+    if influence_blob != "ee4947358cbf3c221650970a9071e39b30f2b5ae":
+        raise ValueError("Original-influence API drift: fourth-module adapter needs a reviewed compatibility contract")
+    library_hashes = {str(path.resolve()):sha256(path) for path in libraries}
+    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob}
     authored = cases()
     validate_cases(authored)
     binaries = compile_probes(fork,output,args.compiler,args.configuration,library)
@@ -508,7 +524,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     report["status"] = "PASS" if all(case["passed"] for case in report["cases"]) and report["housing_view"]["passed"] and report["real_model"]["status"] not in ("FAIL",) else "FAIL"
     if report["status"]=="PASS" and report["real_model"]["status"]=="SKIP":
         report["status"]="SKIP"
-    if validate_fork(fork) != report["fork"] or current_source_hashes() != report["current"]["files"] or sha256(library) != report["build_provenance"]["sha256"]:
+    if validate_fork(fork) != report["fork"] or current_source_hashes() != report["current"]["files"] or {str(path.resolve()):sha256(path) for path in libraries} != library_hashes:
         raise ValueError("comparison source or library changed during execution")
     return report
 

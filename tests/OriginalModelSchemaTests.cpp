@@ -308,14 +308,19 @@ void functional_mapping_checks() {
     std::size_t mapped = 0;
     for (const auto& item : expected) {
         const auto result = original::functional_model_candidate(item.object);
-        check(result.candidate == item.candidate, "explicit functional candidate for every Object");
+        check(result.candidate == item.candidate, "explicit functional candidate for every legacy Object");
         check(result.functional == (item.candidate ? Status::Inferred : Status::Unknown), "candidate is a functional inference");
         check(result.mechanics_identity == Status::Unknown, "candidate does not prove original mechanics identity");
         check(result.presentation_identity == (item.image ? Status::ReverseEngineered : Status::Unknown), "image registration evidence is separate");
         if (result.candidate) ++mapped;
     }
-    check(mapped == 7 && expected.size() - mapped == 6, "seven candidates and six explicitly unmapped Objects");
-    for (const auto bad : {static_cast<Object>(13), static_cast<Object>(255)})
+    check(mapped == 7 && expected.size() - mapped == 6, "seven legacy candidates and six explicitly unmapped legacy Objects");
+    const auto source = original::functional_model_candidate(Object::OriginalInfluenceSource);
+    check(!source.candidate && source.functional == Status::Unknown &&
+          source.mechanics_identity == Status::Unknown && source.presentation_identity == Status::Unknown,
+          "authored influence binding does not upgrade functional or original identity evidence");
+    constexpr auto first_invalid = static_cast<Object>(static_cast<unsigned>(Object::OriginalInfluenceSource) + 1U);
+    for (const auto bad : {first_invalid, static_cast<Object>(255)})
         expect_exception<std::out_of_range>([&] { (void)original::functional_model_candidate(bad); }, "invalid Object is not merely unmapped");
 }
 

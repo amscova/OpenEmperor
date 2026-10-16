@@ -6,6 +6,7 @@
 namespace openemperor::simulation {
 
 std::optional<BuildingId> World::nearest_water_source_at(Cell origin) const {
+    if (original_influence_enabled()) return std::nullopt;
     if (!water_profile(profile_)) return std::nullopt;
     std::optional<BuildingId> nearest;
     int distance=INT_MAX;
@@ -45,6 +46,7 @@ int World::water_covered_households() const {
 
 World::WellCoverage World::well_coverage_at(Cell origin) const {
     WellCoverage result;
+    if (original_influence_enabled()) return result;
     if (!water_profile(profile_)) return result;
     for (const auto& home:buildings_) if (home.placed && home.kind==Object::Household &&
         footprint_distance(home.cell,building_footprint(profile_,rule_version_,home.kind),origin,

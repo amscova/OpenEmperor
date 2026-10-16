@@ -2,8 +2,8 @@
 
 ## Dauerhafte Invarianten (alle Phasen)
 
-- Keine Änderung des Standardprofils. Rule7 nur ausdrücklich opt-in; die aktuell reservierte Schema23-Nummer vor Nutzung prüfen.
-- Keine Mutation der 1–22 SaveDocument-Serialisierung. Besonders Rule6/Schema22 RampLink, Rule5/Schema21 BridgeSpan und unveränderte MapPermissions policy3 müssen identisch bleiben.
+- Keine Änderung des Standardprofils. Rule7 bleibt bisheriger Entwicklerstand; der ausdrücklich beauftragte Quellenvertrag V1 nutzt Rule8/Schema24 nur mit eigenem Entwickler-Opt-in. Versionsverfügbarkeit vor Umsetzung erneut prüfen.
+- Keine Mutation der 1–23 SaveDocument-Serialisierung. Besonders Rule7/Schema23, Rule6/Schema22 RampLink, Rule5/Schema21 BridgeSpan und unveränderte MapPermissions policy3 müssen identisch bleiben.
 - Keine neue Berechtigung aus Sprite-/Modell-IDs. World, Route und Objektgeometrie bleiben authoritative; Spieleraktionen kosten reale Funds.
 - Keine Gratisressourcen, Teleportlieferungen, Zeit-Vorsprünge oder reine Render-Events als Versorgungsbesuche.
 - Reproduzierbare Saved-Persistence, separates neues Prozess-Restore, Determinismus nach Save/Load und negative Manipulationsprüfungen.
@@ -20,10 +20,12 @@
 
 ## GATE B – nach OE-12: sichere versionierte Laufzeit
 
-- Rule7 nur Test/Opt-in, Schema23 streng und alte Schemas byte-identisch.
+- Rule8/Schema24 ausschließlich Entwickler-Opt-in nach [freigegebenem Quellenvertrag V1](../original-economy/source-contract-v1-proposal.md); Rule7/Schema23 und alle älteren Schemas byte-identisch, keine Migration.
 - Die Modelldatei ist bei Create und Restore dieselbe identifizierte Version; fehlende Quelle wird atomisch verweigert.
 - Tick-/Originalzyklus-Interpretation ist dokumentiert und Save-übergreifend deterministisch.
-- Desirability read-only aus wirklich platzierten Gebäuden; alter City-v13-Wert identisch.
+- Desirability read-only aus wirklich bezahlten typisierten Well72-Quellen;20 Häuser, Add/Remove/Kartenrand/Reload und exaktes Finanz-/ID-/Entfernungsledger.
+- Unveränderter City-v13-Bewertungsalgorithmus liest dieselbe bezahlte Szene mit ausdrücklich authored Well72→Well-Vergleichszuordnung. Keine illegale City-v13-World; echte alte City-v13-/16-Regressionsverträge bleiben unverändert.
+- Cache nur bei Create/Restore/erfolgreichem Quellenbau oder -abriss; keine Rebuilds durch Haus-/Frameabfrage oder Tick. Quelle liefert kein Wasser, Upkeep, Worker, Goods, Service oder Einkommen.
 
 ## GATE C – nach OE-19: bezahlte Güter und Service
 

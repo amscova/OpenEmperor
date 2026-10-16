@@ -249,6 +249,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldHealth.cpp
     src/simulation/WorldMaintenance.cpp
     src/simulation/WorldDesirability.cpp
+    src/simulation/WorldOriginalInfluence.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
@@ -275,7 +276,7 @@ add_library(openemperor-original-rules-model STATIC
 target_include_directories(openemperor-original-rules-model PUBLIC src)
 target_link_libraries(openemperor-original-rules-model PUBLIC openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-original-rules-model)
-target_link_libraries(openemperor-simulation PUBLIC openemperor-original-rules-model)
+target_link_libraries(openemperor-simulation PUBLIC openemperor-original-rules-model openemperor-original-desirability)
 # Explicit visit/countdown/spawn queries, without a World scheduler connection.
 add_library(openemperor-original-service-rules STATIC
     src/simulation/original/ServiceRules.cpp)
@@ -296,7 +297,7 @@ target_link_libraries(openemperor-original-desirability PUBLIC openemperor-origi
 openemperor_enable_warnings(openemperor-original-desirability)
 add_executable(openemperor-desirability-compare tools/desirability-compare/main.cpp)
 target_link_libraries(openemperor-desirability-compare PRIVATE
-    openemperor-original-desirability openemperor-simulation nlohmann_json::nlohmann_json)
+    openemperor-simulation nlohmann_json::nlohmann_json)
 target_compile_definitions(openemperor-desirability-compare PRIVATE
     OPENEMPEROR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 openemperor_enable_warnings(openemperor-desirability-compare)
@@ -811,6 +812,18 @@ if(BUILD_TESTING)
     add_test(NAME original-economy-save COMMAND openemperor-original-economy-save-tests)
     set_tests_properties(original-economy-save PROPERTIES TIMEOUT 30)
 
+    add_executable(openemperor-original-influence-world-tests tests/OriginalInfluenceWorldTests.cpp)
+    target_link_libraries(openemperor-original-influence-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-influence-world-tests)
+    add_test(NAME original-influence-world COMMAND openemperor-original-influence-world-tests)
+    set_tests_properties(original-influence-world PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-influence-save-tests tests/OriginalInfluenceSaveTests.cpp)
+    target_link_libraries(openemperor-original-influence-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-influence-save-tests)
+    add_test(NAME original-influence-save COMMAND openemperor-original-influence-save-tests)
+    set_tests_properties(original-influence-save PROPERTIES TIMEOUT 60)
+
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)
     target_link_libraries(openemperor-original-economy-rule-gate-tests PRIVATE openemperor-persistence)
@@ -846,6 +859,10 @@ if(BUILD_TESTING)
         add_test(NAME original-rules-parity-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_original_rules_parity.py)
         set_tests_properties(original-rules-parity-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME original-influence-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_original_influence_runner.py)
+        set_tests_properties(original-influence-runner-contract PROPERTIES TIMEOUT 30
             ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME map-corpus-runner COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_verify_map_corpus.py)
@@ -1334,6 +1351,22 @@ openemperor_enable_warnings(openemperor-original-roads-fixture)
 
 get_target_property(bridge_fixture_sources openemperor-city-v16-playthrough-fixture SOURCES)
 list(REMOVE_ITEM bridge_fixture_sources tools/CityV16PlaythroughFixture.cpp)
+add_executable(openemperor-original-influence-fixture EXCLUDE_FROM_ALL tools/OriginalInfluenceFixture.cpp)
+target_link_libraries(openemperor-original-influence-fixture PRIVATE openemperor-persistence)
+openemperor_enable_warnings(openemperor-original-influence-fixture)
+add_executable(openemperor-original-influence-play EXCLUDE_FROM_ALL
+    tools/OriginalInfluencePlay.cpp ${bridge_fixture_sources})
+target_compile_definitions(openemperor-original-influence-play PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+target_link_libraries(openemperor-original-influence-play PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+openemperor_enable_warnings(openemperor-original-influence-play)
+if(BUILD_TESTING)
+    add_executable(openemperor-original-influence-view-tests tests/OriginalInfluenceViewTests.cpp ${bridge_fixture_sources})
+    target_compile_definitions(openemperor-original-influence-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    target_link_libraries(openemperor-original-influence-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-influence-view-tests)
+    add_test(NAME original-influence-view COMMAND openemperor-original-influence-view-tests)
+    set_tests_properties(original-influence-view PROPERTIES TIMEOUT 60)
+endif()
 add_executable(openemperor-city-v16-bridges-fixture EXCLUDE_FROM_ALL
     tools/CityV16BridgesFixture.cpp ${bridge_fixture_sources})
 target_link_libraries(openemperor-city-v16-bridges-fixture PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
