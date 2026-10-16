@@ -64,6 +64,12 @@ initialem Sidebyte1. Die vier anderen übereinstimmenden Defaults begründen
 ebenfalls keine World-Identität. Keiner dieser Befunde erlaubt, bestehende
 World-Footprints stillschweigend zu ändern oder eine Quellenanalogie hochzustufen.
 
+Die [anschließende Marktstudie](../reverse/original-market-desirability-shape.md)
+belegt für zwei Descriptor-Selektoren4×7/7×4-Einfluss-Boundingrechtecke sowie
+eine eigene Verteilungsarithmetik. Das sind keine physischen Besitzerflächen.
+Der vorhandene Quadratkern deckt diesen Pfad nicht ab; ebenso wenig ersetzt
+der Original-Descriptorzustand die fehlende bezahlte World-Quellenbindung.
+
 ## 2. Quellenbau, Entfernung und Source-Restore sind gesperrt
 
 Die exakten Rule7-Gates in

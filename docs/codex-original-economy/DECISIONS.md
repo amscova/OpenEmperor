@@ -125,6 +125,27 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   oder Budgetänderung. Originalfabrikbelege ersetzen keine authored World-
   Identitätsentscheidung. OE-12/Gate B weiterhin BLOCKED, kein OE-13-Fortgang.
 
+### OE-12 Fortsetzung: bedingte Markt-Bounds und eigene Rechteckarithmetik
+
+- **Revision:** sauberer, live/origin bestätigter `main`
+  `ff3953cb3115c05fdbe00d7f5c0001d120eaae2d`; voriger Factory-Forschungscommit
+  `c3234ae4c397a84aaad533d3ccc63a90d6755d73` aus PR16. Feature-Branch per
+  Fast-forward angeglichen, strenge Nutzergrenze beibehalten.
+- **`exe`:** Markt59 besitzt einen separaten Descriptor. Dessen zwei geprüfte
+  Selectorblöcke ergeben inklusive4×7/7×4-Einfluss-Boundingrechtecke; Position
+  und Selector stammen aus zusätzlichem Runtime-/NonHouseInfo-Zustand. Dessen
+  bytegroßer Selector+60 liegt bei Raw-Info94. Keine physische Flächenfreigabe,
+  keine universelle Selector0/1- oder Load-/Lifecycle-Garantie abgeleitet.
+- **Numerik:** Der getrennte Rechteckwrapper beginnt den Periodenzähler bei1,
+  hat keinen Initial-DES0-Return und keine Vorzeichenabsorption. Vier neue
+  synthetische Vergleiche gegen den unveränderten, frisch privat kompilierten
+  Quadratkern bestätigen die Unterschiede. Kein Originalcode ausgeführt;
+  Rechteck-/Wall-/Clipping-/Overflowparität damit nicht behauptet.
+- **Konsequenz:** Der historische OE-03-PASS bleibt auf seinen Quadratvertrag
+  begrenzt. Keine implizite Rechteck-Coreerweiterung, World-Zuordnung, physische
+  Footprint-, Bau-/Restore-/Save-/Status- oder Fundsänderung. OE-12/Gate B
+  BLOCKED, kein OE-13. [Beleg und Repro](../reverse/original-market-desirability-shape.md).
+
 ### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
 
 - **Revision:** Beginn am sauberen, live/origin bestätigten `main`

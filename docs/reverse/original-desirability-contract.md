@@ -41,6 +41,12 @@ research artifacts are not dependencies of the distributable core or tests.
 
 ## Spread, bounds and arithmetic
 
+The rules in this section describe the checked **square** path. The later
+[market rectangle study](original-market-desirability-shape.md) establishes a
+separate wrapper with different period phase, zero-input and sign-crossing
+behavior. Those findings neither widen this square API nor turn its historical
+OE-03 acceptance into a rectangular-source or complete runtime-parity claim.
+
 | Static window | Observed mechanism |
 |---|---|
 | `0x44ecd0–0x44ed84` | Reject nonpositive footprint side; an initial zero value returns; cap range at ten rings; start at ring one with the supplied initial value. |

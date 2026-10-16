@@ -86,6 +86,11 @@ footprint. Its `+0x170` callback returns0 for type59; that unused square-branch
 result is not a zero-sized influence footprint. This pass does not reconstruct
 its complete special-shape contract.
 
+The subsequent [market descriptor/spread study](original-market-desirability-shape.md)
+establishes conditional4×7/7×4 influence-bounding rectangles for its two checked
+selector blocks and a distinct rectangle-spread arithmetic path. Physical
+occupancy, full selector/lifecycle validity and World identity remain separate.
+
 ## Comparison with current World geometry
 
 **READ-ONLY INTEGRATION:** The query uses the current
