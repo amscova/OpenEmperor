@@ -17,8 +17,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-08 | PASS | ac052762fba501a85f241a4828726c2a9deb1e90 | `.local/original-economy/oe08/`, OE-00/`oe08-verification/` | Explizite Rule7-Entwickler-Gates;513 CTests PASS;72 Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-11 | PASS | — | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | TODO | — | — | — |
+| OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
+| OE-12 | BLOCKED | — | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
@@ -46,7 +46,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | Gate | Status | Beleg |
 |---|---|---|
 | A | PASS | OE-07: gepinnter Vier-Modul-Vergleich/74 Vektoren, Parser-/Quellenbindung/Negativfälle,507 CTests in drei Konfigurationen und exakter Legacy-Replay; begrenzte Kernabnahme, keine Gesamt-Originalparität |
-| B | TODO | — |
+| B | BLOCKED | OE-12: erforderliche bezahlte Originalquellen und20-Häuser-Szene unter bisherigen Verträgen nicht zulässig; keine vollständige Gate-Suite und keine Freigabe |
 | C | TODO | — |
 | D | TODO | — |
 | E | TODO | — |
@@ -1148,3 +1148,59 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   `git diff --check` und relative Links der aktualisierten Dokumente **PASS**.
   Gate B bleibt offen; kein OE-12-Code, kein menschlicher/native Gameplay-PASS
   und keine pauschale Originalparität.
+
+### OE-12 – 2026-10-16, Basisdf29393 – BLOCKED
+
+- Beginn am sauberen, live/origin bestätigten `main`
+  `df293931bbb8a409668f3790379bb370e6c9f44d`; vorhandener Feature-Branch per
+  Fast-forward angeglichen. OE-11-SHA oben nachgetragen. Vorzustand unter
+  `.local/original-economy/oe12/initial-state.json`.
+- Drei Read-only-Teilreviews prüfen Modell-/Quellenidentität, World-/Save-/
+  Finanzgrenzen sowie UI-/Gate-Anforderungen. Alle sieben vorhandenen
+  World→Model-Kandidaten sind ausdrücklich `Inferred`/Mechanik `Unknown`.
+  Verifizierte Modellzeilen oder Well-/Herbalist-Grafiken belegen keine
+  Original-Quellenzulassung. Die Stop-Regel des Prompts gilt weiter.
+- Nutzerentscheidung auf konkrete Rückfrage: **„Die strenge Grenze beibehalten
+  und OE-12 mit diesen Blockern dokumentieren“**. Keine Modellanalogie als
+  verifiziert aufgewertet, Source-/Abriss-/Restore-Gates oder Funds geändert.
+  Kein leerer Cache als abgeschlossene Originaldaten-Integration ausgegeben.
+- Frische Release-Builds der vorhandenen Modell-/Schema-/Desirability-/Rule-Gate-
+  Targets **PASS**, ohne Compilerwarnung. Die private C++20-Probe verwendet die
+  tatsächlichen Header und aus dem aktuellen Target-Linkkommando übernommenen
+  Libraries, lädt die echte unveränderte Modelldatei und führt normale
+  `World::execute`-Befehle aus. Keine World-/Snapshot-/Funds-Injektion.
+  Repro: `python3 .local/original-economy/oe12/run_prerequisites.py`;
+  Compile-/Runbefehle und Libraryhashes in `probe-run.json`/`probe-compile.log`.
+- Diagnose **BLOCKERS_REPRODUCED**, ausdrücklich kein OE-12-Feature-PASS:
+  Alle sieben Source-Baubefehle werden atomisch verweigert. Zwanzig reguläre
+  House-Kaufversuche auf konfliktfreiem authored Gelände ergeben16 bezahlte
+  Häuser,1280 tatsächliche Bauausgaben und20 verbleibende Funds; vier weitere
+  Käufe scheitern ohne Zustandsänderung. Zwanzig Häuser kosten bereits ohne
+  Straßen/Quellen1600, vorhandener Startbetrag1300. Der tatsächliche Abrissbefehl
+  wird ebenfalls unverändert verweigert. Nach20000 normalen Ticks bleiben
+  Treasury/Accounting/Häuser unverändert und Steuern0. Der getrennte statische
+  Restore-Check verlangt weiterhin zugeordnete Vacant-House-Nullzustände.
+  Vollständige Ergebnisse in `prerequisites.json`; Originalmodell nur als
+  Quellenhash, keine kopierte Modellwertetabelle.
+- Vor CTest vollständige Release-Inventur:177 registrierte Tests.
+  `ctest --test-dir .local/reswall/release-build --output-on-failure -R
+  '^original-(model-schema-(synthetic|real)|rules-model-(synthetic|real)|desirability-(synthetic|real)|economy-rule-gate)$'`
+  **7/7 PASS**,0.71s, kein Skip. Dies bestätigt die bestehenden Parser-/
+  Identitäts-/Kern-/Gateverträge, nicht die fehlende produktive Integration.
+  Logs: `release-inventory.log`, `release-controls-tests.log` und
+  `release-controls-last-test.log`.
+- Kein neuer Desirability-Cache, keine Debug-Provenance-Implementierung oder
+  bezahlte Quelle; erforderliche Add/Remove-/20-Haus-/Reload-/City-v13-gegen-
+  Rule7-Integrationsabnahme **NOT_RUN**. Vollständige Debug-/Release-/Sanitizer-
+  Gate-B-Suites **NOT_RUN**, Gate B **BLOCKED**. Frühere OE-11-Nachweise bleiben
+  historisch erhalten und werden nicht als OE-12-Abnahme umetikettiert.
+- Dokumentation und [konkrete Fortsetzungsvoraussetzungen](../original-economy/desirability-integration-blockers.md)
+  statt Featurefreigabe. Abschlussaudit
+  `.local/original-economy/oe12/final-validation.json`: Dokumentations-/
+  Diagnoseprüfung **PASS**, Taskstatus ausdrücklich **BLOCKED**. Sämtliche
+  CMake-/Source-/Test-/Tool-/Resource-Bytes unverändert, Source-SHA256
+  `2a0257193d1ba22a5395ad34c78ba27629e45d0f977a9a3e8aae868d8b6669fe`.
+  Originalinventar1464 Dateien/819711091 Bytes weiterhin unverändert;
+  Manifest `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  Kein grüner Featurecommit und kein Fortgang zu OE-13. Ein Dokumentationscommit
+  bezeichnet diesen BLOCKED-Befund ausdrücklich und verändert keine Laufzeit.
