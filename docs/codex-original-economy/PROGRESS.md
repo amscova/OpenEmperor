@@ -18,7 +18,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | BLOCKED | — | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
+| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation) | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
@@ -1204,3 +1204,51 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Manifest `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
   Kein grüner Featurecommit und kein Fortgang zu OE-13. Ein Dokumentationscommit
   bezeichnet diesen BLOCKED-Befund ausdrücklich und verändert keine Laufzeit.
+
+### OE-12 Fortsetzung – 2026-10-16, Basis23f544a – Quellenbelege, weiter BLOCKED
+
+- Neuer „weiter gehts“-Auftrag nach dem sauberen BLOCKED-Dokumentationsmerge
+  `23f544a3611394f041c7401974e67fd87b0c2f1d`; vorige Dokumentations-SHA oben
+  nachgetragen, Feature-Branch per Fast-forward angeglichen. Die ausdrückliche
+  Nutzerwahl der strengen Grenze bleibt bestehen. Keine wiederholte Bau-/Budget-
+  Probe als neuer Fortschritt und kein Überspringen zu OE-13.
+- [Originaler Quellenpfad](../reverse/original-desirability-source-admission.md)
+  unabhängig statisch präzisiert: Statushelper426d10 akzeptiert ausschließlich
+  Status1/3; das übergebene0-Argument wird nicht ausgewertet. Manager44f1d0
+  verlangt danach runtimeWord+3c==0 und liest die vier Modellfelder1–4 über
+  den tatsächlichen signed Typ+14. Nullwort-Bedeutung und Archivzuordnung
+  bleiben offen; der aktuelle geparste `subindex` ist kein Ersatzbeleg.
+- Basis-/Industrial-Konstruktoren, ihre virtuellen Slots+94/+168/+16c/+170
+  und Initializer428aa0 separat geprüft. Für genau diese belegten Vtables
+  wählt+168 false den Standardquadratpfad; +170 liefert die unsigned Seite
+  aus runtimeByte+07. Der Initializer übernimmt die Seite aus
+  `823598 + 24*Typ`, nicht aus dem Desirability-Delta SZE. Keine Behauptung,
+  damit alle sieben künftigen Quellenfabriken oder Sonderformen zu kennen.
+- Die schon vorhandene ausdrückliche Vacant-Typ2-Bindung ist kein Ausweg:
+  `OriginalHouseState` behält original_status0/accessfalse und wird beim Restore
+  gegen diesen Default geprüft. Status0 würde am beobachteten ersten
+  Originalquellengate scheitern. Kein pauschales Originaltyp2-Verbot in anderem
+  Zustand, kein Alias zur Shelterzeile und keine Statushochsetzung abgeleitet.
+- Tatsächlich ausgeführter privater Repro-Befehl:
+  `python3 .local/original-economy/oe12/source-admission-research/root/check_source_admission.py`.
+  **Statische Evidenzprüfung PASS**: acht begrenzte Fenster,251 Instruktionen/
+  766 Bytes einzeln gegen PE-Sections geprüft,38 konkrete Predicate-/Call-
+  Assertions und acht direkt gegengeprüfte Vtable-Slots;0 Byteabweichungen.
+  Private Originalextrakte und Report ausschließlich unter obigem `root/`.
+  Unabhängiger Teilreview bestätigt zusätzlich sieben eigene Fenster und
+  die Trennung von Original- und World-Identität. Das Originalspiel wurde
+  nicht ausgeführt; keine dynamische Gameplay-/Kernparitätsabnahme.
+- Abschlussaudit `root/final-validation.json`: Forschungsprüfung **PASS**,
+  OE-12/Gate B ausdrücklich **BLOCKED**, kein Feature implementiert.
+  Sämtliche CMake-/Source-/Test-/Tool-/Resource-Bytes unverändert;
+  Source-SHA256 `2a0257193d1ba22a5395ad34c78ba27629e45d0f977a9a3e8aae868d8b6669fe`.
+  EXE-Bytes/Modus/mtime und vollständiges Originalinventar1464 Dateien/
+  819711091 Bytes unverändert, Manifest weiterhin
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  Keine erneuten CTests/Builds oder Gate-B-Vollsuites für diese reine
+  Forschungs-/Dokumentationsänderung; frühere Ergebnisse bleiben historisch.
+- Bau, sichere Entfernung, Restorezulassung und die Finanzierung der20-Haus-
+  Szene bleiben separat beauftragte, noch fehlende Verträge. Mehr Original-
+  EXE-Evidenz öffnet sie nicht automatisch. Keine Modellanalogie als verifiziert
+  hochgestuft, kein Budget/Gebäudestatus geändert, kein grüner Featurecommit
+  und keine Freigabe für OE-13.

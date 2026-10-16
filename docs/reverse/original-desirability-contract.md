@@ -154,3 +154,21 @@ world-level source selection, wall parity, original timing, complete housing
 evolution or human gameplay acceptance. Existing World, navigation, rendering,
 map policies, authored City-v13 snapshots and save schemas remain governed by
 their existing implementations.
+
+
+## OE-12 follow-up: source admission and the standard footprint path
+
+The later [bounded source-admission study](original-desirability-source-admission.md)
+checks the complete status helper, the manager's additional zero-word predicate,
+the actual type-to-model reads, and constructor-linked base/Industrial virtual
+callbacks. It establishes the standard square-source path more precisely than
+the original OE-03 pass; it does not reconstruct every source factory, special
+shape, terrain source or wall branch. The original OE-03 counts above remain
+historical evidence rather than being retroactively expanded.
+
+The current paid Vacant container's explicit original status is zero. Applying
+the observed status1/3 predicate would reject it before its spread fields are
+read. Neither its House-type binding nor the separate Vacant/Shelter evolution
+alias grants influence-source authority. Authored World-object identities,
+construction, restore and financing remain governed by the unchanged
+[OE-12 blocker decision](../original-economy/desirability-integration-blockers.md).
