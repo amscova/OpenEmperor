@@ -62,6 +62,11 @@ public:
     explicit SandboxView(maps::StoredMapSession session, bool demo,
                          simulation::RulesProfile rules=simulation::RulesProfile::LogisticsV1,
                          std::uint32_t rule_version=0);
+#if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
+    // Explicit persistence-only test adapter; no shipped application entry point.
+    static std::unique_ptr<SandboxView> create_original_economy_save_fixture(
+        maps::StoredMapSession session);
+#endif
     ~SandboxView();
     void initialize(SDL_Window* window, SDL_Renderer* renderer);
     void set_authored_terrain_sides(bool enabled) { authored_terrain_sides_enabled_=enabled; }
@@ -281,6 +286,8 @@ public:
     std::uint64_t road_plan_build_count() const { return road_plan_build_count_; }
     const std::vector<std::uint8_t>& buildable_mask() const { return buildable_mask_; }
 private:
+    SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
+                std::uint32_t rule_version,bool original_save_fixture);
     const assets::BuildingVisualEntry* building_entry(assets::BuildingVisualRole role) const;
     std::optional<assets::BuildingVisualRole> visual_role(simulation::Cell cell,
         simulation::Object object,bool placement_preview=false) const;
@@ -468,6 +475,7 @@ private:
     int tool_=4;
     simulation::RulesProfile rules_;
     std::uint32_t requested_rule_version_=0;
+    bool original_save_fixture_=false; // Test adapter only; never World/save authority.
     // Retained only through initialization, when immutable map permissions are
     // prepared. Rendering and navigation never consult the original raw map.
     maps::ParsedEmperorMap original_map_;

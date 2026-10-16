@@ -6,7 +6,7 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 |---|---|---|
 | D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig testen | plan |
 | D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | plan |
-| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-08: Rule7 frei und ausschließlich Entwickler-Gate; policy3 unverändert, Schema23 frei/reserviert für OE-09 |
+| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-08: Rule7 frei und ausschließlich Entwickler-Gate; policy3 unverändert, Schema23 in OE-09 ausschließlich Entwickler-Persistenz; keine Laufzeitfreigabe |
 | D-04 | Alte Save-Schemas 1–22 unverändert und keine Auto-Migration | zwingende Invariante |
 | D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08: explizite begrenzte Capability-Gates; bezahlter vollständiger Rule6/7-Vergleich und Legacy-Replay bestanden |
 | D-06 | Original-Model-IDs nur nach eindeutiger Quelle als VERIFIED führen | einzelne IDs offen |
@@ -18,6 +18,52 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 ## Neue Entscheidungen
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
+
+### OE-09: separates Schema23 ohne vorzeitige Wirtschafts-Authority
+
+- **Revision:** Sauberer, live bestätigter `main`
+  `4d5f9fb88fe9ca0a106c1aea30cf4080230f390b`; bestehender Feature-Branch per
+  Fast-forward angeglichen. OE-08 bleibt eigener Commit
+  `ac052762fba501a85f241a4828726c2a9deb1e90`. Eigene SHA folgt im Abschluss und
+  bei OE-10. Delegierter Commit-/PR-/Merge-Handoff gilt weiter, ohne Tag/Release.
+- **Versionsbindung:** Schema23 weiterhin frei; jetzt ausschließlich City-v16/7
+  und unveränderte policy3. Keine Migration, neue Spieleroption oder Recovery-
+  Freigabe. Reguläre Konstruktoren/Restore/Import/Ticks bleiben gesperrt.
+- **Getrennte Authority:** Optionaler OriginalEconomyState nur unter7, eigener
+  OriginalHouseState mit Typ, Beobachtungen/Timern, sechs Beständen, Counter,
+  Phase und eindeutiger BuildingId-Referenz. Kein zweiter House-NextID, keine
+  Modelbedarfszahlen oder V0–2-Level-Kopie. Syntaktische Domains folgen den puren
+  Kernen; aktuell werden ausschließlich zugeordnet bezahlte Vacant-Nullzustände
+  restauriert. Nicht implementierte Waren-/Service-/Bewohnerzustände bleiben
+  ausdrücklich verweigert statt kostenlos angelegt.
+- **Funktionaler Container:** `PlaceHousehold` nur in der ausdrücklich gewählten
+  Entwicklungsworld erlaubt, mit bestehendem80-Funds-/2×2-/BuildingId-Vertrag;
+  Bevölkerung0, getrennte OriginalState-Werte0, kein Legacy-Level. Diese enge
+  authored Transaktion ermöglicht nichtleere echte Persistenz ohne Test-Injektion.
+  Originale Kosten, Hausgeometrie oder aktive Hausentwicklung werden nicht behauptet.
+- **Quelle:** Schema23 speichert nur Model-SHA/Format/Bytezahl/Difficulty und
+  verlangt tatsächliche Fileprüfung bei Save/Restore. Keine Tabellen oder
+  Runtime-RulesModel-Bindung vor OE-11. Ungebundene OE-08-Fixtures bleiben
+  unspeicherbar; normaler Rule7-Start bleibt geschlossen. Clock/Cyclephase0 ist
+  lediglich reserviert; OE-10 besitzt die Zeitbasis und deren Fortschritt.
+- **Striktheit/Atomicity:** Vollständige rekursive kanonische Shape-/Typprüfung,
+  Duplicate-Key-Erkennung nur für23, bounds/IDs/Source und bestehende vollständige
+  World-/Map-/Finance-Prüfungen vor Veröffentlichung. Unveränderte atomic_replace-
+  und Pfadsperren. Alte gültige1–22-Writer und Lesetoleranz werden erhalten;
+  neue OriginalPayloads in alten Generationen abgelehnt.
+- **F5/F9:** Nur neuer SDL-Test kompiliert den privaten Persistenzadapter. Er
+  kauft regulär Haus/Straßen, benutzt die tatsächlichen produktiven SDL-F5/F9-
+  Handler, bleibt pausiert und prüft vollständige Byte-/Dokumentgleichheit auch
+  in einem zweiten OS-Prozess. Normale App und Menü erhalten keinen Zugang.
+- **Vergleichsgrenze:** Neue World-Daten enthalten erstmals einen aktuellen
+  OriginalHouse-Typ. Die gleichnamigen Forktypen kollidieren beim alten Housing-
+  Vergleich. Ausschließlich lokale Vergleichskopien erhalten einen getrennten
+  Namespace/Includepfad; Forkquellen und numerische Regeln bleiben unangetastet.
+  Exakte World-/DTO-Pins, unabhängig geprüfter Adapter und frischer echter
+  Vier-Modul-Vergleich sind Pflicht vor Aktualisierung der portablen Evidenz.
+- **Belege:** [Schema23-Vertrag](../original-economy/save-schema-23.md), separate
+  Unit-/F5/F9-/Prozess-/Legacy-Protokolle im Fortschritt. Gate B bleibt bis
+  OE-12 offen; keine native menschliche oder Gesamt-Originalparitätsabnahme.
 
 ### OE-08: Versionsidentität ohne vorzeitige Wirtschaftsfreigabe
 

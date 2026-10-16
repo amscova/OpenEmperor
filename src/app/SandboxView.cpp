@@ -180,16 +180,32 @@ std::string joined_buildings(const std::vector<simulation::Object>& kinds) {
 
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version)
+    : SandboxView(std::move(session),demo,rules,rule_version,false) {}
+
+#if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
+std::unique_ptr<SandboxView> SandboxView::create_original_economy_save_fixture(
+        maps::StoredMapSession session) {
+    return std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalEconomyRuleVersion,true));
+}
+#endif
+
+SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
+                         std::uint32_t rule_version,bool original_save_fixture)
     : geometry_(session.map.declared_map_size),background_(std::move(session.plan)),demo_(demo),
       rules_(rules),requested_rule_version_(rule_version ? rule_version:
-          simulation::current_rule_version(rules)),original_map_(std::move(session.map)),
+          simulation::current_rule_version(rules)),original_save_fixture_(original_save_fixture),
+      original_map_(std::move(session.map)),
       expected_map_input_sha256_(std::move(session.input_sha256)) {
     if (!geometry_.supported) throw std::invalid_argument("sandbox requires supported map geometry");
     if (!simulation::rule_version_supported(rules_,requested_rule_version_))
         throw std::invalid_argument("unsupported sandbox rule version");
-    if (simulation::original_economy_enabled(rules_,requested_rule_version_))
+    if (simulation::original_economy_enabled(rules_,requested_rule_version_) && !original_save_fixture_)
         throw std::invalid_argument("Rule 7 original economy runtime is not available yet; "
             "use --sandbox-original-economy-check for developer diagnostics");
+    if (original_save_fixture_ && (demo_ ||
+        !simulation::original_economy_enabled(rules_,requested_rule_version_)))
+        throw std::invalid_argument("Original economy save fixture requires explicit rule 7 without a starter");
     if (simulation::production_profile(rules_)) tool_=5;
 }
 SandboxView::~SandboxView() { shutdown(); }
@@ -197,6 +213,9 @@ SandboxView::~SandboxView() { shutdown(); }
 void SandboxView::configure_save(std::filesystem::path root,std::filesystem::path map,
                                  std::filesystem::path save,
                                  std::optional<persistence::SaveDocument> initial) {
+    if (initial && simulation::original_economy_enabled(initial->world.profile,
+            initial->world.rule_version)!=original_save_fixture_)
+        throw std::invalid_argument("Original economy saves require the explicit persistence-only fixture");
     data_root_=std::move(root); map_relative_=std::move(map); save_path_=std::move(save);
     initial_save_=std::move(initial);
 }
@@ -228,7 +247,12 @@ void SandboxView::load_now() {
     const auto document=persistence::read_save(save_path_);
     if (document.map_relative!=map_relative_ || document.world.profile!=rules_)
         throw std::runtime_error("Save map or rules differ from current sandbox");
-    auto replacement=persistence::restore_save(document,data_root_,buildable_mask_);
+    if (simulation::original_economy_enabled(document.world.profile,
+            document.world.rule_version)!=original_save_fixture_)
+        throw std::runtime_error("Original economy saves require the explicit persistence-only fixture");
+    auto replacement=original_save_fixture_ ?
+        persistence::restore_original_economy_development(document,data_root_,buildable_mask_) :
+        persistence::restore_save(document,data_root_,buildable_mask_);
     auto candidate=std::make_unique<simulation::World>(std::move(replacement));
     background_.set_original_road_ground(candidate->map_permissions());
     world_=std::move(candidate);
@@ -316,12 +340,18 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(persistence::restore_save(*initial_save_,data_root_,
-            buildable_mask_,std::move(permissions)));
+        world_=std::make_unique<simulation::World>(original_save_fixture_ ?
+            persistence::restore_original_economy_development(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) :
+            persistence::restore_save(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)));
         clock_.pause_and_reset();
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (original_save_fixture_) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_economy_development(
+            std::move(permissions),persistence::original_model_source(data_root_)));
     } else if (permissions)
         world_=std::make_unique<simulation::World>(std::move(permissions),rules_,active_version);
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,
@@ -339,6 +369,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         saved_tick_=world_->ticks(); saved_command_=world_->command_sequence();
     }
     if (!builtin_errors.empty()) last_message_=builtin_errors.front();
+    if (original_save_fixture_) clock_.pause_and_reset();
     update_window_title();
 }
 void SandboxView::update_window_title() {
@@ -347,7 +378,8 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(world_->ramps_supported())title+=" | save schema 22 | Ramps V1 + Bridges V1";
+    if(original_save_fixture_)title+=" | save schema 23 | persistence-only fixture";
+    else if(world_->ramps_supported())title+=" | save schema 22 | Ramps V1 + Bridges V1";
     else if (world_->bridges_supported())title+=" | save schema 21 | Bridges V1";
     SDL_SetWindowTitle(window_,title.c_str());
 }
@@ -837,6 +869,7 @@ const assets::BuildingVisualEntry* SandboxView::building_entry(assets::BuildingV
 }
 std::optional<assets::BuildingVisualRole> SandboxView::visual_role(simulation::Cell cell,
     simulation::Object object,bool placement_preview) const {
+    if (original_save_fixture_ && object==simulation::Object::Household) return std::nullopt;
     const auto role=building_visual_role(object);
     if (role==assets::BuildingVisualRole::Household && building_profile_ &&
         simulation::desirability_profile(rules_)) {
@@ -1575,6 +1608,10 @@ void SandboxView::set_tool(int tool) {
     if (action_enabled(action)) perform_action(action);
 }
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
+    if (original_save_fixture_ && (action==sandbox_ui::Action::Pause ||
+        action==sandbox_ui::Action::Step || action==sandbox_ui::Action::Reset ||
+        action==sandbox_ui::Action::Speed1 || action==sandbox_ui::Action::Speed2 ||
+        action==sandbox_ui::Action::Speed4)) return false;
     if(action==sandbox_ui::Action::Ramp)return world_->ramps_supported();
     if(action==sandbox_ui::Action::Bridge)return world_->bridges_supported();
     if (action==sandbox_ui::Action::ToggleIncome) return simulation::market_profile(rules_);
@@ -2374,7 +2411,7 @@ void SandboxView::update(double seconds,PanKeyState keys) {
         hover_dirty_=true;
     }
     if (hover_dirty_ || road_start_ || bridge_start_ || ramp_start_) refresh_hover();
-    clock_.update(seconds,*world_);
+    if (!original_save_fixture_) clock_.update(seconds,*world_);
     clear_hidden_walker_selection();
 }
 void SandboxView::tick_once() {
@@ -3829,6 +3866,13 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         return wrap_panel_lines(lines);
     }
     const auto house_id=selected_building();
+    if (original_save_fixture_ && house_id &&
+        world_->building(*house_id).kind==simulation::Object::Household)
+        return wrap_panel_lines({"OriginalHouse #"+
+            std::to_string(static_cast<std::uint32_t>(*house_id)),
+            "Developer empty container; persistence only",
+            "No active residents, goods, services or economy ticks",
+            "Original housing art is not selected"});
     if (house_id && world_->building(*house_id).kind==simulation::Object::HealthPost) {
         const auto id=*house_id;
         const auto& b=world_->building(id);
@@ -4204,6 +4248,8 @@ std::vector<std::string> SandboxView::inspection_lines() const {
     return simulation::maintenance_profile(rules_) ? wrap_panel_lines(lines):lines;
 }
 std::vector<std::string> SandboxView::income_summary_lines() const {
+    if (original_save_fixture_) return {"Funds "+std::to_string(world_->treasury()),
+        "Original economy persistence fixture; runtime unavailable"};
     const auto status=simulation::inspect_city_start(*world_);
     if (!status.applicable) return {};
     std::string funds="Funds "+std::to_string(status.funds_current)+" | ";
@@ -4251,6 +4297,8 @@ std::vector<std::string> SandboxView::income_summary_lines() const {
 }
 
 std::vector<std::string> SandboxView::income_lines() const {
+    if (original_save_fixture_) return {"Original economy persistence fixture",
+        "Runtime unavailable; no income, goods or service simulation"};
     const auto status=simulation::inspect_city_start(*world_);
     if (!status.applicable) return {};
     std::vector<std::string> lines{
@@ -4497,7 +4545,8 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(world_->ramps_supported())overview+=" | Policy 3 | Save 22 | Ramps "+std::to_string(world_->ramps().size())+" | Bridges "+std::to_string(world_->bridges().size());
+        if(original_save_fixture_)overview+=" | Policy 3 | Save 23 | Persistence fixture";
+        else if(world_->ramps_supported())overview+=" | Policy 3 | Save 22 | Ramps "+std::to_string(world_->ramps().size())+" | Bridges "+std::to_string(world_->bridges().size());
         else if(world_->bridges_supported())overview+=" | Policy 3 | Save 21 | Bridges "+std::to_string(world_->bridges().size());
         overview+=" | Tick "+
             std::to_string(world_->ticks())+" | "+(clock_.paused() ? "Paused ":"Running ")+

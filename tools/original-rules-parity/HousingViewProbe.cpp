@@ -1,8 +1,8 @@
 // Independent observations of the pinned fork's read-only World adapter.
-// Compile with fork includes before current src, and link the unchanged current
-// simulation library. The supplied model file is synthetic; the two rows below
+// Compile the mechanically isolated fork namespace with the current World
+// headers/library. The supplied model file is synthetic; the two rows below
 // are explicit authored controls, never copied original balance values.
-#include "simulation/original/OriginalHousingView.h"
+#include "OriginalHousingView.h"
 
 #include <array>
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace original = openemperor::original;
+namespace original = openemperor::parity_fork_original;
 namespace simulation = openemperor::simulation;
 
 namespace {
