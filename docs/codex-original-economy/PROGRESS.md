@@ -18,7 +18,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation) | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
+| OE-12 | BLOCKED | `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9` (Blockerdokumentation), `c50ff69941c60c61d7d37c69354e3113bdc7f58c` (Quellenforschung) | `.local/original-economy/oe12/` | Nutzer bestätigt strenge Grenze: keine belegte World→Model-Quellenidentität, Sourcebau/Abriss/Restore gesperrt,20 bezahlte Häuser nicht finanzierbar; keine Implementierung |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
@@ -1252,3 +1252,44 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   EXE-Evidenz öffnet sie nicht automatisch. Keine Modellanalogie als verifiziert
   hochgestuft, kein Budget/Gebäudestatus geändert, kein grüner Featurecommit
   und keine Freigabe für OE-13.
+
+### OE-12 Fortsetzung – 2026-10-16, Basise29ce8a – Archivwort und Links, weiter BLOCKED
+
+- Beginn am sauberen, live/origin bestätigten `main`
+  `e29ce8a20d13013fce51994175c4bd04b86f1ed4`; Feature-Branch per Fast-forward
+  angeglichen. Vorige Quellenforschungs-SHA `c50ff69941c60c61d7d37c69354e3113bdc7f58c`
+  oben nachgetragen. Strenge Nutzergrenze unverändert; kein Source-/Budgetfix.
+- [Separates Quellenwort](../reverse/original-desirability-source-state.md):
+  Runtime-WORD+3c ist im Writer und in allen drei Base3/4/5-Lesern bei raw
+  Base54 archiviert. Subindex bleibt getrennt bei runtime+16/Base18. Die
+  identischen32 Feldtransfers pro Prefix und das vorausgehende Schemawort
+  werden unabhängig geprüft; keine Umrechnung allein aus Runtime-Offsets.
+- Reset setzt+3c anfangs0; bestimmte Slotersetzung bewahrt+3c/+3e über
+  Konstruktion und Initializer. Ein konkreter Originalerzeuger speichert eine
+  vorhandene Manager-ID im neuen+3c und verkettet weitere IDs über+3e. Zwei
+  unabhängige Leser folgen+3c als signed Managerindex. Keine vollständige
+  Parent-/Lifecycle-Semantik, allgemeine Indexsicherheit oder neue Zulassung.
+- Tatsächlich ausgeführt, alle unter
+  `.local/original-economy/oe12/source-state-research/`:
+  `python3 root/check_source_state.py` (vom Repositoryroot mit dem vollständigen
+  obigen Präfix): **PASS**,9 Fenster/157 Instruktionen/519 Bytes/32 Assertions.
+  `python3 save-audit/check_archive_word.py`: **PASS**,15 Fenster/962
+  Instruktionen/2508 Bytes/30 Assertions/vier32-Feld-Protokolle.
+  `python3 state-audit/check_building_word3c.py`: **PASS**,8 Fenster/456
+  Instruktionen/1480 Bytes/40 Assertions.
+  `python3 roundtrip-audit/check_archive_mapping.py`: **PASS**,8 Fenster/681
+  Instruktionen/1802 Bytes/dieselben vier Prefixe. Vollständige Repro-Befehle
+  im verlinkten Beleg; Fenster überlappen, keine addierte einzigartige Abdeckung.
+  Alle Instruktionsbytes stimmen mit den gepinnten PE-Sections überein;
+  EXE-Bytes/Modus/mtime unverändert, Originalspiel nicht ausgeführt.
+- Unabhängiger Datenfluss-/Dokumentationsreview ohne Befund. Abschlussaudit
+  `root/final-validation.json`: statische Forschung und Dokumentation **PASS**,
+  OE-12/Gate B ausdrücklich **BLOCKED**. CMake-/Source-/Test-/Tool-/Resource-
+  SHA256 weiterhin `2a0257193d1ba22a5395ad34c78ba27629e45d0f977a9a3e8aae868d8b6669fe`;
+  vollständiges Originalinventar1464 Dateien/819711091 Bytes, Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  Dokumentationslinks und `git diff --check` geprüft. Keine erneuten Builds/
+  CTests für diese reine Forschungsdokumentation, Gate-B-Vollsuites **NOT_RUN**.
+- Quellenidentität, Sourcebau/Abriss/Restore und die Finanzierung der20-Haus-
+  Szene bleiben ungelöste Vertragsvoraussetzungen. Keine Parser-/World-/
+  Saveänderung, kein grüner Featurecommit und kein Fortgang zu OE-13.

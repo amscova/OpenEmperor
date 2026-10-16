@@ -82,6 +82,28 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   Implementierung oder Budget-/Stateänderung, OE-12/Gate B weiterhin BLOCKED,
   kein Fortgang zu OE-13. Nur Forschung und Dokumentation.
 
+### OE-12 Fortsetzung: separates archiviertes Quellenwort und Managerlinks
+
+- **Revision:** sauberer, live bestätigter `main`
+  `e29ce8a20d13013fce51994175c4bd04b86f1ed4`; voriger Forschungscommit
+  `c50ff69941c60c61d7d37c69354e3113bdc7f58c` aus PR14. Feature-Branch per
+  Fast-forward angeglichen; die gewählte strenge Grenze bleibt verbindlich.
+- **`exe`, statisch:** Runtime-WORD+3c ist bei raw Base54 archiviert, separat
+  von Subindex runtime+16/Base18. Writer und Schema3/4/5-Reader bestätigen
+  dieselbe Folge der32 Feldtransfers bis+3c. Zwei unabhängige Prüfungen und
+  die Schema-/Archivprimitive sichern diese Zuordnung ab. Keine Parseränderung.
+- **Zustand und Links:** Reset nullt+3c anfangs; eine bestimmte Slotersetzung
+  bewahrt+3c/+3e über Konstruktion/Initializer hinweg. Ein konkreter Erzeuger
+  schreibt die ursprüngliche Manager-ID in neues+3c, während+3e weitere IDs
+  verkettet. Unabhängige Leser folgen+3c als signed Managerindex. Das belegt
+  diese Linkrolle, keinen vollständigen Parent-/Lifecycle-/Quellenvertrag.
+  Siehe [Zustandsbeleg](../reverse/original-desirability-source-state.md).
+- **Konsequenz:** Das beobachtete zusätzliche Nullgate ist präziser erklärt,
+  aber keine World-Instanz dadurch zugelassen. Keine Änderung an Originaldaten,
+  Quellenidentitäten, Status, Sourcebau, Abriss, Restore, Funds oder Schema23.
+  OE-12/Gate B bleiben BLOCKED; keine OE-13-Freigabe. Nur geprüfte Forschung
+  und Dokumentation, keine erneute unveränderte Bau-/Budgetprobe als Fortschritt.
+
 ### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
 
 - **Revision:** Beginn am sauberen, live/origin bestätigten `main`

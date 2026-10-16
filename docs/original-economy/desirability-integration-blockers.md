@@ -42,7 +42,11 @@ Die anschließende [read-only Quellenuntersuchung](../reverse/original-desirabil
 belegt für den untersuchten Standardpfad die Originalseite der Zulassung:
 Status1/3, ein zusätzliches Nullwort bei runtime `+0x3c`, tatsächlicher signed
 Originaltyp für Modellfelder1–4 und eine getrennte virtuelle Footprintabfrage.
-Das Nullwort ist nicht durch den bisherigen geparsten `subindex` belegt.
+Die anschließende [Archiv-/Zustandsprüfung](../reverse/original-desirability-source-state.md)
+lokalisiert dieses eigene Wort bei raw Base54, getrennt vom geparsten
+`subindex` bei Base18, und belegt konkrete Manager-ID-Verknüpfungen. Initial0
+ist kein lebenslanger Zustand; bei bestimmten Slotersetzungen werden Links
+bewahrt. Ein Subindex0 ersetzt dieses zusätzliche Quellengate daher nicht.
 
 Die einzige bereits ausdrücklich typisierte World-Brücke sind Vacant-Hauscontainer
 mit Originaltyp2. Ihr unveränderlicher Entwicklungszustand besitzt jedoch

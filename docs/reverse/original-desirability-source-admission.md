@@ -40,7 +40,7 @@ Within its source-processing loop, the observed path is:
 | Check or dispatch | Bounded observation |
 | --- | --- |
 | `0x44f218–0x44f22b` | Call status helper `0x426d10` with literal argument0; a false result skips this source. The complete helper reads runtime status byte `+0x04` and accepts exactly1 or3. Its supplied argument does not change that predicate. |
-| `0x44f22b` | Runtime word `+0x3c` must equal0; nonzero skips the source. Its meaning and archive mapping remain unknown. |
+| `0x44f22b` | Runtime word `+0x3c` must equal0; nonzero skips the source. The later [source-state study](original-desirability-source-state.md) establishes its separate archive location and concrete manager-link use. |
 | `0x44f236–0x44f26c` | Read the signed runtime type word `+0x14` and obtain Building fields1,2,3,4 through four calls to `0x44cc50`. These are Desirability, DesirabilityStep, DesirabilityStepSize and DesirabilityRange. |
 | `0x44f277–0x44f281` | Invoke virtual slot `+0x168`; false selects the square-footprint path. |
 | `0x44f299`, `0x44f2bf` | The separate special-shape path invokes geometry slot `+0x16c`, then spread routine `0x44ea70`. That path is not reconstructed by this evidence. |
@@ -53,12 +53,13 @@ the Building model table; the House evolution-row selector is not this source
 selector. This does not establish arbitrary signed type indices as safe inputs
 or identify every caller's concrete building class.
 
-**Unknown remains unknown:** runtime word `+0x3c` is not an evidenced substitute
-for the parsed saved `Subindex`. The current
+Runtime word `+0x3c` is distinct from the parsed saved `Subindex`. The current
 [archive reader](../../src/maps/OriginalMapEntities.cpp#L245) reads that signed
-Subindex from raw Base byte offset18 (decimal). No checked archive path links
-it to runtime word `+0x3c`. A saved Subindex0 therefore cannot be used as proof
-that the original manager's additional predicate passes.
+Subindex from raw Base byte offset18 (decimal). The first pass did not locate
+the additional word in the archive; the subsequent
+[archive and link audit](original-desirability-source-state.md) places it at
+raw Base offset54, independently checked for schemas3/4/5. A saved Subindex0
+therefore cannot be used as proof that the additional predicate passes.
 
 ## Two checked constructor/vtable cases
 
@@ -99,8 +100,9 @@ default state for the paid container, apart from its permitted placement time.
 the original source status, it fails the observed status1/3 predicate before
 the manager reads the model fields. Access=false is another current state
 fact; this window does not establish Access as a source-admission predicate.
-Runtime word `+0x3c` and the concrete House vtable are not established by this
-comparison either.
+The container comparison itself establishes neither runtime word `+0x3c` nor
+the concrete House vtable; the separate link audit does not import original
+state into that World container.
 
 This is neither a blanket prohibition of original type2 nor proof that every
 Vacant original house can emit influence. The checked manager path does not
@@ -113,7 +115,7 @@ saved status0, introducing a new source type or widening its restore contract.
 
 RE has narrowed original source admission and the square callback chain. It
 has not verified all seven type-specific source factories, their complete
-status/unknown-word/lifecycle conditions, special-shape sources, terrain or
+status/link-word/lifecycle conditions, special-shape sources, terrain or
 wall admission, or an identity between an authored World Object and an original
 influence source. Model-file identity remains separate from instance identity.
 
