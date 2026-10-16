@@ -19,6 +19,46 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-13: Versions- und Abnahmeentscheidung erforderlich
+
+- **Auftrag und Revision:** Nutzer setzt nach OE-12/Gate-B-PASS mit „weiter
+  gehts“ fort. Sauberer, live/origin bestätigter `main`
+  `bf4e821a591f141b0a300c848b4ecbdbe3e40fe8`; Feature-Branch per Fast-forward
+  angepasst. Voriger Taskcommit `ec3a2d60c7541f8a11338c80d5398ce54e51f3a8`.
+- **Konflikt:** OE-13 verlangt noch ausschließlich Rule7. Der angenommene
+  OE-12-Vertrag friert Rule7/Schema23 ausdrücklich ein; sein eigener
+  Rule8-/Schema24-Container liefert nur Einfluss und erlaubt keine Goods,
+  Worker oder Couriers. Auch neue gültige Nichtnullbestände bei unveränderten
+  JSON-Keys wären eine Änderung dieser Restore-/Laufzeitverträge.
+- **Tatsächlicher Stand:** Beide Worldpfade akzeptieren ausschließlich
+  Vacant-Nullzustände und leere Couriers; Tick ist nur Scheduler. Frische Probe
+  mit unveränderten Produktionsarchiven kauft reguläre Container, verweigert
+  Clay/Pottery/Warehouse/Market atomisch, verweigert manipulierte Bestände und
+  Produktionszähler und behält nach je20k Ticks null Waren/Worker/Couriers.
+  Vacant/occupants0 scheitert außerdem am puren Liefergate. Kein tatsächlicher
+  Warenursprung durch Enum-/Ledgerfelder oder bloß neue Versionsnummer.
+- **Vorschlag, NICHT ANGENOMMEN:** Der
+  [Warenbuchhaltungsvertrag V1](../original-economy/goods-ledger-v1-proposal.md)
+  schlägt einen expliziten Rule9-/Schema25-Entwicklernachfolger bei policy3 vor.
+  Bestehende Regeln1–8 und Saveverträge1–24 bleiben unverändert. Eine
+  zusätzliche ausdrückliche Abnahmeentscheidung trennt positive synthetische
+  Transaktions-/Reservationstests von echten, zunächst ausschließlich leeren
+  World-/Savezuständen mit0/unsupported. Produktion14, Transport15 und
+  Tickkonsum17 werden dadurch nicht vorgezogen oder automatisch freigegeben.
+- **Single Authority und Sicherheit:** Sechs Original-Hausbestände bleiben in
+  HouseState; keine zweite Mengenquelle oder automatische Zuordnung zu alten
+  Good-Enums. Reservations zählen nicht als Material. Keine öffentliche
+  Stock-/Production-/Import-Credit-API, keine Save-aktivierbare Capability,
+  Gratisworker, geänderter HouseType oder gelockerte Herkunftsprüfung.
+  Selbst `produced=stock=1` wäre ohne realen zugelassenen Ursprung kein
+  zulässiger Worldzustand. Bewohner-/Workforce-Bootstrap für OE-14/15 bleibt
+  ein gesonderter offener Vertrag.
+- **Ergebnis und Git:** OE-13 **BLOCKED**, OE-14 **TODO**, Gate B bleibt **PASS**.
+  Der vorgeschlagene gestufte Grundlagenumfang ist noch nicht umgesetzt oder
+  angenommen. Keine Produktions-/Schema-/Prompt-/Gateänderung; geprüfte
+  Dokumentation darf nach bestehendem Handoff als solche committed/gemergt
+  werden. Kein grüner Featurecommit und keine Aktivierung des Nachfolgers.
+
 ### OE-12: strenge Grenze und blockierter Fortgang
 
 - **Revision und Nutzerentscheidung:** Start am sauberen, live/origin bestätigten

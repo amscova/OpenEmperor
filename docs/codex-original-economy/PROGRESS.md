@@ -18,8 +18,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-12 | PASS | Task-SHA in Abschlussantwort; Umsetzung ab `1be1863b643233781865158510b8ceb93e7c63e3` | `.local/original-economy/oe12/implementation/`, OE-00/`oe12-final-verification/` | Rule8/Schema24: bezahlte Well72-Quellen,20 Häuser, Abriss/Wiederkauf/Prozessreplay;181 unterschiedliche CTests je Konfiguration belegt;72 Legacy-Saves/Snapshots und1485 Policyfälle exakt;Gate B PASS |
-| OE-13 | TODO | — | — | — |
+| OE-12 | PASS | `ec3a2d60c7541f8a11338c80d5398ce54e51f3a8` | `.local/original-economy/oe12/implementation/`, OE-00/`oe12-final-verification/` | Rule8/Schema24: bezahlte Well72-Quellen,20 Häuser, Abriss/Wiederkauf/Prozessreplay;181 unterschiedliche CTests je Konfiguration belegt;72 Legacy-Saves/Snapshots und1485 Policyfälle exakt;Gate B PASS |
+| OE-13 | BLOCKED | Dokumentations-SHA in Abschlussantwort; Basis `bf4e821a591f141b0a300c848b4ecbdbe3e40fe8` | `.local/original-economy/oe13/contract/` | Prompt verlangt gefrorenes Rule7; Rule8 erlaubt ebenfalls keine Waren. Konkreter Rule9-/Schema25- und gestufter Abnahmevertrag zur Entscheidung; keine Runtime-Implementierung, kein Feature-PASS |
 | OE-14 | TODO | — | — | — |
 | OE-15 | TODO | — | — | — |
 | OE-16 | TODO | — | — | — |
@@ -1547,3 +1547,72 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Native/human **NOT_RUN**. Eigener Task-Commit und delegierter PR/regulärer
   Merge folgen nach diesem Nachweis; SHA in Abschlussantwort. Nächster Task
   **OE-13 TODO**, in diesem Task nicht begonnen.
+
+
+### OE-13 Vertragsprüfung – 2026-10-16, Basisbf4e821 – BLOCKED
+
+- **Ausgangspunkt:** Sauberer aktueller `main`
+  `bf4e821a591f141b0a300c848b4ecbdbe3e40fe8`, per frischem `git fetch origin`
+  bestätigt; Feature-Branch ohne Verwerfen/Reset per Fast-forward angeglichen.
+  Vorige OE-12-SHA `ec3a2d60c7541f8a11338c80d5398ce54e51f3a8` nachgetragen.
+  Nutzer beauftragt Fortsetzung mit OE-13, keine gesonderte Aufhebung der
+  angenommenen Rule7-/Schema23- oder Rule8-/Schema24-Grenze.
+- **Konkrete Kollision:** Der bisherige OE-13-Prompt verlangt ausdrücklich
+  Rule7. Dauerhafte Gates und angenommener Quellenvertrag frieren diesen
+  Vertrag ein; Rule8 erlaubt ebenfalls keine Waren, Worker oder Couriers.
+  Beide originalen Worldvalidatoren verlangen Vacant-Nullzustände/leere
+  Couriers, die Writer/Parser binden exakt Schema23↔Rule7 bzw.24↔Rule8.
+  Rule9/Schema25 sind aktuell frei, werden durch diese Prüfung nicht aktiviert.
+  Voller tatsächlicher Ceramics-Ursprung, Market-Fahrt und schedulergebundener
+  Verbrauch sind erst OE-14/15/17 zugewiesen. Zudem fehlen für reale Produktion
+  und House-Ankunft Bewohner/Workforce bzw. ein zulässiger Empfängerzustand.
+- **Prüfbarer Vorschlag:**
+  [Warenbuchhaltungsvertrag V1](../original-economy/goods-ledger-v1-proposal.md)
+  benennt einen getrennten Rule9-/Schema25-Nachfolger und die zusätzliche
+  gestufte Abnahmeentscheidung. Positive Transaktionsarithmetik ausschließlich
+  synthetisch; echte World/Savezustände zunächst0/unsupported, keine
+  Material-, Actor- oder Bewohnerinjektion. Alle alten Regeln/Schemas1–24
+  bleiben exakt. Noch **NICHT ANGENOMMEN / NICHT IMPLEMENTIERT**; der Vorschlag
+  ist keine automatische Freigabe der Produktion oder der Folgetasks.
+- **Neue Probe gegen unveränderte Produktionsarchive:** Private
+  `.local/original-economy/oe13/contract/BoundaryProbe.cpp` mit C++20,
+  `-Wall -Wextra -Wpedantic -Wconversion -Wshadow` und den aktuellen
+  Release-Simulation-/Persistence-/Original-Goods-Libraries kompiliert und
+  tatsächlich ausgeführt: **PASS**, keine Compilerwarnung.
+  Exakte argv/Exitcodes und Bericht-SHA in `probe-run.json`, Compilerlog
+  `probe-build.log`, Resultat `boundary-report.json`. Ausführbar reproduzierbar:
+  `.local/original-economy/oe13/contract/boundary-probe .local/original-economy/oe13/contract/fixture`.
+  Ausschließlich authored Modell/24×20-Geographie, keine neue Originalmechanik.
+- **Tatsächliches Proberesultat:** Rule7 kauft ein Haus, Rest1220; Rule8 kauft
+  Haus+Well72, Rest1860. ClaySource/Pottery/Warehouse/Market werden in beiden
+  Worlds jeweils mit echten Befehlen atomisch verweigert; vollständige
+  Snapshots bleiben identisch. Alle sechs Hausbestände0, Couriers0,
+  Bevölkerung/Workforce0, tatsächliches `accepts_goods_delivery` false.
+  Manipuliertes Ceramics1 sowie Produktionszähler1 scheitern am vorhandenen
+  Validator. Je20k reale Ticks fortgeschaltet: Wirtschafts-/Hauszustand und
+  Funds unverändert. Diese Grenzprüfung bestätigt keine Warenbewegung oder
+  neuen Prozess-Roundtrip. Rule9 verweigert weiterhin „unsupported sandbox
+  rule version“.
+- **Bestehende Grenztests:** Vor erstem CTest aktuelle reale Registrierung
+  mit `ctest --test-dir .local/reswall/release-build -N` festgehalten.
+  Danach
+  `ctest --test-dir .local/reswall/release-build --output-on-failure -R '^(original-economy-rule-gate|original-influence-world|original-influence-save)$' --output-junit .local/original-economy/oe13/contract/boundary-ctest.xml`:
+  **3/3 PASS**,0.65s, ohne Skip; stdout in `boundary-ctest.log`.
+  Dies prüft die bestehenden Grenzen und ist kein OE-13-Featuretest.
+  Keine erneuten vollständigen Debug-/Release-/Sanitizer-Suiten oder
+  Corpus-Replays für unveränderten Produktionscode behauptet.
+- **Review und Abschluss:** Simulation/Authority, Persistenz und
+  Transaktions-/Abnahmeplanung unabhängig untersucht. Conservation zählt
+  Reservations nicht zusätzlich als Masse; HouseState bleibt einzige
+  Hausmengenquelle. Selbstkonsistente positive Ledgerwerte ohne zugelassenen
+  realen Ursprung bleiben verboten. Private `contract/final-validation.json`
+  prüft eigene drei Dokumentationspfade, sämtliche Links/Anker, Diff,
+  Source-/Test-/Tool-/Resourcehash und Originalinventar.
+  SourceSHA weiterhin
+  `5418b481dd970ff55450f392ff91ac1f772e1e4dda3fd8c6400c3c895af95be5`;
+  Originalbestand1464 Dateien/819711091 Bytes, Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  Keine Produktions-, Save-, Prompt- oder Quality-Gate-Datei geändert.
+  **OE-13 BLOCKED**, Gate B **PASS**, OE-14 **TODO**; keine Native-/Human-
+  oder Warenkreislaufabnahme. Geprüfter Dokumentationscommit/PR/regulärer Merge
+  nach bestehendem Nutzer-Handoff; SHA in Abschlussantwort.
