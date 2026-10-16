@@ -76,11 +76,37 @@ int main(int argc,char** argv) {
         const auto balance=view->world().original_goods_balance(orig::Goods::Ceramics);
         check(balance.supported && balance.conserved && balance.totals.produced>0 && balance.stock>0,
             "Actual warehouse arrival did not produce typed Ceramics");
+        key(*view,SDLK_0);check(view->tool()==0,"Market keyboard selection unavailable");
+        click(*view,{118,104});
+        check(view->world().object_at({118,104})==sim::Object::Market,"Paid Market mouse placement failed");
+        bool typed_trip=false;
+        for(int i=0;i<5000 && !typed_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers()) if(c.role==sim::CourierRole::MarketPotteryDistribution &&
+                view->world().original_courier_cargo(c.id)>0 && c.edge_progress>0) {
+                check(c.cargo==0 && c.reserved==0,"Typed delivery mirrored cargo in legacy movement fields");
+                const auto rows=view->walker_diagnostics();
+                const auto row=std::find_if(rows.begin(),rows.end(),[&](const auto& value){return value.id==c.id;});
+                check(row!=rows.end() && row->cargo==view->world().original_courier_cargo(c.id),
+                    "Rendered walker diagnostics hid actual typed cargo");
+                typed_trip=true;break;
+            }
+        }
+        check(typed_trip,"No actual typed Market-to-House courier departed");
+        const auto typed_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<80;++i)view->tick_once();
+        key(*view,SDLK_F9);check(view->world().snapshot()==typed_saved,"Actual typed midcourier F5/F9 diverged");
+        bool delivered=false;
+        for(int i=0;i<2500 && !delivered;++i) {
+            view->tick_once();
+            for(const auto& house:view->world().original_economy_state()->houses) delivered|=house.house.ceramics>0;
+        }
+        check(delivered,"Actual Market arrival never updated the authoritative House stock");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
         auto bad=nlohmann::json::parse(current);
-        bad["world"]["original_production"]["development_revision"]=13;
+        bad["world"]["original_production"]["development_revision"]=sim::kOriginalProductionDevelopmentRevision-1;
         f::write_text(target,bad.dump());key(*view,SDLK_F9);
         check(view->world().snapshot()==before && view->world().original_rules_model()==model_before,
             "Bad development revision published through F9");
@@ -98,7 +124,7 @@ int main(int argc,char** argv) {
             const bool okay=SDL_SavePNG(frame,argv[1]);SDL_DestroySurface(frame);check(okay,"Capture output");}
         view->shutdown();view.reset();
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
-        std::cout<<"Original production SDL paid migration/recipes/midcourier F5/F9/100 idle frames PASS\n";return 0;
+        std::cout<<"Original production SDL paid Market arrival/typed midcourier F5/F9/100 idle frames PASS\n";return 0;
     }catch(const std::exception& error){
         std::cerr<<error.what()<<'\n';SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 1;
     }

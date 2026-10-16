@@ -252,6 +252,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalInfluence.cpp
     src/simulation/WorldOriginalGoods.cpp
     src/simulation/WorldOriginalProduction.cpp
+    src/simulation/WorldOriginalMarket.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
@@ -860,6 +861,18 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-production-save-tests)
     add_test(NAME original-production-save COMMAND openemperor-original-production-save-tests)
     set_tests_properties(original-production-save PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-market-transport-tests tests/OriginalMarketTransportTests.cpp)
+    target_link_libraries(openemperor-original-market-transport-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-market-transport-tests)
+    add_test(NAME original-market-transport COMMAND openemperor-original-market-transport-tests)
+    set_tests_properties(original-market-transport PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-market-save-tests tests/OriginalMarketSaveTests.cpp)
+    target_link_libraries(openemperor-original-market-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-market-save-tests)
+    add_test(NAME original-market-save COMMAND openemperor-original-market-save-tests)
+    set_tests_properties(original-market-save PROPERTIES TIMEOUT 60)
 
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)

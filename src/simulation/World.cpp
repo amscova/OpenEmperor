@@ -1075,7 +1075,8 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
         command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold &&
         command.type!=CommandType::PlaceClaySource && command.type!=CommandType::PlacePottery &&
-        command.type!=CommandType::PlaceWarehouse && command.type!=CommandType::SetBuildingOperation &&
+        command.type!=CommandType::PlaceWarehouse && command.type!=CommandType::PlaceMarket &&
+        command.type!=CommandType::SetBuildingOperation &&
         command.type!=CommandType::SetBuildingWorkforcePriority)
         return {false,false,"Original production revision14 permits paid Clay/Pottery/Warehouse only",command_sequence_,ticks_};
     if (original_economy_enabled() && !original_production_enabled() && command.type!=CommandType::PlaceRoad &&
@@ -1459,6 +1460,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
     if (!result.accepted || !result.changed) return result;
     if (command.type==CommandType::SetBuildingOperation) {
         mutable_building(command.building_id).operating_enabled=command.operating_enabled;
+        if (original_production_enabled() && !command.operating_enabled) cancel_original_market(command.building_id);
         return result;
     }
     if (command.type==CommandType::SetBuildingWorkforcePriority) {
@@ -1671,7 +1673,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         market.placed_tick=ticks_;
         const auto id=market.id;
         add_v10_courier(id,CourierRole::MarketPotteryDistribution,Good::Pottery);
-        add_v10_courier(id,CourierRole::MarketFoodDistribution,Good::Food);
+        if (original_production_enabled()) original_goods_->stocks.push_back({id,{}});
+        else add_v10_courier(id,CourierRole::MarketFoodDistribution,Good::Food);
         break;
     }
     case CommandType::PlaceOriginalInfluenceSource:
@@ -1974,6 +1977,7 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
     if (city_profile(profile_) && !building_staffed_for_tick(c.owner))
         return {CourierDispatchStatus::Unstaffed,std::nullopt};
 
+    if (original_market_courier(c.role)) return original_market_dispatch_status(c);
     if (scalable(profile_)) {
         const bool service=service_role(c.role);
         const int source_stock=courier_source_stock(source,c.role);
@@ -2031,6 +2035,8 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
                 const int reserved=food_role(c.role) ? target.reserved_food_incoming:
                     target.reserved_incoming;
                 const int capacity=courier_target_capacity(c.role);
+                if (original_production_enabled() && c.role==CourierRole::Pottery &&
+                    original_market_headroom(target.id)<=0) continue;
                 if (stock+reserved>=capacity) continue;
                 any_free=true;
             }
@@ -2322,6 +2328,7 @@ void World::advance_clay_pottery_production() {
 }
 
 void World::dispatch_v2(CourierState& courier) {
+    if (original_market_courier(courier.role)) {dispatch_original_market(courier);return;}
     const auto decision=courier_dispatch_status(courier.id);
     if (decision.status!=CourierDispatchStatus::Ready || !decision.selected_target) return;
     const bool cycle_house=courier.role==CourierRole::Household &&
@@ -2398,7 +2405,8 @@ void World::dispatch_v2(CourierState& courier) {
             courier.good!=Good::Pottery) throw std::logic_error("invalid Pottery delivery relation");
         source_stock=&source.output; destination_stock=original_production_enabled() ?
             original_ceramics_stock(target.id):target.pottery_stock;
-        capacity=Rules::warehouse_capacity; break;
+        capacity=original_production_enabled() ? destination_stock+target.reserved_incoming+
+            original_market_headroom(target.id):Rules::warehouse_capacity; break;
     case CourierRole::Household:
         if (!household_profile(profile_) || source.kind!=Object::Warehouse ||
             target.kind!=Object::Household || courier.good!=Good::Pottery ||
@@ -2541,6 +2549,7 @@ void World::move_v2(CourierState& courier) {
         return;
     }
     if (courier.path_vertex+1<courier.path.size()) return;
+    if (original_market_courier(courier.role)) {arrive_original_market(courier);return;}
     if (courier.phase==CourierPhase::ToWarehouse) {
         auto& target=mutable_building(courier.target);
         if (courier.role==CourierRole::HealthWorker) {
@@ -2967,7 +2976,7 @@ bool World::industry_balance_valid() const {
             (market_profile(profile_) ?
                 house_couriers!=0 || food_couriers!=0 ||
                     market_pottery_inbound!=warehouse_count || market_food_inbound!=farm_count ||
-                    market_pottery_outbound!=market_count || market_food_outbound!=market_count:
+                    market_pottery_outbound!=market_count || market_food_outbound!=(original_production_enabled() ? 0:market_count):
                 house_couriers!=warehouse_count || food_couriers!=farm_count ||
                     market_pottery_inbound!=0 || market_food_inbound!=0 ||
                     market_pottery_outbound!=0 || market_food_outbound!=0)) return false;
@@ -2988,7 +2997,7 @@ bool World::industry_balance_valid() const {
                 (b.kind==Object::HealthPost && owned(CourierRole::HealthWorker)!=1) ||
                 (b.kind==Object::Market &&
                     (owned(CourierRole::MarketPotteryDistribution)!=1 ||
-                     owned(CourierRole::MarketFoodDistribution)!=1))) return false;
+                     owned(CourierRole::MarketFoodDistribution)!=(original_production_enabled() ? 0:1)))) return false;
         }
         for (std::size_t i=0;i<buildings_.size();++i)
             if (buildings_[i].reserved_incoming!=pottery_reservations[i].second ||
@@ -3351,7 +3360,10 @@ bool World::navigation_valid() const {
                 !permission_edge_allowed(c.path[i-1],point)) return false;
             if (i==c.path_vertex) {
                 if (!transport_cell(point) && (scalable(profile_) ?
-                    !building_footprint_contains(profile_,rule_version_,source.kind,source.cell,point):
+                    !building_footprint_contains(profile_,rule_version_,source.kind,source.cell,point) &&
+                    !(original_market_courier(c.role) && c.phase==CourierPhase::Returning &&
+                      original_courier_cargo(c.id)>0 && building_footprint_contains(profile_,rule_version_,
+                        building(c.owner).kind,building(c.owner).cell,point)):
                     point!=source.cell)) return false;
             } else if (c.route_pending) {
                 if (!transport_cell(point) && (scalable(profile_) ?
@@ -3483,6 +3495,19 @@ std::string World::canonical_state() const {
         if (original_production_enabled()) for (const auto& stock:original_goods_->stocks) {
             out<<'|'<<static_cast<std::uint32_t>(stock.building_id);
             for (const auto amount:stock.amounts) out<<','<<amount;
+        }
+        if (original_production_enabled()) {
+            out<<"|original-goods-cargo:";
+            for (const auto& cargo:original_goods_->cargo)
+                out<<'|'<<static_cast<std::uint32_t>(cargo.transfer.courier_id)<<','<<cargo.transfer.sequence
+                   <<','<<static_cast<unsigned>(cargo.good)<<','<<static_cast<std::uint32_t>(cargo.source)
+                   <<','<<static_cast<std::uint32_t>(cargo.target)<<','<<cargo.amount;
+            out<<"|original-goods-reservations:";
+            for (const auto& row:original_goods_->reservations)
+                out<<'|'<<static_cast<std::uint32_t>(row.transfer.courier_id)<<','<<row.transfer.sequence
+                   <<','<<static_cast<unsigned>(row.good)<<','<<static_cast<std::uint32_t>(row.source)
+                   <<','<<static_cast<std::uint32_t>(row.target)<<','<<static_cast<unsigned>(row.phase)
+                   <<','<<row.reserved<<','<<row.loaded<<','<<row.delivered<<','<<row.returned;
         }
     }
     if (original_production_)

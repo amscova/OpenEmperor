@@ -594,6 +594,7 @@ public:
     const std::optional<OriginalProductionState>& original_production_state() const { return original_production_; }
     OriginalGoodsBalance original_goods_balance(original::Goods good) const;
     std::array<OriginalGoodsBalance,original::goods_count> original_goods_balances() const;
+    int original_courier_cargo(CourierId courier) const;
     // Transient on-demand test/diagnostic observation, never save authority.
     std::uint64_t original_influence_cache_build_count() const { return original_influence_cache_build_count_; }
     OriginalInfluenceProvenance original_influence_provenance(BuildingId household) const;
@@ -830,6 +831,14 @@ private:
     int original_ceramics_stock(BuildingId owner) const;
     void receive_original_ceramics(BuildingId warehouse,int amount);
     std::array<OriginalGoodsBalance,original::goods_count> original_production_goods_balances() const;
+    bool original_market_courier(CourierRole role) const;
+    int original_market_headroom(BuildingId owner) const;
+    CourierDispatchDecision original_market_dispatch_status(const CourierState& courier) const;
+    void dispatch_original_market(CourierState& courier);
+    void arrive_original_market(CourierState& courier);
+    void cancel_original_market(BuildingId owner);
+    static void validate_original_market_snapshot(const WorldSnapshot& snapshot);
+    void validate_original_market_state() const;
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;

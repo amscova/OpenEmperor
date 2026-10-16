@@ -19,6 +19,43 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-15: physischer Markettransport, Entwicklungsrevision15
+
+- **Authority:** Rule10/Schema26/policy3, Revision15. Bezahlte Warehouses und
+  Markets verwenden die vorhandenen Rollen und denselben Navigator für
+  Warehouse→Market→House. Nur die aktuell benötigte Pottery-Distribution wird
+  angelegt. Typisiertes Ledger-Cargo ist die einzige Mengenauthority;
+  `CourierState.cargo/reserved` bleiben für diese Actoren0. Anzeige und
+  Walkerzustand lesen die tatsächliche typisierte Menge.
+- **Authored Provisionierung:** Die frühen originalen Hausmodellzeilen haben
+  keinen Ceramicsbedarf. Unveränderte Originalbedarfe bleiben0. Belegte
+  bewohnte, lieferberechtigte Häuser erhalten einen ausdrücklich authored
+  physischen Vorratspuffer von8 Einheiten, um den bezahlten Lieferweg vor
+  Evolution und Verbrauch zu integrieren. Das ist keine Behauptung eines
+  originalen Shelterverbrauchs; Verbrauch folgt OE-17.
+- **Begrenzung und Sicherheit:** Je typisiertem Courier bleibt genau die letzte
+  Transferzeile als Sequenz-Highwater erhalten, einschließlich terminalem
+  Zustand. Der Nachfolger entsteht vor dem Entfernen der alten Zeile.
+  Stock plus ausgehendes Cargo als Rückkehrplatz plus eingehende Reservierungen
+  bleibt innerhalb der physischen Kapazität. Masse zählt Cargo nur einmal.
+  Reguläres Pausieren bricht beladene Ausfahrten ab und erhält begonnene Kanten
+  bis zum nächsten Vertex; Rückkehr bucht tatsächliche Ware am Owner.
+- **Abnahme:** Echte Teilbeladung (etwa1 von4 Einheiten) und vollständige
+  Ankünfte werden geprüft. Die reservierte Zielkapazität verhindert in diesem
+  Entwicklungsstand eine schrumpfende Teilankunft; diese wird nicht durch
+  Testinjektion hergestellt. Der unveränderte reine Transaktionskern prüft
+  Teilankünfte separat. Strikte Restorebindung umfasst Owner, Actor, Ziel,
+  Phase, echte Route, Menge und Sequenz. Der unabhängige Review schließt drei
+  unerreichbare World-Restores: abweichende reservierte/beladene Menge,
+  Teilgutschrift vor Ankunft und gelöschte Sequenzhistorie eines benutzten Actors.
+  Je45 Konfigurationstests, echte bezahlte Hausankunft, zwei separate20k-
+  Prozessreplays und drei74-Fall-Forkvergleiche bestanden; vollständige Belege
+  im [Fortschritt](PROGRESS.md). Eigener Defaultsave `rule10-revision15.json`;
+  Entwicklungsrevision14 wird atomar verweigert.
+- **Abschluss:** Technischer OE-15-PASS mit unabhängig identischen72 alten
+  Saves/72 Snapshots und1485 Policyfällen. Originaldateien unverändert,
+  Gate C bis OE-19 offen; native/human NOT_RUN. Unmittelbar weiter mit OE-16.
+
 ### OE-14–33: zusammenhängende autonome Umsetzung beauftragt
 
 - **Nutzerauftrag vom 2026-10-17:** alle offenen Aufgaben der Reihe nach

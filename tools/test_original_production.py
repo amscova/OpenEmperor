@@ -12,7 +12,7 @@ _SPEC = importlib.util.spec_from_file_location(
 legacy = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(legacy)
 MODEL_SHA = legacy.MODEL_SHA
-PRIVATE_OUTPUT = Path(".local/original-economy/oe14/production-fixtures")
+PRIVATE_OUTPUT = Path(".local/original-economy/oe15/production-fixtures")
 RULE9_REFERENCE = Path(".local/original-economy/oe13/goods-fixtures/run-d4mm76cf")
 RULE9_REPORT_SHA = "1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2"
 RULE9_REVIEW_SHA = "c5534befba97a9ad1469bec05131d21f17fe509db101c0f4bd1e0351e742a017"
@@ -68,14 +68,26 @@ def check_balances(scene, positive=False):
         assert all(type(balance[field]) is int and balance[field] >= 0 for field in (
             "produced", "imported", "consumed", "demolished", "stock", "cargo",
             "source_reserved", "incoming_reserved"))
-        assert all(balance[field] == 0 for field in (
-            "imported", "consumed", "demolished", "cargo", "source_reserved", "incoming_reserved"))
-        assert balance["stock"] == balance["produced"]
+        assert all(balance[field] == 0 for field in ("imported", "consumed", "demolished"))
+        assert balance["stock"] + balance["cargo"] == balance["produced"]
         if index != 1:
-            assert balance["stock"] == 0
+            assert all(balance[field] == 0 for field in ("stock", "cargo", "source_reserved", "incoming_reserved"))
     assert balances[1]["produced"] == scene["pottery_handed_off"] <= scene["pottery_completed"]
     assert scene["residents_admitted"] == scene["population"]
     assert sum(house["occupants"] for house in scene["houses"]) == scene["population"]
+    assert all(type(house["ceramics"]) is int and 0 <= house["ceramics"] <= 8 for house in scene["houses"])
+    assert all(stock["kind"] in (3, 9) and len(stock["amounts"]) == 6 for stock in scene["stocks"])
+    for stock in scene["stocks"]:
+        assert all(type(amount) is int and amount >= 0 for amount in stock["amounts"])
+        assert all(amount == 0 for good, amount in enumerate(stock["amounts"]) if good != 1)
+    assert balances[1]["stock"] == sum(house["ceramics"] for house in scene["houses"]) + sum(
+        stock["amounts"][1] for stock in scene["stocks"])
+    assert balances[1]["cargo"] == sum(courier["typed_cargo"] for courier in scene["couriers"])
+    for courier in scene["couriers"]:
+        if courier["role"] in (6, 8):
+            assert courier["cargo"] == courier["reserved"] == 0
+        else:
+            assert courier["typed_cargo"] == 0
     if positive:
         assert balances[1]["stock"] > 0 and scene["population"] > 0
         assert scene["workforce_supply"] >= 12
@@ -179,25 +191,29 @@ def main():
     assert fixture["status"] == "PASS" and fixture["snapshot_injection"] is False
     assert fixture["positive_runtime_goods"] is True and fixture["authored_geography"] is True
     assert fixture["paid_house_count"] == 4 and fixture["paid_road_count"] == 24
-    assert all(fixture[key] == 1 for key in ("paid_clay_count", "paid_pottery_count", "paid_warehouse_count"))
+    assert all(fixture[key] == 1 for key in ("paid_clay_count", "paid_pottery_count", "paid_warehouse_count", "paid_market_count"))
     assert fixture["stop_controls_verified"] is True and fixture["natural_fire_verified"] is True
+    assert fixture["paused_market_return_verified"] is True and fixture["actual_house_arrival"] is True
     assert fixture["initial"]["population"] == fixture["initial"]["workforce_supply"] == 0
-    assert fixture["initial"]["funds"] == 11182 and fixture["initial"]["construction_spent"] == 818
+    assert fixture["initial"]["funds"] == 11042 and fixture["initial"]["construction_spent"] == 958
     assert fixture["stopped"]["population"] > 0 and fixture["stopped"]["clay_extracted"] == 0
-    for key in ("initial", "stopped", "final", "fire"):
+    for key in ("initial", "stopped", "final", "fire", "paused_return"):
         check_balances(fixture[key], positive=key == "final")
         assert fixture[key]["model_sha256"] == MODEL_SHA
+    assert sum(house["ceramics"] for house in fixture["final"]["houses"]) > 0
     restarts = []
-    assert [entry["tag"] for entry in fixture["checkpoints"]] == ["mid-pottery-courier", "warehouse-ceramics"]
+    assert [entry["tag"] for entry in fixture["checkpoints"]] == ["mid-market-courier", "house-ceramics"]
     for checkpoint in fixture["checkpoints"]:
         source = checked_path(repo, output, checkpoint["save"])
         source_identity = file_identity(source)
         source_report = json.loads(checked_path(repo, output, checkpoint["report"]).read_text())
-        if checkpoint["tag"] == "mid-pottery-courier":
-            assert any(c["role"] == 2 and c["cargo"] > 0 and c["edge_progress"] > 0
+        check_balances(source_report)
+        if checkpoint["tag"] == "mid-market-courier":
+            assert any(c["role"] == 8 and c["typed_cargo"] > 0 and c["cargo"] == 0 and c["edge_progress"] > 0
                        for c in source_report["couriers"])
         else:
             check_balances(source_report, positive=True)
+            assert sum(house["ceramics"] for house in source_report["houses"]) > 0
         folder = output / ("resume-" + checkpoint["tag"])
         legacy.run(binary, ["--resume", stage, folder, source], output / (checkpoint["tag"] + "-resume.log"))
         actual_reports = []
@@ -213,7 +229,7 @@ def main():
             check_balances(report, positive=True)
             saved = json.loads(actual.read_text())
             assert saved["schema_version"] == 26 and saved["rules"]["version"] == 10
-            assert saved["world"]["original_production"]["development_revision"] == 14
+            assert saved["world"]["original_production"]["development_revision"] == 15
             actual_reports.append(report)
         midpoint, final = actual_reports
         assert midpoint["tick"] == source_report["tick"] + 10000
@@ -243,7 +259,7 @@ def main():
         "fixture": fixture, "restarts": restarts, "legacy": old,
         "frozen_baseline_capture_sha256": digest(baseline / "capture.json"),
         "frozen_baseline_head": capture["head_before_implementation"],
-        "limits": ["Ceramics origin only; no market-to-house delivery or consumption until later stages",
+        "limits": ["Actual paid Ceramics Market delivery; no consumption, other goods or house evolution yet",
             "Migration, funding and recipe timing are authored; no original production parity claim",
             "Authored geography; separate SDL/native/human acceptance"]}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")

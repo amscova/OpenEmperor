@@ -15,15 +15,23 @@ constexpr auto ceramics=static_cast<std::size_t>(original::Goods::Ceramics);
 [[noreturn]] void invalid(const char* message) {throw std::invalid_argument(message);}
 struct GoodsContext {
     std::array<OriginalGoodsOwner,original_goods_owner_limit> owners{};
+    std::array<CourierId,6> couriers{};
     std::size_t count=0;
-    template<class Buildings> explicit GoodsContext(const Buildings& buildings) {
-        for (const auto& b:buildings) if (b.kind==Object::Household || b.kind==Object::Warehouse) {
+    std::size_t courier_count=0;
+    template<class Buildings,class Couriers> GoodsContext(const Buildings& buildings,const Couriers& actors) {
+        for (const auto& b:buildings) if (b.kind==Object::Household || b.kind==Object::Warehouse || b.kind==Object::Market) {
             if (count==owners.size()) invalid("original production goods owner limit exceeded");
             auto& owner=owners[count++];owner.building_id=b.id;owner.household=b.kind==Object::Household;
-            if (!owner.household) owner.capacity[ceramics]=Rules::warehouse_capacity;
+            owner.capacity[ceramics]=owner.household ? Rules::household_capacity:
+                b.kind==Object::Market ? Rules::market_pottery_capacity:Rules::warehouse_capacity;
+        }
+        for (const auto& c:actors) if (c.role==CourierRole::MarketPotteryInbound || c.role==CourierRole::MarketPotteryDistribution) {
+            if (courier_count==couriers.size()) invalid("typed market courier limit exceeded");
+            couriers[courier_count++]=c.id;
         }
     }
     std::span<const OriginalGoodsOwner> view() const {return {owners.data(),count};}
+    std::span<const CourierId> courier_view() const {return {couriers.data(),courier_count};}
 };
 std::uint64_t paid_cost(Object kind) {
     switch (kind) {
@@ -31,6 +39,7 @@ std::uint64_t paid_cost(Object kind) {
     case Object::ClaySource:return Rules::clay_source_cost;
     case Object::Pottery:return Rules::pottery_cost;
     case Object::Warehouse:return Rules::warehouse_cost;
+    case Object::Market:return Rules::market_cost;
     case Object::OriginalInfluenceSource:return original_influence_source_cost;
     default:invalid("unsupported original production building kind");
     }
@@ -134,11 +143,12 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         if ((i && !(s.buildings[i-1].id<b.id)) || b.placed_tick>s.ticks)
             invalid("original production buildings must be sorted with valid placement time");
         (void)paid_cost(b.kind);validate_neutral_fields(b);
-        if (b.kind==Object::ClaySource || b.kind==Object::Pottery || b.kind==Object::Warehouse) {
+        if (b.kind==Object::ClaySource || b.kind==Object::Pottery || b.kind==Object::Warehouse || b.kind==Object::Market) {
             if (courier_index>=s.couriers.size()) invalid("missing purchased original production courier");
             const auto& c=s.couriers[courier_index];
             const auto role=b.kind==Object::ClaySource ? CourierRole::Clay:
-                b.kind==Object::Pottery ? CourierRole::Pottery:CourierRole::MarketPotteryInbound;
+                b.kind==Object::Pottery ? CourierRole::Pottery:b.kind==Object::Market ?
+                CourierRole::MarketPotteryDistribution:CourierRole::MarketPotteryInbound;
             if (static_cast<std::uint32_t>(c.id)!=courier_index+1 || c.owner!=b.id || c.role!=role)
                 invalid("original production courier IDs must follow purchased owners");
             ++courier_index;
@@ -154,11 +164,12 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
             OriginalHouseState expected{b.id};
             if (occupants) {
                 expected.house.type=original::HouseType::Shelter;expected.house.occupants=occupants;
+                expected.house.ceramics=h.house.ceramics;
                 expected.original_status=3;expected.access_enabled=true;
             }
             if (h!=expected) invalid("unsupported original production house needs, goods or evolution");
             residents+=static_cast<std::uint64_t>(occupants);
-        } else if (b.kind==Object::Warehouse) {
+        } else if (b.kind==Object::Warehouse || b.kind==Object::Market) {
             if (warehouse_index>=s.original_goods->stocks.size() ||
                 s.original_goods->stocks[warehouse_index++].building_id!=b.id)
                 invalid("original production requires exactly one typed stock per Warehouse");
@@ -190,8 +201,6 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         s.roads_removed_total>s.roads_placed_total || s.roads_placed_total-s.roads_removed_total!=s.roads.size() ||
         s.road_revision!=s.roads_placed_total+s.roads_removed_total+s.buildings.size()+2*removed.size()+s.bridges.size()+s.ramps.size())
         invalid("original production finances or placement revision mismatch");
-    if (!s.original_goods->cargo.empty() || !s.original_goods->reservations.empty())
-        invalid("revision14 has no typed Ceramics transport capability");
     for (std::size_t g=0;g<original::goods_count;++g) {
         const auto& totals=s.original_goods->totals[g];
         if (totals.imported || totals.consumed || totals.demolished ||
@@ -200,10 +209,12 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
     }
     if (s.original_production->pottery_handed_off>s.pottery_completed_total)
         invalid("Ceramics handoff exceeds actual completed Pottery");
-    const GoodsContext owners(s.buildings);
-    validate_original_goods_ledger({*s.original_goods,s.original_economy->houses,owners.view(),{}});
+    const GoodsContext owners(s.buildings,s.couriers);
+    validate_original_goods_ledger({*s.original_goods,s.original_economy->houses,owners.view(),owners.courier_view()});
+    validate_original_market_snapshot(s);
     for (const auto& c:s.couriers) if (c.role!=CourierRole::Clay && c.role!=CourierRole::Pottery &&
-        c.role!=CourierRole::MarketPotteryInbound) invalid("unsupported original production courier role");
+        c.role!=CourierRole::MarketPotteryInbound && c.role!=CourierRole::MarketPotteryDistribution)
+        invalid("unsupported original production courier role");
 }
 
 bool World::original_production_finance_valid() const {
@@ -217,12 +228,20 @@ bool World::original_production_finance_valid() const {
 
 std::array<OriginalGoodsBalance,original::goods_count> World::original_production_goods_balances() const {
     if (!original_goods_ || !original_economy_) throw std::logic_error("missing original production goods authority");
-    const GoodsContext owners(buildings_);
-    auto balances=inspect_original_goods_ledger({*original_goods_,original_economy_->houses,owners.view(),{}});
+    const GoodsContext owners(buildings_,couriers_);
+    validate_original_market_state();
+    auto balances=inspect_original_goods_ledger({*original_goods_,original_economy_->houses,owners.view(),owners.courier_view()});
     balances[ceramics].supported=true;return balances;
 }
 
 int World::original_ceramics_stock(BuildingId owner) const {
+    if (building(owner).kind==Object::Household) {
+        const auto& homes=original_economy_->houses;
+        const auto found=std::lower_bound(homes.begin(),homes.end(),owner,
+            [](const OriginalHouseState& home,BuildingId id){return home.building_id<id;});
+        if (found==homes.end() || found->building_id!=owner) throw std::logic_error("missing original House stock");
+        return found->house.ceramics;
+    }
     const auto& stocks=original_goods_->stocks;
     const auto found=std::lower_bound(stocks.begin(),stocks.end(),owner,
         [](const OriginalGoodsStock& row,BuildingId id) {return row.building_id<id;});
@@ -233,8 +252,8 @@ int World::original_ceramics_stock(BuildingId owner) const {
 void World::receive_original_ceramics(BuildingId warehouse,int amount) {
     if (amount<=0 || static_cast<std::uint64_t>(amount)>UINT64_MAX-original_production_->pottery_handed_off)
         throw std::overflow_error("original Ceramics handoff exhausted");
-    const GoodsContext owners(buildings_);
-    auto candidate=original_goods_produce({*original_goods_,original_economy_->houses,owners.view(),{}},warehouse,
+    const GoodsContext owners(buildings_,couriers_);
+    auto candidate=original_goods_produce({*original_goods_,original_economy_->houses,owners.view(),owners.courier_view()},warehouse,
         original::Goods::Ceramics,amount);
     // All arithmetic, capacity and conservation checks precede the handoff.
     // HouseState is unchanged by the producer; only the typed Warehouse owns it.

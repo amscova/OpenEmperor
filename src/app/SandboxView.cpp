@@ -28,6 +28,25 @@
 
 namespace openemperor {
 namespace {
+template<class Courier> int displayed_courier_cargo(const simulation::World& world,const Courier& courier) {
+    return world.original_production_enabled() ?
+        std::max(courier.cargo,world.original_courier_cargo(courier.id)):courier.cargo;
+}
+template<class Courier> int displayed_courier_reservation(const simulation::World& world,const Courier& courier) {
+    if (world.original_production_enabled() && world.original_goods_state()) {
+        for (const auto& row:world.original_goods_state()->reservations)
+            if (row.transfer.courier_id==courier.id)
+                return row.phase==simulation::OriginalGoodsTransferPhase::Loaded ?
+                    row.loaded-row.delivered-row.returned:0;
+    }
+    return courier.reserved;
+}
+WalkerPose resolved_walker_pose(const simulation::World& world,const simulation::CourierState& courier,
+                               const assets::WalkerRoleVisual& visual) {
+    auto pose=walker_pose(courier,world.ticks(),visual);
+    pose.loaded=displayed_courier_cargo(world,courier)>0;
+    return pose;
+}
 // Presentation palette: Poor, Neutral, Good. Simulation owns category thresholds.
 constexpr std::array<SDL_Color,3> housing_palette{{{210,83,75,45},
     {204,169,81,45},{78,174,128,45}}};
@@ -1654,7 +1673,7 @@ void SandboxView::set_tool(int tool) {
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
     if (original_production_fixture()) {
         using A=sandbox_ui::Action;
-        if (action==A::Farm || action==A::ServicePost || action==A::Market || action==A::FireWatch ||
+        if (action==A::Farm || action==A::ServicePost || action==A::FireWatch ||
             action==A::HealthPost || action==A::Health || action==A::ServiceOverlay ||
             action==A::Water || action==A::Reset) return false;
     } else if (original_influence_fixture()) {
@@ -2651,7 +2670,7 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
             const auto role=walker_visual_role(courier.role);
             const auto* visual=role && walker_profile_ ? walker_profile_->find(*role):nullptr;
             if (walker_visuals_active() && walker_sprites_ && visual) {
-                const auto pose=walker_pose(courier,world_->ticks(),*visual);
+                const auto pose=resolved_walker_pose(*world_,courier,*visual);
                 if (pose.frame) {
                     const auto& frame=visual->frames[*pose.frame];
                     const auto& image=walker_profile_->unique_images[frame.image_index];
@@ -2673,7 +2692,7 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
         hit.origin={ground.x-size/2+(simulation::production_profile(rules_) ? shift/camera_.zoom:0),ground.y-size/2};
         hit.width=hit.height=size; append(hit);
         const auto cargo=simulation::production_profile(rules_) ?
-            world_->courier(instance.courier).cargo:world_->courier_cargo();
+            displayed_courier_cargo(*world_,world_->courier(instance.courier)):world_->courier_cargo();
         if (cargo>0) {
             hit.origin={hit.origin.x+size*.5,hit.origin.y-size*.5};
             hit.width=hit.height=size*.5;append(hit);
@@ -3092,7 +3111,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             walker_profile_->find(*visual_role):nullptr;
         if (walker_visuals_active() && walker_sprites_ && visual) {
             const auto role_index=assets::walker_role_index(*visual_role);
-            const auto pose=walker_pose(courier,world_->ticks(),*visual);
+            const auto pose=resolved_walker_pose(*world_,courier,*visual);
             const auto ground=camera_.world_to_screen(world_for(position));
             if (pose.frame) {
                 if (!walker_sprites_->draw(*pose.frame,ground,camera_.zoom,*visual,*walker_profile_,
@@ -3137,7 +3156,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             if (food_market_visual(visual_role)) ++market_walker_fallback_draws_;
             if (visual_role==assets::WalkerVisualRole::Service) ++service_walker_fallback_draws_;
             if (visual_role==assets::WalkerVisualRole::HealthWorker) ++health_walker_fallback_draws_;
-            if (!draw_agent(position,missing,cargo_color,courier.cargo,
+            if (!draw_agent(position,missing,cargo_color,displayed_courier_cargo(*world_,courier),
                             marker_shift)) return false;
             return !debug_open_ || SDL_RenderDebugText(renderer_,static_cast<float>(ground.x)+5,
                 static_cast<float>(ground.y)-20,"W?");
@@ -3146,7 +3165,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         if (food_market_visual(visual_role)) ++market_walker_fallback_draws_;
         if (visual_role==assets::WalkerVisualRole::Service) ++service_walker_fallback_draws_;
         if (visual_role==assets::WalkerVisualRole::HealthWorker) ++health_walker_fallback_draws_;
-        if (!draw_agent(position,marker_color,cargo_color,courier.cargo,marker_shift)) return false;
+        if (!draw_agent(position,marker_color,cargo_color,displayed_courier_cargo(*world_,courier),marker_shift)) return false;
         if (debug_open_ && (courier.role==simulation::CourierRole::Food ||
                             courier.role==simulation::CourierRole::Service ||
                             courier.role==simulation::CourierRole::FireInspector ||
@@ -3662,7 +3681,8 @@ std::vector<std::string> SandboxView::road_connectivity_lines() const {
         lines.push_back("Workers "+std::to_string(courier.workers_assigned)+"/"+std::to_string(courier.workers_required)+
             " | output stock "+std::to_string(courier.output_stock));
         lines.push_back(std::string("Phase ")+simulation::courier_phase_name(courier.phase)+
-            " | cargo "+std::to_string(courier.cargo)+" reserved "+std::to_string(courier.reserved));
+            " | cargo "+std::to_string(displayed_courier_cargo(*world_,courier))+" reserved "+
+                std::to_string(displayed_courier_reservation(*world_,courier)));
         lines.push_back(courier.route_pending ? "Route pending: yes":"Route pending: no");
         lines.push_back("Selected dispatch target: "+(courier.selected_target ?
             std::to_string(static_cast<unsigned>(*courier.selected_target)):std::string("none")));
@@ -3810,8 +3830,10 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 "Owner: "+std::to_string(static_cast<unsigned>(found->owner))+
                     " target: "+std::to_string(static_cast<unsigned>(found->target)),
                 std::string("Phase: ")+simulation::courier_phase_name(found->phase),
-                "Cargo: "+std::to_string(found->cargo),
+                "Cargo: "+std::to_string(displayed_courier_cargo(*world_,*found)),
                 std::string("Goods: ")+courier_good_label(found->good)};
+            if (original_production_fixture()) walker_lines.push_back("Incoming reserved: "+
+                std::to_string(displayed_courier_reservation(*world_,*found)));
             const auto role=walker_visual_role(found->role);
             const bool configured=role && walker_profile_ && walker_profile_->find(*role);
             const auto source=walker_source_==VisualProfileSource::Custom ? walker_source_:
@@ -3943,6 +3965,12 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                     "Paid vacant container; no residents or supply simulation",
                 "Desirability: "+std::to_string(info.value),
                 "Maximum cell: "+std::to_string(info.selected_cell.x)+","+std::to_string(info.selected_cell.y)};
+            if (original_production_fixture()) {
+                const auto& houses=world_->original_economy_state()->houses;
+                const auto home=std::find_if(houses.begin(),houses.end(),[&](const auto& value){return value.building_id==*house_id;});
+                if (home!=houses.end()) lines.push_back("Ceramics: "+std::to_string(home->house.ceramics)+"/"+
+                    std::to_string(simulation::Rules::household_capacity)+" | paid Market arrivals");
+            }
             for (const auto& entry:info.entries)
                 lines.push_back("Source #"+std::to_string(static_cast<std::uint32_t>(entry.building_id))+
                     " Well72 at "+std::to_string(entry.origin.x)+","+std::to_string(entry.origin.y)+
@@ -4314,7 +4342,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 role_name);
             lines.push_back("Target "+(c.phase==simulation::CourierPhase::IdleAtWorkshop ?
                 std::string("-"):std::to_string(static_cast<unsigned>(c.target)))+
-                " cargo "+std::to_string(c.cargo));
+                " cargo "+std::to_string(displayed_courier_cargo(*world_,c)));
             lines.push_back(std::string("Phase ")+simulation::delivery_phase_name(c.phase));
             if (food_market_visual(walker_visual_role(c.role))) {
                 lines.push_back(std::string("Role ")+courier_role_label(c.role)+" | Owner "+
@@ -4391,11 +4419,15 @@ std::vector<std::string> SandboxView::income_summary_lines() const {
 }
 
 std::vector<std::string> SandboxView::income_lines() const {
-    if (original_production_fixture()) return {"Original economy development",
+    if (original_production_fixture()) {
+        const auto balance=world_->original_goods_balance(original::Goods::Ceramics);
+        return {"Original economy development",
         "Funds: "+std::to_string(world_->treasury()),
         "Residents: "+std::to_string(world_->total_population()),
-        "Ceramics: "+std::to_string(world_->original_goods_balance(original::Goods::Ceramics).stock),
-        "Paid Clay/Pottery; Ceramics booked at actual Warehouse arrival", "Tax integration follows OE-27"};
+        "Ceramics stock: "+std::to_string(balance.stock)+" | cargo: "+std::to_string(balance.cargo),
+        "Incoming reserved: "+std::to_string(balance.incoming_reserved),
+        "Paid Clay/Pottery/Warehouse/Market; deliveries at actual arrival", "Tax integration follows OE-27"};
+    }
     if (original_influence_fixture()) return {"Well72 influence development",
         "Paid sources affect desirability only; no water, workers, income or upkeep"};
     if (original_save_fixture_) return {"Scheduler-only development fixture",
@@ -5159,13 +5191,13 @@ std::string SandboxView::walker_clip_status(const simulation::CourierState& cour
         else reason="Core profile has no configured "+std::string(assets::walker_role_name(*role));
     } else if (!walker_sprites_) reason="Walker asset preparation unavailable";
     else {
-        const auto pose=walker_pose(courier,world_->ticks(),*visual);
+        const auto pose=resolved_walker_pose(*world_,courier,*visual);
         if (pose.fallback==WalkerFallback::InvalidEdge) reason="Invalid current path edge";
         else if (pose.fallback==WalkerFallback::UnmappedDirection) reason="Unmapped path direction";
     }
     if (!visual && reason.empty()) reason="No configured visual family";
     if (!reason.empty()) return "Marker fallback: "+reason;
-    const auto pose=walker_pose(courier,world_->ticks(),*visual);
+    const auto pose=resolved_walker_pose(*world_,courier,*visual);
     const auto* frame=pose.frame ? &visual->frames[*pose.frame]:nullptr;
     return "Curated clip: "+(visual->clip_id.empty() ? std::string(assets::walker_role_name(*role)):visual->clip_id)+
         (frame ? " | #"+std::to_string(frame->id.image_index)+(frame->flip_x ? " flip_x":" native"):"");
@@ -5177,7 +5209,7 @@ std::vector<SandboxView::WalkerDiagnostic> SandboxView::walker_diagnostics() con
     for (const auto& courier:world_->couriers()) {
         WalkerDiagnostic row;
         row.id=courier.id;row.role=courier.role;row.owner=courier.owner;row.target=courier.target;
-        row.phase=courier.phase;row.good=courier.good;row.cargo=courier.cargo;
+        row.phase=courier.phase;row.good=courier.good;row.cargo=displayed_courier_cargo(*world_,courier);
         row.route_pending=courier.route_pending;row.marker_comparison=!walker_visuals_enabled_;
         row.live_visible=walker_live_visible(courier);row.direction=current_storage_direction(courier);
         if (courier.path.size()>1 && courier.path_vertex<courier.path.size()-1) {
@@ -5199,7 +5231,7 @@ std::vector<SandboxView::WalkerDiagnostic> SandboxView::walker_diagnostics() con
         const auto* visual=role && walker_profile_ ? walker_profile_->find(*role):nullptr;
         if (visual) {
             row.clip_id=visual->clip_id;
-            const auto pose=walker_pose(courier,world_->ticks(),*visual);
+            const auto pose=resolved_walker_pose(*world_,courier,*visual);
             if (pose.frame) row.native_asset=visual->frames[*pose.frame].id;
         }
         if (const auto position=world_->courier_position(courier.id))

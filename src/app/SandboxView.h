@@ -63,7 +63,7 @@ public:
                          simulation::RulesProfile rules=simulation::RulesProfile::LogisticsV1,
                          std::uint32_t rule_version=0);
 #if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
-    // Explicit scheduler-only development fixture; no shipped application entry point.
+    // Explicit development fixtures; no shipped application entry point.
     static std::unique_ptr<SandboxView> create_original_economy_save_fixture(
         maps::StoredMapSession session);
     static std::unique_ptr<SandboxView> create_original_influence_save_fixture(

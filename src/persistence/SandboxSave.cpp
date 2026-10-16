@@ -890,9 +890,10 @@ SaveDocument parse_goods_document(const json& j) {
 }
 json production_goods_json(const simulation::OriginalGoodsState& state) {
     require(state.stocks.size()<=simulation::original_goods_owner_limit &&
-            state.cargo.empty() && state.reservations.empty(),
-            "schema26 revision14 supports bounded warehouse stocks without typed transport");
-    json totals=json::array(),stocks=json::array();
+            state.cargo.size()<=simulation::original_goods_courier_limit &&
+            state.reservations.size()<=simulation::original_goods_reservation_limit,
+            "schema26 original goods collection exceeds its bounded context");
+    json totals=json::array(),stocks=json::array(),cargo=json::array(),reservations=json::array();
     for (std::size_t i=0;i<state.totals.size();++i) {
         const auto& total=state.totals[i];
         totals.push_back({{"good",i},{"produced",total.produced},{"imported",total.imported},
@@ -901,8 +902,20 @@ json production_goods_json(const simulation::OriginalGoodsState& state) {
     for (const auto& stock:state.stocks)
         stocks.push_back({{"building_id",static_cast<std::uint32_t>(stock.building_id)},
             {"amounts",stock.amounts}});
+    const auto transfer=[](simulation::OriginalGoodsTransferKey key) {
+        return json{{"courier_id",static_cast<std::uint32_t>(key.courier_id)},{"sequence",key.sequence}};
+    };
+    for (const auto& value:state.cargo)
+        cargo.push_back({{"transfer",transfer(value.transfer)},{"good",static_cast<unsigned>(value.good)},
+            {"source",static_cast<std::uint32_t>(value.source)},{"target",static_cast<std::uint32_t>(value.target)},
+            {"amount",value.amount}});
+    for (const auto& value:state.reservations)
+        reservations.push_back({{"transfer",transfer(value.transfer)},{"good",static_cast<unsigned>(value.good)},
+            {"source",static_cast<std::uint32_t>(value.source)},{"target",static_cast<std::uint32_t>(value.target)},
+            {"phase",static_cast<unsigned>(value.phase)},{"reserved",value.reserved},{"loaded",value.loaded},
+            {"delivered",value.delivered},{"returned",value.returned}});
     return {{"totals",std::move(totals)},{"stocks",std::move(stocks)},
-        {"cargo",json::array()},{"reservations",json::array()}};
+        {"cargo",std::move(cargo)},{"reservations",std::move(reservations)}};
 }
 simulation::OriginalGoodsState parse_production_goods(const json& j) {
     simulation::OriginalGoodsState state;
@@ -931,10 +944,45 @@ simulation::OriginalGoodsState parse_production_goods(const json& j) {
         for (std::size_t i=0;i<stock.amounts.size();++i) stock.amounts[i]=small(amounts[i]);
         state.stocks.push_back(stock);
     }
-    for (const char* key:{"cargo","reservations"}) {
-        const auto& values=field(j,key);
-        require(values.is_array() && values.empty(),
-                "schema26 revision14 does not admit typed cargo or reservations");
+    const auto transfer=[](const json& value) {
+        simulation::OriginalGoodsTransferKey key;
+        key.courier_id=static_cast<simulation::CourierId>(number(field(value,"courier_id"),UINT32_MAX));
+        key.sequence=number(field(value,"sequence"));
+        require(static_cast<std::uint32_t>(key.courier_id)>0 && key.sequence>0,
+                "schema26 transfer requires a positive courier identity and sequence");
+        return key;
+    };
+    const auto ordered=[](simulation::OriginalGoodsTransferKey prior,simulation::OriginalGoodsTransferKey current) {
+        return static_cast<std::uint32_t>(prior.courier_id)<static_cast<std::uint32_t>(current.courier_id);
+    };
+    const auto& cargo=field(j,"cargo");
+    require(cargo.is_array() && cargo.size()<=simulation::original_goods_courier_limit,
+            "schema26 cargo collection exceeds bound");
+    for (const auto& value:cargo) {
+        simulation::OriginalGoodsCargo item;
+        item.transfer=transfer(field(value,"transfer"));
+        require(state.cargo.empty() || ordered(state.cargo.back().transfer,item.transfer),
+                "schema26 cargo requires sorted unique courier identities");
+        item.good=static_cast<original::Goods>(number(field(value,"good"),original::goods_count-1));
+        item.source=static_cast<simulation::BuildingId>(number(field(value,"source"),UINT32_MAX));
+        item.target=static_cast<simulation::BuildingId>(number(field(value,"target"),UINT32_MAX));
+        item.amount=small(field(value,"amount"));state.cargo.push_back(item);
+    }
+    const auto& reservations=field(j,"reservations");
+    require(reservations.is_array() && reservations.size()<=simulation::original_goods_reservation_limit,
+            "schema26 reservation collection exceeds bound");
+    for (const auto& value:reservations) {
+        simulation::OriginalGoodsReservation item;
+        item.transfer=transfer(field(value,"transfer"));
+        require(state.reservations.empty() || ordered(state.reservations.back().transfer,item.transfer),
+                "schema26 reservations require one sorted latest sequence per courier");
+        item.good=static_cast<original::Goods>(number(field(value,"good"),original::goods_count-1));
+        item.source=static_cast<simulation::BuildingId>(number(field(value,"source"),UINT32_MAX));
+        item.target=static_cast<simulation::BuildingId>(number(field(value,"target"),UINT32_MAX));
+        item.phase=static_cast<simulation::OriginalGoodsTransferPhase>(number(field(value,"phase"),5));
+        item.reserved=small(field(value,"reserved"));item.loaded=small(field(value,"loaded"));
+        item.delivered=small(field(value,"delivered"));item.returned=small(field(value,"returned"));
+        state.reservations.push_back(item);
     }
     return state;
 }

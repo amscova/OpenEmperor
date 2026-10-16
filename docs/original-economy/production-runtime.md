@@ -2,8 +2,9 @@
 
 Der [Gesamtauftrag](completion-contract.md) verwendet einen ausdrücklich
 gewählten City-v16-Rule10-/Schema26-Entwicklerstand bei unveränderter policy3.
-Die erste aktive Entwicklungsrevision14 integriert den tatsächlichen
-bezahlten Ceramics-Ursprung. Veröffentlichte Regeln1–9/Schemas1–25 behalten
+Entwicklungsrevision14 integrierte den tatsächlichen bezahlten Ceramics-Ursprung;
+Revision15 ergänzt den physischen Markettransport bis zum Haus.
+Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
 
@@ -43,15 +44,37 @@ Warehouse-Pottery-Slot bleibt null; es gibt keinen gespiegelten Vorrat.
 - Typisierte Ceramics: produced + imported = consumed + demolished + stock
   + cargo. Reservierungen zählen nicht zusätzlich als Masse.
 
-Revision14 erlaubt keine positiven anderen Originalwaren, Hauslieferungen,
-Market-, Food-, Konsum-, Service- oder Steuerpfade. Der Warehouse-Bestand ist
-die einzige positive Ceramics-Authority dieser Stufe. Diese späteren Aufgaben
-werden anschließend der Reihe nach implementiert.
+Revision15 erlaubt Ceramics über Warehouse, Market und tatsächliche
+Hausankunft. Andere Originalwaren, Food, Konsum, Services und Steuern folgen
+ihren Aufgaben. Die frühen originalen Hausbedarfe bleiben unverändert0;
+ein ausdrücklich authored physischer Hauspuffer8 ermöglicht Provisionierung
+vor Evolution und Verbrauch.
+
+## Market, Reservierungen und Rückkehr
+
+Warehouse→Market und Market→House benutzen vorhandene Courierrollen und
+denselben Navigator. Beladung reduziert den physischen Quellbestand; erst
+die wirkliche Ankunft erhöht den Zielbestand. Typisiertes Cargo lebt allein
+im Warenledger. Die älteren Mengenfelder der Bewegungsactoren bleiben0;
+Anzeige und geladene Walker lesen die tatsächliche Ledger-Menge.
+
+Jeder der höchstens sechs typisierten Actoren behält genau seine letzte
+Transferzeile als Sequenz-Highwater. Neue Fahrten ersetzen terminale Zeilen
+erst nach erfolgreicher Reservierung; veraltete und doppelte Arrival-Handles
+werden verweigert. Ausgehendes Cargo hält physische Rückkehrkapazität am
+Quellowner frei, ohne zusätzlich als Masse gezählt zu werden. Damit passen
+auch Rückgaben, während neue Lieferungen eintreffen.
+
+Pausieren eines Owners bricht seine beladene Ausfahrt ab. Eine bereits
+begonnene Kante wird beendet, danach führt derselbe Navigator zurück.
+Disconnect verhindert eine Lieferung; bezahlte Reparatur ermöglicht ihre
+Fortsetzung. Häuser, Lager und Märkte mit gebundener Authority bleiben vor
+unsicherem Abriss geschützt. Der laufende Stand konsumiert keine Ceramics.
 
 ## Persistenz und technische Prüfung
 
 Schema26 speichert die strikte Entwicklungsrevision, Bewohner- und
-Übergabehistorie, genau eine typisierte Stockzeile je Warehouse und die
+Übergabehistorie, genau eine typisierte Stockzeile je Warehouse/Market und die
 vorhandene vollständige Infrastruktur-/Actor-/Hausauthority. Kapazitäten,
 Readiness und vorbereitete Modelltabellen werden nicht gespeichert. Aktive
 Payloads werden nicht durch eingefrorene Neutralzustandsvalidatoren früherer
@@ -60,10 +83,13 @@ Conservation-/Finanz-/Referenz-/Routeprüfungen gehen der Veröffentlichung vora
 
 Der automatisierte [Prozessrunner](../../tools/test_original_production.py)
 verwendet eine hashidentische private Kopie des echten Modells und authored
-24×20-Geographie. Vier bezahlte Häuser ziehen dort28 Bewohner an. Der erste
-echte Warehouse-Übergang erfolgt im geprüften Lauf bei Tick675. Mid-Pottery-
-und positiver Warehouse-Stand werden jeweils in einem neuen OS-Prozess über
-10000 Ticks, einen bezahlten Straßenbau und weitere10000 Ticks fortgesetzt;
+24×20-Geographie. Vier bezahlte Häuser ziehen dort28 Bewohner an. Revision15
+bezahlt zusätzlich den Market:958 Funds Bauausgaben,11042 Rest. Bei Tick706
+transportiert sein Courier tatsächlich eine typisierte Einheit; bei Tick815
+besitzt ein Haus nach der Ankunft seine erste Ceramics-Einheit. Ein separater
+Pausenstand erhält dasselbe beladene Cargo als Rücktransport ohne Hausgutschrift.
+Mid-Market- und positiver Hausstand werden jeweils in einem neuen OS-Prozess
+über10000 Ticks, einen bezahlten Straßenbau und weitere10000 Ticks fortgesetzt;
 vollständige SaveDocuments, rohe Bytes und Bilanzen müssen übereinstimmen.
 Kein Snapshot und kein Bestand wird zum Herstellen des Erfolgs injiziert.
 
@@ -78,8 +104,9 @@ sh tools/play_original_economy.sh
 ```
 
 Er beginnt pausiert und verwendet ausschließlich den eigenen Rule10-Savepfad.
-Straßen, vier angeschlossene Häuser, Clay, Pottery und Warehouse kaufen und
+Straßen, vier angeschlossene Häuser, Clay, Pottery, Warehouse und Market kaufen und
 dann laufen lassen; F5/F9 speichert/lädt denselben Entwicklungsstand. Die
-Originalgrafik-/Objektkomposition ist gesonderter Bestandteil der folgenden
+Defaultsave ist `rule10-revision15.json`; frühere Entwicklungsrevisionen
+werden atomar verweigert. Die Originalgrafik-/Objektkomposition ist Bestandteil der folgenden
 Präsentationsaufgaben und wird durch diesen Produktionsnachweis nicht als
 bereits abgeschlossen ausgegeben.

@@ -92,13 +92,13 @@ void immigration_and_paid_origin() {
     check(world.treasury()==11182 && world.taxes_collected_total()==0 && world.maintenance_spent_total()==0 &&
         world.building(ids.warehouse).pottery_stock==0,"Revision14 finance changed or Warehouse double-booked Ceramics");
     const auto saved=world.snapshot();
-    for (const auto type:{sim::CommandType::PlaceMarket,sim::CommandType::PlaceFarm,sim::CommandType::PlaceWell,
+    for (const auto type:{sim::CommandType::PlaceFarm,sim::CommandType::PlaceWell,
             sim::CommandType::PlaceHealthPost,sim::CommandType::PlaceServicePost,sim::CommandType::PlaceFireWatch}) {
         check(!world.execute({type,{20,12}}).accepted && world.snapshot()==saved,"Future producer/service gained premature authority");
     }
     check(!world.execute(sim::demolish_building(ids.pottery)).accepted && world.snapshot()==saved,
         "Producer demolition bypassed accepted history boundary");
-    auto bad=saved;bad.original_production->development_revision=15;
+    auto bad=saved;bad.original_production->development_revision=14;
     refuses([&]{(void)sim::World::restore_original_production_development(bad,fixture.policy,fixture.model);});
     bad=saved;++bad.original_goods->totals[1].produced;
     refuses([&]{(void)sim::World::restore_original_production_development(bad,fixture.policy,fixture.model);});
@@ -109,6 +109,15 @@ void immigration_and_paid_origin() {
     refuses([&]{(void)sim::World::restore(saved,fixture.policy);});
     refuses([&]{(void)sim::World::restore_original_goods_development(saved,fixture.policy,fixture.model);});
     refuses([&]{sim::World normal(fixture.policy,sim::RulesProfile::CityV16,10);});
+    const auto actors=world.couriers().size();
+    f::buy(world,{sim::CommandType::PlaceMarket,{20,12}});
+    const auto market=*world.building_owner_at({20,12});
+    check(world.construction_spent_total()==958 && world.couriers().size()==actors+1 &&
+        world.couriers().back().owner==market &&
+        world.couriers().back().role==sim::CourierRole::MarketPotteryDistribution,
+        "Paid revision15 Market must create exactly its real Ceramics distributor");
+    check(sim::World::restore_original_production_development(world.snapshot(),fixture.policy,fixture.model).snapshot()==world.snapshot(),
+        "Paid Market could not restore with real typed ownership");
 }
 void missing_staff_and_road() {
     Fixture fixture;

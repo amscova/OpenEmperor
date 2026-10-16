@@ -41,6 +41,7 @@ class ProductionRunnerTests(unittest.TestCase):
         before = self.entries()
         for output in (self.outside / "run", self.repo / "report", self.original / "run", self.build / "run",
                        self.private, self.private / ".." / "escape",
+                       self.repo / ".local/original-economy/oe14/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -129,7 +130,8 @@ class ProductionRunnerTests(unittest.TestCase):
                     "produced": 0, "imported": 0, "consumed": 0, "demolished": 0,
                     "stock": 0, "cargo": 0, "source_reserved": 0, "incoming_reserved": 0}
                 for index in range(6)], "pottery_handed_off": 0, "pottery_completed": 0,
-                "residents_admitted": 0, "population": 0, "workforce_supply": 0, "houses": []}
+                "residents_admitted": 0, "population": 0, "workforce_supply": 0,
+                "houses": [], "stocks": [], "couriers": []}
 
     def test_balance_guards_distinguish_supported_origin_and_actual_population(self):
         scene = self.scene()
@@ -138,13 +140,26 @@ class ProductionRunnerTests(unittest.TestCase):
             runner.check_balances(scene, positive=True)
         scene["balances"][1]["produced"] = scene["balances"][1]["stock"] = 2
         scene.update(pottery_handed_off=2, pottery_completed=2, residents_admitted=14,
-                     population=14, workforce_supply=14, houses=[{"occupants": 14}])
+                     population=14, workforce_supply=14, houses=[{"occupants": 14, "ceramics": 2}])
         runner.check_balances(scene, positive=True)
-        for field in ("imported", "consumed", "demolished", "cargo", "source_reserved", "incoming_reserved"):
+        for field in ("imported", "consumed", "demolished", "cargo"):
             bad = copy.deepcopy(scene)
             bad["balances"][1][field] = 1
             with self.subTest(field=field), self.assertRaises(AssertionError):
                 runner.check_balances(bad)
+        carrying = copy.deepcopy(scene)
+        carrying["balances"][1].update(stock=0, cargo=2, source_reserved=0, incoming_reserved=2)
+        carrying["houses"][0]["ceramics"] = 0
+        carrying["couriers"] = [{"role": 8, "cargo": 0, "reserved": 0, "typed_cargo": 2}]
+        runner.check_balances(carrying, positive=False)
+        mirrored = copy.deepcopy(carrying)
+        mirrored["couriers"][0]["cargo"] = 2
+        with self.assertRaises(AssertionError):
+            runner.check_balances(mirrored)
+        unsupported_stock = copy.deepcopy(scene)
+        unsupported_stock["stocks"] = [{"kind": 3, "amounts": [1, 0, 0, 0, 0, 0]}]
+        with self.assertRaises(AssertionError):
+            runner.check_balances(unsupported_stock)
         for key in ("pottery_completed", "pottery_handed_off", "residents_admitted", "population"):
             bad = copy.deepcopy(scene)
             bad[key] = 0
