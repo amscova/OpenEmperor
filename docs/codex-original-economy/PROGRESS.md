@@ -7,7 +7,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
-| OE-01 | PASS | im Folgecommit | `.local/original-economy/oe01/`, OE-00/`oe01-verification/` | Raw-Reader/Provenance;6 finale CTests PASS;72 Saves/1485 Policyfälle identisch; keine World-Anbindung |
+| OE-01 | PASS | 11211bbe6f579b6171615f6e75ed6fffbfd53cdf | `.local/original-economy/oe01/`, OE-00/`oe01-verification/` | Raw-Reader/Provenance;6 finale CTests PASS;72 Saves/1485 Policyfälle identisch; keine World-Anbindung |
 | OE-02 | TODO | — | — | — |
 | OE-03 | TODO | — | — | — |
 | OE-04 | TODO | — | — | — |
@@ -185,3 +185,24 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   sauber. Task-Sourcehashes unter
   `.local/original-economy/oe01/validated-task-source.json` festgehalten. Eigener
   lokaler Task-Commit folgt gemäß Auftrag; Gate A bleibt bis OE-07 offen.
+
+### Merge-Vorbereitung – 2026-10-16, Basis d73536c
+
+- Nutzer hat den Branch selbst gepusht und Commit-/Branch-Merge ausdrücklich
+  beauftragt. Aktueller Branch sauber, `origin/feature/original-economy-v1`
+  entspricht `d73536c7fd1e024de6e26955586c5d91b2760657`; Live-`main` weiterhin
+  `fef111deff4cedd3d3fa48663556d41b2e4b31a6`. Die zusätzliche Nutzeränderung
+  enthält ausschließlich die drei gelieferten Root-Dokumente.
+- Unabhängiger Merge-Review: keine blockierenden Codebefunde. Die Root-Dateien
+  bekommen gültige Links und Pflichtdateipfade zum kanonischen Paket; keine
+  zweite Fortschrittsdatei und keine Änderung der Prompt-Abfolge. OE-01-SHA
+  nachgetragen. Lokale Dokumentationslinks und `git diff --check`: PASS.
+- Frisch ausgeführt: `python3 tests/OriginalEconomyBaselineTests.py -v`:
+  **13/13 PASS**; `ctest --test-dir .local/reswall/release-build --output-on-failure -R '^original-model-data-'`:
+  **2/2 PASS**, echter Datentest ohne Skip. Die unabhängige Review-Instanz
+  bestätigt dieselben Resultate. Parser/CMake/Tests sind weiterhin bytegleich
+  zum in OE-01 mit Debug/Release/ASan und vollständigem Legacy-Replay geprüften
+  Stand; kein erneuter voller Replay wegen reiner Dokumentänderungen.
+- GitHub: `main` ungeschützt, keine Branch-Rulesets, keine Status-/Check-Runs
+  am gepushten HEAD. PR-/Mergezustand wird nach Ausführung live verifiziert;
+  Gate A und OE-02 bis OE-33 bleiben unverändert offen.

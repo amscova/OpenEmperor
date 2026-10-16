@@ -81,3 +81,19 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   Quelle und den gebundenen Fork; Befehle und tatsächliche Ergebnisse werden in
   PROGRESS dokumentiert. Fehlende optionale Originaldaten ergeben ausschließlich
   im separaten Real-CTest SKIP77; vorhandene kaputte Daten dürfen nicht skippen.
+
+### Merge-Handoff – ausdrückliche Nutzerfreigabe am 2026-10-16
+
+- Der Nutzer hat nach seinem Push von `feature/original-economy-v1` ausdrücklich
+  Commit und Branch-Merge an Codex delegiert. Für diesen Branch umfasst dies
+  den geprüften Dokumentations-Fix, Push, Pull Request nach `main` und Merge
+  nach bestandenen relevanten Prüfungen. Diese aktuelle Freigabe ersetzt den
+  historischen Push-/PR-/Merge-Ausschluss des Arbeitspakets im genannten Scope;
+  Tags und Releases bleiben außerhalb des Auftrags.
+- Ein regulärer Merge-Commit erhält die eigenständigen OE-00/OE-01-Commits und
+  die Nutzeränderung. Erwartete PR-Head-SHA beim Merge prüfen; keine erzwungene
+  Ref-Aktualisierung, kein Squash der Aufgabenhistorie, kein Löschen des Branches.
+- Root-Auftragsdateien bleiben Einstiege mit korrigierten Verweisen auf
+  `docs/codex-original-economy/`; dort bleiben Entscheidungen und Fortschritt.
+  Keine Wirtschafts-/Versionsfreigabe durch diesen Handoff: OE-01 ist weiterhin
+  isolierter Raw-Reader, OE-02+ und Gate A bleiben offen.
