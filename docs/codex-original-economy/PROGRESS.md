@@ -8,7 +8,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
 | OE-01 | PASS | 11211bbe6f579b6171615f6e75ed6fffbfd53cdf | `.local/original-economy/oe01/`, OE-00/`oe01-verification/` | Raw-Reader/Provenance;6 finale CTests PASS;72 Saves/1485 Policyfälle identisch; keine World-Anbindung |
-| OE-02 | TODO | — | — | — |
+| OE-02 | PASS | im Folgecommit | `.local/original-economy/oe02/`, OE-00/`oe02-verification/` | Faktenregister v1/typed IDs/5 Goldens;12 CTests PASS;72 Saves/1485 Policyfälle identisch |
 | OE-03 | TODO | — | — | — |
 | OE-04 | TODO | — | — | — |
 | OE-05 | TODO | — | — | — |
@@ -206,3 +206,84 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
 - GitHub: `main` ungeschützt, keine Branch-Rulesets, keine Status-/Check-Runs
   am gepushten HEAD. PR-/Mergezustand wird nach Ausführung live verifiziert;
   Gate A und OE-02 bis OE-33 bleiben unverändert offen.
+
+### OE-02 – 2026-10-16, Basis7426484
+
+- Start: sauberer Checkout und Live-`main`
+  `742648466f41f09c4724aa29e5a196a52de79e44` geprüft. Vorhandenen
+  `feature/original-economy-v1` per Fast-forward auf diesen Merge angeglichen.
+  Ursprünglicher Modell-/EXE-Bestand bleibt read-only; Anfangsinventar unter
+  `.local/original-economy/oe02/initial-state.json`:1464Dateien/819711091Byte,
+  ManifestSHA `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+- Originallegende, alle37 Feldpositionen,15 Hauszeilen und die sieben
+  Fork-Funktionskandidaten unabhängig gegen konkrete World-Objects geprüft.
+  [Faktenregister v1](../original-economy/model-provenance.md) dokumentiert
+  Semantik, Units, Transformationen, Textzeilen und alle fünf Evidenzklassen.
+  Physical-/Zeit-/Risiko-/weitere Steuerdetails bleiben ausdrücklich unbekannt.
+  SourceLabels werden aus der Datei behalten; benannte Schema-Zugriffe prüfen
+  sie zusätzlich. Raw-Parsing und bestehende Regeln bleiben unverändert.
+- **Original-EXE:** `python3 .local/original-economy/oe02/check-exe-units.py`: PASS.
+  Zwölf begrenzte Fenster,785Instruktionen/2120geprüfteInstruktionsbytes,
+  null Abweichungen, EXE vor/nach identisch. SHA
+  `6373328bfc5c4886d9abc9544eb706e89e7d465b18176ea8205fe27aaee53c0e`.
+  Reproduzierbare Adressen und Aussagegrenzen im
+  [Reverse-Vertrag](../reverse/original-model-contract.md), private Ausgaben
+  unter `.local/original-economy/oe02/`. Originalspiel nicht gestartet.
+- Beide Difficulty-Transformationen unabhängig statisch belegt; C++ prüft
+  originale32-Bit-Zwischenwerte vor Division/Clamp. Der Root-Review hat einen
+  zu schwachen reinen Quotienten-Guard vor dem ersten Build zu Produkt-/Summen-
+  Guards präzisiert. Das ist eine dokumentierte sichere Ablehnung außerhalb
+  der belegten Domain, keine beliebige Wrap-Emulation. Bronze/Lack bleiben ein
+  OR-Feld; keine doppelte Warenkonsumregel importiert. Keine neue World-Authority.
+- **Debug, Release, ASan+UBSan:** frisch konfiguriert, reale Registry mit
+  `ctest --test-dir BUILD -N` ermittelt (160Tests), Targets
+  `openemperor-original-model-data-tests`, `openemperor-original-model-schema-tests`
+  und `openemperor-model-inspect` gebaut; danach
+  `ctest --test-dir BUILD --output-on-failure -R '^original-model-(data|schema)-(synthetic|real)$'`:
+  jeweils **4/4 PASS**, insgesamt12CTests. Raw-Reader5433synthetische/8163reale
+  Checks; Schema2942synthetische/4600realeChecks je Konfiguration. Die beiden
+  Originaldatentests liefen tatsächlich ohne Skip. Exakte Befehle/Exitcodes
+  und Logs: `.local/original-economy/oe02/{debug,release,sanitizer}.json`
+  sowie zugehörige `*-*.log`; keine Compilerwarnungen oder Sanitizer-Meldungen.
+  Vor Konfiguration war der neue Targetname erwartbar nicht registriert; der
+  frühe Buildversuch ohne Reconfigure galt nicht als bestandener Test. Separate
+  Syntaxprüfungen der neuen API, Mapping-Header und Testdatei mit allen
+  Projektwarnungen bestanden ebenfalls. Kein vorgezogener voller Phasen-Gate-Lauf.
+- Schema-Katalog: explizite37Feldindizes, sieben IDs/15Row-Labels, alle fünf
+  Difficulty-Stufen, falsche Enums/Typen/Labels und Overflow-/Clamp-Grenzen.
+  Alle13World-Objects geprüft: sieben inferred-Kandidaten/sechs ohne Mapping;
+  Bildregistrierung von Well/Herbalist bleibt ein separater Beleg. Kein
+  Lookup von Produktion/Profil/Fußabdruck oder originalen Spielregeln abgeleitet.
+- **Golden:** genau fünf dokumentierte Originalwerte über unabhängigen
+  Text-Punkt-Scanner, fixe Zeilen/Spalten, originalen SHA und Named-API
+  abgeglichen. Zusätzlich2255Difficulty-Queries gegen gelesene Werte und
+  geprüfte32-Bit-Intermediates. Keine Massentabelle, keine Originalfixture im Git.
+- **Absenz und fehlerhafte Quellen:** eigener Release-Build
+  `.local/original-economy/oe02/missing-source-build`; zuerst `ctest -N`, dann
+  beide Real-CTests mit absichtlich fehlendem Datenpfad tatsächlich **SKIPPED**
+  über77. Kein Datentest-PASS daraus abgeleitet. Befehle/Logs unter
+  `.local/original-economy/oe02/missing-source{.json,-*.log}`.
+  `python3 .local/original-economy/oe02/check-real-modes.py`: **10/10 PASS**
+  für erwartete Exitcodes bei Missing/Damaged/Directory/Dangling/Escape und
+  syntaktisch gültiger abweichender Golden-Revision. Beleg
+  `.local/original-economy/oe02/real-mode-matrix.json`; Quellenbytes unverändert.
+- Source/API/Tests und Dokumentation unabhängig reviewed; keine blockierenden
+  Befunde. Der Review-Nachtrag zur bereits implementierten Overflowgrenze wurde
+  in der Doku korrigiert. Task-Sourcehashes unter
+  `.local/original-economy/oe02/validated-task-source.json`; der vollständige
+  Legacy-Vergleich läuft mit unverändertem Sourcehash. Gate A bleibt offen.
+- **Vollständiger Legacy-Vergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe02-verification`:
+  **PASS**. Alle72 vollständigen Savebyte-Verträge und72 Snapshot-Projektionen,
+  alle1485Policyfälle auf167Managern (165vorbereitet/2unveränderte Konflikte),
+  elf Rampen-/zehn Brücken-Neustartpaare und die50vorhandenen alten
+  Savebyte-Vergleiche bleiben exakt. Bezahlte Rule4-Xia-/Handan- und bestehende
+  Transport-/Pixel-/scripted-UI-Checks liefen über unveränderte Fixtures.
+  Bericht/Logs `.local/original-economy/oe00/oe02-verification/`; Vertragsdigest
+  weiterhin `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`.
+  Sourcehash während des Runs sowie gesamtes Originalinventar vor/nach dem
+  Task identisch. Kein neuer App-/World-/Save-/Policy-/Renderer-Aufrufpfad.
+- Abschluss:15Dokumentationslinks und Diffprüfung sauber, exakt validierter
+  Task-Source eingefroren. Eigener OE-02-Commit sowie delegierter PR/Merge
+  folgen nach diesem PASS. Originalspiel-/Human-Parität und Gate A bleiben
+  ausdrücklich offen; nächster geplanter Task OE-03.

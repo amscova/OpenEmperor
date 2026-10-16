@@ -178,12 +178,15 @@ void positive_and_accessors() {
     constexpr std::array<std::uint16_t, 3> ids{0, 17, original::max_building_id};
     for (std::size_t index = 0; index < ids.size(); ++index) {
         check(model.has_building({ids[index]}), "sparse ID present");
+        check(model.building_label({ids[index]}) == "Synthetic building", "building label retained with its ID");
         for (std::size_t field = 0; field < original::building_field_count; ++field)
             check(model.building({ids[index]}, static_cast<original::BuildingField>(field)) == synthetic_value(1, index, field), "raw building field");
     }
-    for (std::size_t index = 0; index < original::house_row_count; ++index)
+    for (std::size_t index = 0; index < original::house_row_count; ++index) {
+        check(model.house_label({static_cast<std::uint8_t>(index)}) == house_names[index], "house row label retained");
         for (std::size_t field = 0; field < original::house_field_count; ++field)
             check(model.house({static_cast<std::uint8_t>(index)}, static_cast<original::HouseField>(field)) == synthetic_value(3, index, field), "raw house field");
+    }
     for (std::size_t index = 0; index < original::difficulty_count; ++index) {
         const auto difficulty = static_cast<original::Difficulty>(index);
         for (std::size_t field = 0; field < original::building_field_count; ++field)
@@ -193,6 +196,8 @@ void positive_and_accessors() {
     }
     check(!model.has_building({1}) && !model.has_building({std::numeric_limits<std::uint16_t>::max()}), "absent ID stays absent");
     expect_out_of_range([&] { (void)model.building({1}, original::BuildingField::Cost); }, "absent building");
+    expect_out_of_range([&] { (void)model.building_label({1}); }, "absent building label");
+    expect_out_of_range([&] { (void)model.house_label({15}); }, "invalid house label row");
     expect_out_of_range([&] { (void)model.building({0}, static_cast<original::BuildingField>(original::building_field_count)); }, "building column bound");
     expect_out_of_range([&] { (void)model.house({static_cast<std::uint8_t>(original::house_row_count)}, original::HouseField::Capacity); }, "house row bound");
     expect_out_of_range([&] { (void)model.house({0}, static_cast<original::HouseField>(original::house_field_count)); }, "house column bound");

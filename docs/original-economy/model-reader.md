@@ -8,6 +8,10 @@ No original balance rows are embedded in the repository. This task establishes
 parity, difficulty arithmetic, semantic value ranges or World building identity.
 Those contracts follow in OE-02 and the pure rule tasks.
 
+OE-02 adds the separate [named schema and facts register](model-provenance.md).
+The raw reader retains source labels so named access can verify a row identity;
+its generic syntax and signed raw-value contract remain unchanged.
+
 ## API and provenance
 
 `src/simulation/original/ModelData.h` provides typed file-column enums,

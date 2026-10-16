@@ -179,7 +179,8 @@ struct ModelDataParser {
                     return error(ModelErrorCode::InvalidRow, "building modifier ID and label must match the ordered difficulty");
                 data.building_modifiers_[building_mod_count++] = parsed;
             } else {
-                if (!data.buildings_.emplace(static_cast<std::uint16_t>(id), parsed).second)
+                if (!data.buildings_.emplace(static_cast<std::uint16_t>(id),
+                        ModelData::BuildingRecord{parsed, std::string(label)}).second)
                     return error(ModelErrorCode::DuplicateBuilding, "duplicate building ID");
             }
             return std::nullopt;
@@ -197,6 +198,7 @@ struct ModelDataParser {
         } else {
             if (house_count == house_row_count) return error(ModelErrorCode::RowCount, "too many house rows");
             if (!house_labels.emplace(prefix).second) return error(ModelErrorCode::DuplicateHouse, "duplicate house label");
+            data.house_labels_[house_count] = std::string(prefix);
             data.houses_[house_count++] = parsed;
         }
         return std::nullopt;
@@ -286,7 +288,7 @@ bool ModelData::has_building(ModelBuildingId id) const noexcept { return buildin
 std::size_t ModelData::building_count() const noexcept { return buildings_.size(); }
 
 std::int32_t ModelData::building(ModelBuildingId id, BuildingField field) const {
-    return buildings_.at(id.value).at(static_cast<std::size_t>(field));
+    return buildings_.at(id.value).values.at(static_cast<std::size_t>(field));
 }
 
 std::int32_t ModelData::house(HouseRowId row, HouseField field) const {
@@ -302,6 +304,9 @@ std::int32_t ModelData::house_modifier(Difficulty difficulty, HouseField field) 
 }
 
 const ModelProvenance& ModelData::provenance() const noexcept { return provenance_; }
+
+std::string_view ModelData::building_label(ModelBuildingId id) const { return buildings_.at(id.value).label; }
+std::string_view ModelData::house_label(HouseRowId row) const { return house_labels_.at(row.value); }
 
 ModelResult parse_model_data(std::string_view bytes) { return ModelDataParser::parse(bytes); }
 
