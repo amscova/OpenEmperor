@@ -69,6 +69,7 @@ World World::restore_original_influence_development(const WorldSnapshot& snapsho
 
 void World::validate_original_influence_snapshot(const WorldSnapshot& s) {
     validate_original_economy_snapshot(s);
+    if (simulation::original_production_enabled(s.profile,s.rule_version)) return;
     if (!simulation::original_influence_enabled(s.profile,s.rule_version)) {
         if (s.original_influence) invalid("influence authority requires rule 8");
         return;
@@ -142,6 +143,7 @@ void World::validate_original_influence_snapshot(const WorldSnapshot& s) {
 }
 
 bool World::original_influence_finance_valid() const {
+    if (original_production_enabled()) return original_production_finance_valid();
     if (!original_influence_ || !original_economy_ || !original_rules_model_ ||
         demolition_history_!=DemolitionHistory{} || taxes_collected_total_ || maintenance_spent_total_)
         return false;
@@ -173,8 +175,11 @@ CommandResult World::validate_original_influence_command(Command command) const 
         if (!source_type_valid(command.source_type)) return reject("Unsupported original influence source type");
         if (original_influence_->sources.size()>=original_influence_source_limit)
             return reject("Original influence source limit reached");
+        if (original_production_enabled() && buildings_.size()>=Rules::city_v15_building_limit)
+            return reject("Original production building collection limit reached");
         if (treasury_<original_influence_source_cost) return reject("Not enough money");
-        if (!next_building_id_ || next_building_id_>original_influence_purchase_limit)
+        if (!next_building_id_ || next_building_id_>(original_production_enabled() ?
+                Rules::city_v15_building_limit+original_influence_purchase_limit:original_influence_purchase_limit))
             return reject("Original influence purchase ID exhausted");
         if (!in_bounds(command.cell)) return reject("Source footprint outside sandbox grid");
         for (const auto cell:building_footprint_cells(profile_,rule_version_,Object::OriginalInfluenceSource,command.cell)) {
@@ -193,7 +198,8 @@ CommandResult World::validate_original_influence_command(Command command) const 
             [](const BuildingState& value,BuildingId id) { return value.id<id; });
         if (b==buildings_.end() || b->id!=command.building_id || !b->placed || b->kind!=Object::OriginalInfluenceSource)
             return reject("Influence source container is missing");
-        if (!couriers_.empty() || original_influence_->removed_sources.size()>=original_influence_purchase_limit)
+        if ((!original_production_enabled() && !couriers_.empty()) ||
+            original_influence_->removed_sources.size()>=original_influence_purchase_limit)
             return reject("Influence removal has unsafe actor state or exhausted history");
         for (const auto cell:building_footprint_cells(profile_,rule_version_,b->kind,b->cell))
             if (!in_bounds(cell) || object_at(cell)!=b->kind || owners_[index(cell)]!=static_cast<std::uint32_t>(b->id))

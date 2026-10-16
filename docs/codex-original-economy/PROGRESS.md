@@ -19,8 +19,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-12 | PASS | `ec3a2d60c7541f8a11338c80d5398ce54e51f3a8` | `.local/original-economy/oe12/implementation/`, OE-00/`oe12-final-verification/` | Rule8/Schema24: bezahlte Well72-Quellen,20 Häuser, Abriss/Wiederkauf/Prozessreplay;181 unterschiedliche CTests je Konfiguration belegt;72 Legacy-Saves/Snapshots und1485 Policyfälle exakt;Gate B PASS |
-| OE-13 | PASS | Vertragsdokumentation `aaecabd638359a48d513f2d5146457fdd1c9e67a`; Task-SHA im Folgecommit | `.local/original-economy/oe13/implementation/`, `oe13/goods-fixtures/run-d4mm76cf/`, OE-00/`oe13-final-verification/` | Rule9/Schema25-Buchhaltungsfundament;117 relevante Konfigurations-CTests, echte F5/F9-/40k-Prozessfortsetzungen;72 Legacy-Saves/Snapshots und1485 Policyfälle sowie eingefrorene7/23-/8/24-Bytes exakt; reale Waren0/unsupported, Gate C offen |
-| OE-14 | TODO | — | — | — |
+| OE-13 | PASS | `887dda562622d59487a92b8966b62b218cb59ce3` | `.local/original-economy/oe13/implementation/`, `oe13/goods-fixtures/run-d4mm76cf/`, OE-00/`oe13-final-verification/` | Rule9/Schema25-Buchhaltungsfundament;117 relevante Konfigurations-CTests, echte F5/F9-/40k-Prozessfortsetzungen;72 Legacy-Saves/Snapshots und1485 Policyfälle sowie eingefrorene7/23-/8/24-Bytes exakt; reale Waren0/unsupported, Gate C offen |
+| OE-14 | PASS | Task-SHA im Folgecommit | `.local/original-economy/oe14/`, OE-00/`oe14-final-verification/` | Aktive Rule10/Schema26/Revision14; bezahlter Zuzug/Worker, echter Clay→Pottery→Warehouse→Ceramics-Ursprung,129 relevante CTests und separate20k-Prozessreplays; alte1–9/1–25-Verträge erhalten; Gate C offen |
 | OE-15 | TODO | — | — | — |
 | OE-16 | TODO | — | — | — |
 | OE-17 | TODO | — | — | — |
@@ -1742,3 +1742,129 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   oder Originalspiel-Gesamtparität. Native/human **NOT_RUN**. Task-Commit
   und delegierter PR/regulärer Merge folgen nach Abschlussprüfung, SHA in
   Antwort. Nächster vorgesehener Task **OE-14 TODO**, hier nicht begonnen.
+
+### OE-14 Umsetzung – 2026-10-17, Basis41091b66
+
+- **Auftrag und Beginn:** Nutzer beauftragt alle offenen Aufgaben bis OE-33
+  der Reihe nach ohne Wartepunkt für seine manuellen Tests; echte Sprites und
+  Objekte sind Teil des Abschlussziels. Sauberer aktueller `main`
+  `41091b66e960b4c82c378d5ae3b83088325f5a61`, Feature per Fast-forward
+  angeglichen. Vorige OE-13-SHA oben nachgetragen. Neuer expliziter
+  [Ausführungsvertrag](../original-economy/completion-contract.md): Rule10/
+  Schema26/policy3, strikte Entwicklungsrevision14, authored Startfunds12000,
+  bezahlte Zuwanderung/Worker und einmalige Warehouse-Konvertierung;
+  veröffentlichte1–9/1–25-Verträge bleiben unverändert.
+- **Echte produktive Integration:**
+  [Runtimebeschreibung](../original-economy/production-runtime.md), regulär
+  gekaufte Straßen, vier leere Häuser, Clay Pit, Kiln und Warehouse. Einwohner
+  entstehen erst aus120t/40t-Zuzugsereignissen an realen Straßeneingängen,
+  bis zur vorbereiteten Shelterkapazität. Sie allein liefern Worker.
+  Gemeinsame unveränderte Clay-/Pottery-Rezepte und bestehende Courier-
+  Navigation/Bewegung; erst tatsächliche Warehouse-Ankunft erzeugt über den
+  reinen Ledgerkern Ceramics. Legacy-Warehouse-Pottery bleibt0. Clay,
+  unkonvertierte Pottery und typisierte Ceramics sind getrennt massenerhalten.
+  Kein Market, Hausvorrat, Verbrauch, Food, Service oder Tax vorgezogen.
+- **Debug, Release, ASan+UBSan:** Konfiguration und aktuelle Registrierung
+  vor dem ersten CTest erfasst; final190 registrierte Tests.34 relevante
+  Targets einschließlich normaler Anwendung, alter/neuer Save-/SDL-Pfade,
+  Bridge-/Ramp-Renderer/Transport und ausgeschlossener Launcher/Prozessfixtures
+  gebaut. Finale43er-Auswahl **je43/43 PASS**, insgesamt129 relevante
+  Konfigurations-CTests ohne Skip. Laufzeiten Debug56.000s, Release6.542s,
+  Sanitizer22.277s. Exakte Befehle/Exitcodes/Logs/JUnit in
+  `.local/original-economy/oe14/implementation/{debug,release,sanitizer}-targeted-result.json`,
+  gleichnamigen `*-targeted-*`-Logs und `*-targeted.xml`.
+  Keine vorgezogene vollständige190er-Phasen-Gate-Suite behauptet.
+- **Betriebsausfälle und Roundtrips:** Keine Bewohner vor dem ersten
+  Zuzugsereignis; fehlende Häuser/Straße verhindern Worker/Produktion.
+  Pause/Resume, reale Straßentrennung/bezahlt reparierte Verbindung und
+  natürlich ausgelöste Fire-Vorfälle geprüft. Mid-Pottery-Courier wird als
+  tatsächlicher bewegter Zustand restauriert, vollständige WorldSnapshots
+  laufen danach exakt weiter. House-, Produktions-, Finanz- und Aktor-
+  Grants/Orphans, falsche Entwicklungsrevision und doppelte Pottery-Buchung
+  werden verweigert.
+- **Strict Save26:** Eigener kanonischer Reader/Writer/Restore, nur lokale
+  Syntaxprojektion auf unveränderte Infrastrukturfelder, keine Veröffentlichung
+  einer heruntergestuften World. Modell-/Map-/Masken-/policy3-Hashbindung,
+  tatsächliche Rezept-/Übergabehistorie, IDs, Population, Routes, Cargo,
+  Reservierungen und Kosten werden vollständig geprüft. Neue Save-Suite
+  verweigert795 adversariale Fälle; frühere575 Rule9-Verweigerungen bestehen
+  weiter. Rekursiv unbekannte/fehlende Keys, Duplikate, koordinierte positive
+  Stock-/Handoff-Fälschungen, Symlinks/Outputpfade und atomare Schreibfehler
+  sind enthalten.
+- **Unabhängiger Review und Korrektur:** Reviewer fand einen selbstkonsistenten,
+  aber nicht erreichbaren Restore mit Bewohner4→3 plus passendem Historiendelta.
+  Die neue Populationvalidierung verlangt Zweierschritte oder die tatsächliche
+  ungerade Endkapazität. Regressionstest gegen Tick160 und positive vollständige
+  Restorekontrolle bei Shelterkapazität7 ergänzt. Erstes neues Gate-CTest
+  erwartete10 noch als unbekannt; Grenze explizit auf11 verschoben und die
+  positive10-Matrix, exakte Entwicklerfactory-/policy3- und Normalapp-Verweigerung
+  ergänzt. Keine alte Autorität freigeschaltet oder Negativprüfung entfernt.
+- **Reales Modell und separate OS-Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/market-walkers-finish/debug-build`:
+  **PASS**, Bericht `oe14/production-fixtures/run-1j37xg9h/report.json`, SHA
+  `b4d16abe0ebcaaf034568e5154fa46dea0a84c1c94f9b8b09f5d12690188354b`.
+  Hashidentische private echte Modellkopie, authored24×20-Geographie,
+  reale818 Funds Bauausgaben/11182 Rest.400 Ticks gestoppter Clay Pit:
+  vier Häuser mit28 regulär zugezogenen Einwohnern, null Clay/Pottery.
+  Erster tatsächlicher Warehouse-Übergang bei Tick675:8 Clay extrahiert,
+  ein Potteryrezept abgeschlossen, ein Ceramics gebucht, zwölf Worker genutzt.
+  Mid-Pottery- und positiver Warehouse-Stand werden je in einem separaten
+  OS-Prozess mit10000 Ticks, einem bezahlten Straßenbau und weiteren10000 Ticks
+  fortgesetzt. Vollständige SaveDocuments/Bytes/Provenance/Bilanzen exakt;
+  Originalinputs, private Modellkopie und Eingabesaves samt Metadaten unverändert.
+  13 Python-Outputguardtests und vier tatsächliche Python-/C++-CLI-Escape-
+  Verweigerungen PASS. Keine Snapshot-, Vorrats- oder Bewohnerinjektion.
+- **Eingefrorene Vorgänger:** Aktuelle Writer-/Prozessfixtures erhalten exakt
+  Rule7/Schema23, sechs eingefrorene Rule8/Schema24-Saves und zehn Rule9/Schema25-
+  Saves samt Provenance aus OE-13. Der separate OE-00-Vertrag allein deckt diese
+  späteren Versionen nicht ab. Die alte Originalinstallation bleibt read-only.
+- **Tatsächliche SDL-Handler:** Neue explizite10-Factory, reguläre bezahlte
+  Bauten/Zuwanderung/Produktion, bewegtes Cargo, echte F5/F9-Schema26-Handler,
+  atomare Verweigerung falscher Revision und100 Idleframes ohne Worldkopien,
+  Commands, BFS, Datei-/Decode-/Uploadarbeit bestanden. Finalen Capture
+  `implementation/production-view-final.png` tatsächlich geöffnet: Rule10/
+  Policy3/Save26/Revision14, Tick1091, Funds11196 und vier authored Testhäuser
+  mit je37 tatsächlichen Bewohnern; diese Modellkapazität ist synthetisch.
+  Der separate echte Modellrun oben hat dagegen28 Bewohner. Kein Originalart-
+  oder native/human-PASS. Neuer ausgeschlossener Launcher gebaut; Start
+  `sh tools/play_original_economy.sh`, eigener Rule10-Savepfad.
+- **Forkvergleich:** Alle drei tatsächlich ausgeführten Vergleiche
+  **74/74 PASS**,46 parity/18 corrected_bug/6 unverified/4 unsupported;
+  sämtliche18 Housingbeobachtungen und1800 realen Modellwerte im Digest exakt.
+  21 live Archive und fünf ABI-Header geprüft; alte numerische Originaldateien
+  und historische Nicht-current-Felder unverändert. Portable aktuelle
+  `core-parity.json` SHA
+  `940cb0d80e272e4065e9d4b9c6df85a264c9a369126613dd4e2f96d52cfe8732`.
+  28 Python-Vertragsprüfungen sowie25 strenge Sanitizerprozesse mit vollständig
+  leerem stderr PASS; `implementation/parity-validation-summary.json`.
+- **Vollständiger Legacyvergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe14-final-verification`:
+  **PASS**, zusätzlich alle72 vollständigen Saves und72 Snapshotdateien sowie
+  Contract wörtlich bytegleich zur OE-00-Referenz nachverglichen.1485 Policyfälle,
+  167 komplette Maps/165 vorbereitet/zwei bestehende Konflikte, elf Rampen-
+  und zehn Bridge-Restartpaare exakt. Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  `run.json` SHA
+  `4e332d473c474ded7a5b32e4db580f3be1f24b8ebba26e899d37282adcd90097`;
+  `implementation/legacy-literal-proof.json` SHA
+  `3d31e7008a301f5ae3e989972acc260d02ad060c79635c609d120e39c57a18d2`.
+- **Finale aktuelle Binarybindung:** Nach den vollständigen Builds waren die
+  Fixtures neu gelinkt. Deshalb wurde der tatsächliche Prozessnachweis mit
+  den finalen Releasebinaries vollständig erneut ausgeführt, ohne Berichthashes
+  lediglich umzuschreiben:
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/reswall/release-build --output .local/original-economy/oe14/production-fixtures/final-source-6acc`:
+  **PASS**, Report-SHA
+  `745881cb0eb3a8090c5902b5ae9477c0d0fdab3d3e95a96a5f8f03d438863842`,
+  aktuelles Fixturebinary
+  `3fab6095ecbc40c3e5f89e350035bb582d1caf9aa0608a2a22eaf2b3dad0ffd4`.
+  Auch die21 Libraryhashes passen nach den Builds unverändert zu den drei
+  echten Forkvergleichen; separater `parity-post-fullbuild-archive-check.json`.
+- **Abschluss:** Finaler Source-/Test-/Tool-/Resourcehash
+  `6acc2db2c5552a246659e78cf75023cbf1e0dba07a70885c4755d53a77da8640`;
+  Originalinventar1464 Dateien/819711091 Bytes, unverändertes Contentmanifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  Private `implementation/final-validation.json` prüft33 eigene Pfade,
+  23 eingefrorene Sourcepfade, tatsächliche Tests/Archive/Binaries/Saves,
+  alle lokalen Dokumentationslinks und scoped Status. **OE-14 PASS**;
+  Gate C TODO und native/human NOT_RUN. Ein eigener getesteter Task-Commit;
+  danach unmittelbar OE-15 gemäß Gesamtauftrag, kein Wartepunkt für Playtests.

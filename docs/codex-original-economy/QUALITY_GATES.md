@@ -2,6 +2,14 @@
 
 ## Dauerhafte Invarianten (alle Phasen)
 
+Der [Gesamtauftrag vom2026-10-17](../original-economy/completion-contract.md)
+beauftragt die aktive Originalwirtschaft im neuen Rule10-/Schema26-Nachfolger.
+Regeln1–9/Schemas1–25 bleiben eingefroren. Technische Gate-Abnahme wartet
+nicht auf Human Acceptance; menschliche Bewertung bleibt getrennt NOT_RUN.
+Die ausdrückliche Gesamt-Abschlussforderung umfasst echte Originalsprites
+und belegte zugehörige Objekte; deklarierte Fallbacks zählen dafür nicht als
+vollständiger Originalgrafik-PASS.
+
 - Keine Änderung des Standardprofils. Rule7 und Rule8 bleiben eingefrorene Entwicklerstände; der ausdrücklich angenommene [Warenvertrag V1](../original-economy/goods-ledger-v1-proposal.md) nutzt Rule9/Schema25 nur mit eigenem Entwickler-Opt-in. Versionsverfügbarkeit vor Umsetzung erneut prüfen.
 - Keine Mutation der 1–24 SaveDocument-Serialisierung. Besonders Rule8/Schema24, Rule7/Schema23, Rule6/Schema22 RampLink, Rule5/Schema21 BridgeSpan und unveränderte MapPermissions policy3 müssen identisch bleiben.
 - Keine neue Berechtigung aus Sprite-/Modell-IDs. World, Route und Objektgeometrie bleiben authoritative; Spieleraktionen kosten reale Funds.

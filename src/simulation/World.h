@@ -5,6 +5,7 @@
 #include "simulation/OriginalEconomyState.h"
 #include "simulation/OriginalInfluenceState.h"
 #include "simulation/OriginalGoodsState.h"
+#include "simulation/OriginalProductionState.h"
 #include "simulation/original/Desirability.h"
 
 #include "core/PerformanceDiagnostics.h"
@@ -222,27 +223,34 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version);
 inline constexpr std::uint32_t kOriginalEconomyRuleVersion=7;
 inline constexpr std::uint32_t kOriginalInfluenceRuleVersion=8;
 inline constexpr std::uint32_t kOriginalGoodsRuleVersion=9;
+inline constexpr std::uint32_t kOriginalProductionRuleVersion=10;
+inline constexpr std::int64_t original_production_starting_treasury=12000;
+constexpr bool original_production_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalProductionRuleVersion;
+}
 inline constexpr std::int64_t original_influence_starting_treasury=2000;
 inline constexpr std::int64_t original_influence_source_cost=60;
 inline constexpr std::size_t original_influence_source_limit=4;
 inline constexpr std::size_t original_influence_purchase_limit=33;
 constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
-        (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion);
+        (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion ||
+         version==kOriginalProductionRuleVersion);
 }
 constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && version==kOriginalGoodsRuleVersion;
+    return profile==RulesProfile::CityV16 && (version==kOriginalGoodsRuleVersion ||
+        version==kOriginalProductionRuleVersion);
 }
 constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
-         version==kOriginalGoodsRuleVersion);
+         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion);
 }
 constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9);
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10);
 }
 constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9);
+    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10);
 }
 
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
@@ -250,7 +258,8 @@ constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
         Rules::starting_treasury;
 }
 constexpr std::int64_t starting_treasury_for(RulesProfile profile,std::uint32_t version) {
-    return original_influence_enabled(profile,version) ? original_influence_starting_treasury:
+    return original_production_enabled(profile,version) ? original_production_starting_treasury:
+        original_influence_enabled(profile,version) ? original_influence_starting_treasury:
         starting_treasury_for(profile);
 }
 
@@ -560,6 +569,7 @@ struct WorldSnapshot {
     std::optional<OriginalEconomyState> original_economy;
     std::optional<OriginalInfluenceState> original_influence;
     std::optional<OriginalGoodsState> original_goods;
+    std::optional<OriginalProductionState> original_production;
     bool operator==(const WorldSnapshot&) const = default;
 };
 struct ResourceInventory {
@@ -577,9 +587,11 @@ public:
     bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
     bool original_influence_enabled() const { return simulation::original_influence_enabled(profile_,rule_version_); }
     bool original_goods_enabled() const { return simulation::original_goods_enabled(profile_,rule_version_); }
+    bool original_production_enabled() const { return simulation::original_production_enabled(profile_,rule_version_); }
     const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
     const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
     const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
+    const std::optional<OriginalProductionState>& original_production_state() const { return original_production_; }
     OriginalGoodsBalance original_goods_balance(original::Goods good) const;
     std::array<OriginalGoodsBalance,original::goods_count> original_goods_balances() const;
     // Transient on-demand test/diagnostic observation, never save authority.
@@ -628,6 +640,12 @@ public:
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
     static void validate_original_goods_snapshot(const WorldSnapshot& snapshot);
+    static World create_original_production_development(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_production_development(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static void validate_original_production_snapshot(const WorldSnapshot& snapshot);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -805,6 +823,13 @@ private:
     const std::vector<Cell>* route_for_revision();
     void refresh_routes();
     void tick_production_v2();
+    void advance_clay_pottery_production();
+    void tick_original_production();
+    void admit_original_residents();
+    bool original_production_finance_valid() const;
+    int original_ceramics_stock(BuildingId owner) const;
+    void receive_original_ceramics(BuildingId warehouse,int amount);
+    std::array<OriginalGoodsBalance,original::goods_count> original_production_goods_balances() const;
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;
@@ -832,6 +857,7 @@ private:
     std::optional<OriginalEconomyState> original_economy_;
     std::optional<OriginalInfluenceState> original_influence_;
     std::optional<OriginalGoodsState> original_goods_;
+    std::optional<OriginalProductionState> original_production_;
     std::shared_ptr<const OriginalInfluenceCache> original_influence_cache_;
     std::uint64_t original_influence_cache_build_count_=0;
     std::shared_ptr<const original::OriginalRulesModel> original_rules_model_;

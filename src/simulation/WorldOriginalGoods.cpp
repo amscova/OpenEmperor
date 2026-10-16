@@ -22,7 +22,7 @@ World World::create_original_goods_development(std::shared_ptr<const MapPermissi
 World World::restore_original_goods_development(const WorldSnapshot& snapshot,
     std::shared_ptr<const MapPermissions> permissions,
     std::shared_ptr<const original::OriginalRulesModel> model) {
-    if (!simulation::original_goods_enabled(snapshot.profile,snapshot.rule_version) ||
+    if (snapshot.profile!=RulesProfile::CityV16 || snapshot.rule_version!=kOriginalGoodsRuleVersion ||
         !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model)
         throw std::invalid_argument("original goods restore requires explicit rule9, policy3 and prepared model");
     validate_original_goods_snapshot(snapshot);
@@ -30,6 +30,12 @@ World World::restore_original_goods_development(const WorldSnapshot& snapshot,
 }
 
 void World::validate_original_goods_snapshot(const WorldSnapshot& snapshot) {
+    if (simulation::original_production_enabled(snapshot.profile,snapshot.rule_version)) {
+        validate_original_production_snapshot(snapshot);
+        return;
+    }
+    if (snapshot.original_production)
+        throw std::invalid_argument("original production authority requires City-v16 rule10");
     if (!simulation::original_goods_enabled(snapshot.profile,snapshot.rule_version)) {
         if (snapshot.original_goods)
             throw std::invalid_argument("original goods authority requires City-v16 rule9");
@@ -45,6 +51,7 @@ void World::validate_original_goods_snapshot(const WorldSnapshot& snapshot) {
 }
 
 std::array<OriginalGoodsBalance,original::goods_count> World::original_goods_balances() const {
+    if (original_production_enabled()) return original_production_goods_balances();
     if (!original_goods_enabled() || !original_goods_ || !original_economy_)
         throw std::invalid_argument("original goods balances require explicit rule9 authority");
     std::array<OriginalGoodsOwner,Rules::city_v10_household_limit> owners{};

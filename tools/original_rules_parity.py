@@ -431,7 +431,7 @@ def public_report(report: dict[str, Any]) -> dict[str, Any]:
 def current_source_hashes() -> dict[str,str]:
     module = ROOT / "src/simulation/original"
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
-    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h"]
+    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h", ROOT / "src/simulation/OriginalProductionState.h"]
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
 
 
@@ -461,11 +461,11 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-13: Rule9 appends separate accounting state with zero live capability;
-    # the probe keeps its original HouseholdV3/CityV7 calls and observations.
+    # OE-14: Rule10 appends separately versioned paid-production authority;
+    # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "9d0d6fef04d52fb8e8a84cbb5988ad9db41cd169":
+    if world_blob != "749f5fad74243e052f46e414fedf202756beb8d1":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -479,8 +479,12 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     goods_blob = hashlib.sha1(b"blob " + str(goods_dto.stat().st_size).encode() + b"\0" + goods_dto.read_bytes()).hexdigest()
     if goods_blob != "2bdcb4b1e9bc0e0932c8cb64bcf9044d62d1d9e3":
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
+    production_dto = ROOT / "src/simulation/OriginalProductionState.h"
+    production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
+    if production_blob != "f10ce3102ade78eee0d29fb0da7020c7d0e5cc6f":
+        raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
     library_hashes = {str(path.resolve()):sha256(path) for path in libraries}
-    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob}
+    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob,"original_production_state_git_blob":production_blob}
     authored = cases()
     validate_cases(authored)
     binaries = compile_probes(fork,output,args.compiler,args.configuration,library)

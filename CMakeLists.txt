@@ -251,6 +251,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldDesirability.cpp
     src/simulation/WorldOriginalInfluence.cpp
     src/simulation/WorldOriginalGoods.cpp
+    src/simulation/WorldOriginalProduction.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
@@ -848,6 +849,18 @@ if(BUILD_TESTING)
     add_test(NAME original-goods-save COMMAND openemperor-original-goods-save-tests)
     set_tests_properties(original-goods-save PROPERTIES TIMEOUT 60)
 
+    add_executable(openemperor-original-production-world-tests tests/OriginalProductionWorldTests.cpp)
+    target_link_libraries(openemperor-original-production-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-production-world-tests)
+    add_test(NAME original-production-world COMMAND openemperor-original-production-world-tests)
+    set_tests_properties(original-production-world PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-production-save-tests tests/OriginalProductionSaveTests.cpp)
+    target_link_libraries(openemperor-original-production-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-production-save-tests)
+    add_test(NAME original-production-save COMMAND openemperor-original-production-save-tests)
+    set_tests_properties(original-production-save PROPERTIES TIMEOUT 60)
+
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)
     target_link_libraries(openemperor-original-economy-rule-gate-tests PRIVATE openemperor-persistence)
@@ -891,6 +904,10 @@ if(BUILD_TESTING)
         add_test(NAME original-goods-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_original_goods_runner.py)
         set_tests_properties(original-goods-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME original-production-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_original_production_runner.py)
+        set_tests_properties(original-production-runner-contract PROPERTIES TIMEOUT 30
             ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME map-corpus-runner COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_verify_map_corpus.py)
@@ -1395,6 +1412,14 @@ add_executable(openemperor-original-goods-play EXCLUDE_FROM_ALL
 target_compile_definitions(openemperor-original-goods-play PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
 target_link_libraries(openemperor-original-goods-play PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-original-goods-play)
+add_executable(openemperor-original-production-play EXCLUDE_FROM_ALL
+    tools/OriginalProductionPlay.cpp ${bridge_fixture_sources})
+target_compile_definitions(openemperor-original-production-play PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+target_link_libraries(openemperor-original-production-play PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+openemperor_enable_warnings(openemperor-original-production-play)
+add_executable(openemperor-original-production-fixture EXCLUDE_FROM_ALL tools/OriginalProductionFixture.cpp)
+target_link_libraries(openemperor-original-production-fixture PRIVATE openemperor-persistence)
+openemperor_enable_warnings(openemperor-original-production-fixture)
 if(BUILD_TESTING)
     add_executable(openemperor-original-influence-view-tests tests/OriginalInfluenceViewTests.cpp ${bridge_fixture_sources})
     target_compile_definitions(openemperor-original-influence-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
@@ -1408,6 +1433,12 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-goods-view-tests)
     add_test(NAME original-goods-view COMMAND openemperor-original-goods-view-tests)
     set_tests_properties(original-goods-view PROPERTIES TIMEOUT 60)
+    add_executable(openemperor-original-production-view-tests tests/OriginalProductionViewTests.cpp ${bridge_fixture_sources})
+    target_compile_definitions(openemperor-original-production-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    target_link_libraries(openemperor-original-production-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-production-view-tests)
+    add_test(NAME original-production-view COMMAND openemperor-original-production-view-tests)
+    set_tests_properties(original-production-view PROPERTIES TIMEOUT 60)
 endif()
 add_executable(openemperor-city-v16-bridges-fixture EXCLUDE_FROM_ALL
     tools/CityV16BridgesFixture.cpp ${bridge_fixture_sources})

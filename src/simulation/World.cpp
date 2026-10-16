@@ -269,7 +269,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=9;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=10;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -300,7 +300,9 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v8{8,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==8) return city_v16_v8;
     static constexpr ProfileRules city_v16_v9{9,32,64,32,5,800};
-    if (original_goods_enabled(profile,version)) return city_v16_v9;
+    if (profile==RulesProfile::CityV16 && version==9) return city_v16_v9;
+    static constexpr ProfileRules city_v16_v10{10,32,64,32,5,800};
+    if (original_production_enabled(profile,version)) return city_v16_v10;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};
@@ -357,6 +359,7 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     }
     if (original_influence_enabled()) original_influence_.emplace();
     if (original_goods_enabled()) original_goods_.emplace();
+    if (original_production_enabled()) original_production_.emplace();
     treasury_=city_profile(profile) ? starting_treasury_for(profile,rule_version_):0;
     objects_.assign(buildable_.size(),Object::Empty);
     owners_.assign(buildable_.size(),0);
@@ -416,6 +419,12 @@ World World::create_original_economy_development(std::shared_ptr<const MapPermis
 }
 
 void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
+    if (simulation::original_production_enabled(s.profile,s.rule_version)) {
+        validate_original_production_snapshot(s);
+        return;
+    }
+    if (s.original_production)
+        throw std::invalid_argument("original production authority requires City-v16 rule10");
     validate_original_goods_snapshot(s);
     const bool influence=simulation::original_influence_enabled(s.profile,s.rule_version);
     if (!influence && s.original_influence)
@@ -794,12 +803,21 @@ int World::household_level(BuildingId id) const {
 
 int World::household_population(BuildingId id) const {
     const auto& home=building(id);
+    if (original_production_enabled() && home.placed && home.kind==Object::Household) {
+        const auto& homes=original_economy_->houses;
+        const auto found=std::lower_bound(homes.begin(),homes.end(),id,
+            [](const OriginalHouseState& value,BuildingId key) {return value.building_id<key;});
+        if (found==homes.end() || found->building_id!=id) throw std::logic_error("missing original household");
+        return found->house.occupants;
+    }
     return population_profile(profile_) && home.placed && home.kind==Object::Household ?
         home.population:0;
 }
 
 int World::household_population_capacity(BuildingId id) const {
     const auto& home=building(id);
+    if (original_production_enabled() && home.placed && home.kind==Object::Household)
+        return original_rules_model_->house_rules().row_capacity(original::ModelHouse::Shelter);
     if (original_economy_enabled()) return 0;
     if (!population_profile(profile_) || !home.placed || home.kind!=Object::Household) return 0;
     const int level=household_level(id);
@@ -828,6 +846,17 @@ int World::unemployed_workers() const {
 }
 
 bool World::population_valid() const {
+    if (original_production_enabled()) {
+        std::uint64_t admitted=0;
+        const auto capacity=original_rules_model_->house_rules().row_capacity(original::ModelHouse::Shelter);
+        for (const auto& b:buildings_) if (b.population) return false;
+        for (const auto& home:original_economy_->houses) {
+            if (home.house.occupants<0 || home.house.occupants>capacity ||
+                (home.house.occupants%2!=0 && home.house.occupants!=capacity)) return false;
+            admitted+=static_cast<std::uint64_t>(home.house.occupants);
+        }
+        return original_production_ && admitted==original_production_->residents_admitted;
+    }
     if (original_economy_enabled())
         return std::all_of(buildings_.begin(),buildings_.end(),[](const BuildingState& value) {
             return value.population==0;
@@ -1042,7 +1071,14 @@ CommandResult World::validate(Command command) const {
     if (command.type==CommandType::PlaceOriginalInfluenceSource ||
         (original_influence_enabled() && command.type==CommandType::DemolishBuilding))
         return validate_original_influence_command(command);
-    if (original_economy_enabled() && command.type!=CommandType::PlaceRoad &&
+    if (original_production_enabled() && command.type!=CommandType::PlaceRoad &&
+        command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
+        command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold &&
+        command.type!=CommandType::PlaceClaySource && command.type!=CommandType::PlacePottery &&
+        command.type!=CommandType::PlaceWarehouse && command.type!=CommandType::SetBuildingOperation &&
+        command.type!=CommandType::SetBuildingWorkforcePriority)
+        return {false,false,"Original production revision14 permits paid Clay/Pottery/Warehouse only",command_sequence_,ticks_};
+    if (original_economy_enabled() && !original_production_enabled() && command.type!=CommandType::PlaceRoad &&
         command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
         command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold)
         return {false,false,"City-v16 rule 7 economy is not ready; development permits infrastructure and vacant containers only",command_sequence_,ticks_};
@@ -1385,7 +1421,11 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
     if (command.type==CommandType::PlaceOriginalInfluenceSource ||
         (original_influence_enabled() && command.type==CommandType::DemolishBuilding))
         return execute_original_influence_command(command,refresh_after);
-    if (original_economy_enabled() && command.type!=CommandType::PlaceRoad &&
+    if (original_production_enabled()) {
+        const auto checked=validate(command);
+        if (!checked.accepted) return checked;
+    }
+    if (original_economy_enabled() && !original_production_enabled() && command.type!=CommandType::PlaceRoad &&
         command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
         command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold)
         return validate(command);
@@ -1512,6 +1552,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
             b.placed_tick=ticks_;
             add_v10_courier(b.id,market_profile(profile_) ?
                 CourierRole::MarketPotteryInbound:CourierRole::Household,Good::Pottery);
+            if (original_production_enabled()) original_goods_->stocks.push_back({b.id,{}});
         } else if (production_profile(profile_)) {
             auto& b=mutable_building(BuildingId::Warehouse);
             b.placed=true; b.kind=Object::Warehouse; b.cell=command.cell;
@@ -1985,7 +2026,8 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
             const auto& target=*targets[(start+step)%targets.size()];
             if (phases==2 && building_on_fire(target.id)!=(phase==0)) continue;
             if (!service) {
-                const int stock=courier_target_stock(target,c.role);
+                const int stock=original_production_enabled() && c.role==CourierRole::Pottery ?
+                    original_ceramics_stock(target.id):courier_target_stock(target,c.role);
                 const int reserved=food_role(c.role) ? target.reserved_food_incoming:
                     target.reserved_incoming;
                 const int capacity=courier_target_capacity(c.role);
@@ -2147,40 +2189,7 @@ void World::tick_production_v2() {
     if (city_profile(profile_)) capture_tick_staffing();
     ++ticks_;
     const auto& rules=active_rules();
-    // Stable IDs within each kind: all Clay sources, then all Pottery works.
-    // A newly started recipe gains no progress on its start tick.
-    for (auto& source:buildings_) if (source.placed && source.kind==Object::ClaySource) {
-        if (city_profile(profile_) && !building_staffed_for_tick(source.id)) continue;
-        if (source.output<Rules::clay_output_capacity) {
-            if (++source.progress==rules.clay_ticks) {
-                if (clay_extracted_total_==UINT64_MAX)
-                    throw std::overflow_error("Clay total exhausted");
-                source.progress=0;
-                ++source.output;
-                ++clay_extracted_total_;
-                ++source.clay_extracted;
-            }
-        } else source.progress=0;
-    }
-    for (auto& pottery:buildings_) if (pottery.placed && pottery.kind==Object::Pottery) {
-        if (city_profile(profile_) && !building_staffed_for_tick(pottery.id)) continue;
-        if (pottery.active_recipe_clay>0) {
-            if (++pottery.progress==rules.pottery_recipe_ticks) {
-                if (pottery_completed_total_==UINT64_MAX || pottery.recipes_completed==UINT64_MAX)
-                    throw std::overflow_error("Pottery total exhausted");
-                pottery.progress=0;
-                pottery.active_recipe_clay=0;
-                ++pottery.output;
-                ++pottery.recipes_completed;
-                ++pottery_completed_total_;
-            }
-        } else if (pottery.input_clay>=Rules::pottery_recipe_clay &&
-                   pottery.output<Rules::pottery_output_capacity) {
-            pottery.input_clay-=Rules::pottery_recipe_clay;
-            pottery.active_recipe_clay=Rules::pottery_recipe_clay;
-            pottery.progress=0;
-        }
-    }
+    advance_clay_pottery_production();
     if (scalable(profile_)) {
         for (auto& farm:buildings_) if (farm.placed && farm.kind==Object::Farm &&
                                          building_staffed_for_tick(farm.id)) {
@@ -2274,6 +2283,44 @@ void World::tick_production_v2() {
         throw std::logic_error("sandbox production or navigation invariant violated");
 }
 
+void World::advance_clay_pottery_production() {
+    const auto& rules=active_rules();
+    // Stable IDs within each kind: all Clay sources, then all Pottery works.
+    // A newly started recipe gains no progress on its start tick.
+    for (auto& source:buildings_) if (source.placed && source.kind==Object::ClaySource) {
+        if (city_profile(profile_) && !building_staffed_for_tick(source.id)) continue;
+        if (source.output<Rules::clay_output_capacity) {
+            if (++source.progress==rules.clay_ticks) {
+                if (clay_extracted_total_==UINT64_MAX)
+                    throw std::overflow_error("Clay total exhausted");
+                source.progress=0;
+                ++source.output;
+                ++clay_extracted_total_;
+                ++source.clay_extracted;
+            }
+        } else source.progress=0;
+    }
+    for (auto& pottery:buildings_) if (pottery.placed && pottery.kind==Object::Pottery) {
+        if (city_profile(profile_) && !building_staffed_for_tick(pottery.id)) continue;
+        if (pottery.active_recipe_clay>0) {
+            if (++pottery.progress==rules.pottery_recipe_ticks) {
+                if (pottery_completed_total_==UINT64_MAX || pottery.recipes_completed==UINT64_MAX)
+                    throw std::overflow_error("Pottery total exhausted");
+                pottery.progress=0;
+                pottery.active_recipe_clay=0;
+                ++pottery.output;
+                ++pottery.recipes_completed;
+                ++pottery_completed_total_;
+            }
+        } else if (pottery.input_clay>=Rules::pottery_recipe_clay &&
+                   pottery.output<Rules::pottery_output_capacity) {
+            pottery.input_clay-=Rules::pottery_recipe_clay;
+            pottery.active_recipe_clay=Rules::pottery_recipe_clay;
+            pottery.progress=0;
+        }
+    }
+}
+
 void World::dispatch_v2(CourierState& courier) {
     const auto decision=courier_dispatch_status(courier.id);
     if (decision.status!=CourierDispatchStatus::Ready || !decision.selected_target) return;
@@ -2349,7 +2396,8 @@ void World::dispatch_v2(CourierState& courier) {
     case CourierRole::Pottery:
         if (source.kind!=Object::Pottery || target.kind!=Object::Warehouse ||
             courier.good!=Good::Pottery) throw std::logic_error("invalid Pottery delivery relation");
-        source_stock=&source.output; destination_stock=target.pottery_stock;
+        source_stock=&source.output; destination_stock=original_production_enabled() ?
+            original_ceramics_stock(target.id):target.pottery_stock;
         capacity=Rules::warehouse_capacity; break;
     case CourierRole::Household:
         if (!household_profile(profile_) || source.kind!=Object::Warehouse ||
@@ -2521,10 +2569,12 @@ void World::move_v2(CourierState& courier) {
                 target.reserved_incoming;
             if (courier.reserved!=courier.cargo || reservation<courier.reserved)
                 throw std::logic_error("courier reservation mismatch");
+            if (original_production_enabled() && courier.role==CourierRole::Pottery)
+                receive_original_ceramics(target.id,courier.cargo);
             reservation-=courier.reserved;
             if (courier.role==CourierRole::Clay) target.input_clay+=courier.cargo;
             else if (food_role(courier.role)) target.food_stock+=courier.cargo;
-            else target.pottery_stock+=courier.cargo;
+            else if (!original_production_enabled()) target.pottery_stock+=courier.cargo;
             courier.cargo=0;
             courier.reserved=0;
         }
@@ -2571,6 +2621,11 @@ void World::move_courier() {
 }
 
 void World::tick() {
+    if (original_production_enabled()) {
+        performance::increment(performance::Counter::SimulationTicks);
+        tick_original_production();
+        return;
+    }
     if (original_economy_enabled()) {
         // Time only until paid supply, visits and house processing are bound.
         // Preflight exhaustion before changing any counter or World state.
@@ -2786,7 +2841,9 @@ bool World::industry_balance_valid() const {
                 pottery+=static_cast<std::uint64_t>(b.output); if (!add(recipes,b.recipes_completed)) return false; break;
             case Object::Warehouse:
                 ++warehouse_count;
-                if (b.pottery_stock<0 || b.pottery_stock+b.reserved_incoming>Rules::warehouse_capacity)
+                if (b.pottery_stock<0 || (original_production_enabled() ?
+                    b.pottery_stock!=0 || original_ceramics_stock(b.id)+b.reserved_incoming>Rules::warehouse_capacity:
+                    b.pottery_stock+b.reserved_incoming>Rules::warehouse_capacity))
                     return false;
                 pottery+=static_cast<std::uint64_t>(b.pottery_stock); break;
             case Object::Household:
@@ -2939,10 +2996,12 @@ bool World::industry_balance_valid() const {
         if (recipes>(UINT64_MAX-clay)/Rules::pottery_recipe_clay ||
             consumed>UINT64_MAX-pottery || consumed_food>UINT64_MAX-food) return false;
         clay+=static_cast<std::uint64_t>(Rules::pottery_recipe_clay)*recipes;
+        const auto handed=original_production_enabled() ? original_production_->pottery_handed_off:0;
+        if (handed>UINT64_MAX-pottery-consumed) return false;
         return extracted==clay_extracted_total_ && recipes==pottery_completed_total_ &&
             produced_food==food_produced_total_ &&
             clay==clay_extracted_total_ &&
-            pottery+consumed==pottery_completed_total_ && food+consumed_food==food_produced_total_;
+            pottery+consumed+handed==pottery_completed_total_ && food+consumed_food==food_produced_total_;
     }
     if (next_production_id_<8 || next_production_id_>10 ||
         next_courier_id_<4 || next_courier_id_>6 ||
@@ -3421,7 +3480,14 @@ std::string World::canonical_state() const {
         // The OE-13 runtime validator permits no stock, cargo or reservation rows.
         out<<'|'<<original_goods_->stocks.size()<<','<<original_goods_->cargo.size()<<','
             <<original_goods_->reservations.size();
+        if (original_production_enabled()) for (const auto& stock:original_goods_->stocks) {
+            out<<'|'<<static_cast<std::uint32_t>(stock.building_id);
+            for (const auto amount:stock.amounts) out<<','<<amount;
+        }
     }
+    if (original_production_)
+        out<<"|original-production:"<<original_production_->development_revision<<','
+           <<original_production_->residents_admitted<<','<<original_production_->pottery_handed_off;
     return out.str();
 }
 
@@ -3474,6 +3540,7 @@ WorldSnapshot World::snapshot() const {
     s.original_economy=original_economy_;
     s.original_influence=original_influence_;
     s.original_goods=original_goods_;
+    s.original_production=original_production_;
     for (int y=0;y<height_;++y) for (int x=0;x<width_;++x)
         if (object_at({x,y})==Object::Road) s.roads.push_back({x,y});
     s.workshop=workshop_; s.warehouse=warehouse_;
@@ -3535,6 +3602,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
     w.original_economy_=s.original_economy;
     w.original_influence_=s.original_influence;
     w.original_goods_=s.original_goods;
+    w.original_production_=s.original_production;
     if (!maintenance_profile(s.profile) && s.maintenance_spent_total)
         throw std::invalid_argument("maintenance authority requires City-v16");
     w.maintenance_spent_total_=s.maintenance_spent_total;

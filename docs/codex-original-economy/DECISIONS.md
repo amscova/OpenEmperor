@@ -19,6 +19,55 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-14–33: zusammenhängende autonome Umsetzung beauftragt
+
+- **Nutzerauftrag vom 2026-10-17:** alle offenen Aufgaben der Reihe nach
+  bearbeiten, ohne auf seine Playtests zu warten; am Ende echte Sprites und
+  echte Objekte integriert. Dies autorisiert die aktiven Gameplaypfade in
+  einem neuen Nachfolger, einschließlich eines regulären bezahlten Bewohner-/
+  Worker-Bootstraps. Alte1–9/1–25-Verträge und Provenance bleiben erhalten.
+- **Entscheidung vor Implementierung:**
+  [Ausführungsvertrag](../original-economy/completion-contract.md), Rule10/
+  Schema26/policy3 mit strikt gespeicherter Entwicklungsrevision, zuerst14.
+  Neue authored Startfinanzierung12000; Waren/Bewohner anfangs0, tatsächlicher
+  Straßen-Zuzug, modellgebundene Shelterkapazität und Worker aus Bewohnern.
+  Einmalige Pottery→Ceramics-Umwandlung bei tatsächlicher Warehouse-Ankunft,
+  getrennte überprüfte Vor-/Nachübergabebilanz, kein doppelter Stock.
+- **Sequenz und Git:** ein getesteter Task-Commit je OE-Aufgabe, danach direkt
+  die nächste offene Aufgabe. Der neue Stand bleibt während der Entwicklung
+  auf dem Feature-Branch; gemeinsamer geprüfter PR/regulärer Merge am Ende.
+  Keine Tags/Releases. Human Acceptance bleibt ohne menschlichen Test NOT_RUN
+  und verhindert keine automatisierte technische Abnahme.
+- **Abschluss:** Echte lokale Originalassets und belegte Objektidentitäten
+  gehören zum Gesamtziel. Deklarierte Fallbacks bleiben ehrliche Diagnosen,
+  erfüllen die vollständige Originalsprite-Abschlussforderung aber nicht.
+  Status und echte Tests werden nach jedem einzelnen Schritt ergänzt.
+
+### OE-14: bezahlter Ceramics-Ursprung technisch abgenommen
+
+- **Authority:** Ausschließlich Rule10/Schema26/Revision14; die vorhandenen
+  Clay-/Pottery-Rezepte laufen über die gemeinsame unverändert herausgezogene
+  Implementierung, reguläres Staffing und dieselbe echte Courierbewegung.
+  Vier bezahlte, straßenverbundene Häuser liefern durch laufenden authored
+  Zuzug echte OriginalHouseState-Bewohner/Worker; Legacy-Population bleibt0.
+- **Masse:** Am tatsächlichen Warehouse-Arrival wird Pottery einmalig in
+  typisierte Ceramics konvertiert. Neues Ledger besitzt ausschließlich den
+  konvertierten Vorrat, älterer Warehouse-Slot bleibt0. Übergabehistorie und
+  ursprüngliche Clay-/Pottery-Bilanz werden gemeinsam validiert. Keine
+  House-Goodslieferung, Services, Food, Konsum oder Taxes vor ihren Aufgaben.
+- **Tests/Review:** Je43 relevante CTests in Debug/Release/ASan+UBSan,
+  795 neue strikte Saveverweigerungen, echter Mid-courier-F5/F9, zwei separate
+  20k-Tick-Prozessfortsetzungen und drei74-Fall-Forkvergleiche bestanden.
+  Ein vom unabhängigen Review gefundener unerreichbarer ungerader
+  Bewohnerzwischenstand ist geschlossen; legitime ungerade Modellendkapazität
+  bleibt positiv geprüft. Der vollständige Legacyvergleich bleibt exakt;
+  Originaldateien unverändert. Befehle, Hashes und Aussagegrenzen stehen
+  im [Fortschritt](PROGRESS.md#oe-14-umsetzung--2026-10-17-basis41091b66).
+- **Abschlussgrenze:** OE-14 PASS für tatsächlichen bezahlten Ursprung;
+  Gate C bis OE-19 offen. Originalgrafikkomposition bleibt explizites späteres
+  Gesamtziel, keine vorgezogene Artparität. Native/human NOT_RUN. Nach Commit
+  unmittelbar OE-15, ohne Wartepunkt für Nutzerplaytests.
+
 ### OE-13: Warenvertrag V1 ausdrücklich zur Umsetzung beauftragt
 
 - **Nutzerfreigabe:** Auf die konkrete Frage „Soll ich den geprüften

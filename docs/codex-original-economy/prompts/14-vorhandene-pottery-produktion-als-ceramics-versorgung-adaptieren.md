@@ -11,6 +11,12 @@ Arbeite am tatsächlichen HEAD von `oliverjessner/OpenEmperor`. Lies zuerst `doc
 
 ### Implementiere genau Folgendes
 
+Aktueller Versions- und Befugnisvertrag nach Nutzerauftrag vom2026-10-17:
+[aktive Rule10/Schema26/Revision14](../../original-economy/completion-contract.md).
+Historische Rule7-Bezeichnungen unten bezeichnen diese neue aktive Generation;
+alte1–9/1–25-Verträge bleiben exakt. Bezahlte Bewohner-/Worker-Zuwanderung und
+einmaliger Übergabepunkt sind ausdrücklich benannte authored Spielregeln.
+
 1. Trenne das alte Rule6-`Good::Pottery` von der neuen Rule7-Modellkategorie `Ceramics`; definiere die nachweisbare funktionale Zuordnung.
 2. Nutze ausschließlich reale bezahlte Clay->Pottery-Rezepte, Staffing, Inventar und Warenbewegungen als Quelle.
 3. Wandle vorhandene Lieferungen/Bestände im neuen Regelprofil an einem exakt definierten Produktions-/Übergabepunkt um, ohne doppelte Verbuchung.
@@ -19,13 +25,16 @@ Arbeite am tatsächlichen HEAD von `oliverjessner/OpenEmperor`. Lies zuerst `doc
 
 ### Fertige Ergebnisse / Abnahme
 
-- [ ] Vollständiger Rule-7-Ceramics-Ursprung aus realen Quellen
-- [ ] Keine Gratis-Ceramics und kein Pottery/Ceramics-Doppelkonto
+- [x] Vollständiger Ceramics-Ursprung aus realen bezahlten Quellen im ausdrücklich gewählten Rule10-Nachfolger
+- [x] Keine Gratis-Ceramics und kein Pottery/Ceramics-Doppelkonto
 
 ### Pflichtprüfungen
 
-- [ ] Gezahltes Clay->Pottery->Ceramics-Szenario
-- [ ] Ausfall durch unstaffed, disconnected, stopped, Fire; conservation
+- [x] Gezahltes Clay->Pottery->Ceramics-Szenario
+- [x] Ausfall durch unstaffed, disconnected, stopped, Fire; conservation
+
+Tatsächliche Belege: [OE-14-Testprotokoll](../PROGRESS.md#oe-14-umsetzung--2026-10-17-basis41091b66)
+und [Runtimevertrag](../../original-economy/production-runtime.md).
 
 ## Stop-Bedingung und Fehlerbehandlung
 

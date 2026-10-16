@@ -70,6 +70,8 @@ public:
         maps::StoredMapSession session);
     static std::unique_ptr<SandboxView> create_original_goods_save_fixture(
         maps::StoredMapSession session);
+    static std::unique_ptr<SandboxView> create_original_production_save_fixture(
+        maps::StoredMapSession session);
 #endif
     ~SandboxView();
     void initialize(SDL_Window* window, SDL_Renderer* renderer);
@@ -484,6 +486,9 @@ private:
     }
     bool original_goods_fixture() const {
         return original_save_fixture_ && simulation::original_goods_enabled(rules_,requested_rule_version_);
+    }
+    bool original_production_fixture() const {
+        return original_save_fixture_ && simulation::original_production_enabled(rules_,requested_rule_version_);
     }
     bool original_save_fixture_=false; // Explicit developer adapter only; never World/save authority.
     // Retained only through initialization, when immutable map permissions are
