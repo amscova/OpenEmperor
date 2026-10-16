@@ -19,6 +19,43 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-12: strenge Grenze und blockierter Fortgang
+
+- **Revision und Nutzerentscheidung:** Start am sauberen, live/origin bestätigten
+  `main` `df293931bbb8a409668f3790379bb370e6c9f44d`, Feature-Branch per
+  Fast-forward angeglichen. OE-11 ist Commit
+  `b3b15a6ec98912a35982d9bcec30d7a651fed0a3`. Der Nutzer hat auf die konkrete
+  Rückfrage ausdrücklich gewählt: „Die strenge Grenze beibehalten und OE-12
+  mit diesen Blockern dokumentieren“. Keine Erweiterung von Bau-/Restore-
+  Freigaben, Funds, Modellidentitäten oder bestehenden Regelverträgen.
+- **Identität:** Alle sieben `functional_model_candidate`-Einträge bleiben
+  `functional=Inferred` und `mechanics_identity=Unknown`. Verifizierte
+  Modell-ID/Label-Paare und die getrennte Well-/Herbalist-Grafikevidenz belegen
+  keine World-Quellenidentität. Nach der ausdrücklichen OE-12-Stop-Regel dürfen
+  diese Kandidaten nicht durch Typnamen zu Originaleinflussquellen werden.
+- **Tatsächliche Authority:** Rule7 erlaubt bislang ausschließlich Infrastruktur
+  und bezahlte Vacant-Hauscontainer. Alle sieben Source-Baubefehle und der
+  Abrissbefehl werden vor Mutation verweigert; Restore verlangt weiterhin
+  genau die zugeordneten House-Nullzustände. Sources oder Entfernung nur für
+  einen grünen Cachetest freizuschalten wäre eine zusätzliche Vertragsänderung.
+- **Finanzierung:** Das bestehende Budget1300 trägt bei authored Hauskosten80
+  höchstens16 Häuser, ohne weitere Straßen/Quellen. Zwanzig kosten mindestens
+  1600. Der reine Scheduler erzeugt keine Steuern; auch Abriss ist kein
+  verfügbarer Finanzierungspfad. Keine Extra-Funds, Snapshot-Injektion,
+  hypothetischen Bewohner oder Gratisquellen zur Erfüllung der Pflichtszene.
+- **Konsequenz:** OE-12 ist BLOCKED und nicht implementiert. Ein leerer Cache
+  mit ausschließlich übersprungenen Kandidaten erfüllt keine Originaleinfluss-
+  Abnahme. Kein grüner Featurecommit, Gate-B-PASS oder Fortgang zu OE-13.
+  Der gemeinsame numerische Kern und die unveränderliche Modellbindung bleiben
+  unberührt. Ein etwaiger Commit dieses Befunds ist ausschließlich Dokumentation
+  des BLOCKED-Status, keine Featurefreigabe.
+- **Belege und Fortsetzung:** Die frische, unveränderte Release-World-Probe
+  reproduziert alle Gates mit echten Befehlen und echtem Modelldatei-Load.
+  Separate Identitäts-/Source-/Finanzvoraussetzungen und genaue Repro-Befehle
+  stehen im [Blockerbericht](../original-economy/desirability-integration-blockers.md)
+  und im Fortschrittsregister. Keine Aussage, dass Originalbelege prinzipiell
+  unmöglich wären; diese Umsetzung hat den fehlenden Vertrag nicht erfunden.
+
 ### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
 
 - **Revision:** Beginn am sauberen, live/origin bestätigten `main`
