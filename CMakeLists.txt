@@ -263,6 +263,12 @@ add_executable(openemperor-model-inspect tools/model-inspector/main.cpp)
 target_link_libraries(openemperor-model-inspect PRIVATE
     openemperor-original-model nlohmann_json::nlohmann_json)
 openemperor_enable_warnings(openemperor-model-inspect)
+# Detached numerical house rules; not linked into the application or World.
+add_library(openemperor-original-house-evolution STATIC
+    src/simulation/original/HouseEvolution.cpp)
+target_include_directories(openemperor-original-house-evolution PUBLIC src)
+target_link_libraries(openemperor-original-house-evolution PUBLIC openemperor-original-model)
+openemperor_enable_warnings(openemperor-original-house-evolution)
 # Independent preparation kernel; no production World or app link.
 add_library(openemperor-original-desirability STATIC
     src/simulation/original/Desirability.cpp)
@@ -336,6 +342,16 @@ if(BUILD_TESTING)
     set_tests_properties(original-desirability-synthetic original-desirability-real
         PROPERTIES TIMEOUT 30)
     set_tests_properties(original-desirability-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-house-evolution-tests tests/OriginalHouseEvolutionTests.cpp)
+    target_link_libraries(openemperor-original-house-evolution-tests PRIVATE
+        openemperor-original-house-evolution OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-house-evolution-tests)
+    add_test(NAME original-house-evolution-synthetic COMMAND openemperor-original-house-evolution-tests)
+    add_test(NAME original-house-evolution-real COMMAND openemperor-original-house-evolution-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-house-evolution-synthetic original-house-evolution-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-house-evolution-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-great-wall-dependency-paths-tests tests/GreatWallDependencyPathsTests.cpp)
     target_link_libraries(openemperor-great-wall-dependency-paths-tests PRIVATE openemperor-maps)
     openemperor_enable_warnings(openemperor-great-wall-dependency-paths-tests)

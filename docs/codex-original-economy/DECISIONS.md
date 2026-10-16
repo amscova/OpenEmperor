@@ -19,6 +19,59 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-04: geprüfte House-Entscheidung und kontextgebundene Kapazitätszeilen
+
+- **Revision:** Start am gemergten Live-`main`
+  `5627db513227827e1717884222875ca2505f821b`, vorhandenen Feature-Branch
+  zuerst per Fast-forward angeglichen. OE-03 bleibt als eigener Commit
+  `12e2f22c94f60402824d8dd0898b9d36086da503` erhalten. Eigene Task-SHA folgt
+  im Abschlussreport und bei OE-05. Die delegierte Commit-/PR-/Merge-Freigabe
+  gilt weiter für diesen Branch; Tags/Releases bleiben ausgeschlossen.
+- **`exe` Typen/Ablauf:** [Statischer Vertrag](../reverse/original-house-evolution-contract.md)
+  bindet alle16 Handler, virtuelle Aufrufe, Typ2–17,15 Modellzeilen und
+  Countergrenzen. Vacant teilt Row0 mit Shelter, wird aber nur bei positiver
+  Bewohnerzahl und vollständigem Evolve-Verdict zu Shelter, ohne Counterreset.
+  Leerer Shelter bleibt unverändert. Dies korrigiert zwei unbelegte Fork-
+  Vereinfachungen. EliteUnoccupied bleibt ohne automatische Aufnahme/Entwicklung;
+  EliteAbandoned ignoriert Desirability, benötigt aber aktuelle/nächste Needs.
+  Terminale Häuser prüfen weiterhin Needs, trotz fehlendem Evolve-Ziel.
+- **`exe` Gates/Counter:** Low wird inklusiv vor High geprüft; aktueller Mangel
+  gewinnt immer, nächster Mangel macht aus Evolve ein Stay. Counter ist uint8,
+  Desirability int8, Bewohner int16. Grenzen9/11/49/17 führen bei der folgenden
+  Devolve-Auswertung zu Reset/Ziel, ohne Byte-Wrap. Stay/Evolve setzen gewöhnliche
+  Counter zurück. Zwei unabhängige Originalglobals werden als explizite
+  `evaluation_blocked`-/`force_desirability_evolve`-Inputs modelliert; ihre
+  Spielauslöser bleiben unbekannt. Nur `evolve_step` wendet die Auswertungssperre
+  an, getrennte Tabellenqueries bleiben beobachtbar. Kein Originalglobal-Lesen
+  oder angenommener Runtime-Trigger.
+- **`exe` Needs:** [Bedarfsvertrag](../reverse/original-house-needs-contract.md):
+  nichtnullige vorbereitete Präsenzwerte aktivieren Anforderungen auch negativ;
+  Zugänge sind nichtnullige unsigned Bytes. Qualität ist uint8, Waren int16,
+  Schwellen inklusiv. Bronze/Lack und Daoist/Buddhist sind je ein ODER, keine
+  Summe und keine doppelte Pflicht. Keine Flächen-/Bewohnermultiplikation. Der
+  Water-Bool normalisiert Byte!=0; er erzeugt keine Versorgung. Tatsächliche
+  Visits, Timer, Lieferung/Konsum und Lebensmittelqualität folgen erst OE-05/06.
+- **`model`/`authored` API:** Eager `HouseEvolutionRules` bereitet alle15×24
+  Named-Felder über OE-02 samt Difficulty und Quellenhash vor; auch ein späterer
+  ungenutzter Feldfehler verhindert die Veröffentlichung. Keine Defaults oder
+  per-Query-Dateiarbeit. Typ/ModelRow/World-Level bleiben verschiedene Domänen.
+  Pure Rückgabewerte erhalten alle Felder außer Typ/Counter; Enumchecks und
+  vollständige Vorbereitung sind eigene Sicherheitsgrenzen. Das Ergebnis ist
+  ein Übergangsintent ohne originale Geometry-/Populationstransaktion und
+  entspricht nicht der separaten Original-Diagnosefunktion0x51a660.
+- **Kapazität:** Signierter vorbereiteter Feld17-Getter bleibt unskaliert;
+  keine willkürliche Nullklammer bei editierten negativen Werten. Für kanonisch
+  initialisierte EliteUnoccupied-Zustände unterscheiden sich die belegten
+  Modellzeilen: Census9, zwei Admission-Pfade11; sonst gespeicherte Zeile.
+  Separate Selektoren machen diesen Unterschied sichtbar. Census-Eligibility,
+  Bewohneroverride, andere Admission-Pfade und lokale Floors bleiben getrennt;
+  kein universeller `capacity(type)`- oder vollständiger Migrationsanspruch.
+- **Runtime/Save/Review:** Neue Library und Tests ohne World-/App-/SDL-/Save-
+  Verbindung. Keine aktive Rule, Originaltyp-Grafik, Platzierung oder Gratis-
+  Ressource. Alte Quell-/Save-Verträge bleiben maßgeblich; unabhängige
+  Beleg-/Code-/Testreviews und tatsächliche Prüfungen stehen in PROGRESS.
+  Gate A bleibt bis OE-07 offen.
+
 ### OE-03: isolierte Ausbreitung und ausdrücklich experimentelle Mauern
 
 - **Revision:** Start am live bestätigten, gemergten `main`

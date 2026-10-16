@@ -9,8 +9,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
 | OE-01 | PASS | 11211bbe6f579b6171615f6e75ed6fffbfd53cdf | `.local/original-economy/oe01/`, OE-00/`oe01-verification/` | Raw-Reader/Provenance;6 finale CTests PASS;72 Saves/1485 Policyfälle identisch; keine World-Anbindung |
 | OE-02 | PASS | df13b2e9bc0112d66c188276b5753c92ce6a5a40 | `.local/original-economy/oe02/`, OE-00/`oe02-verification/` | Faktenregister v1/typed IDs/5 Goldens;12 CTests PASS;72 Saves/1485 Policyfälle identisch |
-| OE-03 | PASS | im Folgecommit | `.local/original-economy/oe03/`, OE-00/`oe03-verification/` | Isolierter Kern/experimentelle Mauern/Vergleich;33 CTests plus6 finale Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
-| OE-04 | TODO | — | — | — |
+| OE-03 | PASS | 12e2f22c94f60402824d8dd0898b9d36086da503 | `.local/original-economy/oe03/`, OE-00/`oe03-verification/` | Isolierter Kern/experimentelle Mauern/Vergleich;33 CTests plus6 finale Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
+| OE-04 | PASS | im Folgecommit | `.local/original-economy/oe04/`, OE-00/`oe04-verification/` | Pure16-Typ-/15-Zeilen-Evolution;39 CTests plus12 gezielte Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-05 | TODO | — | — | — |
 | OE-06 | TODO | — | — | — |
 | OE-07 | TODO | — | — | — |
@@ -385,3 +385,101 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Task-Code eingefroren. Eigener OE-03-Commit und delegierter PR/Merge folgen
   nach diesem PASS. Gate A bleibt bis OE-07 offen; keine Originalspiel- oder
   Human-Parität behauptet. Nächster geplanter Task ist OE-04.
+
+
+### OE-04 – 2026-10-16, Basis 5627db5
+
+- Start: sauberer Checkout und Live-`main`
+  `5627db513227827e1717884222875ca2505f821b` bestätigt, vorhandenen Feature-
+  Branch per Fast-forward angeglichen. Originalinventar weiterhin 1464 Dateien /
+  819711091 Byte, identischer Manifesthash wie OE-00/OE-03. Beleg:
+  `.local/original-economy/oe04/source-state.json`.
+- **Statische Evolutionsevidenz:**
+  `python3 .local/original-economy/oe04/check-evolution-evidence.py`:
+  **PASS**, 25 begrenzte Fenster / 1105 Instruktionen / 3254 Bytes, fünf
+  VTable-/16 Dispatch-Pointer und 14 Counter-/Targetprüfungen, null Abweichungen.
+  [Vertrag](../reverse/original-house-evolution-contract.md) bindet alle16
+  Typen/15 Zeilen, virtuelle Aufrufe, Gates, Counter und terminale Grenzen an die
+  unveränderte EXE. Kein Originalspiel ausgeführt.
+- **Needs-/Kapazitätsevidenz:**
+  `python3 .local/original-economy/oe04/check-house-needs-evidence.py`:
+  **PASS**, acht begrenzte Fenster / 402 Instruktionen / 1014 Bytes sowie sieben
+  Bindungsprüfungen, null Abweichungen, EXE und Model unverändert. Separater
+  [Vertrag](../reverse/original-house-needs-contract.md) unterscheidet bytebasierte
+  Zugänge, signed Waren, unabhängige ODER-Alternativen und kontextuelle
+  Elite-Kapazitätszeilen; keine unbewiesene Flächenskalierung.
+- **Pure Library:** `HouseEvolutionRules` bereitet alle15×24 Named-Werte samt
+  Difficulty und Hash einmalig vor. Getrennte Needs-/Desirability-/Verdict-/
+  Ziel-/Counter-/Kapazitätsqueries und wertbasierter `evolve_step`; keine
+  World-, App-, SDL-, Save- oder Clock-Verbindung. Typen2–17 bleiben getrennt
+  von ModelRows und alten World-Levels0–2. Dokumentierter API-/Reproduktions-
+  vertrag: [house-evolution.md](../original-economy/house-evolution.md).
+- **Bewusste Forkkorrekturen:** Occupied Vacant benötigt die belegten Gates
+  und aktuelle/nächste Bedürfnisse vor Shelter, ohne Counterreset. Empty
+  Shelter bleibt unverändert; leere höhere Häuser werden dagegen weiterhin
+  ausgewertet. Originalspeicherbreiten sind explizit (int8 Score, int16
+  Bewohner/Waren, uint8 Zugang/Qualität/Counter). EliteAbandoned ignoriert nur
+  den Score, nicht Bedürfnisse. Originalglobals sind explizite technische
+  Snapshotinputs mit unbekannten Spielauslösern; kein erfundener Runtimehook.
+  Transition-Komposition folgt tatsächlichen Dispatch-Handlern, nicht dem
+  separaten Originaldiagnosepfad. Kein universelles `capacity(type)`.
+- **Build/CTest:** Debug, Release und RelWithDebInfo mit ASan/UBSan neu
+  konfiguriert; vor dem ersten CTest jeweils `ctest --test-dir BUILD -N`:
+  164 registrierte Tests. Neue House-Library/Tests und die bestehenden
+  Model-/Desirability-/City-v13-Targets gebaut. Je Konfiguration **13/13
+  ausgewählte CTests PASS**, insgesamt39 Ausführungen: vier Model-, zwei
+  Desirability-, zwei HouseEvolution- und alle fünf City-v13-Suites
+  `base/persistence/districts/determinism/endurance`. Laufzeiten: Debug275.34s,
+  Release11.95s, Sanitizer60.03s. Exakte Configure-/Inventory-/Build-/CTest-
+  Befehle, Resultate und Logs unter
+  `.local/original-economy/oe04/{debug,release,sanitizer}.json` und `*-*.log`.
+  Keine Compilerwarnung oder Sanitizerdiagnose; kein vorgezogenes Gate A.
+- Nach gezielten Reviewergänzungen die beiden neuen CTests zweimal erneut
+  in allen drei Konfigurationen gebaut/ausgeführt: **12/12 zusätzliche PASS**.
+  Erste Erweiterung unter `*-house-final.json`, abschließender Stand unter
+  `*-house-accepted.json` plus zugehörige `-build.log`/`-tests.log`. Abschließend
+  je Konfiguration **5692 synthetische Checks und 6811 reale Checks**,
+  einschließlich560 Typ-/Difficulty-Grenzabfragen. Echte Daten ohne Skip,
+  identischer Originalhash, vollständige Bytes/Größe/Änderungszeit unverändert.
+  Direkte C++20-Vorproben mit allen Projektwarnungen bestanden ebenfalls;
+  sie ersetzen die finale CTest-Abnahme nicht.
+- **Testinhalt:** Unabhängige wörtliche16-Typ-/15-Zeilen-/Zielmatrix; jede Stufe
+  mit Score-Evolve/Stay/Devolve und No-target-/No-evaluation-Grenzen; Zähler
+  0/Limit−1/Limit/255, Reset und kein Wrap. Alle Präsenz-/Waren-/Qualitäts-
+  schwellen isoliert über15 Reihen, signed-negative Anforderungen/Stocks,
+  Zugangsbyte255, Bronze/Lack nicht addiert, Daoist/Buddhist einzeln ausreichend.
+  Aktuelle Fehlbedürfnisse schlagen maximalen Score/Forceflag; nächste verhindern
+  Evolve. Alle Typen mit aktuellen/nächsten Engpässen, Vacant-/Shelter- und
+  Elite-Sonderfälle, leeres Abandoned→Modest, leere höhere Häuser weiter aktiv.
+  Beide Gates getrennt, vorbereitete Labels/Enums/alle Felder/Overflow geprüft;
+  pure Inputs bleiben auch bei Fehler unverändert. Reale360 Felder × fünf
+  Difficulties unabhängig aus Raw+Modifier berechnet; keine Originalzahlentabelle
+  im Git und keine Simulation bezahlter Ankünfte behauptet.
+- **Negative Datenpfade:** Finaler Real-Test mit absichtlich fehlendem Root
+  liefert77/SKIP; vorhandenes beschädigtes synthetisches Modell liefert1/FAIL,
+  wie erwartet. Tatsächliche Befehle/Ausgaben `real-source-negative.json`.
+- **Quellenschutz/Review:** Alle439 schon getrackten Dateien unter
+  `src/tests/tools/resources` bytegleich zur Startrevision. CMake erhält nur
+  getrennte neue Library-/CTest-Targets, keine alte App-/World-Verbindung.
+  `legacy-source-identity.json` und vier finale Code-/Build-Hashes in
+  `validated-task-source.json`. Keine alten Tests oder Snapshots verändert.
+  Getrennte EXE-/Needs-/Kern-/Testreviews ohne verbleibende blockierende Befunde.
+  Lokale Dokumentationslinks und Diffprüfung sauber.
+- **Vollständiger Legacy-Vergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe04-verification`:
+  **PASS**. Alle72 vollständigen Savebyte-Verträge und72 Snapshot-Projektionen,
+  1485 Policyfälle auf167 vollständigen Managern (165 vorbereitet/zwei alte
+  Konflikte), elf Rampen- und zehn Brücken-Neustartpaare und die50 vorhandenen
+  historischen Savebyte-Vergleiche bleiben exakt. Bezahlte Rule4-Xia-/Handan-,
+  Transport-, Pixel- und scripted-UI-Fixtures liefen über unveränderte alte
+  Produktionspfade. Berichte/Logs unter
+  `.local/original-economy/oe00/oe04-verification/`. Vertragsdigest unverändert
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  Sourcehash während des Runs
+  `d79eb4cbaae032c25ec363d7e7c697e5225b1cb8323ee550b0086286333f2c73`
+  und gesamtes Originalinventar bleiben gleich.
+- Abschluss: finale Code-/Build-Hashes und alle lokalen Dokumentationslinks
+  erneut geprüft. Eigener OE-04-Commit und delegierter PR/Merge folgen nach
+  diesem PASS. Gate A bleibt bis OE-07 offen; Original-Flagproducer, effektive
+  Bevölkerungsaufnahme, Geometry-Transaktionen und Originalspiel-/Human-Parität
+  bleiben ausdrücklich unbestätigt. Nächster geplanter Task: OE-05.
