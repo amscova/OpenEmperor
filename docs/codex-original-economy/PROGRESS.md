@@ -15,8 +15,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-06 | PASS | 88e070865600b39d7296be7a6c821724c5cbe682 | `.local/original-economy/oe06/`, OE-00/`oe06-verification/` | Pure sechs Waren/Delivery/Konsum/Quality;48 CTests PASS;72 Saves/1485 Policyfälle identisch |
 | OE-07 | PASS | 26faf654c6d714a88c4b72ffb29c5e1d0b936add | `.local/original-economy/oe07/`, OE-00/`oe07-verification/`; `core-parity.json` | 74 echte Vergleichsfälle/vier Forkmodule;507 CTests PASS;Gate A bestanden;72 Saves/1485 Policyfälle identisch |
 | OE-08 | PASS | ac052762fba501a85f241a4828726c2a9deb1e90 | `.local/original-economy/oe08/`, OE-00/`oe08-verification/` | Explizite Rule7-Entwickler-Gates;513 CTests PASS;72 Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-09 | PASS | — | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-10 | TODO | — | — | — |
+| OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
+| OE-10 | PASS | — | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | TODO | — | — | — |
 | OE-12 | TODO | — | — | — |
 | OE-13 | TODO | — | — | — |
@@ -924,3 +924,105 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Originalinventar1464 Dateien/819711091 Bytes mit unverändertem Manifest
   `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
   `git diff --check` und38 relative Dokumentlinks **PASS**. Kein OE-10-Code.
+
+### OE-10 – 2026-10-16, Basis5ed833f
+
+- Start am sauberen, live/origin bestätigten `main`
+  `5ed833f4b0e97ac6a9e327f43e95a155732a9b6e`; vorhandener Feature-Branch per
+  Fast-forward angeglichen. OE-09-SHA oben nachgetragen; Vorzustand unter
+  `.local/original-economy/oe10/initial-state.json`.
+- [Zeitvertrag](../original-economy/scheduler.md): Mapping1, ausdrücklich authored
+  ein vorhandener20-Hz-Worldtick pro Phase;51 Phasen,16 Schritte/Monat und12
+  Monate/Jahr. Nur gespeicherte `world.ticks` plus feste Rule7/Schema23-Identität
+  sind Clock-Authority. Kein JSON-Feld, redundanter Kalender oder Migration.
+  Tick0 beginnt mit nächstem Dispatch0; Service35, Evolution39, danach Verbrauch
+  nur Selector0/7. Die Beschreibung aktiviert noch keine Wirtschaft.
+- Neue begrenzte Originalanalyse **PASS**: elf private Fenster,99 Instruktionen/
+  348 Bytes,22 unabhängige Opcode-/Pointerassertions, tatsächliche PE-Bytes
+  gegengeprüft; EXE-SHA/Bytes/Modus/mtime vorher/nachher identisch. Neu separat
+  belegt ist die16er-/12er-Counterstruktur. Originaler Jahrescounter steigt bei
+  größerem Counterwert1; das neue Jahr ist deshalb ausdrücklich elapsed-year ab
+  eigener Epoche0. Befehle/Belege unter
+  `.local/original-economy/oe10/check-scheduler-evidence.py`,
+  `scheduler-exe-evidence.json` und `scheduler-evidence-notes.md`.
+- Rule7-Tick erhöht ausschließlich Zeit, vorab atomare Erschöpfungsprüfung.
+  Terminaler Tick `UINT64_MAX−1` bleibt speicherbar; weiterer Tick sowie `MAX`
+  werden verweigert. Nur vollständig inaktive Rule7 umgeht alten Health-
+  Deadline-Headroom; alte Guards unverändert. Später gekaufte leere Container
+  speichern tatsächliches `placed_tick<=ticks`; House-`cycle_phase` bleibt0.
+- Vorhandener makrogebundener SDL-Testadapter nutzt nun unveränderten TickDriver
+  für Pause/Step/Speed. Normale Rule7-Konstruktion/Menü/Recovery bleiben zu,
+  F9 pausiert und löscht Frameakkumulator, Reset bleibt gesperrt.
+- Erster vollständiger Build verweigerte den neuen World-Test wegen Aufrufs
+  einer privaten Prüfmethode. Test auf vorhandene öffentliche
+  `production_balance_valid()` korrigiert, die denselben Industry-Validator
+  aufruft; keine Produktions-API geöffnet oder Prüfung reduziert. Erste Logs
+  bleiben als `*-initial-build.log` erhalten.
+- Vollständige Builds Debug, Release und ASan/UBSan **PASS**, ohne Compilerwarnungen;
+  je175 CTests registriert. Bewusst auf diesen Task begrenzte58er-Auswahl:
+  Scheduler/20k-Restore, Originalkerne/Quellen, F5/F9/Clock/OS-Prozess, alte
+  Simulations-/Demand-/Finance-/Determinismus-/Save-/Recovery-/Transport-/UI-
+  Pfade. Exakte Namen/Regex stehen in `.local/original-economy/oe10/selection.json`,
+  Configure-/Build-/Inventorybefehle in `run_build.py`, CTests in
+  `run_core_tests.py`, je eigene absolute TMPDIR. **Debug58/58 PASS**,182.38s;
+  **Release58/58 PASS**,13.03s; **ASan/UBSan58/58 PASS**,46.81s, mit
+  `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`, keine Sanitizer-Meldung.
+  Zusammen mit den drei Vertragsprüfungen177 relevante CTests, kein Skip.
+  Dies ist keine vollständige
+ 175er-Phasen-Gate-Suite; Gate B wird erst nach OE-12 abgenommen.
+- Neue reine Suite prüft42.579 Behauptungen einschließlich unabhängigem20k-
+  Odometer. World-Suite **PASS** in allen drei Konfigurationen:20.000 tatsächliche vollständige
+  Restores zwischen Ticks gegen ununterbrochenen Replay, nächste Dispatchs und
+  ganze Snapshots gleich,392 Countdown-/392 Evolutions-/50 Verbrauchspositionen,
+  nur Zeit geändert; späte bezahlte Platzierung, Terminal-/Overflow-Atomicity
+  und alter20-Hz-/400-Tick-Demand zusätzlich geprüft. Vorläufiger direkter Debug-
+  Lauf ebenfalls **PASS**, `world-preliminary-debug.log`.
+- Erweiterte Save-Suite in allen drei Konfigurationen **PASS**,177 verweigerte Manipulationen;
+ 20 Dateigrenzen vor/auf/nach35/39/51/816/9792,0/7/15-Selectoren und Maximalwerte.
+  Vollständige Dokumente/Bytes sowie nächste Dispatchposition und nächster Tick
+  identisch, terminaler Zustand speicherbar, kein Clock-/Calendar-Unknown-Key
+  zugelassen. Echter OE-09-Tick0-Golden aus unverändertem Commit und separat
+  kopierten damaligen Libraries:6778 Bytes/SHA256
+  `9f2392de51302cb7451605eb5c2b7e8aa15cf827801c00cb1b8c21aebf967e6e`,
+  nun im Test gegen tatsächlichen Writer geprüft. Private Provenance unter
+  `oe09-tick0-golden/`. Der frühere Tick1-Negativfall wurde gezielt durch den
+  jetzt ungültigen `MAX` ersetzt und ein positiver Tick1-Zeit-only-Fall ergänzt.
+- SDL-Suite in allen drei Konfigurationen **PASS**:120 pausierte Frames, Step/Continue und
+  Teilframes,1/2/4-fache Geschwindigkeit, maximal8 Catch-up-Ticks; F9 leert
+  laufenden/gebrochenen Framezustand. Neun tatsächliche F5/F9-Checkpoints vor/auf/
+  nach51/816/9792, exakter Folgeschritt und Byte-Rewrite; separater OS-Prozess
+  und Elternview führen danach dieselben127 echten SDL-Steps aus und schreiben
+  vollständig identisch. Bisherige kaputte Save-/Map-/Model-Refusals bleiben.
+- Frischer echter Forkvergleich Debug/Release/ASan+UBSan **je74/74 PASS**,
+ 46 parity/18 corrected_bug/6 unverified/4 unsupported, je18 unveränderte
+  Housing-Beobachtungen und1800 Originalmodellwerte per Digest gleich. Die drei
+  portablen Berichte sind identisch; `core-parity.json` ergänzt ausschließlich
+  den tatsächlich geprüften neuen Scheduler-Headerhash. Numerische Erwartungen,
+  Vergleichswerkzeug und feste World-/DTO-ABI-Pins unverändert. Jeweils
+  `ctest --test-dir <BUILD> --output-on-failure -R '^original-rules-parity-contract$'`
+  **1/1 PASS**; Logs `*-parity-contract.log`, tatsächliche Vergleichsläufe in
+  `parity-{debug,release,sanitizer}/`.
+- Unabhängige read-only Reviews **PASS**, keine offenen Codeblocker. Alter
+  World-Tickbody nach dem engen Rule7-Return sowie vollständiger TickDriver
+  bytegleich zum HEAD. Source-Freeze465 Dateien unter `frozen-source.json`,
+  Source-SHA256 `9d86f9533553ad5c15a78d1450ee61cd9a2dc33529e84aa7ba00d5f81e3aa759`.
+- Vollständiger Legacy-Replay auf finalem gefrorenem Code **PASS**:72 vollständige
+  SaveDocuments und tatsächliche WorldSnapshots identisch;1485 Policyfälle,
+  167 komplette Manager/165 vorbereitete Maps/zwei alte Konflikte unverändert.
+  Elf Rampen- und zehn Brücken-Neustartpaare inklusive100-Tick-Fortsetzung in
+  separaten Prozessen identisch. Vertrags-SHA256 weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`.
+  Ausgeführter Befehl: `python3 tools/original_economy_baseline.py verify
+  --data .local/gog-extracted/app --build .local/reswall/release-build
+  --reference .local/original-economy/oe00/reference/contract.json
+  --output .local/original-economy/oe00/oe10-verification`.
+- Abschlussmanifest `.local/original-economy/oe10/final-validation.json` **PASS**:
+  alle465 eingefrorenen Quellen identisch;452 von458 alten Source-/Test-/Tool-/
+  Resource-Dateien bytegleich, exakt sechs reviewed Dateien geändert. CMake
+  und drei neue Code-/Testdateien gesondert geprüft. Ganze Produktionspersistenz,
+  bisherige Originalkerne, World.h/DTO-ABI, MapPermissions, Renderer, Menüs,
+  Main und Recovery bleiben bytegleich. Originalinventar1464 Dateien/819711091
+  Bytes, unverändertes Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  `git diff --check` und47 relative Dokumentlinks **PASS**. Gate B bleibt offen;
+  kein OE-11-Code, keine native menschliche Abnahme oder originale Echtzeitparität.

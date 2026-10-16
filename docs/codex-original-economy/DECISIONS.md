@@ -10,7 +10,7 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 | D-04 | Alte Save-Schemas 1–22 unverändert und keine Auto-Migration | zwingende Invariante |
 | D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08: explizite begrenzte Capability-Gates; bezahlter vollständiger Rule6/7-Vergleich und Legacy-Replay bestanden |
 | D-06 | Original-Model-IDs nur nach eindeutiger Quelle als VERIFIED führen | einzelne IDs offen |
-| D-07 | Originalspiel-Simulationsschritte nicht automatisch mit 20Hz World-Ticks gleichsetzen | Zeitskala versioniert/prüfen |
+| D-07 | Originalspiel-Simulationsschritte nicht automatisch mit 20Hz World-Ticks gleichsetzen | OE-10: authored Mappingversion1 bindet 1 Tick/Phase an Rule7/Schema23; 51/16/12-Counterstruktur beobachtet, elapsed-Kalenderepoche0 getrennt vom Originaljahr; tatsächliche Prüfungen im Fortschritt |
 | D-08 | 15 House-Zeilen sind nicht gleich dem aktuellen World-Level 0..2 | eigene Authority erforderlich |
 | D-09 | Goods inklusive Alternativen nur mit Realproducer/RealCourier/Conservation | Bedarfssemantik prüfen |
 | D-10 | Versions-Gates bis zu einer echten paid Hut->Plain-Cottage-Szene nicht im Standardmenü anbieten | ab OE-21 nachweisen |
@@ -18,6 +18,57 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 ## Neue Entscheidungen
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
+
+### OE-10: deterministischer Scheduler mit ausdrücklich authored Zeitbasis
+
+- **Revision:** Start am sauberen `main`
+  `5ed833f4b0e97ac6a9e327f43e95a155732a9b6e`. OE-09 bleibt eigener Commit
+  `a1a352bd697e8a424fb6d76875782d84d70b930a`; eigene OE-10-SHA folgt im
+  Abschluss und beim nächsten Prompt. Der delegierte Commit-/PR-/Merge-Handoff
+  gilt weiter, ohne Tag oder Release.
+- **Evidenz `exe`:** Der gepinnte Originalscheduler zählt Phase 0..50, ruft
+  Countdown bei 35 und Evolution bei 39 auf und verbraucht danach nur bei
+  Selector 0/7. Die ergänzte begrenzte Untersuchung verbindet denselben Selector
+  unabhängig mit einem 16er-Passcounter und einem weiteren 12er-Counter.
+  Der getrennte Original-Jahrescounter steigt bei größerem Counterwert 1,
+  nicht automatisch beim Wrap 11→0. Vollständiges Originaldatum, Epoche,
+  Spielgeschwindigkeit und übrige Schedulerarbeit bleiben offen.
+- **Entscheidung `authored`:** `scheduler_mapping_version=1` legt einen World-Tick
+  pro Phase fest; die vorhandenen 20 Hz werden nicht als Originalgeschwindigkeit
+  ausgegeben. Der gezählte Kalender verwendet Epoche 0 und vollständig
+  abgelaufene Jahre. Diese Interpretation ist fest an Rule7/Schema23 gebunden;
+  eine Änderung benötigt eine neue gespeicherte Regelidentität. Eine unversionierte
+  Gleichsetzung mit Originalzeit und ein atomarer Fork-`step_house` wurden
+  verworfen, weil sie ungeprüfte Geschwindigkeit und die Zwischenpositionen
+  zwischen Service-Countdown und Evolution verdecken würden.
+- **Minimale Save-Authority:** Ausschließlich vorhandene `WorldSnapshot::ticks`
+  zählen abgeschlossene Phasenschritte. Division/Modulo ergeben den nächsten
+  Dispatch, initial Phase 0; zusätzliche JSON-Clock-/Phase-/Calendar-/Versionskeys
+  werden nicht eingeführt. Keine Migration und keine neue Deutung alter Profile.
+  Die House-`cycle_phase` bleibt bis zu ihrer späteren Verarbeitung reserviert 0;
+  nachträglich bezahlte Vacant-Container speichern ihren tatsächlichen
+  `placed_tick <= ticks`. Die Alternative separater frei änderbarer Calendar-
+  und House-Counter wurde wegen redundanter Authority verworfen.
+- **Grenzen:** `UINT64_MAX-1` ist der letzte speicherbare Tick und ein stabiler
+  terminaler Zustand; ab dort verweigert der nächste Schritt vor Mutation.
+  `UINT64_MAX` bleibt ungültig. Nur Rule7 wird beim Restore vom alten Health-
+  Deadline-Headroom ausgenommen, da sein reiner Scheduler keine solche Deadline
+  erzeugt. Alle historischen Tick-/Deadline-/400-Tick-Nachfrageverträge bleiben
+  erhalten.
+- **Entwicklungsumfang:** Rule7-Ticks verändern ausschließlich die Zeit. Sie
+  gewähren weder Waren, Service, Bewohner, Evolution, Steuern oder Unterhalt
+  noch alte Wirtschaft unter neuem Namen. Der vorhandene, ausschließlich im
+  SDL-Testtarget kompilierte Adapter erlaubt Pause/Step/Speed für diesen
+  Scheduler und tatsächliche F5/F9-Handler; Reset, normaler Spielstart und
+  Recovery bleiben geschlossen. Runtime-Modelbindung gehört zu OE-11.
+- **Prüfung/Review:** Die reine Suite mit 42.579 Prüfungen und der private
+  EXE-Prüflauf mit 11 Fenstern/99 Instruktionen/348 Bytes/22 Assertions sind
+  ausgeführt und bestanden. World-Replay-, Save-/SDL-/OS-Prozess-, Legacy- und
+  Konfigurationsresultate werden nach tatsächlicher Ausführung im Fortschritt
+  protokolliert. Kein vorzeitiger Gate-B-, Original-Echtzeit- oder menschlicher
+  Gameplay-PASS. Vertrag und Originaladressen stehen im
+  [Schedulerdokument](../original-economy/scheduler.md); private Disassembly
+  bleibt ausschließlich unter `.local/original-economy/oe10/`.
 
 ### OE-09: separates Schema23 ohne vorzeitige Wirtschafts-Authority
 

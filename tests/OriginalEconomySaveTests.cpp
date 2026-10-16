@@ -1,8 +1,10 @@
 #include "persistence/SandboxSave.h"
 #include "persistence/RecoveryStore.h"
 #include "simulation/World.h"
+#include "simulation/original/OriginalScheduler.h"
 #include "OriginalEconomySaveFixture.h"
 #include <nlohmann/json.hpp>
+#include <openssl/evp.h>
 #include <array>
 #include <chrono>
 #include <filesystem>
@@ -32,6 +34,15 @@ void write_text(const fs::path& path,const std::string& text) {
 }
 std::string read_text(const fs::path& path) {
     std::ifstream in(path,std::ios::binary);return {std::istreambuf_iterator<char>(in),{}};
+}
+std::string sha256(const std::string& bytes) {
+    std::array<unsigned char,EVP_MAX_MD_SIZE> digest{};unsigned length=0;
+    check(EVP_Digest(bytes.data(),bytes.size(),digest.data(),&length,EVP_sha256(),nullptr)==1 && length==32,
+        "Cannot hash authored historical save fixture");
+    constexpr char hex[]="0123456789abcdef";
+    std::string result;
+    for (unsigned i=0;i<length;++i) { result+=hex[digest[i]>>4];result+=hex[digest[i]&15]; }
+    return result;
 }
 struct Root {
     fs::path path=fs::canonical(fs::temp_directory_path())/
@@ -94,14 +105,22 @@ struct Fixture {
 };
 void positive_roundtrip(Fixture& f) {
     const auto d=f.document();f.write(d);const auto bytes=read_text(f.target);
+    // Independent OE-09 baseline: compile the exact a1a352b test/fixture and
+    // headers against retained OE-09 libraries, before the OE-10 rebuild.
+    // All 6,778 bytes are authored; the private provenance records source and
+    // library hashes. This is a frozen writer result, not a mirrored writer.
+    check(bytes.size()==6778 && sha256(bytes)=="9f2392de51302cb7451605eb5c2b7e8aa15cf827801c00cb1b8c21aebf967e6e",
+        "OE-09 Tick0 canonical save bytes changed");
     const auto j=json::parse(bytes);
     check(j.at("schema_version")==23 && j.at("rules").at("version")==7 &&
         j.at("world").at("original_economy").at("houses").size()==2,
         "Wrong schema, generation or separate original-house payload");
     const auto parsed=save::read_save(f.target);same_document(d,parsed);
     auto restored=f.restore(parsed);check(restored.snapshot()==f.world.snapshot(),"Complete development restore changed state");
-    const auto before=restored.snapshot();refuses([&] { restored.tick(); });
-    check(restored.snapshot()==before,"Unavailable scheduler mutated restored state");
+    auto clocked=f.restore(parsed);
+    auto expected_clock=clocked.snapshot();++expected_clock.ticks;
+    clocked.tick();
+    check(clocked.snapshot()==expected_clock,"Rule7 clock granted active economy authority");
     for (const auto& house:parsed.world.original_economy->houses) {
         check(house.house.type==original::HouseType::Vacant && house.house.occupants==0 &&
             house.house.hemp==0 && house.house.ancestor==0 && !house.house.water &&
@@ -152,9 +171,16 @@ void malformed_json(Fixture& f) {
         for (const int value:{-1,1,256}) { auto j=good;j[json::json_pointer(state+"/"+field)]=value;reject(std::move(j)); }
     for (const int type:{0,1,3,17,18,65536}) { auto j=good;j[json::json_pointer(state+"/type")]=type;reject(std::move(j)); }
     for (const int value:{-129,1,128}) { auto j=good;j[json::json_pointer(state+"/desirability")]=value;reject(std::move(j)); }
-    for (const auto& path:std::vector<std::string>{h+"/cycle_phase",h+"/original_status","/world/ticks","/world/buildings/0/population"}) {
+    for (const auto& path:std::vector<std::string>{h+"/cycle_phase",h+"/original_status","/world/buildings/0/population"}) {
         auto j=good;j[json::json_pointer(path)]=1;reject(std::move(j));
     }
+    // OE-10 explicitly admits elapsed clock-only time. The old Tick1 refusal
+    // becomes the terminal-domain refusal; active House fields remain illegal.
+    { auto j=good;j["world"]["ticks"]=std::numeric_limits<std::uint64_t>::max();reject(std::move(j)); }
+    for (const auto& path:std::vector<std::string>{"","/world",base})
+        for (const char* field:{"clock","scheduler_mapping_version","month","year","phase","step_in_month"}) {
+            auto j=good;j.at(json::json_pointer(path))[field]=1;reject(std::move(j));
+        }
     for (const auto& path:{h+"/access_enabled",state+"/water"}) { auto j=good;j[json::json_pointer(path)]=true;reject(std::move(j)); }
     for (const auto& path:std::vector<std::string>{state+"/occupants","/world/ticks",base+"/model_source/difficulty"}) {
         for (const json& value:{json(0.0),json(true),json("0"),json(nullptr)}) { auto j=good;j[json::json_pointer(path)]=value;reject(std::move(j)); }
@@ -201,6 +227,57 @@ void source_and_atomic_failures(Fixture& f) {
     fs::remove(model);refuses([&] { (void)f.restore(d); });write_text(model,text);
     check(f.world.snapshot()==initial && read_text(f.target)==pristine,"Failed source restore mutated live authority or saved bytes");
     f.write(d);check(read_text(f.target)==pristine,"Failed writes changed later valid canonical output");
+}
+void scheduler_file_roundtrips(Fixture& f) {
+    const auto initial=f.document();
+    const auto tick0_bytes=read_text(f.target);
+    auto running=f.restore(initial);
+    constexpr std::array<std::uint64_t,20> boundaries{
+        0,34,35,36,38,39,40,50,51,52,7*51+39,15*51+39,
+        815,816,817,9791,9792,9793,
+        original::scheduler_max_tick-1,original::scheduler_max_tick};
+    for (const auto tick:boundaries) {
+        if (tick<=9793) {
+            // Ordinary time advance reaches every practical boundary. Only the
+            // terminal arithmetic controls use explicit adversarial DTO setup.
+            while (running.ticks()<tick) running.tick();
+        } else {
+            auto terminal=initial.world;terminal.ticks=tick;
+            running=sim::World::restore_original_economy_development(terminal,f.policy);
+        }
+        const auto before=running.snapshot();
+        auto document=save::make_document(f.root.data,"Cities/Authored.map",f.policy->building_mask(),running);
+        f.write(document);
+        const auto bytes=read_text(f.target);
+        auto parsed=save::read_save(f.target);
+        same_document(document,parsed);
+        auto restored=f.restore(parsed);
+        check(restored.snapshot()==before,"Boundary save changed complete clock authority");
+        check(original::next_scheduler_dispatch(restored.ticks())==original::next_scheduler_dispatch(tick),
+            "Boundary save changed the next service, evolution or consumption opportunity");
+        parsed.prepared_permissions=f.policy;
+        f.write(parsed);
+        check(read_text(f.target)==bytes,"Boundary canonical rewrite changed bytes");
+        if (tick==0) check(bytes==tick0_bytes,"OE-09 Tick0 save acquired scheduler payload or changed bytes");
+        auto expected=before;
+        if (tick<original::scheduler_max_tick) {
+            ++expected.ticks;
+            auto reference=sim::World::restore_original_economy_development(before,f.policy);
+            reference.tick();restored.tick();
+            check(restored.snapshot()==reference.snapshot() && restored.snapshot()==expected,
+                "Save/load drifted on the exact next clock-only tick");
+        } else {
+            refuses([&] { restored.tick(); });
+            check(restored.snapshot()==before,"Exhausted clock mutated restored authority");
+            f.write(save::make_document(f.root.data,"Cities/Authored.map",f.policy->building_mask(),restored));
+            check(read_text(f.target)==bytes,"Exhausted clock could not preserve its saved state");
+        }
+    }
+    auto invalid=initial.world;invalid.ticks=std::numeric_limits<std::uint64_t>::max();
+    refuses([&] { (void)sim::World::restore_original_economy_development(invalid,f.policy); });
+    // Restore the common Tick0 fixture so its malformed/legacy checks retain
+    // their original premise and cannot accidentally accept clock authority.
+    f.write(initial);check(read_text(f.target)==tick0_bytes,"Boundary tests changed the historical Tick0 document");
 }
 void direct_authority_and_recovery(Fixture& f) {
     const auto saved=f.world.snapshot();
@@ -259,7 +336,7 @@ void legacy_boundaries(Fixture& f) {
 } // namespace
 int main() {
     try {
-        Fixture f;positive_roundtrip(f);malformed_json(f);source_and_atomic_failures(f);direct_authority_and_recovery(f);legacy_boundaries(f);
+        Fixture f;positive_roundtrip(f);malformed_json(f);source_and_atomic_failures(f);scheduler_file_roundtrips(f);direct_authority_and_recovery(f);legacy_boundaries(f);
         std::cout<<"Schema23 PASS: paid vacant houses/infrastructure, canonical persistence and "<<rejected<<" rejected adversarial cases\n";return 0;
     } catch (const std::exception& error) { std::cerr<<"Schema23: "<<error.what()<<'\n';return 1; }
 }
