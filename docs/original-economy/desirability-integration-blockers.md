@@ -36,6 +36,22 @@ ist weiterhin unabhängig nutzbar. Seine Existenz erfüllt den fehlenden
 Identitätsvertrag zwischen einem bezahlten World-Gebäude und einer Originalquelle
 nicht. Ein Cache ohne belegte Quellen würde diese Abnahme ebenfalls nicht erfüllen.
 
+### Präzisierter Originalpfad aus der Fortsetzung
+
+Die anschließende [read-only Quellenuntersuchung](../reverse/original-desirability-source-admission.md)
+belegt für den untersuchten Standardpfad die Originalseite der Zulassung:
+Status1/3, ein zusätzliches Nullwort bei runtime `+0x3c`, tatsächlicher signed
+Originaltyp für Modellfelder1–4 und eine getrennte virtuelle Footprintabfrage.
+Das Nullwort ist nicht durch den bisherigen geparsten `subindex` belegt.
+
+Die einzige bereits ausdrücklich typisierte World-Brücke sind Vacant-Hauscontainer
+mit Originaltyp2. Ihr unveränderlicher Entwicklungszustand besitzt jedoch
+`original_status=0`; dieser Wert würde schon am ersten Originalquellengate
+scheitern. Daraus folgt kein generelles Emittentenverbot für jeden Originaltyp2
+in anderem Zustand, aber auch keine Freigabe zum Hochsetzen des gespeicherten
+World-Status. Die sieben Nicht-Haus-Analogien, Bau-/Restore-Gates und die
+Finanzgrenze bleiben ungelöst. Mehr EXE-Evidenz ersetzt diese Vertragsarbeit nicht.
+
 ## 2. Quellenbau, Entfernung und Source-Restore sind gesperrt
 
 Die exakten Rule7-Gates in

@@ -56,6 +56,32 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   und im Fortschrittsregister. Keine Aussage, dass Originalbelege prinzipiell
   unmöglich wären; diese Umsetzung hat den fehlenden Vertrag nicht erfunden.
 
+### OE-12 Fortsetzung: Originalquellenpfad belegt, Vertragsgrenze unverändert
+
+- **Revision:** sauberer `main` nach dem BLOCKED-Dokumentationsmerge,
+  `23f544a3611394f041c7401974e67fd87b0c2f1d`; Dokumentationscommit
+  `1ea204ecc4d8d659ee84f44a8e51995c02bd20b9`. „Weiter gehts“ setzt die
+  ausdrücklich gewählte strenge Grenze nicht außer Kraft. Diese Fortsetzung
+  untersucht daher nur die fehlenden Originalbelege, ohne Laufzeitfreigabe.
+- **`exe`, statisch:** Der gepinnte Managerpfad prüft Status1/3 und Nullwort
+  runtime+3c, liest Felder1–4 über den tatsächlichen signed Originaltyp+14 und
+  nutzt im nachgewiesenen Basis-/Industrial-Quadratpfad die virtuelle Seite
+  aus runtime+07. Constructor-/Vtable-/Initializerbelege schließen hier die
+  bisherige Geometrielücke. Die Bedeutung/Archivzuordnung von+3c bleibt offen;
+  keine Gleichsetzung mit dem bisherigen `subindex`, keine Zulassung aller
+  Originaltypen oder Sonderformen. Details im
+  [Quellenvertrag](../reverse/original-desirability-source-admission.md).
+- **Vorhandene Hausbindung:** Der bezahlte Vacantcontainer hat zwar eine
+  ausdrückliche Originaltyp2-Referenz, aber Status0. Dieser Zustand scheitert
+  am beobachteten ersten Quellengate. Der separate Evolution-Alias auf die
+  Shelterzeile liefert keine Emittentenzulassung. Kein Status wird hochgesetzt.
+- **Konsequenz:** Originaltyp-/Footprint-/Spread-Belege bleiben von der
+  authored World-Zuordnung getrennt. Sourcebau, Entfernung, Restore und die
+  nicht finanzierbare20-Häuser-Szene erfordern weiterhin ausdrücklich
+  beauftragte Verträge; weitere RE allein öffnet diese Gates nicht. Keine
+  Implementierung oder Budget-/Stateänderung, OE-12/Gate B weiterhin BLOCKED,
+  kein Fortgang zu OE-13. Nur Forschung und Dokumentation.
+
 ### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
 
 - **Revision:** Beginn am sauberen, live/origin bestätigten `main`
