@@ -254,7 +254,8 @@ add_library(openemperor-simulation STATIC
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
 # Read-only evidence module. It is deliberately not linked into World or the app.
-add_library(openemperor-original-model STATIC src/simulation/original/ModelData.cpp)
+add_library(openemperor-original-model STATIC
+    src/simulation/original/ModelData.cpp src/simulation/original/ModelSchema.cpp)
 target_include_directories(openemperor-original-model PUBLIC src)
 target_link_libraries(openemperor-original-model PRIVATE OpenSSL::Crypto)
 openemperor_enable_warnings(openemperor-original-model)
@@ -303,6 +304,16 @@ if(BUILD_TESTING)
     set_tests_properties(original-model-data-synthetic original-model-data-real
         PROPERTIES TIMEOUT 30)
     set_tests_properties(original-model-data-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-model-schema-tests tests/OriginalModelSchemaTests.cpp)
+    target_link_libraries(openemperor-original-model-schema-tests PRIVATE
+        openemperor-original-model OpenSSL::Crypto)
+    openemperor_enable_warnings(openemperor-original-model-schema-tests)
+    add_test(NAME original-model-schema-synthetic COMMAND openemperor-original-model-schema-tests)
+    add_test(NAME original-model-schema-real COMMAND openemperor-original-model-schema-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-model-schema-synthetic original-model-schema-real
+        PROPERTIES TIMEOUT 30)
+    set_tests_properties(original-model-schema-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-great-wall-dependency-paths-tests tests/GreatWallDependencyPathsTests.cpp)
     target_link_libraries(openemperor-great-wall-dependency-paths-tests PRIVATE openemperor-maps)
     openemperor_enable_warnings(openemperor-great-wall-dependency-paths-tests)

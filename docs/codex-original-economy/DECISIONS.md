@@ -97,3 +97,48 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   `docs/codex-original-economy/`; dort bleiben Entscheidungen und Fortschritt.
   Keine Wirtschafts-/Versionsfreigabe durch diesen Handoff: OE-01 ist weiterhin
   isolierter Raw-Reader, OE-02+ und Gate A bleiben offen.
+
+### OE-02: Modellregister v1 und geprüfte Zuordnungen
+
+- **Revision:** Start am gemergten `main`
+  `742648466f41f09c4724aa29e5a196a52de79e44`; vorhandener Feature-Branch zuerst
+  per Fast-forward darauf angeglichen. OE-01-Commit
+  `11211bbe6f579b6171615f6e75ed6fffbfd53cdf` bleibt unverändert in der Historie.
+  Die delegierte Commit-/PR-/Merge-Freigabe gilt weiter für diesen Branch;
+  keine Tags/Releases.
+- **`model`:** 13 Building-/24 House-Spalten,15 geordnete Hauszeilen und sieben
+  relevante Building-Typen besitzen explizite getrennte Enum-IDs. Ein gemeinsames
+  Feld13 bedeutet Bronze- oder Lackwaren; Feld23 Daoist oder Buddhist. Kein
+  zusätzliches Feld und keine doppelte Warenkonsumregel. Genau fünf begrenzte
+  Goldenwerte werden als einzelne Testfakten dokumentiert, keine Massentabelle.
+- **`exe`:** SHA
+  `6373328bfc5c4886d9abc9544eb706e89e7d465b18176ea8205fe27aaee53c0e` bindet
+  die statischen Belege. Loader0x5d1830 transformiert Building-Felder als
+  vorzeichenbehaftetes `base*modifier/100`, House-Felder als
+  `clamp(base+modifier,-99,100)`. Ganze Zahlen werden gegen null gekürzt.
+  Source-Goldens bleiben roh; vorbereitete Werte sind keine ganzen Kaufpreise
+  (zusätzlicher Cost-Hook0x44c380) und keine World-Zeit-/Güterkonversion.
+- **`authored`:** Produkte und Summen werden in int64 berechnet, jedoch vor
+  Division/Clamp gegen den originalen int32-Zwischenbereich geprüft. Außerhalb
+  erfolgt ein expliziter Overflow-Fehler statt stiller Wrap-Emulation. Raw-
+  Parsing behält volle int32-Werte. Falsche Difficulty/Enums werden niemals
+  geklemmt. Die Namensschema-Prüfung vergleicht tatsächlich gelesene Labels;
+  sie ersetzt weder den Originalhash noch beglaubigt sie geänderte Werte.
+- **Identitätsdomänen:** Named `ModelHouse` enthält15 Werte ohne erfundene
+  Vacant-Zeile. Source Building-Typen3–17 gehören dazu; Vacant2 hat keine eigene
+  Zeile im strikten Adapter. Die originale Initializer-Aliasbildung
+  `max(type-3,0)` wird separat dokumentiert. World-BuildingId und alte
+  House-Level0–2 bleiben eigenständig.
+- **Funktion/Präsentation:** Sieben Fork-Paarungen sind `inferred` funktionale
+  Kandidaten, sechs gültige Objects bleiben ohne Kandidat. Bestehende Well72-/
+  Herbalist207-Spriteregistrierung ist separat reverse-engineered; keine
+  vollständig belegte Originalmechanik für irgendein World-Object. Der Lookup
+  ist rein, ohne World-Aufruf/Simulation-Link oder Profil-/Geometrieberechtigung.
+- **Offen:** Physische Warenmenge, Zeitskala, Servicelebensdauer, Ressourcen-
+  Codes und weitere Risiko-/Steuerdetails bleiben `unknown`. Das versionierte
+  [Faktenregister](../original-economy/model-provenance.md) trennt alle fünf
+  Evidenzklassen. Der [Reverse-Vertrag](../reverse/original-model-contract.md)
+  enthält Belegadressen und Grenzen; kein Originalcode oder Disassembly im Git.
+- **Review:** Unabhängiger Quellen-, API-/Test- und Dokumentationsreview ohne
+  blockierenden Befund. Belegtests und Commit werden im Fortschritt/Abschluss
+  festgehalten; keine Rule-/Save-/World-Verhaltensänderung durch OE-02.
