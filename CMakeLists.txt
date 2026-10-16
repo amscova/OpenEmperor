@@ -780,6 +780,18 @@ if(BUILD_TESTING)
         set_tests_properties(sandbox-city-v16-${maintenance_test} PROPERTIES TIMEOUT 900)
     endforeach()
 
+    add_executable(openemperor-original-scheduler-tests tests/OriginalSchedulerTests.cpp)
+    target_include_directories(openemperor-original-scheduler-tests PRIVATE src)
+    openemperor_enable_warnings(openemperor-original-scheduler-tests)
+    add_test(NAME original-scheduler COMMAND openemperor-original-scheduler-tests)
+    set_tests_properties(original-scheduler PROPERTIES TIMEOUT 30)
+
+    add_executable(openemperor-original-scheduler-world-tests tests/OriginalSchedulerWorldTests.cpp)
+    target_link_libraries(openemperor-original-scheduler-world-tests PRIVATE openemperor-simulation)
+    openemperor_enable_warnings(openemperor-original-scheduler-world-tests)
+    add_test(NAME original-scheduler-world COMMAND openemperor-original-scheduler-world-tests)
+    set_tests_properties(original-scheduler-world PROPERTIES TIMEOUT 120)
+
     add_executable(openemperor-original-economy-save-tests tests/OriginalEconomySaveTests.cpp)
     target_link_libraries(openemperor-original-economy-save-tests PRIVATE openemperor-recovery)
     openemperor_enable_warnings(openemperor-original-economy-save-tests)

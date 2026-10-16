@@ -220,12 +220,13 @@ void development_gate() {
             development.snapshot()==before,
             "Unfinished rule7 producer/house/service or operation gained authority");
     }
-    rejects([&] { development.tick(); },"rule 7 runtime is not ready");
-    check(development.snapshot()==before,"Refused rule7 tick mutated the unfinished economy");
+    development.tick();
+    auto clock_only=before;++clock_only.ticks;
+    check(development.snapshot()==clock_only,"Rule7 scheduler changed unfinished economy authority");
     rejects([&] { (void)sim::World::restore(before,p3); },"rule 7 runtime is not ready");
     rejects([&] { (void)sim::World::restore(before,p3->building_mask()); },"rule 7 runtime is not ready");
     rejects([&] { development.import_snapshot(before); },"rule 7 runtime is not ready");
-    check(development.snapshot()==before,"Rejected restore changed the development source");
+    check(development.snapshot()==clock_only,"Rejected restore changed the development source");
 }
 
 void infrastructure_inheritance() {

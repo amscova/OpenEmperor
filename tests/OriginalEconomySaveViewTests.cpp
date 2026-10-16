@@ -1,5 +1,6 @@
 #include "EconomyStartViewFixture.h"
 #include "OriginalEconomySaveFixture.h"
+#include "simulation/original/OriginalScheduler.h"
 
 #include <cstdlib>
 #include <iterator>
@@ -12,10 +13,12 @@ namespace oe=openemperor;
 namespace sim=oe::simulation;
 namespace maps=oe::maps;
 namespace save=oe::persistence;
+namespace original=oe::original;
 namespace fixture=oe::testing::economy;
 namespace fs=std::filesystem;
 using fixture::check;
 const fs::path map_relative="Cities/A.map";
+constexpr std::uint64_t resume_steps=127;
 
 struct Sdl {
     SDL_Window* window=nullptr;
@@ -24,7 +27,7 @@ struct Sdl {
         check(SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy") &&
             SDL_SetHint(SDL_HINT_RENDER_DRIVER,"software") && SDL_Init(SDL_INIT_VIDEO),
             "Rule7 save view SDL initialization failed");
-        check(SDL_CreateWindowAndRenderer("Rule7 persistence-only fixture",1100,700,
+        check(SDL_CreateWindowAndRenderer("Rule7 scheduler-only development fixture",1100,700,
             SDL_WINDOW_HIDDEN,&window,&renderer),"Rule7 save view SDL window failed");
     }
     ~Sdl() { SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit(); }
@@ -81,6 +84,91 @@ void saved_key(oe::SandboxView& sandbox) {
     if (sandbox.save_generation()!=old+1)
         throw std::runtime_error("Actual Rule7 F5 failed: "+sandbox.last_message());
 }
+void loaded_key(oe::SandboxView& sandbox) {
+    const auto io=sandbox.io_generation();key(sandbox,SDLK_F9);
+    if (sandbox.io_generation()!=io+1 || !sandbox.last_message().starts_with("Loaded tick"))
+        throw std::runtime_error("Actual Rule7 F9 failed: "+sandbox.last_message());
+    check(sandbox.paused(),"Actual Rule7 F9 did not pause and reset the clock");
+}
+void time_only(const sim::WorldSnapshot& before,const sim::WorldSnapshot& after,
+        std::uint64_t elapsed) {
+    check(after.ticks==before.ticks+elapsed,"Rule7 fixed-step delivery changed");
+    auto normalized=after;normalized.ticks=before.ticks;
+    check(normalized==before,"Rule7 scheduler changed non-time World authority");
+}
+void steps(oe::SandboxView& sandbox,std::uint64_t count) {
+    check(sandbox.paused(),"SDL Step fixture must start paused");
+    const auto before=sandbox.world().snapshot();
+    for (std::uint64_t i=0;i<count;++i) key(sandbox,SDLK_PERIOD);
+    time_only(before,sandbox.world().snapshot(),count);
+}
+void clock_controls(oe::SandboxView& sandbox) {
+    const auto initial=sandbox.world().snapshot();
+    for (unsigned frame=0;frame<120;++frame) sandbox.update(0.25,{});
+    check(sandbox.paused() && sandbox.world().snapshot()==initial,
+        "Paused Rule7 scheduler advanced during frame updates");
+    steps(sandbox,1);
+    key(sandbox,SDLK_SPACE);check(!sandbox.paused(),"Rule7 SDL Continue remained disabled");
+    sandbox.update(0.025,{});check(sandbox.world().ticks()==initial.ticks+1,"Rule7 half-frame advanced a full tick");
+    sandbox.update(0.025,{});check(sandbox.world().ticks()==initial.ticks+2,"Rule7 partitioned 20Hz frame delivery drifted");
+    key(sandbox,SDLK_PERIOD);check(sandbox.world().ticks()==initial.ticks+2,"Running SDL Step advanced Rule7");
+    key(sandbox,SDLK_EQUALS);sandbox.update(0.05,{});
+    check(sandbox.world().ticks()==initial.ticks+4,"Rule7 2x speed delivery changed");
+    key(sandbox,SDLK_EQUALS);sandbox.update(0.05,{});
+    check(sandbox.world().ticks()==initial.ticks+8,"Rule7 4x speed delivery changed");
+    sandbox.update(100.0,{});
+    check(sandbox.world().ticks()==initial.ticks+16,"Rule7 frame catch-up exceeded the fixed eight-tick limit");
+    key(sandbox,SDLK_MINUS);sandbox.update(0.05,{});
+    check(sandbox.world().ticks()==initial.ticks+18,"Rule7 descending 2x speed delivery changed");
+    key(sandbox,SDLK_MINUS);sandbox.update(0.05,{});
+    check(sandbox.world().ticks()==initial.ticks+19,"Rule7 1x speed delivery changed");
+    key(sandbox,SDLK_SPACE);check(sandbox.paused(),"Rule7 SDL Pause remained disabled");
+    const auto paused=sandbox.world().snapshot();key(sandbox,SDLK_R);
+    check(sandbox.paused() && sandbox.world().snapshot()==paused,"Scheduler-only Reset changed World state");
+    sandbox.tick_once();time_only(initial,sandbox.world().snapshot(),20);
+
+    // Actual F9 must discard both running status and a partial frame accumulator.
+    loaded_key(sandbox);check(sandbox.world().snapshot()==initial,"Rule7 F9 did not restore its saved clock tick");
+    key(sandbox,SDLK_SPACE);sandbox.update(0.025,{});
+    loaded_key(sandbox);sandbox.update(0.025,{});
+    check(sandbox.paused() && sandbox.world().snapshot()==initial,"Paused F9 retained pending fractional time");
+    key(sandbox,SDLK_SPACE);sandbox.update(0.025,{});
+    check(sandbox.world().snapshot()==initial,"F9 did not clear the pre-load fractional clock accumulator");
+    sandbox.update(0.025,{});key(sandbox,SDLK_SPACE);
+    time_only(initial,sandbox.world().snapshot(),1);
+}
+void scheduler_checkpoint(oe::SandboxView& sandbox) {
+    const auto before=sandbox.world().snapshot();
+    const auto dispatch=original::next_scheduler_dispatch(before.ticks);
+    saved_key(sandbox);
+    const auto document=save::read_save(sandbox.save_path());
+    const auto canonical=bytes(sandbox.save_path());
+    same_identity(sandbox.capture_save_document(),document);
+    steps(sandbox,1);const auto next=sandbox.world().snapshot();
+    loaded_key(sandbox);
+    check(sandbox.world().snapshot()==before && original::next_scheduler_dispatch(
+        sandbox.world().ticks())==dispatch,"Rule7 F9 changed the next scheduler dispatch at a boundary");
+    steps(sandbox,1);
+    check(sandbox.world().snapshot()==next,"Rule7 Step replay after F9 changed complete World state");
+    loaded_key(sandbox);saved_key(sandbox);
+    check(sandbox.world().snapshot()==before && bytes(sandbox.save_path())==canonical,
+        "Before/at/after boundary F5/F9 changed canonical Rule7 save bytes");
+}
+void scheduler_boundaries(oe::SandboxView& sandbox) {
+    for (const std::uint64_t boundary:{51ULL,816ULL,9792ULL}) {
+        check(sandbox.world().ticks()<boundary,"Scheduler boundary fixture is out of order");
+        steps(sandbox,boundary-1-sandbox.world().ticks());
+        scheduler_checkpoint(sandbox);
+        steps(sandbox,1);scheduler_checkpoint(sandbox);
+        steps(sandbox,1);scheduler_checkpoint(sandbox);
+        const auto position=original::scheduler_position(boundary);
+        check(position.phase==0 && (boundary==51 ?
+            (position.step==1 && position.month==0 && position.year==0):position.step==0) &&
+            (boundary!=816 || (position.month==1 && position.year==0)) &&
+            (boundary!=9792 || (position.month==0 && position.year==1)),
+            "Rule7 authored cycle/month/year rollover changed");
+    }
+}
 void load_rejected(oe::SandboxView& sandbox,const sim::WorldSnapshot& live) {
     const auto io=sandbox.io_generation();key(sandbox,SDLK_F9);
     check(sandbox.io_generation()==io+1 && sandbox.last_message().starts_with("Load failed:") &&
@@ -97,9 +185,9 @@ void process_resume(const fs::path& data,const fs::path& source,const fs::path& 
     auto sandbox=view(data,target,sdl,document);
     check(sandbox->world().snapshot()==document.world,
         "Separate OS process did not reconstruct the full Rule7 snapshot");
-    saved_key(*sandbox);same_identity(document,save::read_save(target));
-    check(bytes(target)==before && bytes(source)==before,
-        "Separate OS process changed canonical Rule7 save bytes");
+    steps(*sandbox,resume_steps);saved_key(*sandbox);
+    same_identity(sandbox->capture_save_document(),save::read_save(target));
+    check(bytes(source)==before,"Separate OS process changed its Rule7 source save");
     sandbox->shutdown();
 }
 void run(const fs::path& executable,Sdl& sdl) {
@@ -133,15 +221,7 @@ void run(const fs::path& executable,Sdl& sdl) {
     const auto canonical_save=bytes(target);
     check(document.world==original,"Actual F5 changed the full Rule7 snapshot");
 
-    // No runtime advances are granted by the persistence-only SDL adapter.
-    for (const auto value:{SDLK_SPACE,SDLK_PERIOD,SDLK_EQUALS,SDLK_MINUS,SDLK_R}) key(*sandbox,value);
-    for (unsigned frame=0;frame<120;++frame) sandbox->update(0.25,{});
-    check(sandbox->paused() && sandbox->world().snapshot()==original,
-        "Persistence-only controls or updates advanced Rule7 runtime");
-    bool tick_refused=false;
-    try { sandbox->tick_once(); } catch (const std::logic_error&) { tick_refused=true; }
-    check(tick_refused && sandbox->world().snapshot()==original,
-        "Rule7 production tick guard was bypassed by the SDL fixture");
+    clock_controls(*sandbox);
     check(sandbox->render(),"Rule7 empty-container fallback render failed");
 
     paid(*sandbox,sim::CommandType::PlaceRoad,{109,103});
@@ -157,14 +237,19 @@ void run(const fs::path& executable,Sdl& sdl) {
     write(data/map_relative,source_map_before+"\n");load_rejected(*sandbox,changed);
     check(bytes(target)==canonical_save,"Map-mismatch F9 changed the saved file");
     write(data/map_relative,source_map_before);
-    const auto io=sandbox->io_generation();key(*sandbox,SDLK_F9);
-    if (sandbox->io_generation()!=io+1 || !sandbox->last_message().starts_with("Loaded tick"))
-        throw std::runtime_error("Actual Rule7 F9 failed: "+sandbox->last_message());
+    loaded_key(*sandbox);
     check(sandbox->paused() && sandbox->world().snapshot()==original &&
         sandbox->world().map_permissions()->canonical_state()==canonical_policy &&
         bytes(target)==canonical_save,"Actual F9 changed full Rule7 state, policy or bytes");
     same_identity(sandbox->capture_save_document(),document);
     saved_key(*sandbox);check(bytes(target)==canonical_save,"F5 after actual F9 changed canonical save bytes");
+    scheduler_boundaries(*sandbox);
+    const auto resume_document=save::read_save(target);
+    const auto resume_bytes=bytes(target);
+    const auto expected=root/"saves/expected-process.json";
+    steps(*sandbox,resume_steps);
+    sandbox->configure_save(data,map_relative,expected);saved_key(*sandbox);
+    const auto expected_document=save::read_save(expected);
     sandbox->shutdown();
 
     bool normal_refused=false;
@@ -173,21 +258,21 @@ void run(const fs::path& executable,Sdl& sdl) {
     check(normal_refused,"Normal sandbox gained access to unfinished Rule7 gameplay");
     oe::SandboxView old(session(data),false,sim::RulesProfile::CityV16,6);
     bool initial_refused=false;
-    try { old.configure_save(data,map_relative,target,document); }
+    try { old.configure_save(data,map_relative,target,resume_document); }
     catch (const std::invalid_argument&) { initial_refused=true; }
     check(initial_refused,"Normal Rule6 view admitted a Rule7 initial save");
     old.configure_save(data,map_relative,target);
     old.initialize(sdl.window,sdl.renderer);
     const auto old_world=old.world().snapshot();load_rejected(old,old_world);
-    check(bytes(target)==canonical_save,"Normal Rule6 F9 changed a refused Rule7 save");
+    check(bytes(target)==resume_bytes,"Normal Rule6 F9 changed a refused Rule7 save");
     old.shutdown();
 
     const auto output=root/"saves/process.json";
     const auto command=shell_quote(executable.string())+" --resume "+shell_quote(data.string())+" "+
         shell_quote(target.string())+" "+shell_quote(output.string());
     check(std::system(command.c_str())==0,"Separate OS-process Rule7 SDL restore failed");
-    same_identity(document,save::read_save(output));
-    check(bytes(output)==canonical_save && bytes(target)==canonical_save &&
+    same_identity(expected_document,save::read_save(output));
+    check(bytes(output)==bytes(expected) && bytes(target)==resume_bytes &&
         bytes(model_path)==model_before && bytes(data/map_relative)==source_map_before,
         "Rule7 OS-process roundtrip changed saved bytes or authored source inputs");
 }
@@ -202,7 +287,7 @@ int main(int argc,char** argv) {
             check(argc==1,"Unknown Rule7 save view test arguments");
             run(fs::absolute(argv[0]),sdl);
         }
-        std::cout<<"Rule7 schema23: actual SDL F5/F9, atomic refusals, paused runtime and separate OS-process canonical roundtrip PASS\n";
+        std::cout<<"Rule7 schema23: SDL pause/Step/20Hz, cycle/month/year F5/F9, time-only state and separate OS-process replay PASS\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr<<"Rule7 save view FAIL: "<<error.what()<<'\n';return 1;

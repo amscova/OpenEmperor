@@ -1,4 +1,5 @@
 #include "simulation/World.h"
+#include "simulation/original/OriginalScheduler.h"
 #ifdef OPENEMPEROR_SERVICE_SCHEDULER_EXPERIMENT
 #include "ServiceSchedulerExperiment.h"
 #endif
@@ -400,9 +401,10 @@ void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
         throw std::invalid_argument("City-v16 rule 7 requires original economy authority");
     const auto& original_state=*s.original_economy;
     if (original_state.model_source) validate_original_model_source(*original_state.model_source);
-    // Scheduler, actors and paid original supply are subsequent contracts.
+    // Only the versioned scheduler may advance. Actors and paid original supply
+    // are subsequent contracts, never legacy economy under another rule ID.
     // Their absent implementation cannot authorize legacy economy state here.
-    if (s.ticks || s.workshop || s.warehouse || s.total_produced ||
+    if (s.ticks>original::scheduler_max_tick || s.workshop || s.warehouse || s.total_produced ||
         s.clay_extracted_total || s.pottery_completed_total || s.workshop_stock ||
         s.production_progress || s.courier_cargo || s.warehouse_stock ||
         s.phase!=CourierPhase::IdleAtWorkshop || !s.path.empty() || s.path_vertex ||
@@ -414,7 +416,7 @@ void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
         s.treasury<0 || s.construction_spent_total>
             static_cast<std::uint64_t>(starting_treasury_for(s.profile)) ||
         s.demolition_history!=DemolitionHistory{})
-        throw std::invalid_argument("City-v16 rule 7 development cannot restore active economy or clock authority");
+        throw std::invalid_argument("City-v16 rule 7 development cannot restore active economy or invalid clock authority");
     if (original_state.houses.size()!=s.buildings.size() ||
         original_state.houses.size()>Rules::city_v10_household_limit)
         throw std::invalid_argument("original house references must match every paid vacant container");
@@ -429,8 +431,9 @@ void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
             record.house.tea<0 || record.house.silk<0 || record.house.bronzeware<0 ||
             record.house.lacquerware<0)
             throw std::invalid_argument("invalid original house identity, type or stock domain");
-        const BuildingSnapshot vacant{building.id,Object::Household,building.cell,true};
-        if (building!=vacant || record!=OriginalHouseState{building.id})
+        BuildingSnapshot vacant{building.id,Object::Household,building.cell,true};
+        vacant.placed_tick=building.placed_tick;
+        if (building.placed_tick>s.ticks || building!=vacant || record!=OriginalHouseState{building.id})
             throw std::invalid_argument("City-v16 rule 7 currently restores only vacant zero-state house containers");
     }
 }
@@ -1504,11 +1507,10 @@ CommandResult World::execute_impl(Command command,bool refresh_after) {
         objects_[index(command.cell)]=Object::Household;
         if (scalable(profile_)) {
             auto& b=add_v10_building(Object::Household);
+            b.placed_tick=ticks_;
             if (original_economy_enabled())
                 original_economy_->houses.push_back(OriginalHouseState{b.id});
-            else {
-                b.placed_tick=ticks_; b.population=Rules::household_initial_population;
-            }
+            else b.population=Rules::household_initial_population;
             break;
         }
         const auto id=static_cast<BuildingId>(next_household_id_);
@@ -2513,8 +2515,14 @@ void World::move_courier() {
 }
 
 void World::tick() {
-    if (original_economy_enabled())
-        throw std::logic_error("City-v16 rule 7 runtime is not ready; development cannot advance the economy");
+    if (original_economy_enabled()) {
+        // Time only until paid supply, visits and house processing are bound.
+        // Preflight exhaustion before changing any counter or World state.
+        const auto next=original::advance_scheduler_tick(ticks_);
+        performance::increment(performance::Counter::SimulationTicks);
+        ticks_=next;
+        return;
+    }
     performance::increment(performance::Counter::SimulationTicks);
     if (production_profile(profile_)) { tick_production_v2(); return; }
     if (ticks_==UINT64_MAX) throw std::overflow_error("sandbox tick counter exhausted");
@@ -3447,7 +3455,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         if ((!health_profile(s.profile) || b.kind!=Object::Household) &&
             (b.health_risk || b.health_protection_until_tick || b.sick_until_tick))
             throw std::invalid_argument("health authority requires a City-v15 Household");
-    if (health_profile(s.profile) &&
+    if (health_profile(s.profile) && !w.original_economy_enabled() &&
         s.ticks>UINT64_MAX-std::max(Rules::health_protection_ticks,Rules::illness_ticks))
         throw std::invalid_argument("health deadline headroom exhausted");
     for (const auto& b:s.buildings)
