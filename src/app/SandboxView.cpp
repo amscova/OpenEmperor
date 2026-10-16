@@ -351,7 +351,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         initial_save_.reset();
     } else if (original_save_fixture_) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_economy_development(
-            std::move(permissions),persistence::original_model_source(data_root_)));
+            std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
     } else if (permissions)
         world_=std::make_unique<simulation::World>(std::move(permissions),rules_,active_version);
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,

@@ -107,8 +107,12 @@ Headroom aus. Alte Profile und deren Deadlinegrenzen bleiben unverändert.
 Es führt keine alten Produktions-, Nachfrage-, Unterhalts-, Health-, Feuer-,
 Bevölkerungs- oder Navigationsupdates aus. Die vorhandene 20-Hz-TickDriver-
 Auslieferung und die alten 400-Tick-Nachfragen bleiben für bisherige Profile
-maßgeblich. Die Model-Source-Identität aus OE-09 ist weiterhin keine vorbereitete
-Runtime-RulesModel-Bindung; diese gehört zu OE-11.
+maßgeblich. Im historischen OE-10-Stand war die Model-Source-Identität aus OE-09
+noch keine vorbereitete Runtime-RulesModel-Bindung. Die spätere
+[OE-11-Sessionbindung](model-session-binding.md) übergibt ein unveränderliches
+geprüftes Modell beim ausdrücklichen Create/Restore. Sie verändert weder diese
+Zeitbasis noch die weiterhin inaktiven Wirtschaftsoperationen; World-Ticks und
+Frames führen keine Modellvorbereitung oder Quelldateiprüfung aus.
 
 ## Entwickleradapter und Nachweise
 
@@ -119,8 +123,9 @@ bleibt gesperrt. F9 setzt den bestehenden TickDriver einschließlich seines
 Bruchteilakkumulators zurück. Normale App, Menü und Recovery erhalten keinen
 Zugang zur unfertigen Generation.
 
-Die reine [Schedulersuite](../../tests/OriginalSchedulerTests.cpp) wurde mit
-C++20 und den Projektwarnflags direkt gebaut und ausgeführt: **42.579 Prüfungen
+Die reine [Schedulersuite](../../tests/OriginalSchedulerTests.cpp) wurde im
+historischen OE-10-Nachweis mit C++20 und den Projektwarnflags direkt gebaut
+und ausgeführt: **42.579 Prüfungen
 bestanden**. Sie prüft feste Grenzpositionen, sämtliche Phasen und monatlichen
 Selectoren, getrennte Phase35/39-Events, 0/7/15, einen unabhängigen 20k-Odometer
 sowie den uint64-Terminalzustand. Der private EXE-Prüflauf bestätigt 11 Fenster,

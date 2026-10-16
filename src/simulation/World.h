@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+namespace openemperor::original { class OriginalRulesModel; }
+
 namespace openemperor::simulation {
 
 inline constexpr const char* profile_name = "sandbox-logistics-v1";
@@ -526,6 +528,7 @@ class World {
 public:
     bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
     const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
+    std::shared_ptr<const original::OriginalRulesModel> original_rules_model() const { return original_rules_model_; }
     bool bridges_supported() const { return bridges_rule_enabled(profile_,rule_version_); }
     bool ramps_supported() const { return ramps_rule_enabled(profile_,rule_version_); }
     std::span<const RampLink> ramps() const { return ramps_; }
@@ -544,11 +547,13 @@ public:
     World(std::shared_ptr<const MapPermissions> permissions,
           RulesProfile profile=RulesProfile::CityV16,std::uint32_t rule_version=0);
     // Explicit development fixture for infrastructure and paid vacant containers.
-    // The original runtime remains closed until model/scheduler integration.
+    // Bound models are explicit immutable session inputs. Unbound infrastructure
+    // and clock fixtures remain possible, but never acquire save authority.
     static World create_original_economy_development(std::shared_ptr<const MapPermissions> permissions,
-        std::optional<OriginalModelSource> source=std::nullopt);
+        std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
     static World restore_original_economy_development(const WorldSnapshot& snapshot,
-        std::shared_ptr<const MapPermissions> permissions);
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
     // Map-independent authority validation shared by schema-23 parsing and
     // explicit development restore. Geometry/accounting still require restore.
     static void validate_original_economy_snapshot(const WorldSnapshot& snapshot);
@@ -703,7 +708,8 @@ public:
 private:
     World(int width,int height,std::vector<std::uint8_t> buildable,
           RulesProfile profile,std::uint32_t rule_version,
-          std::shared_ptr<const MapPermissions> permissions,bool original_development=false);
+          std::shared_ptr<const MapPermissions> permissions,bool original_development=false,
+          std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
     void update_health();
     void update_fire();
     CommandResult execute_impl(Command command,bool refresh_after);
@@ -716,7 +722,8 @@ private:
     void index_bridge(const BridgeSpan& span);
     static World restore_impl(const WorldSnapshot& snapshot,std::vector<std::uint8_t> buildable,
                               std::shared_ptr<const MapPermissions> permissions,
-                              bool original_development=false);
+                              bool original_development=false,
+                              std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
     std::optional<std::vector<Cell>> find_road_route(Cell start,Cell goal) const;
     std::optional<std::vector<Cell>> find_route_to_building(Cell start,BuildingId target) const;
     const std::vector<Cell>* route_for_revision();
@@ -747,6 +754,7 @@ private:
     std::vector<std::uint8_t> buildable_;
     std::shared_ptr<const MapPermissions> permissions_;
     std::optional<OriginalEconomyState> original_economy_;
+    std::shared_ptr<const original::OriginalRulesModel> original_rules_model_;
     std::vector<Object> objects_;
     std::vector<std::uint32_t> owners_;
     std::vector<BuildingState> buildings_;

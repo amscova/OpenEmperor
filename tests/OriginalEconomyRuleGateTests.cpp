@@ -322,7 +322,7 @@ void persistence_refusal() {
 
     auto development=sim::World::create_original_economy_development(p3);
     rejects([&] { (void)save::make_document(data,relative,p3->building_mask(),development); },
-        "schema23 requires an original model source identity");
+        "schema23 requires a prepared original rules model");
     auto future=document;future.world=development.snapshot();
     for (const std::uint32_t source_schema:{0U,18U,19U,20U,21U,22U,23U}) {
         future.source_schema_version=source_schema;

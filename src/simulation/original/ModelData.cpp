@@ -310,10 +310,21 @@ std::string_view ModelData::house_label(HouseRowId row) const { return house_lab
 
 ModelResult parse_model_data(std::string_view bytes) { return ModelDataParser::parse(bytes); }
 
-ModelResult load_model_data(const std::filesystem::path& game_root) {
+namespace {
+struct ModelFileBytes {
+    std::filesystem::path path;
+    std::string bytes;
+};
+struct ModelFileRead {
+    std::optional<ModelFileBytes> file;
+    std::optional<ModelError> error;
+};
+
+ModelFileRead read_model_file(const std::filesystem::path& game_root) {
     namespace fs = std::filesystem;
     const auto path_error = [](ModelErrorCode code, std::string reason) {
-        return failure(code, 0, Section::Prologue, std::move(reason));
+        return ModelFileRead{std::nullopt,
+            ModelError{code,0,std::string(name_for(Section::Prologue)),std::move(reason)}};
     };
     if (game_root.empty() || game_root.native().find('\0') != fs::path::string_type::npos)
         return path_error(ModelErrorCode::InvalidPath, "game root is empty or contains a null byte");
@@ -343,9 +354,26 @@ ModelResult load_model_data(const std::filesystem::path& game_root) {
         return path_error(ModelErrorCode::IoFailure, "model file changed size or could not be read completely");
     if (input.peek() != std::char_traits<char>::eof() || input.bad())
         return path_error(ModelErrorCode::IoFailure, "model file grew or failed during bounded read");
-    auto result = parse_model_data(bytes);
-    if (result) ModelDataParser::file_source(*result.model, path);
+    return {ModelFileBytes{path,std::move(bytes)},std::nullopt};
+}
+} // namespace
+
+ModelResult load_model_data(const std::filesystem::path& game_root) {
+    auto source=read_model_file(game_root);
+    if (!source.file) return {std::nullopt,std::move(source.error)};
+    auto result = parse_model_data(source.file->bytes);
+    if (result) ModelDataParser::file_source(*result.model, source.file->path);
     return result;
+}
+
+ModelFingerprintResult inspect_model_source(const std::filesystem::path& game_root) {
+    auto source=read_model_file(game_root);
+    if (!source.file) return {std::nullopt,std::move(source.error)};
+    const auto digest=sha256(source.file->bytes);
+    if (!digest) return {std::nullopt,
+        ModelError{ModelErrorCode::HashFailure,0,std::string(name_for(Section::Prologue)),
+            "SHA-256 calculation failed"}};
+    return {ModelFileFingerprint{*digest,static_cast<std::uint64_t>(source.file->bytes.size())},std::nullopt};
 }
 
 } // namespace openemperor::original

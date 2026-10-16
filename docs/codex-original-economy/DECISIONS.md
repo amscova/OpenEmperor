@@ -5,7 +5,7 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 | ID | Anfangsentscheidung | Status / Beweisbedarf |
 |---|---|---|
 | D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig testen | plan |
-| D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | plan |
+| D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | OE-11: explizites unveränderliches Sessionmodell, einmalige typisierte Vorbereitung; Live-SHA/Größe bei Save/Restore; kein Modellzugriff im Tick |
 | D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-08: Rule7 frei und ausschließlich Entwickler-Gate; policy3 unverändert, Schema23 in OE-09 ausschließlich Entwickler-Persistenz; keine Laufzeitfreigabe |
 | D-04 | Alte Save-Schemas 1–22 unverändert und keine Auto-Migration | zwingende Invariante |
 | D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08: explizite begrenzte Capability-Gates; bezahlter vollständiger Rule6/7-Vergleich und Legacy-Replay bestanden |
@@ -18,6 +18,60 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 ## Neue Entscheidungen
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
+
+### OE-11: unveränderliche und explizite Modellabhängigkeit pro Session
+
+- **Revision:** Beginn am sauberen, live/origin bestätigten `main`
+  `d6eb736e1dbf0f08c26b933d3beb4c132ee5192a`; vorhandener Feature-Branch per
+  Fast-forward angeglichen. OE-10 ist Commit
+  `b4c22e6ecc49558e137288801d2e2a866cd8fc44`. Eigene SHA folgt im Abschluss
+  und beim nächsten Prompt; der delegierte Commit-/PR-/Merge-Handoff gilt.
+- **`model` / read-only integration:** Eine erfolgreiche Datei-Vorbereitung baut
+  genau ein `shared_ptr<const OriginalRulesModel>` mit geprüfter Provenance,
+  Difficulty und sämtlichen benannten sieben Building-/15 House-Zeilen. Die
+  vorhandenen typisierten Leser und geprüften Rechenregeln bleiben zuständig;
+  Rohdaten werden danach nicht benötigt. Kein globaler Cache, Singleton oder
+  `data_root` in World. Dieselben unveränderlichen Daten dürfen World-Kopien
+  teilen; unabhängige Vorbereitungen erhalten unabhängige Instanzen.
+- **Create/Restore:** Die explizite Entwicklungsfactory und der private
+  Konstruktor erhalten die Modellinstanz als Abhängigkeit. Save-Quelle wird
+  daraus abgeleitet. Ein gebundener Snapshot verlangt exakt Format/SHA/Bytezahl/
+  Difficulty derselben Modellinterpretation. Ungebundene reine Infrastruktur-
+  und Clock-Fixtures bleiben für ältere Tests möglich und unspeicherbar;
+  ein Restore darf sie nicht stillschweigend nachbinden. Normale App, Menü,
+  Recovery und reguläre Rule7-Konstruktion bleiben geschlossen.
+- **F5/F9:** F5 trägt die Instanz aus der aktiven World transient im SaveDocument
+  weiter; die bounded Live-Dateiprüfung hasht ausschließlich und parst nicht
+  erneut. F9 bereitet genau einen neuen Kandidaten vor und veröffentlicht ihn
+  nach vollständiger Source-/Map-/Policy-/World-Prüfung. Fehlende, manipulierte
+  oder typisiert ungültige Dateien verweigern den Vorgang vor Veröffentlichung.
+  Bestehende Sessions behalten ihre Werte und können ohne Quelldatei weiter
+  ticken. Dateiänderungen werden weder automatisch übernommen noch in Saves
+  als neue Quelle umgedeutet. Die Alternative erneuten Parsens bei jedem F5
+  wurde zugunsten der explizit gebundenen Instanz verworfen.
+- **Save-Vertrag:** Keine JSON-Felder oder Versionsänderung. Das neue
+  `SaveDocument::prepared_original_rules_model` ist ausschließlich transient,
+  ähnlich vorhandenen vorbereiteten MapPermissions; Pointer/Pfad/Tabellen
+  werden nie serialisiert. Schemas1–22 erhalten keine Modellanforderung.
+  Schema23 mit syntaktisch gültiger, aber semantisch ungeeigneter Modelldatei
+  wird jetzt bewusst verweigert: Hashgleichheit allein ist keine Runtimefreigabe.
+- **`authored` Testgrenze:** Die alte OE-09-Testquelle verwendete freie Labels
+  und nur einen Building-Eintrag. Ihre ursprünglichen6778 Bytes/SHA
+  `9f2392de51302cb7451605eb5c2b7e8aa15cf827801c00cb1b8c21aebf967e6e`
+  werden weiterhin unabhängig rekonstruiert und geprüft, nun aber als negative
+  Runtimekontrolle. Eine neue vollständig selbst verfasste Fixture mit gültigen
+  Modellbezeichnern wurde zusätzlich mit unverändertem alten OE-09-Writer,
+  Headern und Libraries ausgeführt. Dessen6778 Bytes/SHA
+  `4e70a04b19700c86d974d53df4edb2fdcf3bb264622ef76c4c32a1be5b63ca68`
+  sind der separate positive Bytevertrag; kein rückwirkender Golden-Reset.
+- **Review/Grenzen:** Unabhängige Read-only-Reviews ohne funktionalen Produktionsbefund;
+  ein Test-Skipguard für defekte Symlinks wurde anschließend eng korrigiert und
+  in allen Konfigurationen separat nachgeprüft.
+  Tatsächliche Konfigurations-, F5/F9-, Prozess-, Source- und Legacyresultate
+  stehen im Fortschrittsregister. Die Bindung aktiviert weder Desirability,
+  Waren, Bewohner noch Evolution. Gate B bleibt bis OE-12 offen. Kein
+  menschlicher/native Gameplay-PASS und keine neue Original-Paritätsbehauptung.
+  Details im [Sessionvertrag](../original-economy/model-session-binding.md).
 
 ### OE-10: deterministischer Scheduler mit ausdrücklich authored Zeitbasis
 

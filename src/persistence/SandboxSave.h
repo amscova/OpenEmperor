@@ -1,6 +1,7 @@
 #pragma once
 
 #include "simulation/World.h"
+#include "simulation/original/OriginalRulesModel.h"
 #include "platform/AtomicReplace.h"
 
 #include <cstdint>
@@ -24,6 +25,8 @@ struct SaveDocument {
     std::string map_permissions_sha256;
     // Prepared immutable input for manual/autosave validation; never serialized.
     std::shared_ptr<const simulation::MapPermissions> prepared_permissions;
+    // Session dependency only; never serialized or restored from JSON.
+    std::shared_ptr<const original::OriginalRulesModel> prepared_original_rules_model;
 };
 
 // Fault injection is used only by tests; production always uses None.
@@ -38,12 +41,16 @@ SaveDocument read_save(const std::filesystem::path& path);
 simulation::OriginalModelSource original_model_source(
     const std::filesystem::path& data_root,
     original::Difficulty difficulty=original::Difficulty::Normal);
+std::shared_ptr<const original::OriginalRulesModel> prepare_original_rules_model(
+    const std::filesystem::path& data_root,
+    original::Difficulty difficulty=original::Difficulty::Normal);
 // Schema 23 remains an explicit development boundary while normal Rule-7
 // sessions, ticking and restore_save are unavailable.
 simulation::World restore_original_economy_development(
     const SaveDocument& document,const std::filesystem::path& data_root,
     std::vector<std::uint8_t> buildable,
-    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr);
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& document);
 SaveDocument upgrade_city_v11_v3_to_v4(const SaveDocument& document);
 simulation::World restore_save(const SaveDocument& document,

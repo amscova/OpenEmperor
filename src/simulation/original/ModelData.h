@@ -105,9 +105,24 @@ struct ModelResult {
     [[nodiscard]] explicit operator bool() const noexcept { return model.has_value(); }
 };
 
+struct ModelFileFingerprint {
+    std::string sha256;
+    std::uint64_t byte_count=0;
+    bool operator==(const ModelFileFingerprint&) const = default;
+};
+
+struct ModelFingerprintResult {
+    std::optional<ModelFileFingerprint> fingerprint;
+    std::optional<ModelError> error;
+    [[nodiscard]] explicit operator bool() const noexcept { return fingerprint.has_value(); }
+};
+
 // Raw signed values only. Difficulty arithmetic and semantic validation belong
 // to the later original-rule contract, not this isolated reader.
 [[nodiscard]] ModelResult parse_model_data(std::string_view bytes);
 [[nodiscard]] ModelResult load_model_data(const std::filesystem::path& game_root);
+// Same bounded, contained, read-only file access as load_model_data. This only
+// hashes bytes; it never parses or prepares model rows at a save I/O boundary.
+[[nodiscard]] ModelFingerprintResult inspect_model_source(const std::filesystem::path& game_root);
 
 } // namespace openemperor::original

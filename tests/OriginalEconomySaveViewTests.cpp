@@ -1,5 +1,7 @@
 #include "EconomyStartViewFixture.h"
 #include "OriginalEconomySaveFixture.h"
+#include "core/PerformanceDiagnostics.h"
+#include "simulation/original/OriginalRulesModel.h"
 #include "simulation/original/OriginalScheduler.h"
 
 #include <cstdlib>
@@ -55,6 +57,11 @@ std::unique_ptr<oe::SandboxView> view(const fs::path& data,const fs::path& targe
     check(result->world().original_economy_enabled() && result->paused() &&
         result->world().map_permissions() && result->world().map_permissions()->policy_version()==3,
         "Explicit Rule7 save fixture did not retain paused complete policy3");
+    const auto model=result->world().original_rules_model();
+    const auto& source=result->world().original_economy_state()->model_source;
+    check(model && source && source->sha256==model->provenance().sha256 &&
+        source->byte_count==model->provenance().byte_count && source->difficulty==model->difficulty(),
+        "Rule7 SDL session did not bind its immutable prepared model to saved source identity");
     return result;
 }
 void key(oe::SandboxView& sandbox,SDL_Keycode value) {
@@ -77,18 +84,33 @@ void same_identity(const save::SaveDocument& expected,const save::SaveDocument& 
         actual.buildable_sha256==expected.buildable_sha256 &&
         actual.map_permissions_policy_version==3 &&
         actual.map_permissions_sha256==expected.map_permissions_sha256 &&
-        !actual.migrated_from_schema1,"Rule7 full SaveDocument identity changed");
+        !actual.migrated_from_schema1 && !actual.prepared_original_rules_model,
+        "Rule7 full SaveDocument identity changed or deserialized a runtime model");
 }
 void saved_key(oe::SandboxView& sandbox) {
+    const auto model=sandbox.world().original_rules_model();
     const auto old=sandbox.save_generation();key(sandbox,SDLK_F5);
     if (sandbox.save_generation()!=old+1)
         throw std::runtime_error("Actual Rule7 F5 failed: "+sandbox.last_message());
+    check(sandbox.world().original_rules_model()==model &&
+        sandbox.capture_save_document().prepared_original_rules_model==model,
+        "Actual Rule7 F5 replaced or lost the session model dependency");
 }
 void loaded_key(oe::SandboxView& sandbox) {
+    const auto previous=sandbox.world().original_rules_model();
     const auto io=sandbox.io_generation();key(sandbox,SDLK_F9);
     if (sandbox.io_generation()!=io+1 || !sandbox.last_message().starts_with("Loaded tick"))
         throw std::runtime_error("Actual Rule7 F9 failed: "+sandbox.last_message());
     check(sandbox.paused(),"Actual Rule7 F9 did not pause and reset the clock");
+    const auto current=sandbox.world().original_rules_model();
+    check(previous && current && current!=previous &&
+        current->provenance().sha256==previous->provenance().sha256 &&
+        current->difficulty()==previous->difficulty() &&
+        current->building_value(original::ModelBuilding::ClayPit,original::BuildingField::Cost)==
+            previous->building_value(original::ModelBuilding::ClayPit,original::BuildingField::Cost) &&
+        current->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Capacity)==
+            previous->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Capacity),
+        "Actual Rule7 F9 did not prepare an independent candidate with identical typed model data");
 }
 void time_only(const sim::WorldSnapshot& before,const sim::WorldSnapshot& after,
         std::uint64_t elapsed) {
@@ -99,11 +121,14 @@ void time_only(const sim::WorldSnapshot& before,const sim::WorldSnapshot& after,
 void steps(oe::SandboxView& sandbox,std::uint64_t count) {
     check(sandbox.paused(),"SDL Step fixture must start paused");
     const auto before=sandbox.world().snapshot();
+    const auto model=sandbox.world().original_rules_model();
     for (std::uint64_t i=0;i<count;++i) key(sandbox,SDLK_PERIOD);
     time_only(before,sandbox.world().snapshot(),count);
+    check(sandbox.world().original_rules_model()==model,"Rule7 SDL Steps replaced their prepared model");
 }
 void clock_controls(oe::SandboxView& sandbox) {
     const auto initial=sandbox.world().snapshot();
+    const auto model=sandbox.world().original_rules_model();
     for (unsigned frame=0;frame<120;++frame) sandbox.update(0.25,{});
     check(sandbox.paused() && sandbox.world().snapshot()==initial,
         "Paused Rule7 scheduler advanced during frame updates");
@@ -126,6 +151,8 @@ void clock_controls(oe::SandboxView& sandbox) {
     const auto paused=sandbox.world().snapshot();key(sandbox,SDLK_R);
     check(sandbox.paused() && sandbox.world().snapshot()==paused,"Scheduler-only Reset changed World state");
     sandbox.tick_once();time_only(initial,sandbox.world().snapshot(),20);
+    check(sandbox.world().original_rules_model()==model,
+        "Rule7 frames or fixed ticks replaced the prepared session model");
 
     // Actual F9 must discard both running status and a partial frame accumulator.
     loaded_key(sandbox);check(sandbox.world().snapshot()==initial,"Rule7 F9 did not restore its saved clock tick");
@@ -170,9 +197,90 @@ void scheduler_boundaries(oe::SandboxView& sandbox) {
     }
 }
 void load_rejected(oe::SandboxView& sandbox,const sim::WorldSnapshot& live) {
+    const auto model=sandbox.world().original_rules_model();
     const auto io=sandbox.io_generation();key(sandbox,SDLK_F9);
     check(sandbox.io_generation()==io+1 && sandbox.last_message().starts_with("Load failed:") &&
-        sandbox.world().snapshot()==live,"Invalid actual F9 changed the active Rule7 World");
+        sandbox.world().snapshot()==live && sandbox.world().original_rules_model()==model,
+        "Invalid actual F9 changed the active Rule7 World or model binding");
+}
+void save_rejected(oe::SandboxView& sandbox,const std::string& saved) {
+    const auto state=sandbox.world().snapshot();
+    const auto model=sandbox.world().original_rules_model();
+    const auto saved_generation=sandbox.save_generation();
+    const auto io=sandbox.io_generation();key(sandbox,SDLK_F5);
+    check(sandbox.io_generation()==io+1 && sandbox.save_generation()==saved_generation &&
+        sandbox.last_message().starts_with("Save failed:") && sandbox.world().snapshot()==state &&
+        sandbox.world().original_rules_model()==model && bytes(sandbox.save_path())==saved,
+        "Source-invalid actual F5 changed World/model state or destroyed the saved file");
+}
+void missing_model_during_runtime(oe::SandboxView& sandbox,const fs::path& data,
+        const fs::path& model_path,Sdl& sdl) {
+    const auto saved=bytes(sandbox.save_path());
+    const auto before=sandbox.world().snapshot();
+    const auto model=sandbox.world().original_rules_model();
+    const auto backup=model_path.parent_path()/"authored-model-temporarily-unavailable.txt";
+    fs::rename(model_path,backup);
+    try {
+        bool create_refused=false;
+        try { auto failed=view(data,sandbox.save_path().parent_path()/"failed-create.json",sdl); }
+        catch (const std::exception&) { create_refused=true; }
+        check(create_refused && sandbox.world().snapshot()==before &&
+            sandbox.world().original_rules_model()==model && bytes(sandbox.save_path())==saved,
+            "Source-missing session preparation affected an existing Rule7 session");
+        namespace perf=oe::performance;
+        perf::set_enabled(true);perf::reset();
+        for (unsigned frame=0;frame<120;++frame) sandbox.update(0.05,{});
+        steps(sandbox,2);
+        check(sandbox.render(),"Prepared model did not survive a source-free render");
+        for (const auto counter:{perf::Counter::FileReads,perf::Counter::FileWrites,
+            perf::Counter::AssetDecodes,perf::Counter::TextureUploads})
+            check(perf::counter(counter)==0,"Rule7 frames/ticks/render performed source or asset work");
+        perf::set_enabled(false);
+        time_only(before,sandbox.world().snapshot(),2);
+        check(sandbox.world().original_rules_model()==model,
+            "Source-free frames or ticks replaced the prepared model");
+        save_rejected(sandbox,saved);load_rejected(sandbox,sandbox.world().snapshot());
+        check(bytes(sandbox.save_path())==saved,"Source-missing F9 overwrote its save");
+    } catch (...) {
+        oe::performance::set_enabled(false);fs::rename(backup,model_path);throw;
+    }
+    fs::rename(backup,model_path);
+    loaded_key(sandbox);
+    check(sandbox.world().snapshot()==before && bytes(sandbox.save_path())==saved,
+        "Source-restored F9 retry failed to restore exact saved World authority");
+}
+void separate_model_sessions(oe::SandboxView& first,const fs::path& first_data,Sdl& sdl) {
+    const auto first_world=first.world().snapshot();
+    const auto first_model=first.world().original_rules_model();
+    const auto first_target=first.save_path();
+    const auto first_saved=bytes(first_target);
+    fixture::Temp other;
+    const auto root=fs::canonical(other.root);
+    const auto data=fs::canonical(root/"data");
+    oe_save_fixture::write_model(data,1);
+    auto second=view(data,root/"saves/independent-source.json",sdl);
+    const auto second_model=second->world().original_rules_model();
+    check(first_model && second_model && first_model!=second_model &&
+        first_model->provenance().sha256!=second_model->provenance().sha256 &&
+        first_model->provenance().source_path!=second_model->provenance().source_path &&
+        first_model->house_rules().row_capacity(original::ModelHouse::Shelter)==0 &&
+        second_model->house_rules().row_capacity(original::ModelHouse::Shelter)==37,
+        "Independent Rule7 sessions shared or confused differently authored prepared model data");
+    steps(*second,3);saved_key(*second);
+    const auto second_saved=bytes(second->save_path());
+    check(second->world().total_population_capacity()==0 &&
+        first.world().snapshot()==first_world && first.world().original_rules_model()==first_model,
+        "Second model session changed the first World or granted active housing capacity");
+    first.configure_save(first_data,map_relative,second->save_path());
+    load_rejected(first,first_world);
+    check(bytes(second->save_path())==second_saved && bytes(first_target)==first_saved,
+        "Cross-source F9 changed either independent session save");
+    first.configure_save(first_data,map_relative,first_target);
+    second->shutdown();
+    check(first.world().snapshot()==first_world && first.world().original_rules_model()==first_model &&
+        first_model->house_rules().row_capacity(original::ModelHouse::Shelter)==0 &&
+        second_model->house_rules().row_capacity(original::ModelHouse::Shelter)==37,
+        "Independent model lifetime or source failure altered an existing session");
 }
 std::string shell_quote(std::string_view value) {
     std::string result="'";
@@ -221,6 +329,8 @@ void run(const fs::path& executable,Sdl& sdl) {
     const auto canonical_save=bytes(target);
     check(document.world==original,"Actual F5 changed the full Rule7 snapshot");
 
+    missing_model_during_runtime(*sandbox,data,model_path,sdl);
+    separate_model_sessions(*sandbox,data,sdl);
     clock_controls(*sandbox);
     check(sandbox->render(),"Rule7 empty-container fallback render failed");
 
@@ -231,7 +341,8 @@ void run(const fs::path& executable,Sdl& sdl) {
     const auto malformed=bytes(target);load_rejected(*sandbox,changed);
     check(bytes(target)==malformed,"Rejected malformed F9 overwrote its input");
     write(target,canonical_save);
-    write(model_path,model_before+"\n");load_rejected(*sandbox,changed);
+    write(model_path,model_before+"\n");save_rejected(*sandbox,canonical_save);
+    load_rejected(*sandbox,changed);
     check(bytes(target)==canonical_save,"Model-mismatch F9 changed the saved file");
     write(model_path,model_before);
     write(data/map_relative,source_map_before+"\n");load_rejected(*sandbox,changed);
