@@ -1,5 +1,6 @@
 #include "simulation/World.h"
 #include "simulation/original/OriginalScheduler.h"
+#include "simulation/original/OriginalRulesModel.h"
 #ifdef OPENEMPEROR_SERVICE_SCHEDULER_EXPERIMENT
 #include "ServiceSchedulerExperiment.h"
 #endif
@@ -33,6 +34,11 @@ void validate_original_model_source(const OriginalModelSource& source) {
         }) || source.byte_count==0 || source.byte_count>original::max_model_bytes ||
         static_cast<std::size_t>(source.difficulty)>=original::difficulty_count)
         throw std::invalid_argument("invalid original model source identity");
+}
+OriginalModelSource original_model_source(const original::OriginalRulesModel& model) {
+    const auto& source=model.provenance();
+    return {source.format_version,source.sha256,static_cast<std::uint64_t>(source.byte_count),
+        model.difficulty()};
 }
 bool food_role(CourierRole role) {
     return role==CourierRole::Food || role==CourierRole::MarketFoodInbound ||
@@ -297,10 +303,11 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     : World(width,height,std::move(buildable),profile,rule_version,{}) {}
 World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfile profile,
              std::uint32_t rule_version,std::shared_ptr<const MapPermissions> permissions,
-             bool original_development)
+             bool original_development,std::shared_ptr<const original::OriginalRulesModel> model)
     : width_(width),height_(height),profile_(profile),
       rule_version_(rule_version==0 ? current_rule_version(profile):rule_version),
-      buildable_(std::move(buildable)),permissions_(std::move(permissions)) {
+      buildable_(std::move(buildable)),permissions_(std::move(permissions)),
+      original_rules_model_(std::move(model)) {
     if (width<=0 || height<=0 || width>512 || height>512 ||
         buildable_.size()!=static_cast<std::size_t>(width)*static_cast<std::size_t>(height))
         throw std::invalid_argument("invalid bounded sandbox grid");
@@ -316,6 +323,8 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     (void)profile_rules(profile_,rule_version_);
     if (original_economy_enabled() && !original_development)
         throw std::invalid_argument("City-v16 rule 7 runtime is not ready; use the explicit infrastructure-only development factory");
+    if (!original_economy_enabled() && original_rules_model_)
+        throw std::invalid_argument("original rules model requires City-v16 rule 7");
     if (permissions_) {
         const bool valid_pair=profile_==RulesProfile::CityV16 &&
             ((rule_version_==3 && permissions_->policy_version()==kMapPermissionsPolicyVersion) ||
@@ -329,7 +338,11 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     } else if (profile_==RulesProfile::CityV16 && rule_version_==3)
         permissions_=authored_simple_permissions(width_,height_,buildable_);
     if(ramps_supported())ramp_index_.assign(buildable_.size(),0);
-    if (original_economy_enabled()) original_economy_.emplace();
+    if (original_economy_enabled()) {
+        original_economy_.emplace();
+        if (original_rules_model_)
+            original_economy_->model_source=original_model_source(*original_rules_model_);
+    }
     treasury_=city_profile(profile) ? starting_treasury_for(profile):0;
     objects_.assign(buildable_.size(),Object::Empty);
     owners_.assign(buildable_.size(),0);
@@ -381,14 +394,11 @@ World::World(std::shared_ptr<const MapPermissions> permissions,RulesProfile prof
             permissions) {}
 
 World World::create_original_economy_development(std::shared_ptr<const MapPermissions> permissions,
-    std::optional<OriginalModelSource> source) {
+    std::shared_ptr<const original::OriginalRulesModel> model) {
     if (!permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion)
         throw std::invalid_argument("City-v16 rule 7 development requires complete policy-3 map permissions");
-    if (source) validate_original_model_source(*source);
-    World world(permissions->width(),permissions->height(),permissions->building_mask(),
-                RulesProfile::CityV16,kOriginalEconomyRuleVersion,permissions,true);
-    world.original_economy_->model_source=std::move(source);
-    return world;
+    return World(permissions->width(),permissions->height(),permissions->building_mask(),
+        RulesProfile::CityV16,kOriginalEconomyRuleVersion,permissions,true,std::move(model));
 }
 
 void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
@@ -439,11 +449,12 @@ void World::validate_original_economy_snapshot(const WorldSnapshot& s) {
 }
 
 World World::restore_original_economy_development(const WorldSnapshot& snapshot,
-    std::shared_ptr<const MapPermissions> permissions) {
+    std::shared_ptr<const MapPermissions> permissions,
+    std::shared_ptr<const original::OriginalRulesModel> model) {
     if (!simulation::original_economy_enabled(snapshot.profile,snapshot.rule_version) ||
         !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion)
         throw std::invalid_argument("original development restore requires rule 7 and complete policy-3 permissions");
-    return restore_impl(snapshot,{},std::move(permissions),true);
+    return restore_impl(snapshot,{},std::move(permissions),true,std::move(model));
 }
 
 bool World::in_bounds(Cell cell) const {
@@ -3434,16 +3445,24 @@ World World::restore(const WorldSnapshot& s,std::shared_ptr<const MapPermissions
 }
 World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                           std::shared_ptr<const MapPermissions> permissions,
-                          bool original_development) {
+                          bool original_development,
+                          std::shared_ptr<const original::OriginalRulesModel> model) {
     performance::increment(performance::Counter::WorldRestores);
     if (!rule_version_supported(s.profile,s.rule_version))
         throw std::invalid_argument("unsupported sandbox rule version");
     validate_original_economy_snapshot(s);
+    if (original_development) {
+        if (!simulation::original_economy_enabled(s.profile,s.rule_version) || !s.original_economy)
+            throw std::invalid_argument("original model restore requires City-v16 rule 7 authority");
+        const auto& source=s.original_economy->model_source;
+        if (source ? (!model || original_model_source(*model)!=*source):bool(model))
+            throw std::invalid_argument("saved original model source requires exactly matching prepared rules model");
+    }
     if (permissions && (permissions->width()!=s.width || permissions->height()!=s.height))
         throw std::invalid_argument("saved map permissions dimensions mismatch");
     World w=permissions ? World(s.width,s.height,permissions->building_mask(),s.profile,
-        s.rule_version,permissions,original_development):
-        World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development);
+        s.rule_version,permissions,original_development,std::move(model)):
+        World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development,std::move(model));
     w.original_economy_=s.original_economy;
     if (!maintenance_profile(s.profile) && s.maintenance_spent_total)
         throw std::invalid_argument("maintenance authority requires City-v16");

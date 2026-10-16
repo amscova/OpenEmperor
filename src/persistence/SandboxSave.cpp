@@ -899,11 +899,13 @@ SaveDocument make_document(const fs::path& root,const fs::path& relative,
     d.buildable_sha256=digest(mask.data(),mask.size());d.world=world.snapshot();
     if (world.original_economy_enabled()) {
         d.prepared_permissions=world.map_permissions();
+        d.prepared_original_rules_model=world.original_rules_model();
+        require(static_cast<bool>(d.prepared_original_rules_model),"schema23 requires a prepared original rules model");
         require(d.prepared_permissions && d.prepared_permissions->policy_version()==simulation::kBridgesMapPermissionsPolicyVersion,
                 "schema23 requires complete immutable policy3 map permissions");
         d.map_permissions_policy_version=d.prepared_permissions->policy_version();
         d.map_permissions_sha256=map_permissions_fingerprint(*d.prepared_permissions,d.map_sha256);
-        (void)restore_original_economy_development(d,root,mask,d.prepared_permissions);
+        (void)restore_original_economy_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
         return d;
     }
     // Validate the snapshot against the actual mask before publishing it.
@@ -957,6 +959,14 @@ simulation::OriginalModelSource original_model_source(const fs::path& root,origi
             "schema23 requires a verified file model source");
     return {provenance.format_version,provenance.sha256,
             static_cast<std::uint64_t>(provenance.byte_count),difficulty};
+}
+std::shared_ptr<const original::OriginalRulesModel> prepare_original_rules_model(
+        const fs::path& root,original::Difficulty difficulty) {
+    require(static_cast<std::size_t>(difficulty)<original::difficulty_count,"invalid original model difficulty");
+    auto loaded=original::load_model_data(root);
+    if (!loaded) throw std::runtime_error("original rules model preparation failed: "+
+        (loaded.error ? loaded.error->reason:std::string("model source unavailable")));
+    return original::OriginalRulesModel::prepare(std::move(*loaded.model),difficulty);
 }
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& source) {
     require(source.world.profile==simulation::RulesProfile::CityV11 &&
@@ -1030,7 +1040,8 @@ simulation::World restore_save(const SaveDocument& d,const fs::path& root,
     return simulation::World::restore(d.world,std::move(mask));
 }
 simulation::World restore_original_economy_development(const SaveDocument& d,const fs::path& root,
-        std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions) {
+        std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model) {
     require(simulation::original_economy_enabled(d.world.profile,d.world.rule_version),
             "schema23 development restore requires City-v16 rule7");
     require(d.source_schema_version==0 || d.source_schema_version==23,
@@ -1039,8 +1050,15 @@ simulation::World restore_original_economy_development(const SaveDocument& d,con
             "schema23 requires an original model source identity");
     (void)original_document_json(d);
     const auto& source=*d.world.original_economy->model_source;
-    require(original_model_source(root,source.difficulty)==source,
-            "schema23 original model source identity differs from save");
+    if (!model) model=prepare_original_rules_model(root,source.difficulty);
+    const auto& provenance=model->provenance();
+    require(source.format_version==provenance.format_version && source.sha256==provenance.sha256 &&
+            source.byte_count==provenance.byte_count && source.difficulty==model->difficulty(),
+            "schema23 prepared original rules model identity differs from save");
+    const auto inspected=original::inspect_model_source(root);
+    require(inspected.fingerprint && inspected.fingerprint->sha256==source.sha256 &&
+            inspected.fingerprint->byte_count==source.byte_count,
+            "schema23 live original model source identity differs from save");
     safe_relative(d.map_relative);
     const auto map=maps::resolve_map_path(root,d.map_relative);
     require(hash_file(map)==d.map_sha256,"original map SHA-256 differs from save");
@@ -1053,7 +1071,7 @@ simulation::World restore_original_economy_development(const SaveDocument& d,con
             "schema23 requires matching immutable policy3 map permissions");
     require(map_permissions_fingerprint(*permissions,d.map_sha256)==d.map_permissions_sha256,
             "map-permissions SHA-256 differs from save (permissions or topology changed)");
-    return simulation::World::restore_original_economy_development(d.world,std::move(permissions));
+    return simulation::World::restore_original_economy_development(d.world,std::move(permissions),std::move(model));
 }
 void validate_save_target(const fs::path& path,const fs::path& root) {
     require(!path.empty(),"save path is empty");
@@ -1079,7 +1097,7 @@ void write_save(const fs::path& path,const SaveDocument& d,const fs::path& root,
     validate_save_target(path,root);
     // Recheck original inputs and all world invariants before writing any bytes.
     if (simulation::original_economy_enabled(d.world.profile,d.world.rule_version))
-        (void)restore_original_economy_development(d,root,mask,d.prepared_permissions);
+        (void)restore_original_economy_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
     else (void)restore_save(d,root,mask);
     const auto bytes=document_json(d).dump(2);
     require(bytes.size()<=max_save_bytes,"save JSON exceeds 8 MiB");

@@ -81,7 +81,8 @@ void same_document(const save::SaveDocument& a,const save::SaveDocument& b) {
 struct Fixture {
     Root root;
     std::shared_ptr<const sim::MapPermissions> policy=permissions();
-    sim::World world=sim::World::create_original_economy_development(policy,save::original_model_source(root.data));
+    std::shared_ptr<const original::OriginalRulesModel> rules=save::prepare_original_rules_model(root.data);
+    sim::World world=sim::World::create_original_economy_development(policy,rules);
     fs::path target=root.path/"protected-save.json";
     Fixture() {
         for (int x=4;x<=15;++x) if (x!=11) buy(world,{sim::CommandType::PlaceRoad,{x,5}});
@@ -105,12 +106,13 @@ struct Fixture {
 };
 void positive_roundtrip(Fixture& f) {
     const auto d=f.document();f.write(d);const auto bytes=read_text(f.target);
-    // Independent OE-09 baseline: compile the exact a1a352b test/fixture and
-    // headers against retained OE-09 libraries, before the OE-10 rebuild.
-    // All 6,778 bytes are authored; the private provenance records source and
-    // library hashes. This is a frozen writer result, not a mirrored writer.
-    check(bytes.size()==6778 && sha256(bytes)=="9f2392de51302cb7451605eb5c2b7e8aa15cf827801c00cb1b8c21aebf967e6e",
+    // Independent OE-09 writer/headers/libraries, supplied this task's typed,
+    // entirely authored fixture. The older syntax-only source has a separate
+    // historical rejection control below; its golden is never silently reset.
+    check(bytes.size()==6778 && sha256(bytes)=="4e70a04b19700c86d974d53df4edb2fdcf3bb264622ef76c4c32a1be5b63ca68",
         "OE-09 Tick0 canonical save bytes changed");
+    check(d.prepared_original_rules_model==f.rules && f.world.original_rules_model()==f.rules,
+        "F5 capture replaced its immutable session model");
     const auto j=json::parse(bytes);
     check(j.at("schema_version")==23 && j.at("rules").at("version")==7 &&
         j.at("world").at("original_economy").at("houses").size()==2,
@@ -135,15 +137,17 @@ void positive_roundtrip(Fixture& f) {
     f.write(repeat);check(read_text(f.target)==bytes,"Canonical schema23 rewrite changed bytes");
     for (const auto difficulty:{original::Difficulty::VeryEasy,original::Difficulty::Easy,
             original::Difficulty::Normal,original::Difficulty::Hard,original::Difficulty::VeryHard}) {
-        auto w=sim::World::create_original_economy_development(f.policy,save::original_model_source(f.root.data,difficulty));
+        auto w=sim::World::create_original_economy_development(f.policy,save::prepare_original_rules_model(f.root.data,difficulty));
         auto doc=save::make_document(f.root.data,"Cities/Authored.map",f.policy->building_mask(),w);
         check(f.restore(doc).snapshot()==w.snapshot(),"Valid source difficulty did not roundtrip");
     }
     // Difficulty uses size_t: validate the full underlying domain before I/O,
     // including values whose low 32 bits would otherwise look like VeryEasy.
     for (const auto bad:std::array<std::size_t,3>{5,std::numeric_limits<std::size_t>::max(),
-            std::numeric_limits<std::size_t>::max()/2+1})
+            std::numeric_limits<std::size_t>::max()/2+1}) {
         refuses([&] { (void)save::original_model_source(f.root.data,static_cast<original::Difficulty>(bad)); });
+        refuses([&] { (void)save::prepare_original_rules_model(f.root.data,static_cast<original::Difficulty>(bad)); });
+    }
     check(bytes.find("ALL HOUSES")==std::string::npos && bytes.find("Authored house")==std::string::npos,
         "Model rows or labels leaked into save");
 }
@@ -228,6 +232,101 @@ void source_and_atomic_failures(Fixture& f) {
     check(f.world.snapshot()==initial && read_text(f.target)==pristine,"Failed source restore mutated live authority or saved bytes");
     f.write(d);check(read_text(f.target)==pristine,"Failed writes changed later valid canonical output");
 }
+void immutable_model_binding(Fixture& f) {
+    const auto document=f.document();const auto pristine=read_text(f.target);
+    const auto state=f.world.snapshot();const auto model=f.world.original_rules_model();
+    check(model==f.rules && document.prepared_original_rules_model==model,
+        "Session model is not passed explicitly into save capture");
+    auto captured=save::restore_original_economy_development(document,f.root.data,
+        f.policy->building_mask(),f.policy,model);
+    check(captured.original_rules_model()==model,"Explicit restore replaced an existing immutable dependency");
+    auto loaded=f.restore(document);
+    check(loaded.original_rules_model() && loaded.original_rules_model()!=model &&
+        loaded.original_rules_model()->provenance().sha256==model->provenance().sha256 &&
+        loaded.snapshot()==state,"Independent F9 restore lost equivalent source binding");
+
+    Root identical;
+    auto identical_model=save::prepare_original_rules_model(identical.data);
+    check(identical_model!=model && identical_model->provenance().sha256==model->provenance().sha256,
+        "Separate identical-file sessions were globally cached or changed identity");
+    auto identical_world=save::restore_original_economy_development(document,identical.data,
+        f.policy->building_mask(),f.policy,identical_model);
+    check(identical_world.original_rules_model()==identical_model && identical_world.snapshot()==state,
+        "Identical source at another valid root cannot bind the same save");
+
+    Root different;oe_save_fixture::write_model(different.data,1);
+    auto different_model=save::prepare_original_rules_model(different.data);
+    check(different_model->provenance().sha256!=model->provenance().sha256 &&
+        different_model->house_rules().row_capacity(original::ModelHouse::Shelter)==37 &&
+        model->house_rules().row_capacity(original::ModelHouse::Shelter)==0,
+        "Different sessions do not retain independently prepared authored values");
+    auto second=sim::World::create_original_economy_development(f.policy,different_model);
+    const auto second_before=second.snapshot();
+    second.tick();check(f.world.snapshot()==state && second.ticks()==1 &&
+        second.original_rules_model()==different_model && f.world.original_rules_model()==model,
+        "One session mutated another session or rebound its model");
+    refuses([&] { (void)save::restore_original_economy_development(document,different.data,
+        f.policy->building_mask(),f.policy,different_model); });
+    auto mismatched=document;mismatched.prepared_original_rules_model=different_model;
+    refuses([&] { f.write(mismatched); });
+
+    auto hard=save::prepare_original_rules_model(f.root.data,original::Difficulty::VeryHard);
+    check(hard->provenance().sha256==model->provenance().sha256 && hard->difficulty()!=model->difficulty(),
+        "Difficulty control did not preserve the same source bytes");
+    refuses([&] { (void)save::restore_original_economy_development(document,f.root.data,
+        f.policy->building_mask(),f.policy,hard); });
+    mismatched=document;mismatched.prepared_original_rules_model=hard;
+    refuses([&] { f.write(mismatched); });
+
+    const auto source_path=f.root.data/"Model/EmperorBuildingModels.txt";
+    const auto source=read_text(source_path);
+    fs::remove(source_path);
+    // Already prepared typed queries and ticks require no file access. F5 and
+    // F9 still verify the live source before publishing any world or bytes.
+    auto detached=captured;
+    detached.tick();
+    check(detached.original_rules_model()==model &&
+        detached.original_rules_model()->house_rules().row_capacity(original::ModelHouse::Shelter)==0,
+        "Immutable model access unexpectedly depends on a live source file");
+    refuses([&] { (void)f.document(); });refuses([&] { f.write(document); });
+    refuses([&] { (void)f.restore(document); });
+    write_text(source_path,"invalid independently authored preparation");
+    refuses([&] { (void)save::prepare_original_rules_model(f.root.data); });
+    check(f.world.snapshot()==state && f.world.original_rules_model()==model &&
+        second.original_rules_model()==different_model && second.ticks()==second_before.ticks+1 &&
+        read_text(f.target)==pristine,"Failed source preparation changed a session or protected save");
+    write_text(source_path,source);
+    auto retry=save::prepare_original_rules_model(f.root.data);
+    check(retry!=model && retry->provenance().sha256==model->provenance().sha256,
+        "Failed preparation poisoned a later independent load");
+    f.write(document);check(read_text(f.target)==pristine,"Source retry changed canonical save bytes");
+}
+void historical_syntactic_source(Fixture& f) {
+    const auto pristine=read_text(f.target);const auto state=f.world.snapshot();
+    const auto model=f.world.original_rules_model();
+    const auto source_path=f.root.data/"Model/EmperorBuildingModels.txt";
+    const auto current_source=read_text(source_path);
+    const auto historical=oe_save_fixture::historical_syntactic_model_text();
+    write_text(source_path,historical);
+    const auto syntax=original::load_model_data(f.root.data);
+    check(static_cast<bool>(syntax),"Historical syntax-only source no longer parses as ModelData");
+    refuses([&] { (void)save::prepare_original_rules_model(f.root.data); });
+    auto old=json::parse(pristine);
+    old["world"]["original_economy"]["model_source"]["sha256"]=sha256(historical);
+    old["world"]["original_economy"]["model_source"]["byte_count"]=historical.size();
+    const auto old_bytes=old.dump(2);
+    check(old_bytes.size()==6778 && sha256(old_bytes)=="9f2392de51302cb7451605eb5c2b7e8aa15cf827801c00cb1b8c21aebf967e6e",
+        "Historical OE-09 syntax-only save golden changed");
+    const auto path=f.root.path/"historical-syntax-only.json";
+    write_text(path,old_bytes);
+    const auto parsed=save::read_save(path);
+    refuses([&] { (void)f.restore(parsed); });
+    refuses([&] { f.write(parsed); });
+    check(f.world.snapshot()==state && f.world.original_rules_model()==model &&
+        read_text(f.target)==pristine && read_text(path)==old_bytes,
+        "Historical invalid-runtime source changed saved bytes or active model authority");
+    write_text(source_path,current_source);
+}
 void scheduler_file_roundtrips(Fixture& f) {
     const auto initial=f.document();
     const auto tick0_bytes=read_text(f.target);
@@ -243,7 +342,7 @@ void scheduler_file_roundtrips(Fixture& f) {
             while (running.ticks()<tick) running.tick();
         } else {
             auto terminal=initial.world;terminal.ticks=tick;
-            running=sim::World::restore_original_economy_development(terminal,f.policy);
+            running=sim::World::restore_original_economy_development(terminal,f.policy,f.rules);
         }
         const auto before=running.snapshot();
         auto document=save::make_document(f.root.data,"Cities/Authored.map",f.policy->building_mask(),running);
@@ -256,13 +355,14 @@ void scheduler_file_roundtrips(Fixture& f) {
         check(original::next_scheduler_dispatch(restored.ticks())==original::next_scheduler_dispatch(tick),
             "Boundary save changed the next service, evolution or consumption opportunity");
         parsed.prepared_permissions=f.policy;
+        parsed.prepared_original_rules_model=restored.original_rules_model();
         f.write(parsed);
         check(read_text(f.target)==bytes,"Boundary canonical rewrite changed bytes");
         if (tick==0) check(bytes==tick0_bytes,"OE-09 Tick0 save acquired scheduler payload or changed bytes");
         auto expected=before;
         if (tick<original::scheduler_max_tick) {
             ++expected.ticks;
-            auto reference=sim::World::restore_original_economy_development(before,f.policy);
+            auto reference=sim::World::restore_original_economy_development(before,f.policy,f.rules);
             reference.tick();restored.tick();
             check(restored.snapshot()==reference.snapshot() && restored.snapshot()==expected,
                 "Save/load drifted on the exact next clock-only tick");
@@ -274,7 +374,7 @@ void scheduler_file_roundtrips(Fixture& f) {
         }
     }
     auto invalid=initial.world;invalid.ticks=std::numeric_limits<std::uint64_t>::max();
-    refuses([&] { (void)sim::World::restore_original_economy_development(invalid,f.policy); });
+    refuses([&] { (void)sim::World::restore_original_economy_development(invalid,f.policy,f.rules); });
     // Restore the common Tick0 fixture so its malformed/legacy checks retain
     // their original premise and cannot accidentally accept clock authority.
     f.write(initial);check(read_text(f.target)==tick0_bytes,"Boundary tests changed the historical Tick0 document");
@@ -292,7 +392,7 @@ void direct_authority_and_recovery(Fixture& f) {
         if (kind==6) bad.original_economy.reset();
         if (kind==7) bad.original_economy->houses[0].house.ceramics=1;
         if (kind==8) bad.road_revision++;
-        refuses([&] { (void)sim::World::restore_original_economy_development(bad,f.policy); });
+        refuses([&] { (void)sim::World::restore_original_economy_development(bad,f.policy,f.rules); });
         check(f.world.snapshot()==saved,"Rejected DTO restore changed live World");
     }
     const auto app=f.root.path/"recovery-app";
@@ -332,11 +432,23 @@ void legacy_boundaries(Fixture& f) {
     auto reread=save::read_save(path);reread.prepared_permissions=f.policy;
     save::write_save(path,reread,f.root.data,f.policy->building_mask());
     check(read_text(path)==bytes,"Legacy canonical roundtrip changed");
+    const auto model_path=f.root.data/"Model/EmperorBuildingModels.txt";
+    const auto source=read_text(model_path);
+    fs::remove(model_path);
+    auto no_model=save::restore_save(reread,f.root.data,f.policy->building_mask(),f.policy);
+    save::write_save(path,save::make_document(f.root.data,"Cities/Authored.map",f.policy->building_mask(),no_model),
+        f.root.data,f.policy->building_mask());
+    check(read_text(path)==bytes && !no_model.original_rules_model(),
+        "Legacy save requires an original model or changed bytes without one");
+    write_text(model_path,"invalid model must not affect legacy saves");
+    check(save::restore_save(reread,f.root.data,f.policy->building_mask(),f.policy).snapshot()==old.snapshot(),
+        "Invalid unrelated model blocks legacy restore");
+    write_text(model_path,source);
 }
 } // namespace
 int main() {
     try {
-        Fixture f;positive_roundtrip(f);malformed_json(f);source_and_atomic_failures(f);scheduler_file_roundtrips(f);direct_authority_and_recovery(f);legacy_boundaries(f);
+        Fixture f;positive_roundtrip(f);malformed_json(f);source_and_atomic_failures(f);immutable_model_binding(f);historical_syntactic_source(f);scheduler_file_roundtrips(f);direct_authority_and_recovery(f);legacy_boundaries(f);
         std::cout<<"Schema23 PASS: paid vacant houses/infrastructure, canonical persistence and "<<rejected<<" rejected adversarial cases\n";return 0;
     } catch (const std::exception& error) { std::cerr<<"Schema23: "<<error.what()<<'\n';return 1; }
 }

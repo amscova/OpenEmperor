@@ -450,10 +450,10 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     library = args.simulation_library or ROOT / CONFIGURATIONS[args.configuration][1] / "libopenemperor-simulation.a"
     if not library.is_file():
         raise ValueError("matching prebuilt simulation library is missing; build the selected configuration first")
-    # OE-09 reviewed: separate optional Rule-7 state changes World layout.
+    # OE-11 reviewed: immutable session model adds one transient shared pointer.
     # Recompile probes against the matching library and pin both exact headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "defac8797e07940653d85b26843e00282f6ef243":
+    if world_blob != "f675b8c36a097451db036fe2a4b080f6966e0bd3":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()

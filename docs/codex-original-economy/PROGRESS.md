@@ -16,8 +16,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-07 | PASS | 26faf654c6d714a88c4b72ffb29c5e1d0b936add | `.local/original-economy/oe07/`, OE-00/`oe07-verification/`; `core-parity.json` | 74 echte Vergleichsfälle/vier Forkmodule;507 CTests PASS;Gate A bestanden;72 Saves/1485 Policyfälle identisch |
 | OE-08 | PASS | ac052762fba501a85f241a4828726c2a9deb1e90 | `.local/original-economy/oe08/`, OE-00/`oe08-verification/` | Explizite Rule7-Entwickler-Gates;513 CTests PASS;72 Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-09 | PASS | a1a352bd697e8a424fb6d76875782d84d70b930a | `.local/original-economy/oe09/`, OE-00/`oe09-final-verification/` | Schema23/OriginalHouse;519 CTests plus33 finale Wiederholungen PASS; echte F5/F9-/Prozess-Roundtrips und72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-10 | PASS | — | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
-| OE-11 | TODO | — | — | — |
+| OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
+| OE-11 | PASS | — | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-12 | TODO | — | — | — |
 | OE-13 | TODO | — | — | — |
 | OE-14 | TODO | — | — | — |
@@ -1026,3 +1026,125 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
   `git diff --check` und47 relative Dokumentlinks **PASS**. Gate B bleibt offen;
   kein OE-11-Code, keine native menschliche Abnahme oder originale Echtzeitparität.
+
+### OE-11 – 2026-10-16, Basisd6eb736e
+
+- Start am sauberen, live/origin bestätigten `main`
+  `d6eb736e1dbf0f08c26b933d3beb4c132ee5192a`; vorhandener Feature-Branch per
+  Fast-forward angeglichen. OE-10-SHA oben nachgetragen; eigener Commit folgt
+  im Abschluss und beim nächsten Prompt. Vorzustand unter
+  `.local/original-economy/oe11/initial-state.json`.
+- [Sessionvertrag](../original-economy/model-session-binding.md): genau eine
+  unveränderliche Modellinstanz pro gebundener World, mit Fileprovenance,
+  Difficulty,15 House-/sieben Building-Zeilen. Einmalige vollständige Vorbereitung
+  durch vorhandene geprüfte typisierte Leser; danach keine Rohdatenabhängigkeit,
+  kein globaler Cache oder World-Datenroot. Die tatsächliche Originaldatei mit
+  34218 Bytes/SHA `7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6`
+  wird ausschließlich gelesen. Andere gültige Quellen erhalten eigene Identität.
+- Create, privater Konstruktor und ausdrücklicher Restore erhalten die geprüfte
+  Modellinstanz explizit. Vollständiger Format-/SHA-/Bytezahl-/Difficulty-Vergleich;
+  ein ungebundener Snapshot wird nicht still nachgebunden. Alte ungebundene
+  Infrastruktur-/Clockfixtures bleiben unspeicherbar. Normale Rule7-App, Menü,
+  Reset und Recovery weiterhin geschlossen, Zeitbasis und aktive Wirtschaft
+  unverändert.
+- F5 übernimmt den bestehenden World-Pointer transient im SaveDocument und
+  prüft live nur die begrenzt gelesenen Datei-SHA/Größe. F9 bereitet genau einen
+  frischen Kandidaten vor; Veröffentlichung erst nach sämtlichen vorhandenen
+  Map-/Policy-/Snapshot-/Accounting-Prüfungen. `read_save` erzeugt keinen Pointer.
+  Fehlende, geänderte oder semantisch ungültige Quellen verändern weder aktive
+  World/Modellinstanz noch vorhandene Savebytes. Kein JSON-Key, keine Migration
+  oder zusätzliche Modellanforderung für Schemas1–22.
+- Ein gemeinsamer interner read-only Reader erhält sämtliche alten Parser-
+  Pfad-/Containment-/Größen-/Readfehler und stellt zusätzlich eine reine bounded
+  Fingerprintprüfung bereit. Sie verleiht keine semantische Gültigkeit. Reine
+  World-Ticks, Frames, Rendern und vorbereitete Getter besitzen keinen Lade-
+  oder Parsingpfad; bestehende Session bleibt bei entfernter Datei verwendbar.
+- Die bisherige OE-09-Testquelle war ausschließlich syntaxgültig und enthielt
+  freie Namen/eine Building-Zeile. Ihr ursprünglicher6778-Byte-Golden wird
+  weiterhin exakt rekonstruiert und nun als Runtime-Negativkontrolle geprüft.
+  Zusätzlich wurde die neue vollständig authored, korrekt benannte Fixture
+  tatsächlich mit eingefrorenem OE-09-Writer/Headern/Libraries ausgeführt:
+  unveränderte6778 Savebytes/SHA
+  `4e70a04b19700c86d974d53df4edb2fdcf3bb264622ef76c4c32a1be5b63ca68`.
+  Historischer und neuer Golden sind getrennt, kein Assertion-Reset. Private
+  Provenance in `oe09-valid-fixture-golden-final/provenance.json`; Begründung
+  in [DECISIONS](DECISIONS.md).
+- Vollständige Builds Debug, Release und ASan/UBSan **PASS**, keine
+  Compilerwarnungen; je177 CTests registriert. Tatsächlich ausgeführte66er-
+  Taskauswahl: Modellparser/-schema/-vorbereitung, pure Regeln, Scheduler,
+  World/Save/F5F9/OS-Prozess, alte Simulation/Finance/Demand/Determinismus,
+  Bridge/Ramp, Recovery, Menü/Session/Mapauswahl/Input. Exakte Namen/Regex und
+  Befehle in `selection.json`, `run_build.py` und `run_core_tests.py`, je eigener
+  absoluter TMPDIR. **Debug66/66 PASS**, 189.31s;
+  **Release66/66 PASS**, 14.21s;
+  **ASan/UBSan66/66 PASS**, 56.06s mit
+  `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`; keine Sanitizer-Meldung.
+  Hinzu je eine Paritäts-Vertragsprüfung: **201 reguläre relevante CTests**, kein
+  Skip. Keine vollständige177er-Gate-Suite; Gate B folgt erst nach OE-12.
+  Vorläufige Debug-Smokes (Modell2/2, Rule-Gate1/1) bestanden ebenfalls.
+- Das zusätzliche Review fand einen Testharness-Randfall: `real()` übersprang
+  einen vorhandenen defekten Model-Symlink als fehlend. Nach vollständig
+  abgeschlossenem regulärem Prüflauf ausschließlich diesen Testguard verschärft;
+  private Vorherquelle/-manifeste und exakter Ein-Datei-Diff erhalten. Alle
+  Produktions-, CMake-, Tool-, Resource- und übrigen Testdateien blieben bytegleich.
+  Betroffenes Target in allen drei Konfigurationen erneut gebaut, Modelsuite
+  je2/2 **PASS** und direktes CLI je echte Abwesenheit→77/defekter Symlink→1
+  geprüft. **Sechs zusätzliche CTests**, insgesamt207; keine weitere
+  Produktionsänderung oder neue Legacy-Semantik. Protokolle in
+  `check_real_source_guard.py`, `*-guard-result.json`; Abschlussaudit in
+  `finalize_guard.py` verbindet beide Source-Stände exakt.
+- Neue Modelsuite **PASS** in allen drei Konfigurationen:20042 synthetische
+  und2264 reale Assertions. Literal authored Arithmetic/Difficulty,
+  Speicherprovenance-/Label-/Overflow-/Enum-Refusals, volle size_t-Domäne,
+  unterschiedliche Quellen, voneinander unabhängige Sessions und20000 Ticks
+  mit entfernter Datei geprüft. Die reale Suite vergleicht alle2255 vorbereiteten
+  Building-/House-Werte über fünf Difficulties mit den bestehenden geprüften
+  Lesern; Originalbytes vorher/nachher identisch.
+- Save-Suite **PASS** in allen drei Konfigurationen:191 verweigerte
+  Manipulationen, Pointerbindung/-lebensdauer, expliziter und frischer Restore,
+  gleiche Bytes an anderem Root, andere Daten/Hashes/Difficulties und atomare
+  Retryfälle. Vollständige alte Clock-/F5F9-Grenzen und20000 tatsächliche World-
+  Restores weiterhin bestanden; keine Aktivierung von Waren/Bewohnern/Evolution.
+- SDL-Suite **PASS** in allen drei Konfigurationen:120 sourcefreie Frames,
+  zwei tatsächliche Steps und Rendern mit stabiler Instanz/ohne gezählte Datei-
+  oder Assetarbeit; fehlender Create/F5/F9 schützt aktive Session und Save.
+  Nach Wiederherstellung erfolgreicher F9 mit neuer unabhängiger Instanz.
+  Zwei eigene Datenroots liefern vorbereitete Housewerte0/37 ohne aktive
+  Kapazität; Cross-Source-F9 wird atomisch verweigert. Neun bisherige tatsächliche
+  F5/F9-Zeitgrenzen und separate OS-Prozessfortsetzung um127 Steps mit vollständiger
+  SaveDocument-/Bytegleichheit weiterhin bestanden.
+- Frischer tatsächlicher Forkvergleich in Debug/Release/ASan+UBSan **je74/74
+  PASS**, unverändert46 parity/18 corrected_bug/6 unverified/4 unsupported,
+  je18 Housing-Beobachtungen und1800 Originalmodellwerte per Digest gleich.
+  Die drei portablen Berichte sind identisch; `core-parity.json` erneuert nur
+  tatsächliche Sourcehashes. World-ABI-Pin nach reviewed transientem Pointer-
+  Zusatz aktualisiert, DTO-Pin unverändert; keine numerischen Erwartungen,
+  Forkregeln oder Vergleichsklassen geändert. Je Konfiguration
+  `ctest --test-dir <BUILD> --output-on-failure -R '^original-rules-parity-contract$'`
+  **1/1 PASS**. Belege in `parity-{debug,release,sanitizer}/` und Vertragslogs.
+- Vollständiger Legacy-Replay auf unverändert gebliebenem Produktionscode **PASS**:
+  72 komplette
+  SaveDocuments und tatsächliche WorldSnapshots identisch;1485 Policyfälle,
+  167 vollständige Manager/165 vorbereitete Maps/zwei alte Konflikte unverändert.
+  Elf Rampen- und zehn Brücken-Neustartpaare einschließlich100-Tick-Fortsetzung
+  in separaten Prozessen identisch. Vertrags-SHA256 weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`.
+  Der anschließende ausschließlich engere Realtest-Skipguard ist im
+  Abschlussmanifest gesondert nachgewiesen; alle Produktionsdateien gleich.
+  Tatsächlich ausgeführter Befehl: `python3 tools/original_economy_baseline.py verify
+  --data .local/gog-extracted/app --build .local/reswall/release-build
+  --reference .local/original-economy/oe00/reference/contract.json
+  --output .local/original-economy/oe00/oe11-verification`.
+- Unabhängige Read-only-Reviews ohne offenen funktionalen Befund. Abschlussmanifest
+  `.local/original-economy/oe11/final-validation.json` **PASS**, alle
+  468 gefrorenen Quellen unverändert, Source-SHA256
+  `2a0257193d1ba22a5395ad34c78ba27629e45d0f977a9a3e8aae868d8b6669fe`.
+  449 von461 alten
+  Source-/Test-/Tool-/Resource-Dateien bytegleich; genau zwölf reviewed Dateien
+  geändert, zusätzlich CMake und drei neue Code-/Testdateien. MapPermissions,
+  Renderer, TickDriver, Main, Menüs und Recovery unverändert. Originalinventar
+  1464 Dateien/819711091 Bytes mit unverändertem Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  `git diff --check` und relative Links der aktualisierten Dokumente **PASS**.
+  Gate B bleibt offen; kein OE-12-Code, kein menschlicher/native Gameplay-PASS
+  und keine pauschale Originalparität.

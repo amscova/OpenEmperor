@@ -253,8 +253,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
-# Read-only model parser. Schema23 persistence uses source identity only;
-# no original runtime model is bound to World at this milestone.
+# Read-only model parser shared by bounded preparation and source fingerprints.
 add_library(openemperor-original-model STATIC
     src/simulation/original/ModelData.cpp src/simulation/original/ModelSchema.cpp)
 target_include_directories(openemperor-original-model PUBLIC src)
@@ -264,13 +263,19 @@ add_executable(openemperor-model-inspect tools/model-inspector/main.cpp)
 target_link_libraries(openemperor-model-inspect PRIVATE
     openemperor-original-model nlohmann_json::nlohmann_json)
 openemperor_enable_warnings(openemperor-model-inspect)
-# Numerical house rules; persistence uses only HouseType domain validation.
-# No evolution/needs rules are invoked by World at this milestone.
+# Numerical house rules; Rule7 preparation validates immutable model values.
+# Active evolution/needs processing remains a later World contract.
 add_library(openemperor-original-house-evolution STATIC
     src/simulation/original/HouseEvolution.cpp)
 target_include_directories(openemperor-original-house-evolution PUBLIC src)
 target_link_libraries(openemperor-original-house-evolution PUBLIC openemperor-original-model)
 openemperor_enable_warnings(openemperor-original-house-evolution)
+add_library(openemperor-original-rules-model STATIC
+    src/simulation/original/OriginalRulesModel.cpp)
+target_include_directories(openemperor-original-rules-model PUBLIC src)
+target_link_libraries(openemperor-original-rules-model PUBLIC openemperor-original-house-evolution)
+openemperor_enable_warnings(openemperor-original-rules-model)
+target_link_libraries(openemperor-simulation PUBLIC openemperor-original-rules-model)
 # Explicit visit/countdown/spawn queries, without a World scheduler connection.
 add_library(openemperor-original-service-rules STATIC
     src/simulation/original/ServiceRules.cpp)
@@ -346,6 +351,14 @@ if(BUILD_TESTING)
     set_tests_properties(original-model-schema-synthetic original-model-schema-real
         PROPERTIES TIMEOUT 30)
     set_tests_properties(original-model-schema-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-original-rules-model-tests tests/OriginalRulesModelTests.cpp)
+    target_link_libraries(openemperor-original-rules-model-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-rules-model-tests)
+    add_test(NAME original-rules-model-synthetic COMMAND openemperor-original-rules-model-tests)
+    add_test(NAME original-rules-model-real COMMAND openemperor-original-rules-model-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-rules-model-synthetic original-rules-model-real PROPERTIES TIMEOUT 60)
+    set_tests_properties(original-rules-model-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-original-desirability-tests tests/OriginalDesirabilityTests.cpp)
     target_link_libraries(openemperor-original-desirability-tests PRIVATE
         openemperor-original-desirability OpenSSL::Crypto)

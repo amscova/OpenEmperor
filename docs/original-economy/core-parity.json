@@ -3654,17 +3654,19 @@
       "src/simulation/original/GoodsRules.h": "84751cc7e8007feec64e8c014ec30d38e8a36079b5138be771ea6b85794d82f9",
       "src/simulation/original/HouseEvolution.cpp": "9fb107d14fb91aa5959f9a1bed3ee893aaf080a376d0ca669493b44fc32e02fe",
       "src/simulation/original/HouseEvolution.h": "fca07a8dc7856eaa0540d1d7d0189f334537791ab00d53520c3f1fff30959a98",
-      "src/simulation/original/ModelData.cpp": "88a037808b18577c7c4c853cd357ec3a6a37eaa3a414a6200254e203f4ed1389",
-      "src/simulation/original/ModelData.h": "bcfab29c0f68fce286cdad8f0b94a7dfe8c166848cf76e3fe5abb5f91be71d28",
+      "src/simulation/original/ModelData.cpp": "40133ad4d729785344d72416eb469746ec7bba27b45281c16e32c87f75cbaf91",
+      "src/simulation/original/ModelData.h": "3b40b06585b4a3d00c64db776d23b70dbe5639720b97dcf04b6945bd8162fc01",
       "src/simulation/original/ModelSchema.cpp": "13245f667c71c538b5671cca2973bb43aa35a6767dd81a4594b5859cfeb991fc",
       "src/simulation/original/ModelSchema.h": "7fcf4a9ae3d05c0bee5596a97f08afd7623fd3b1fa88f4bd5227bc03f49debb2",
       "src/simulation/original/OriginalModelMapping.h": "5d60ab273d67884f9f269716ea13783e8ae896b3da798a598ff3e071c0cc6482",
+      "src/simulation/original/OriginalRulesModel.cpp": "81e2ade2bea91446eb555cbb3214b3df51b56fb40808f8187ca902e9ca83ef0c",
+      "src/simulation/original/OriginalRulesModel.h": "4d61f0d595ee3bfbcdc1e4476b25cb34aa5f0f6c06ca28698cf330a81ca3b610",
       "src/simulation/original/OriginalScheduler.h": "8b35dbb4b57bbcf03f262d2228f3be53c19315d50c6ab75974dc6b976bc07573",
       "src/simulation/original/ServiceRules.cpp": "687bb097d1fcdaed21d96f6022fd402016ce7a99b2722a241a17caa02c4960df",
       "src/simulation/original/ServiceRules.h": "4152e969bb95d5ba28f2400beef4032f8a3026ca225aed364deb0f7da805d944",
       "tools/original-rules-parity/HousingViewProbe.cpp": "d3efec7c21c7b361f96aa245c0a4929e48f3bebd0b51e02bed6be838ddc69d80",
       "tools/original-rules-parity/RuleProbe.cpp": "70f8e715f7be03d6c2ae4ec04afc5b69f13e90b05ba82174066ac208e8c8caa2",
-      "tools/original_rules_parity.py": "3c57dbd929f29b722903e6853a5495f1c4f0a28ad9441c8416dd14124f897d6f"
+      "tools/original_rules_parity.py": "847ca86f2bbae360a9a04029b0154110612d28531b42d7d5ad38b3fa936bdaac"
     }
   },
   "fork": {

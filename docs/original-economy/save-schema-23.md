@@ -9,7 +9,9 @@ gesperrt. OE-09 erlaubte ausschließlich Tick0. Die spätere
 Entwicklerpfad ausschließlich den versionierten Scheduler: vorhandene Ticks
 sind seine einzige Authority; zusätzliche Clock-Keys und eine Migration werden
 nicht eingeführt. Dieses Dokument trennt den aktuellen Savevertrag vom
-historischen OE-09-Nachweis.
+historischen OE-09-Nachweis. Seit [OE-11](model-session-binding.md) benötigt eine
+speicherbare Session zusätzlich ein unveränderliches, vollständig geprüftes
+`OriginalRulesModel`; das gespeicherte JSON-Payload wird dadurch nicht erweitert.
 
 ## Gespeicherte Authority
 
@@ -49,13 +51,25 @@ bleiben inaktiv.
 
 ## Quelle, striktes Lesen und atomisches Restore
 
-`original_model_source` liest die Modelldatei über den vorhandenen schreibgeschützten
-Parser und gibt ausschließlich ihre Identität zurück. Diese Identität wird bei
-Speichern und ausdrücklich gewähltem Entwicklungs-Restore gegen die echte Datei
-geprüft. Fehlende, beschädigte oder geänderte Dateien werden abgelehnt. Ein
-ungebundener OE-08-Infrastrukturtest kann weiterhin existieren, aber nicht als
-Schema23 gespeichert werden. Das ist noch keine World-Bindung eines vorbereiteten
-`OriginalRulesModel`; diese gehört zu OE-11.
+In OE-09 lieferte `original_model_source` über den schreibgeschützten Parser
+ausschließlich die Dateiidentität; vorbereitete Runtime-Regeln gehörten noch
+nicht zu diesem historischen Vertrag. Seit OE-11 erzeugt
+`prepare_original_rules_model` beim ausdrücklichen Create/Restore ein
+unveränderliches, semantisch geprüftes Modell für die gespeicherte Difficulty.
+Die World erhält dieses Objekt als explizite Abhängigkeit. Sourceidentität,
+vorbereitete Daten und aktuelle Datei müssen genau zusammenpassen; fehlende,
+beschädigte oder geänderte Dateien werden an den Create-/Save-/Load-Grenzen
+abgelehnt. Ungebundene Infrastruktur-/Clockfixtures besitzen weiterhin keine
+Schema23-Saveberechtigung. Die [Sessionbindung](model-session-binding.md)
+beschreibt Vorbereitung, Quellenisolation und die getrennten Laufzeitgrenzen.
+
+`SaveDocument::prepared_original_rules_model` bleibt eine transiente Abhängigkeit.
+F5 übernimmt den World-Zeiger und verifiziert die aktuelle Datei durch begrenztes
+Lesen/Hashen ohne erneutes Parsing. Frisches F9 bereitet genau einen neuen
+Kandidaten vor und veröffentlicht ihn erst mit der vollständig validierten
+World. `read_save` rekonstruiert keinen Zeiger; Modelltabellen, Quellpfade und
+vorbereitete Regeln bleiben außerhalb des JSON-Payloads. Alte Schema1..22-Pfade
+benötigen weiterhin keine zusätzliche Modelldatei.
 
 Zusätzlich bleiben Map-SHA, Buildable-Masken-SHA und der unveränderte gerahmte
 policy3-Fingerprint verbindlich. Restore konstruiert erst einen Kandidaten und
