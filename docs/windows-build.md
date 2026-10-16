@@ -51,13 +51,18 @@ not at the GOG installer. Settings, saves and recovery histories go to
   crashes with `STATUS_STACK_OVERFLOW` (`0xC00000FD`).
 - Tests that relaunch their own executable quote arguments through
   `tests/ProcessCommand.h`, since `std::system` uses `cmd.exe` on Windows.
+- Git for Windows defaults to `core.autocrlf=true`. Upstream's original-economy
+  evidence tests pin SHA-256/blob hashes of some sources, so `.gitattributes`
+  forces LF for exactly those files. Add any newly hash-pinned file there.
+- Real-data model tests (`original-*-real`) skip unless configured with
+  `-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=<installed game folder>`.
 
 ## Windows fixes found while testing
 
 - **SDL 3.4.10 software renderer.** STATIC textures stop drawing after a scale change. A standalone SDL program reproduces it with the dummy and the native Windows video driver; Direct3D 11/12 and OpenGL are unaffected. `renderer/TextureCompatibility.h` now selects STREAMING for the software renderer on 3.4.10 as well as 3.4.14.
-- **Click picking after a gesture (upstream bug).** `cancel_gesture()` invalidated the submitted hit-test frame on every click, so a second click before the next render selected nothing. It now rebuilds ramp visuals only when ramp state exists.
+- **Click picking after a gesture.** `cancel_gesture()` invalidated the submitted hit-test frame on every click, so a second click before the next render selected nothing. Found while porting; upstream has since fixed it identically, so the fork carries no code for it.
 - **Map corpus runner.** `tools/verify_map_corpus.py` reads subprocess pipes with threads on Windows (`select()` only works on sockets there). Its tests wrap their fake binaries in `.cmd` files, and the SIGINT test is skipped on Windows.
 
 ## Test status
 
-Tested with llvm-mingw / Clang 22.1.8, SDL 3.4.10: all 156 CTest cases pass, one Python sub-test (SIGINT delivery to a child) is skipped.
+Tested with llvm-mingw / Clang 22.1.8, SDL 3.4.10 at upstream `41091b6`: all 186 CTest cases pass (the 7 real-data model tests also pass when pointed at an installed game).
