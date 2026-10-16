@@ -168,7 +168,8 @@ RoadConnectivityReport diagnose_road_connectivity(
     const bool version_pair=permissions &&
         ((world.rule_version()==3 && permissions->policy_version()==kMapPermissionsPolicyVersion) ||
          (world.rule_version()==4 && permissions->policy_version()==kOriginalRoadsMapPermissionsPolicyVersion) ||
-         ((world.rule_version()==5 || world.rule_version()==6) && permissions->policy_version()==kBridgesMapPermissionsPolicyVersion));
+         (bridges_rule_enabled(world.profile(),world.rule_version()) &&
+          permissions->policy_version()==kBridgesMapPermissionsPolicyVersion));
     if (world.profile()!=RulesProfile::CityV16 || !version_pair) {
         result.unsupported_reason="Requires City-v16 rule 3/policy 1 or rule 4/policy 2 permissions";
         return result;

@@ -763,6 +763,13 @@ if(BUILD_TESTING)
         set_tests_properties(sandbox-city-v16-${maintenance_test} PROPERTIES TIMEOUT 900)
     endforeach()
 
+    add_executable(openemperor-original-economy-rule-gate-tests
+        tests/OriginalEconomyRuleGateTests.cpp)
+    target_link_libraries(openemperor-original-economy-rule-gate-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-economy-rule-gate-tests)
+    add_test(NAME original-economy-rule-gate COMMAND openemperor-original-economy-rule-gate-tests)
+    set_tests_properties(original-economy-rule-gate PROPERTIES TIMEOUT 30)
+
     add_executable(openemperor-city-start-guidance-tests
         tests/CityStartGuidanceTests.cpp)
     target_link_libraries(openemperor-city-start-guidance-tests
@@ -784,6 +791,10 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-alpha-endurance)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME original-economy-cli COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/tests/test_original_economy_cli.py --executable $<TARGET_FILE:openemperor>)
+        set_tests_properties(original-economy-cli PROPERTIES TIMEOUT 60
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME original-rules-parity-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_original_rules_parity.py)
         set_tests_properties(original-rules-parity-contract PROPERTIES TIMEOUT 30

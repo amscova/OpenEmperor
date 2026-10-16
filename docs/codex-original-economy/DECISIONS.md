@@ -6,9 +6,9 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 |---|---|---|
 | D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig testen | plan |
 | D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | plan |
-| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-00: am tatsächlichen HEAD frei; für spätere ausdrücklich gewählte Regeln reserviert, in OE-08/OE-09 erneut prüfen |
+| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-08: Rule7 frei und ausschließlich Entwickler-Gate; policy3 unverändert, Schema23 frei/reserviert für OE-09 |
 | D-04 | Alte Save-Schemas 1–22 unverändert und keine Auto-Migration | zwingende Invariante |
-| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | Abhängigkeiten prüfen |
+| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08: explizite begrenzte Capability-Gates; bezahlter vollständiger Rule6/7-Vergleich und Legacy-Replay bestanden |
 | D-06 | Original-Model-IDs nur nach eindeutiger Quelle als VERIFIED führen | einzelne IDs offen |
 | D-07 | Originalspiel-Simulationsschritte nicht automatisch mit 20Hz World-Ticks gleichsetzen | Zeitskala versioniert/prüfen |
 | D-08 | 15 House-Zeilen sind nicht gleich dem aktuellen World-Level 0..2 | eigene Authority erforderlich |
@@ -18,6 +18,44 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 ## Neue Entscheidungen
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
+
+### OE-08: Versionsidentität ohne vorzeitige Wirtschaftsfreigabe
+
+- **Revision:** Start am sauberen, live bestätigten `main`
+  `2651408e71db6a13ad6bec45214dd2b76f502ea2`; Feature-Branch per Fast-forward
+  angeglichen. OE-07 bleibt eigener Commit
+  `26faf654c6d714a88c4b72ffb29c5e1d0b936add`. Eigene SHA folgt im Report und
+  bei OE-09; delegierte Commit-/PR-/Merge-Freigabe gilt weiter, ohne Tag/Release.
+- **Versionsentscheidung:** Rule7 und Schema23 sind weiterhin frei. Nur exaktes
+  City-v16/7 aktiviert `original_economy_enabled()`. policy3 bleibt unverändert;
+  Schema23 wird erst OE-09 implementiert, Modelbindung OE-11, Scheduler OE-10.
+  Keine alte Versionsidentität, Defaults oder gespeicherte Daten ändern sich.
+- **Authored Entwicklungsgrenze:** Reguläre Konstruktoren/View/Restore/Saves
+  verweigern die unfertige Generation. Eine ausdrücklich benannte policy3-
+  Testfactory lässt nur bezahlte Road-/Bridge-/Ramp-Infrastruktur zu, ohne neue
+  Snapshotfelder oder gespeicherte Freigabe. Economy-Commands und Ticks werden
+  atomar verweigert. Alternative, bereits Legacy-Produktionsschritte unter7
+  laufen zu lassen, wurde verworfen: Sie würde eine verfügbare Originalwirtschaft
+  vortäuschen und neue Authority vor deren eigenen Verträgen einführen.
+- **CLI/Map:** `--sandbox-original-economy-check` ist ausdrücklich map-only,
+  liefert separat Mapstatus und `runtime_ready:false` und endet auch bei
+  geeigneter Map mit1. Kein Model-Parse, World, SDL, Save, Asset-/Visual-Setup;
+  Inputkombinationen bleiben streng. Keine neue Spieleroption im Menü.
+- **Infrastruktur/Legacy:** Gemeinsame bounded Gates erlauben Bridge5/6/7 und
+  Ramp6/7. Nur MapRulesCheck/RoadConnectivity benötigten weitere Guardänderung;
+  Bridge/Ramp/Renderer/MapPermissions bleiben unverändert. Zwei alte Tests
+  verwenden8 als unbekannte Version statt der jetzt reservierten7; sämtliche
+  bisherigen positiven Behauptungen bleiben bestehen. Neue vollständige
+  Profilmatrix und der bezahlte Rule6/7-Vergleich sichern Preise/IDs/Graphen.
+- **Forkvergleich:** Keine neuen Forkimporte oder Originalmechanik. Der genaue
+  World-Header-Kompatibilitätspin des Vergleichswerkzeugs wird nach unabhängigem
+  Review der additiven API aktualisiert und der echte74-Fall-Vergleich in drei
+  Konfigurationen neu ausgeführt. World-/Snapshot-Datenfelder bleiben gleich;
+  portable Evidenz wird aus tatsächlichen identischen Resultaten aktualisiert.
+- **Belege/Grenzen:** [Versionsvertrag](../original-economy/rule-generation.md),
+  neue Unit-/CLI-/View-Gates und tatsächliche Prüfprotokolle im Fortschritt.
+  Unabhängiger Core-/Persistenzreview ohne Blocker. Gate B bleibt offen; keine
+  Behauptung einer spielbaren Originalwirtschaft oder menschlicher Abnahme.
 
 ### OE-07: ausführbarer Forkvergleich und begrenzte Gate-A-Abnahme
 

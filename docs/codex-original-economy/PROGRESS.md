@@ -13,8 +13,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-04 | PASS | a8fd0ce0615d7009eecc373359c8c00b1a3207d4 | `.local/original-economy/oe04/`, OE-00/`oe04-verification/` | Pure16-Typ-/15-Zeilen-Evolution;39 CTests plus12 gezielte Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-05 | PASS | 269e80d850ea7d0e8d90b4853a48cf86f8140bf8 | `.local/original-economy/oe05/`, OE-00/`oe05-verification/` | Neun Timer/drei Visitpfade/elf Provider;33 CTests plus6 Wiederholungen PASS;72 Saves/1485 Policyfälle identisch |
 | OE-06 | PASS | 88e070865600b39d7296be7a6c821724c5cbe682 | `.local/original-economy/oe06/`, OE-00/`oe06-verification/` | Pure sechs Waren/Delivery/Konsum/Quality;48 CTests PASS;72 Saves/1485 Policyfälle identisch |
-| OE-07 | PASS | im Folgecommit | `.local/original-economy/oe07/`, OE-00/`oe07-verification/`; `core-parity.json` | 74 echte Vergleichsfälle/vier Forkmodule;507 CTests PASS;Gate A bestanden;72 Saves/1485 Policyfälle identisch |
-| OE-08 | TODO | — | — | — |
+| OE-07 | PASS | 26faf654c6d714a88c4b72ffb29c5e1d0b936add | `.local/original-economy/oe07/`, OE-00/`oe07-verification/`; `core-parity.json` | 74 echte Vergleichsfälle/vier Forkmodule;507 CTests PASS;Gate A bestanden;72 Saves/1485 Policyfälle identisch |
+| OE-08 | PASS | im Folgecommit | `.local/original-economy/oe08/`, OE-00/`oe08-verification/` | Explizite Rule7-Entwickler-Gates;513 CTests PASS;72 Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-09 | TODO | — | — | — |
 | OE-10 | TODO | — | — | — |
 | OE-11 | TODO | — | — | — |
@@ -759,3 +759,73 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   werden nicht als implementiertes Gameplay gezählt. Originale Gesamtparität,
   bezahlte neue Versorgung und Human-Akzeptanz bleiben offen. Eigener OE-07-
   Commit und delegierter PR/Merge folgen nach diesem PASS. Nächster Task: OE-08.
+
+### OE-08 – 2026-10-16, Basis2651408
+
+- Vor Beginn sauberer `main` und live/origin identisch auf
+  `2651408e71db6a13ad6bec45214dd2b76f502ea2`; bestehenden Feature-Branch per
+  Fast-forward angeglichen. Rule7/Schema23 vor Umsetzung als frei bestätigt.
+  Read-only Originalinventar und erlaubte Source-Differenzen unter
+  `.local/original-economy/oe08/{source-state,validated-task-source}.json`.
+- Expliziter City-v16/7-Gate, begrenzte gemeinsame Bridge-/Ramp-Gates und
+  policy3-Entwicklungsfactory. Regulärer Start, View, Economy-Commands, Ticks
+  und Saves verweigern7. Keine Model-/Scheduler-/Schema23-Implementierung oder
+  neue Menüoption. [Vertrag](../original-economy/rule-generation.md).
+- Neue SDL-freie Profil-/Infrastruktur-/Save-Suite:16 Profile×Versionen0–8 und
+  UINT32_MAX, vollständige Policy-/Startverweigerung,14 unfertige Commands,
+  Snapshotgleichheit von bezahlten Bridge/Ramp/Road/Repair gegen6 und1536
+  gerichtete Kanten. View-Konstruktor verweigert vor SDL und sämtlichen
+  Performance-Countern. Fünf hermetische CLI-Testmethoden prüfen klare Map-
+  Diagnose, unvollständige Inputs, inkompatible Modi und unveränderte Dateien.
+- Erster zusätzlicher direkter Debug-Aufruf ohne taskbezogenes TMPDIR traf im
+  neuen Testfixture macOS' `/var`-Symlink. Ausschließlich dessen TemporaryRoot
+  kanonisiert; strenge Produktions-Writerprüfung blieb unverändert. Direkter
+  Wiederholungslauf `env -u TMPDIR .../openemperor-original-economy-rule-gate-tests`
+  **PASS**; finale Suites verwenden eigene absolute Tempwurzeln je Konfiguration.
+- Alle drei Konfigurationen mit `cmake -S . -B <BUILD>` bestätigt und vollständig
+  gebaut: Debug, Release und RelWithDebInfo mit ASan/UBSan; System-SDL3 aktiv.
+  Vor CTest jeweils `ctest --test-dir <BUILD> -N`: **171 registrierte Tests**.
+  Reproduzierbare lokale Ablaufdatei `.local/original-economy/oe08/run_validation.py`;
+  konkrete Kommandos/Logs in `<configuration>-final-build-{0,1,2}.log` und
+  `<configuration>-full-tests.log`. Volle Suite:
+  `ctest --test-dir <BUILD> --output-on-failure --parallel 2`.
+- **Release:171/171 PASS**,86.53s; **ASan/UBSan:171/171 PASS**,317.38s;
+  **Debug:171/171 PASS**,1205.03s. Insgesamt **513 CTests PASS**,0 Skip;
+  keine Compiler-/Sanitizer-Meldung. Vollständige Assertions/Source-/Inventar-/
+  Vergleichsbindung in `.local/original-economy/oe08/final-validation.json`.
+- Echter Vier-Modul-Vergleich mit
+  `python3 tools/original_rules_parity.py --configuration <debug|release|sanitizer>
+  --data .local/gog-extracted/app --output .local/original-economy/oe08/parity-<CONFIG>`:
+  **je74/74 PASS**,46 parity/18 corrected_bug/6 unverified/4 unsupported;
+  jeweils18 echte HousingView-Beobachtungen und1800 Originalmodellwerte als
+  begrenzter Digest. Exakter Header-Kompatibilitätspin nach unabhängigem Review
+  erneuert; alle drei portablen Resultate identisch. `core-parity.json` ändert
+  ausschließlich den Toolquellenhash, keine Erwartungen/Beobachtungen.
+- `python3 tests/OriginalEconomyBaselineTests.py -v`: **13/13 PASS**.
+  Direkte neue Release-CLI gegen die echte `Cities/Xia.map`: geprüfte Map,
+  `runtime_ready:false`, erwarteter Exit1; separate Diagnose unter
+  `.local/original-economy/oe08/real-map-cli.json`. Kein SDL, World oder Modell
+  wird durch diese map-only Diagnose vorbereitet; kein spielbarer Start behauptet.
+- Vollständiger Legacy-Replay **PASS**,72/72 volle SaveDocuments und tatsächliche
+  WorldSnapshots byte-/feldgleich; alle1485 Policyfälle auf167 vollständigen
+  Managern/165 vorbereiteten Maps/zwei unveränderten Konflikten identisch.
+  Je11 Rampen-/10 Brücken-Checkpointpaare in separaten Prozessen mit sofortigem
+  Restore und100-Tick-Fortsetzung identisch. Vertrags-SHA256 weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`.
+  Ausgeführter Befehl:
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app
+  --build .local/reswall/release-build --reference
+  .local/original-economy/oe00/reference/contract.json --output
+  .local/original-economy/oe00/oe08-verification`.
+- Unabhängiger Core-/Persistenz-/Appreview ohne blockierenden Befund.
+  Keine WorldSnapshot-/MapPermissions-Datenfelder, Policy3 oder Originaldateien
+  geändert. Gate B bleibt bis OE-12 offen; spielbare Originalwirtschaft und
+  menschliche Abnahme sind weiterhin nicht nachgewiesen.
+- Abschließender Source-/Inventarvergleich nach Legacy-Replay **PASS**:
+  Task-Source-SHA256
+  `5fffd2604db29ef79d99b3eae5fc081fc0eeac345312b9fdd0eee428b9ea609c`;
+  441 von452 alten Source-/Test-/Tool-/Resource-Dateien bytegleich, exakt elf
+  reviewed Dateien geändert; zusätzlich CMake und zwei neue Tests. Sämtliche
+  Originalmodule, MapPermissions, Bridge/Ramp/Renderer und Menü bleiben bytegleich.
+  Originalinventar1464 Dateien/819711091 Bytes mit unverändertem Manifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.

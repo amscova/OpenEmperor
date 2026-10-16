@@ -213,6 +213,17 @@ std::uint32_t current_rule_version(RulesProfile profile);
 bool rule_version_supported(RulesProfile profile,std::uint32_t version);
 const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version);
 
+inline constexpr std::uint32_t kOriginalEconomyRuleVersion=7;
+constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalEconomyRuleVersion;
+}
+constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7);
+}
+constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && (version==6 || version==7);
+}
+
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
     return market_profile(profile) ? Rules::city_v11_starting_treasury:
         Rules::starting_treasury;
@@ -511,8 +522,9 @@ const char* delivery_phase_name(CourierPhase phase);
 
 class World {
 public:
-    bool bridges_supported() const { return profile_==RulesProfile::CityV16 && (rule_version_==5 || rule_version_==6); }
-    bool ramps_supported() const { return profile_==RulesProfile::CityV16 && rule_version_==6; }
+    bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
+    bool bridges_supported() const { return bridges_rule_enabled(profile_,rule_version_); }
+    bool ramps_supported() const { return ramps_rule_enabled(profile_,rule_version_); }
     std::span<const RampLink> ramps() const { return ramps_; }
     const RampLink* ramp_endpoint(Cell cell) const;
     const RampLink* ramp_between(Cell a,Cell b) const;
@@ -528,6 +540,9 @@ public:
           RulesProfile profile=RulesProfile::LogisticsV1,std::uint32_t rule_version=0);
     World(std::shared_ptr<const MapPermissions> permissions,
           RulesProfile profile=RulesProfile::CityV16,std::uint32_t rule_version=0);
+    // Infrastructure-only test fixture. No economy ticks, producers or save support
+    // until the new generation's model, scheduler and schema are implemented.
+    static World create_original_economy_development(std::shared_ptr<const MapPermissions> permissions);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -679,7 +694,7 @@ public:
 private:
     World(int width,int height,std::vector<std::uint8_t> buildable,
           RulesProfile profile,std::uint32_t rule_version,
-          std::shared_ptr<const MapPermissions> permissions);
+          std::shared_ptr<const MapPermissions> permissions,bool original_development=false);
     void update_health();
     void update_fire();
     CommandResult execute_impl(Command command,bool refresh_after);
