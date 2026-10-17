@@ -73,6 +73,7 @@ const char* courier_role_label(simulation::CourierRole role) {
     case simulation::CourierRole::OriginalFoodToMarket: return "FoodToMarket";
     case simulation::CourierRole::OriginalFoodToHouse: return "FoodToHouse";
     case simulation::CourierRole::OriginalAncestor: return "Ancestor";
+    case simulation::CourierRole::OriginalWater: return "Water";
     case simulation::CourierRole::None: return "None";
     }
     return "Unknown";
@@ -148,6 +149,7 @@ const char* tool_name(simulation::RulesProfile rules,int tool) {
         case 19: return "Wheat Field: select a Food Farm, place adjacent field";
         case 20: return "Millet Field: select a Food Farm, place adjacent field";
         case 21: return "Ancestor Shrine: 2x2, staffed visitors grant Ancestor access";
+        case 22: return "Water Well: 2x2, staffed actual visits supply water";
         default: return "Select";
         }
     }
@@ -180,6 +182,7 @@ const char* object_name(simulation::Object object) {
     case simulation::Object::OriginalWheatField: return "Wheat Field";
     case simulation::Object::OriginalMilletField: return "Millet Field";
     case simulation::Object::OriginalAncestorShrine214: return "Ancestor Shrine";
+    case simulation::Object::OriginalWaterWell72: return "Water Well";
     }
     return "Unknown";
 }
@@ -206,6 +209,7 @@ simulation::CommandType command_type(simulation::RulesProfile rules,int tool,boo
         case 19: return simulation::CommandType::PlaceOriginalWheatField;
         case 20: return simulation::CommandType::PlaceOriginalMilletField;
         case 21: return simulation::CommandType::PlaceOriginalAncestorShrine;
+        case 22: return simulation::CommandType::PlaceOriginalWaterWell;
         default: return simulation::CommandType::PlaceHousehold;
         }
     }
@@ -1725,11 +1729,18 @@ void SandboxView::set_tool(int tool) {
     case 19: action=sandbox_ui::Action::OriginalWheatField; break;
     case 20: action=sandbox_ui::Action::OriginalMilletField; break;
     case 21: action=sandbox_ui::Action::OriginalAncestorShrine; break;
+    case 22: action=sandbox_ui::Action::OriginalWaterWell; break;
     default: return;
     }
     if (action_enabled(action)) perform_action(action);
 }
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
+    if (action==sandbox_ui::Action::OriginalWaterWell) {
+        if (!original_production_fixture() || walker_diagnostic_open_) return false;
+        return std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b) {
+            return b.kind==simulation::Object::OriginalWaterWell72;
+        })<2 && world_->treasury()>=world_->construction_cost(simulation::CommandType::PlaceOriginalWaterWell);
+    }
     if (action==sandbox_ui::Action::OriginalAncestorShrine) {
         if (!original_production_fixture() || walker_diagnostic_open_) return false;
         return std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b) {
@@ -2011,6 +2022,7 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         else if (action==A::OriginalWheatField) command=simulation::CommandType::PlaceOriginalWheatField;
         else if (action==A::OriginalMilletField) command=simulation::CommandType::PlaceOriginalMilletField;
         else if (action==A::OriginalAncestorShrine) command=simulation::CommandType::PlaceOriginalAncestorShrine;
+        else if (action==A::OriginalWaterWell) command=simulation::CommandType::PlaceOriginalWaterWell;
         else if (action==A::ServicePost) command=simulation::CommandType::PlaceServicePost;
         else if (action==A::Market) command=simulation::CommandType::PlaceMarket;
         else if (action==A::FireWatch) command=simulation::CommandType::PlaceFireWatch;
@@ -2027,14 +2039,14 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
     if (action==A::Select || action==A::Road || action==A::Clay || action==A::Pottery ||
         action==A::Warehouse || action==A::RemoveRoad || action==A::Household ||
         action==A::Farm || action==A::OriginalHempFarm || action==A::OriginalHempField || action==A::OriginalFoodFarm ||
-        action==A::OriginalWheatField || action==A::OriginalMilletField || action==A::OriginalAncestorShrine || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || (action==A::Bridge || action==A::Ramp)) {
+        action==A::OriginalWheatField || action==A::OriginalMilletField || action==A::OriginalAncestorShrine || action==A::OriginalWaterWell || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || (action==A::Bridge || action==A::Ramp)) {
         cancel_gesture();
         tool_=action==A::Select ? (simulation::production_profile(rules_) ? 5:4) :
             action==A::Road ? 1 : action==A::Clay ? 2 : action==A::Pottery ? 3 :
             action==A::Warehouse ? (simulation::production_profile(rules_) ? 4:3) :
             action==A::RemoveRoad ? 6:action==A::Household ? 7:action==A::Farm ? 8:
             action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:action==A::Ramp ? 15:action==A::OriginalHempFarm ? 16:action==A::OriginalHempField ? 17:
-            action==A::OriginalFoodFarm ? 18:action==A::OriginalWheatField ? 19:action==A::OriginalMilletField ? 20:action==A::OriginalAncestorShrine ? 21:0;
+            action==A::OriginalFoodFarm ? 18:action==A::OriginalWheatField ? 19:action==A::OriginalMilletField ? 20:action==A::OriginalAncestorShrine ? 21:action==A::OriginalWaterWell ? 22:0;
         last_message_=original_influence_fixture() && tool_==12 ? "Well72 influence source: 2x2, $60, no water":
             tool_==15 ? "Ramp: neighboring roads, one signed level, $40":tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
     } else if (action==A::ServiceOverlay) {
@@ -2312,6 +2324,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         else if (event.key.key==SDLK_O && original_production_fixture()) set_tool(18);
         else if (event.key.key==SDLK_W && original_production_fixture()) set_tool(19);
         else if (event.key.key==SDLK_L && original_production_fixture()) set_tool(20);
+        else if (event.key.key==SDLK_Q && original_production_fixture() && !walker_diagnostic_open_) set_tool(22);
         else if (event.key.key==SDLK_Y && original_production_fixture() && !walker_diagnostic_open_) set_tool(21);
         else if(event.key.key==SDLK_P && world_->ramps_supported() && !walker_diagnostic_open_)set_tool(15);
         else if(event.key.key==SDLK_B && world_->bridges_supported() && !walker_diagnostic_open_)set_tool(14);
@@ -3164,6 +3177,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
                 color=debug_open_ ? SDL_Color{105,220,90,255}:SDL_Color{89,126,68,255};
             if (object==simulation::Object::ServicePost)
                 color=debug_open_ ? SDL_Color{80,205,255,255}:SDL_Color{91,119,132,255};
+            if (object==simulation::Object::OriginalWaterWell72) color=SDL_Color{66,145,164,255};
             if (object==simulation::Object::OriginalAncestorShrine214)
                 color=SDL_Color{164,116,71,255};
             if (object==simulation::Object::FireWatch)
@@ -3328,6 +3342,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==19 ? simulation::Object::OriginalWheatField:
             tool_==20 ? simulation::Object::OriginalMilletField:
             tool_==21 ? simulation::Object::OriginalAncestorShrine214:
+            tool_==22 ? simulation::Object::OriginalWaterWell72:
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
             tool_==11 ? simulation::Object::FireWatch:
@@ -3639,6 +3654,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==19 ? simulation::Object::OriginalWheatField:
             tool_==20 ? simulation::Object::OriginalMilletField:
             tool_==21 ? simulation::Object::OriginalAncestorShrine214:
+            tool_==22 ? simulation::Object::OriginalWaterWell72:
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
             tool_==11 ? simulation::Object::FireWatch:
@@ -4093,6 +4109,11 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             if (original_production_fixture()) {
                 const auto& houses=world_->original_economy_state()->houses;
                 const auto home=std::find_if(houses.begin(),houses.end(),[&](const auto& value){return value.building_id==*house_id;});
+                if (home!=houses.end()) {
+                    const auto& water=world_->original_production_state()->water.houses[static_cast<std::size_t>(home-houses.begin())];
+                    lines[1]="Type "+std::to_string(static_cast<unsigned>(home->house.type))+" | Residents "+std::to_string(home->house.occupants);
+                    lines[3]="Water"+std::to_string(home->house.water)+" Raw"+std::to_string(water.normal_timer)+" Counter"+std::to_string(home->house.devolve_counter);
+                }
                 if (home!=houses.end()) lines.push_back("Ceramics: "+std::to_string(home->house.ceramics)+"/"+
                     std::to_string(simulation::Rules::household_capacity));
                 if (home!=houses.end()) lines.push_back("Hemp: "+std::to_string(home->house.hemp)+"/8");
@@ -4129,15 +4150,17 @@ std::vector<std::string> SandboxView::inspection_lines() const {
     if (original_production_fixture() && house_id &&
         (world_->building(*house_id).kind==simulation::Object::HealthPost ||
          world_->building(*house_id).kind==simulation::Object::ServicePost ||
-         world_->building(*house_id).kind==simulation::Object::OriginalAncestorShrine214)) {
+         world_->building(*house_id).kind==simulation::Object::OriginalAncestorShrine214 ||
+         world_->building(*house_id).kind==simulation::Object::OriginalWaterWell72)) {
         const auto id=*house_id;const auto& b=world_->building(id);
         const bool ancestor=b.kind==simulation::Object::OriginalAncestorShrine214;
-        lines.push_back(std::string(ancestor ? "Ancestor214 #":b.kind==simulation::Object::HealthPost ? "Herbalist207 #":"Acupuncture208 #")+
+        const bool water=b.kind==simulation::Object::OriginalWaterWell72;
+        lines.push_back(std::string(water ? "WaterWell72 #":ancestor ? "Ancestor214 #":b.kind==simulation::Object::HealthPost ? "Herbalist207 #":"Acupuncture208 #")+
             std::to_string(static_cast<std::uint32_t>(id)));
         lines.push_back("Workers assigned "+std::to_string(world_->workers_assigned(id))+"/"+
             std::to_string(world_->workforce_required(id)));
         lines.push_back(std::string("Operation: ")+(b.operating_enabled ? "Running":"Paused"));
-        lines.push_back(ancestor ? "Actual visits set Ancestor to40 cycles":"Actual visits set this timer to96 cycles");
+        lines.push_back(water ? "Arrival96; phase28 water":ancestor ? "Actual visits set Ancestor to40 cycles":"Actual visits set this timer to96 cycles");
         if (ancestor) lines.push_back("Diagnostic shrine and visitor markers");
         for (const auto& c:world_->couriers()) if (c.owner==id) {
             lines.push_back(std::string("Visitor: ")+simulation::delivery_phase_name(c.phase));
@@ -5000,6 +5023,9 @@ bool SandboxView::draw_hud() {
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalWheatField));
         case A::OriginalMilletField: return "L Millet $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalMilletField));
+        case A::OriginalWaterWell: return "Q Water Well "+
+            std::to_string(count(simulation::Object::OriginalWaterWell72))+"/2 $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalWaterWell));
         case A::OriginalAncestorShrine: return "Y Ancestor "+
             std::to_string(count(simulation::Object::OriginalAncestorShrine214))+"/2 $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalAncestorShrine));
@@ -5047,6 +5073,7 @@ bool SandboxView::draw_hud() {
         case A::OriginalWheatField: active=tool_==19; break;
         case A::OriginalMilletField: active=tool_==20; break;
         case A::OriginalAncestorShrine: active=tool_==21; break;
+        case A::OriginalWaterWell: active=tool_==22; break;
         case A::FireWatch: active=tool_==11; break;
         case A::HealthPost: active=tool_==13; break;
         case A::Health: active=health_overlay_; break;
@@ -5537,6 +5564,20 @@ bool SandboxView::draw_help_overlay() {
         !SDL_SetRenderDrawColor(renderer_,235,241,248,255)) return false;
     const int pad=12*layout_.scale;
     const int line=16*layout_.scale;
+    if (original_production_fixture()) {
+        constexpr std::array<const char*,15> help{
+            "ORIGINAL ECONOMY - H closes", "Q Water Well | Y Ancestor Shrine",
+            "O Food Farm | W Wheat | L Millet", "N Hemp Farm | M Hemp Field",
+            "J Herbalist | 9 Acupuncture", "0 Market | 5 Select | 1 Road",
+            "F5 Save | F9 Load | Space Pause", "All sources need actual workers",
+            "Actual arrivals supply Houses", "Water is evaluated on phase28",
+            "House evolution runs on phase39", "Plain needs Water/Food/Ancestor",
+            "Inspect type, water and counter", "Current early ceiling: Plain Cottage",
+            "Original graphics follow separately"};
+        for (std::size_t row=0;row<help.size();++row)
+            if (!draw_text(x+pad,y+pad+static_cast<int>(row)*line,help[row],width-2*pad)) return false;
+        return true;
+    }
     if (simulation::maintenance_profile(rules_) && width<650*layout_.scale) {
         constexpr std::array<const char*,20> compact{
             "HELP - H / ? closes", "1-0 Build | F Watch | I Well | J Health",

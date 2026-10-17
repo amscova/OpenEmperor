@@ -46,13 +46,14 @@ bool food_role(CourierRole role) {
 }
 bool service_role(CourierRole role) {
     return role==CourierRole::Service || role==CourierRole::FireInspector ||
-        role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor;
+        role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor || role==CourierRole::OriginalWater;
 }
 Object courier_target_kind(CourierRole role) {
     switch (role) {
     case CourierRole::OriginalFoodToMarket: return Object::Market;
     case CourierRole::OriginalFoodToHouse: return Object::Household;
-    case CourierRole::OriginalAncestor: return Object::Household;
+    case CourierRole::OriginalAncestor:
+    case CourierRole::OriginalWater: return Object::Household;
     case CourierRole::OriginalHempToWarehouse: return Object::Warehouse;
     case CourierRole::Clay: return Object::Pottery;
     case CourierRole::Pottery: return Object::Warehouse;
@@ -79,7 +80,8 @@ std::size_t building_limit(RulesProfile profile,Object kind) {
     case Object::OriginalFoodFarm:
     case Object::OriginalWheatField:
     case Object::OriginalMilletField: return 2;
-    case Object::OriginalAncestorShrine214: return 2;
+    case Object::OriginalAncestorShrine214:
+    case Object::OriginalWaterWell72: return 2;
     case Object::OriginalHempFarm:
     case Object::OriginalHempField: return 2;
     case Object::Household: return Rules::city_v10_household_limit;
@@ -148,6 +150,7 @@ std::optional<Object> placed_object(CommandType type) {
     case CommandType::PlaceOriginalWheatField: return Object::OriginalWheatField;
     case CommandType::PlaceOriginalMilletField: return Object::OriginalMilletField;
     case CommandType::PlaceOriginalAncestorShrine: return Object::OriginalAncestorShrine214;
+    case CommandType::PlaceOriginalWaterWell: return Object::OriginalWaterWell72;
     default: return std::nullopt;
     }
 }
@@ -157,6 +160,7 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 }
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
+    if (kind==Object::OriginalWaterWell72 && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::OriginalAncestorShrine214 && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::ServicePost && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::OriginalHempFarm && original_production_enabled(profile,rule_version)) return {2,2};
@@ -595,6 +599,9 @@ CourierState& World::mutable_courier(CourierId id) {
 std::int64_t World::construction_cost(CommandType type) const {
     if (!city_profile(profile_)) return 0;
     switch (type) {
+    case CommandType::PlaceOriginalWaterWell:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::Well,original::BuildingField::Cost):0;
     case CommandType::PlaceOriginalAncestorShrine:
         return original_production_enabled() ? original_rules_model_->building_value(
             original::ModelBuilding::AncestralShrine,original::BuildingField::Cost):0;
@@ -650,6 +657,8 @@ int World::workforce_required(BuildingId id) const {
     const auto& value=building(id);
     if (!value.placed) return 0;
     switch (value.kind) {
+    case Object::OriginalWaterWell72: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::Well,original::BuildingField::Employees):0;
     case Object::OriginalAncestorShrine214: return original_production_enabled() ? original_rules_model_->building_value(
         original::ModelBuilding::AncestralShrine,original::BuildingField::Employees):0;
     case Object::OriginalFoodFarm: return original_production_enabled() ? original_rules_model_->building_value(
@@ -672,7 +681,7 @@ int World::workforce_required(BuildingId id) const {
 }
 
 bool World::operation_controllable(Object kind) {
-    return kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
+    return kind==Object::OriginalWaterWell72 || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Farm || kind==Object::ServicePost || kind==Object::Market || kind==Object::FireWatch || kind==Object::HealthPost;
 }
 
@@ -864,8 +873,11 @@ int World::household_population(BuildingId id) const {
 
 int World::household_population_capacity(BuildingId id) const {
     const auto& home=building(id);
-    if (original_production_enabled() && home.placed && home.kind==Object::Household)
-        return original_rules_model_->house_rules().row_capacity(original::ModelHouse::Shelter);
+    if (original_production_enabled() && home.placed && home.kind==Object::Household) {
+        const auto h=std::lower_bound(original_economy_->houses.begin(),original_economy_->houses.end(),id,
+            [](const auto& row,BuildingId key){return row.building_id<key;});
+        return original_rules_model_->house_rules().row_capacity(original::census_capacity_row(h->house.type));
+    }
     if (original_economy_enabled()) return 0;
     if (!population_profile(profile_) || !home.placed || home.kind!=Object::Household) return 0;
     const int level=household_level(id);
@@ -896,11 +908,24 @@ int World::unemployed_workers() const {
 bool World::population_valid() const {
     if (original_production_enabled()) {
         std::uint64_t admitted=0;
-        const auto capacity=original_rules_model_->house_rules().row_capacity(original::ModelHouse::Shelter);
         for (const auto& b:buildings_) if (b.population) return false;
-        for (const auto& home:original_economy_->houses) {
+        for (std::size_t i=0;i<original_economy_->houses.size();++i) {
+            const auto& home=original_economy_->houses[i];
+            if (i>=original_production_->housing.houses.size()) return false;
+            const auto& proof=original_production_->housing.houses[i];
+            auto capacity=original_rules_model_->house_rules().row_capacity(original::ModelHouse::Shelter);
+            if (proof.first_hut_evaluation) capacity=std::max(capacity,original_rules_model_->house_rules().row_capacity(original::ModelHouse::Hut));
+            if (proof.first_plain_evaluation) capacity=std::max(capacity,original_rules_model_->house_rules().row_capacity(original::ModelHouse::PlainCottage));
+            auto minimum_odd_cap=INT16_MAX+1;
+            const auto eligible_cap=[&](original::HouseType type,int population_at_unlock) {
+                const auto cap=original_rules_model_->house_rules().row_capacity(original::admission_capacity_row(type));
+                if (cap%2 && cap>population_at_unlock) minimum_odd_cap=std::min(minimum_odd_cap,cap);
+            };
+            eligible_cap(original::HouseType::Shelter,0);
+            if (proof.first_hut_evaluation && proof.first_hut_evaluation->tick<ticks_) eligible_cap(original::HouseType::Hut,proof.first_hut_evaluation->input.occupants);
+            if (proof.first_plain_evaluation && proof.first_plain_evaluation->tick<ticks_) eligible_cap(original::HouseType::PlainCottage,proof.first_plain_evaluation->input.occupants);
             if (home.house.occupants<0 || home.house.occupants>capacity ||
-                (home.house.occupants%2!=0 && home.house.occupants!=capacity)) return false;
+                (home.house.occupants%2 && home.house.occupants<minimum_odd_cap)) return false;
             admitted+=static_cast<std::uint64_t>(home.house.occupants);
         }
         return original_production_ && admitted==original_production_->residents_admitted;
@@ -1114,6 +1139,8 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if (command.type==CommandType::PlaceOriginalWaterWell && !original_production_enabled())
+        return {false,false,"Water Well requires explicit original production rules",command_sequence_,ticks_};
     if (command.type==CommandType::PlaceOriginalAncestorShrine && !original_production_enabled())
         return {false,false,"Ancestor shrine requires explicit original production rules",command_sequence_,ticks_};
     if (command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalWheatField ||
@@ -1137,7 +1164,7 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceOriginalFoodFarm && command.type!=CommandType::PlaceOriginalWheatField &&
         command.type!=CommandType::PlaceOriginalMilletField &&
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceServicePost &&
-        command.type!=CommandType::PlaceOriginalAncestorShrine &&
+        command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell &&
         command.type!=CommandType::SetBuildingOperation &&
         command.type!=CommandType::SetBuildingWorkforcePriority)
         return {false,false,"Original production permits only its explicitly implemented paid chains",command_sequence_,ticks_};
@@ -1204,7 +1231,7 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceOriginalHempFarm &&
         command.type!=CommandType::PlaceOriginalHempField && command.type!=CommandType::PlaceOriginalFoodFarm &&
         command.type!=CommandType::PlaceOriginalWheatField && command.type!=CommandType::PlaceOriginalMilletField &&
-        command.type!=CommandType::PlaceOriginalAncestorShrine) {
+        command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell) {
         result.reason="Unknown placement command"; return result;
     }
     if ((profile_==RulesProfile::LogisticsV1 &&
@@ -1351,6 +1378,10 @@ CommandResult World::validate(Command command) const {
         })>=static_cast<std::ptrdiff_t>(Rules::health_post_limit)) {
         result.reason="Health Post limit reached"; return result;
     }
+    if (command.type==CommandType::PlaceOriginalWaterWell &&
+        std::count_if(buildings_.begin(),buildings_.end(),[](const BuildingState& b) {return b.kind==Object::OriginalWaterWell72;})>=2) {
+        result.reason="Water Well limit reached";return result;
+    }
     if (command.type==CommandType::PlaceOriginalAncestorShrine &&
         std::count_if(buildings_.begin(),buildings_.end(),[](const BuildingState& b) {
             return b.kind==Object::OriginalAncestorShrine214;
@@ -1375,7 +1406,7 @@ CommandResult World::validate(Command command) const {
         command.type==CommandType::PlaceFarm || command.type==CommandType::PlaceServicePost ||
         command.type==CommandType::PlaceMarket || command.type==CommandType::PlaceFireWatch ||
         command.type==CommandType::PlaceHealthPost || command.type==CommandType::PlaceOriginalHempFarm ||
-        command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalAncestorShrine;
+        command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalAncestorShrine || command.type==CommandType::PlaceOriginalWaterWell;
     if (original_production_enabled()) {
         if (command.type!=CommandType::PlaceRoad && buildings_.size()>=building_collection_limit(profile_)) {
             result.reason="Original production building capacity reached";return result;
@@ -1612,6 +1643,12 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         couriers_.push_back(std::move(courier));
     };
     switch (command.type) {
+    case CommandType::PlaceOriginalWaterWell: {
+        auto& well=add_v10_building(Object::OriginalWaterWell72);well.placed_tick=ticks_;
+        original_production_->water.providers.push_back({well.id});
+        add_v10_courier(well.id,CourierRole::OriginalWater,Good::Goods);
+        rebuild_original_influence_cache();break;
+    }
     case CommandType::PlaceOriginalAncestorShrine: {
         auto& shrine=add_v10_building(Object::OriginalAncestorShrine214);shrine.placed_tick=ticks_;
         original_production_->services.providers.push_back({shrine.id,OriginalServiceProviderType::Ancestor214});
@@ -1727,6 +1764,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
             else b.population=Rules::household_initial_population;
             if (original_production_enabled()) {
                 original_production_->house_consumption.push_back(OriginalHouseConsumptionState{b.id});
+                OriginalHousingHouse housing;housing.building_id=b.id;original_production_->housing.houses.push_back(housing);
+                OriginalWaterHouseState water;water.building_id=b.id;original_production_->water.houses.push_back(water);
                 original_production_->food.stocks.push_back(OriginalFoodStock{b.id});
             }
             break;
@@ -2107,6 +2146,7 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
 
     if (original_market_courier(c.role)) return original_market_dispatch_status(c);
     if (original_food_courier(c.role)) return original_food_dispatch_status(c);
+    if (original_water_courier(c.role)) return original_water_dispatch_status(c);
     if (original_service_courier(c.role)) return original_service_dispatch_status(c);
     if (scalable(profile_)) {
         const bool service=service_role(c.role);
@@ -2458,6 +2498,7 @@ void World::advance_clay_pottery_production() {
 }
 
 void World::dispatch_v2(CourierState& courier) {
+    if (original_water_courier(courier.role)) {dispatch_original_water(courier);return;}
     if (original_service_courier(courier.role)) {dispatch_original_service(courier);return;}
     if (original_market_courier(courier.role)) {dispatch_original_market(courier);return;}
     if (original_food_courier(courier.role)) {dispatch_original_food(courier);return;}
@@ -2583,6 +2624,7 @@ void World::dispatch_v2(CourierState& courier) {
     case CourierRole::FireInspector:
     case CourierRole::HealthWorker:
     case CourierRole::OriginalAncestor:
+    case CourierRole::OriginalWater:
         throw std::logic_error("Cargo-free visit reached goods path");
     default: throw std::logic_error("unknown courier delivery relation");
     }
@@ -2684,6 +2726,7 @@ void World::move_v2(CourierState& courier) {
     if (courier.path_vertex+1<courier.path.size()) return;
     if (original_market_courier(courier.role)) {arrive_original_market(courier);return;}
     if (original_food_courier(courier.role)) {arrive_original_food(courier);return;}
+    if (original_water_courier(courier.role)) {arrive_original_water(courier);return;}
     if (original_service_courier(courier.role)) {arrive_original_service(courier);return;}
     if (courier.phase==CourierPhase::ToWarehouse) {
         auto& target=mutable_building(courier.target);
@@ -3015,6 +3058,7 @@ bool World::industry_balance_valid() const {
             case Object::OriginalWheatField:
             case Object::OriginalMilletField:
             case Object::OriginalAncestorShrine214:
+            case Object::OriginalWaterWell72:
                 if (!original_production_enabled()) return false;
                 break;
             case Object::OriginalInfluenceSource:
@@ -3073,6 +3117,7 @@ bool World::industry_balance_valid() const {
             const Object owner_kind=c.role==CourierRole::OriginalFoodToMarket ? Object::OriginalFoodFarm:
                 c.role==CourierRole::OriginalFoodToHouse ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse ? Object::OriginalHempFarm:
+                c.role==CourierRole::OriginalWater ? Object::OriginalWaterWell72:
                 c.role==CourierRole::OriginalAncestor ? Object::OriginalAncestorShrine214:
                 c.role==CourierRole::Clay ? Object::ClaySource:
                 c.role==CourierRole::Pottery ? Object::Pottery:
@@ -3106,7 +3151,7 @@ bool World::industry_balance_valid() const {
                 ++market_food_outbound; food+=static_cast<std::uint64_t>(c.cargo);
             }
             else if ((!original_food_courier(c.role) && c.role!=CourierRole::OriginalHempToWarehouse &&
-                      c.role!=CourierRole::OriginalAncestor) || !original_production_enabled()) return false;
+                      c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater) || !original_production_enabled()) return false;
             if (c.phase==CourierPhase::ToWarehouse && !service_role(c.role)) {
                 auto& reservations=food_role(c.role) ? food_reservations:pottery_reservations;
                 const auto found=std::lower_bound(reservations.begin(),reservations.end(),c.target,
@@ -3145,6 +3190,7 @@ bool World::industry_balance_valid() const {
                 (b.kind==Object::FireWatch && owned(CourierRole::FireInspector)!=1) ||
                 (b.kind==Object::HealthPost && owned(CourierRole::HealthWorker)!=1) ||
                 (b.kind==Object::OriginalAncestorShrine214 && owned(CourierRole::OriginalAncestor)!=1) ||
+                (b.kind==Object::OriginalWaterWell72 && owned(CourierRole::OriginalWater)!=1) ||
                 (b.kind==Object::Market &&
                     (owned(CourierRole::MarketPotteryDistribution)!=1 ||
                      owned(CourierRole::OriginalFoodToHouse)!=(original_production_enabled() ? 1:0) ||
@@ -3911,7 +3957,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                 b.kind==Object::Workshop ||
                 ((b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
                   b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
-                  b.kind==Object::OriginalAncestorShrine214) && !w.original_production_enabled()) ||
+                  (b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72)) && !w.original_production_enabled()) ||
                 (b.kind==Object::OriginalInfluenceSource && !w.original_influence_enabled()) || (b.kind==Object::Market && !market_profile(s.profile)) ||
                 (b.kind==Object::FireWatch && !fire_profile(s.profile)) ||
                 (b.kind==Object::Well && !water_profile(s.profile)) ||
@@ -3964,6 +4010,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             const Object expected_owner=c.role==CourierRole::OriginalFoodToMarket && w.original_production_enabled() ? Object::OriginalFoodFarm:
                 c.role==CourierRole::OriginalFoodToHouse && w.original_production_enabled() ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse && w.original_production_enabled() ? Object::OriginalHempFarm:
+                c.role==CourierRole::OriginalWater && w.original_production_enabled() ? Object::OriginalWaterWell72:
                 c.role==CourierRole::OriginalAncestor && w.original_production_enabled() ? Object::OriginalAncestorShrine214:
                 c.role==CourierRole::Clay ? Object::ClaySource:
                 c.role==CourierRole::Pottery ? Object::Pottery:

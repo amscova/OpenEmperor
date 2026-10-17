@@ -47,6 +47,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe17/production-fixtures/run",
                        self.repo / ".local/original-economy/oe18/production-fixtures/run",
                        self.repo / ".local/original-economy/oe19/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe20/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -233,23 +234,49 @@ class ProductionRunnerTests(unittest.TestCase):
 
     def test_boundary_guard_checks_scheduler_delta_and_no_second_booking(self):
         before = self.scene()
+        rows = [[0] * 24 for _ in range(3)]
+        for row in rows:
+            row[0], row[1], row[17] = -99, -10, 7
+        rows[0][9] = rows[0][10] = rows[1][3] = 1
         before.update(tick=855, shelter_needs=[1, 1], pottery_handed_off=12, pottery_completed=12,
                       hemp_harvested=6, hemp_farms=[{"harvested": 6}], residents_admitted=42,
                       population=42, workforce_supply=42,
                       houses=[{"id": i + 1, "occupants": 7, "hemp": 1, "ceramics": 2,
+                               "type": 3, "devolve_counter": 4, "water": False,
+                               "desirability": 0, "service_timers": [0] * 9, "food_quality": 0,
                                "consumed": [0] * 6} for i in range(6)])
         before["balances"][0].update(produced=6, stock=6)
         before["balances"][1].update(produced=12, stock=12)
+        def attach_housing(scene, evaluation_tick, before_counter, goods, events, consumed):
+            scene["capacity"] = 42
+            scene["buildings"] = [{"id": i + 1, "kind": 6, "cell": [3 * i, 2], "placed_tick": 0} for i in range(6)]
+            histories = []
+            for i in range(6):
+                evaluation = {"tick": evaluation_tick,
+                    "input": {"type": 3, "occupants": 7, "desirability": 0, "devolve_counter": before_counter,
+                        "water": False, "service_timers": [0] * 9, "food_quality": 0, "goods": goods.copy()},
+                    "service_witnesses": [None] * 3, "water_evaluation_witness": None, "food_quality_witness": None,
+                    "food_received": [0, 0], "food_consumed": [0, 0], "goods_consumed_before": [0] * 6}
+                histories.append({"id": i + 1, "first_admission_tick": 120, "last_evaluation": evaluation,
+                    "first_hut_evaluation": None, "first_plain_evaluation": None,
+                    "consumption_rows": [{"events": events, "consumed": consumed.copy()},
+                        {"events": 0, "consumed": [0] * 6}, {"events": 0, "consumed": [0] * 6}]})
+            scene["housing"] = {"model_rows": rows, "evaluation_tick": runner.housing_evaluation_tick(scene["tick"]),
+                "consumption_events": runner.housing_consumption_events(scene["tick"]),
+                "neutral_source_origins": [], "houses": histories}
+        attach_housing(before, 805, 3, [0] * 6, 1, [0] * 6)
         at = copy.deepcopy(before)
         at["tick"] = 856
         at["balances"][0].update(stock=0, consumed=6)
         at["balances"][1].update(stock=6, consumed=6)
         for house in at["houses"]:
-            house.update(hemp=0, ceramics=1, consumed=[1, 1, 0, 0, 0, 0])
+            house.update(hemp=0, ceramics=1, devolve_counter=0, consumed=[1, 1, 0, 0, 0, 0])
+        attach_housing(at, 856, 4, [1, 2, 0, 0, 0, 0], 2, [1, 1, 0, 0, 0, 0])
         after = copy.deepcopy(at)
         after["tick"] = 857
         boundary = {"step": 0, "house_arrivals_at_boundary": False, "before": before, "at": at, "after": after,
-                    "expected_house_deltas": [{"building_id": i + 1, "consumed": [1, 1, 0, 0, 0, 0]} for i in range(6)]}
+                    "expected_house_deltas": [{"building_id": i + 1, "evolved_type": 3, "evolved_counter": 0,
+                        "evolved_desirability": 0, "consumed": [1, 1, 0, 0, 0, 0]} for i in range(6)]}
         runner.check_consumption_boundary(boundary)
         for field, value in (("step", 7), ("house_arrivals_at_boundary", True)):
             bad = copy.deepcopy(boundary)
@@ -258,6 +285,10 @@ class ProductionRunnerTests(unittest.TestCase):
                 runner.check_consumption_boundary(bad)
         bad = copy.deepcopy(boundary)
         bad["after"]["houses"][0]["consumed"][0] += 1
+        with self.assertRaises(AssertionError):
+            runner.check_consumption_boundary(bad)
+        bad = copy.deepcopy(boundary)
+        bad["at"]["houses"][1]["devolve_counter"] = 4
         with self.assertRaises(AssertionError):
             runner.check_consumption_boundary(bad)
 
@@ -335,6 +366,115 @@ class ProductionRunnerTests(unittest.TestCase):
             self.assertEqual(runner.food_blend(80, 20, delivered, previous), expected)
         self.assertEqual(runner.food_blend(20, 80, 0, 4), 20)
         self.assertEqual(runner.food_blend(20, 80, 1, 4), 80)
+
+    @staticmethod
+    def water_scene(tick=500, evaluated=True):
+        old = {"house_id": 1, "provider_id": 2, "courier_id": 1, "sequence": 1, "arrival_tick": 450}
+        current = {**old, "sequence": 2, "arrival_tick": 490}
+        return {"tick": tick,
+            "houses": [{"id": 1, "water": bool(evaluated)}],
+            "buildings": [{"id": 1, "kind": 6, "placed_tick": 0}, {"id": 2, "kind": 20, "placed_tick": 0}],
+            "couriers": [{"id": 1, "role": 16, "owner": 2, "target": 1, "last_dispatched_target": 1,
+                "phase": 2, "cargo": 0, "reserved": 0, "typed_cargo": 0, "food_cargo": 0, "typed_cargo_good": None}],
+            "water": {"providers": [{"id": 2, "cost": 25, "workers_required": 4}],
+                "trips": [{"courier_id": 1, "sequence": 2, "target": 1, "dispatched_tick": 470,
+                           "arrival_tick": 490, "visit_applied": True}],
+                "houses": [{"id": 1, "normal_timer": runner.water_timer(current, tick), "special_timer": 0,
+                            "current_witness": current, "evaluation_witness": old if evaluated else None}],
+                "countdowns": runner.service_countdowns(tick), "evaluation_tick": runner.water_evaluation_tick(tick)}}
+
+    def test_water_current_arrival_and_cached_phase28_witness_are_distinct(self):
+        for evaluated in (False, True):
+            scene = self.water_scene(evaluated=evaluated)
+            runner.check_water(scene)
+            wrong = copy.deepcopy(scene)
+            wrong["houses"][0]["water"] = not evaluated
+            with self.subTest(evaluated=evaluated), self.assertRaises(AssertionError):
+                runner.check_water(wrong)
+        scene = self.water_scene()
+        for mutation in (
+                lambda row: row["water"]["houses"][0].update(normal_timer=96),
+                lambda row: row["water"]["houses"][0].update(special_timer=1),
+                lambda row: row["water"]["houses"][0]["evaluation_witness"].update(arrival_tick=490),
+                lambda row: row["water"]["houses"][0]["current_witness"].update(provider_id=1),
+                lambda row: row["water"]["trips"][0].update(visit_applied=False),
+                lambda row: row["water"]["trips"][0].update(dispatched_tick=120),
+                lambda row: row["water"]["providers"][0].update(workers_required=0),
+                lambda row: row["couriers"][0].update(role=15),
+                lambda row: row["couriers"][0].update(cargo=1),
+                lambda row: row["buildings"][1].update(kind=13)):
+            wrong = copy.deepcopy(scene)
+            mutation(wrong)
+            with self.subTest(scene=wrong), self.assertRaises(AssertionError):
+                runner.check_water(wrong)
+
+    def test_water_zero_raw_timer_can_remain_materialized_until_next_phase28(self):
+        scene = self.water_scene(tick=5340)
+        current = scene["water"]["houses"][0]["current_witness"]
+        scene["water"]["houses"][0]["evaluation_witness"] = current.copy()
+        self.assertEqual(scene["water"]["houses"][0]["normal_timer"], 0)
+        self.assertGreater(runner.water_timer(current, runner.water_evaluation_tick(scene["tick"])), 0)
+        runner.check_water(scene)
+        scene["houses"][0]["water"] = False
+        with self.assertRaises(AssertionError):
+            runner.check_water(scene)
+
+    @staticmethod
+    def housing_scene():
+        rows = [[0] * 24 for _ in range(3)]
+        for i, row in enumerate(rows):
+            row[0], row[1], row[17] = -99, -5 if i < 2 else 99, 7 + 7 * i
+        rows[1][3] = rows[2][3] = rows[2][21] = 1
+        rows[2][8] = 20
+        i = {"type": 3, "occupants": 4, "devolve_counter": 0, "water": True, "desirability": 0,
+             "service_timers": [0] * 9, "food_quality": 0, "goods": [0] * 6}
+        e = {"tick": 193, "input": i, "service_witnesses": [None] * 3,
+             "water_evaluation_witness": {"house_id": 1, "provider_id": 2, "courier_id": 1,
+                                          "sequence": 1, "arrival_tick": 150},
+             "food_quality_witness": None, "food_received": [0, 0], "food_consumed": [0, 0],
+             "goods_consumed_before": [0] * 6}
+        return {"tick": 193, "capacity": 14,
+                "houses": [{"id": 1, "type": 4, "occupants": 4, "devolve_counter": 0, "consumed": [0] * 6}],
+                "buildings": [{"id": 1, "kind": 6, "cell": [0, 2], "placed_tick": 0}],
+                "housing": {"model_rows": rows, "evaluation_tick": 193,
+                    "consumption_events": runner.housing_consumption_events(193), "neutral_source_origins": [],
+                    "houses": [{"id": 1, "first_admission_tick": 120,
+                        "consumption_rows": [{"events": 0, "consumed": [0] * 6} for _ in range(3)],
+                        "last_evaluation": e, "first_hut_evaluation": copy.deepcopy(e), "first_plain_evaluation": None}]}}
+
+    def test_housing_upgrade_requires_real_input_and_per_type_historical_consumption(self):
+        scene = self.housing_scene()
+        runner.check_housing(scene)
+        for mutation in (
+                lambda row: row["houses"][0].update(type=5),
+                lambda row: row["houses"][0].update(occupants=15),
+                lambda row: row["houses"][0].update(devolve_counter=1),
+                lambda row: row["housing"]["houses"][0].update(first_admission_tick=121),
+                lambda row: row["housing"]["houses"][0].update(first_hut_evaluation=None),
+                lambda row: row["housing"]["houses"][0]["first_hut_evaluation"]["input"].update(water=False),
+                lambda row: row["housing"]["houses"][0]["last_evaluation"].update(tick=192),
+                lambda row: row["housing"]["houses"][0]["last_evaluation"]["water_evaluation_witness"].update(arrival_tick=190),
+                lambda row: row["housing"]["houses"][0]["consumption_rows"][0].update(consumed=[1, 0, 0, 0, 0, 0]),
+                lambda row: row["housing"]["houses"][0]["consumption_rows"][1].update(events=2),
+                lambda row: row.update(capacity=7)):
+            wrong = copy.deepcopy(scene)
+            mutation(wrong)
+            with self.subTest(scene=wrong), self.assertRaises(AssertionError):
+                runner.check_housing(wrong)
+
+    def test_housing_reference_tenth_failure_and_original_plain_zero_goods_requirements(self):
+        scene = self.housing_scene()
+        rows = scene["housing"]["model_rows"]
+        state = copy.deepcopy(scene["housing"]["houses"][0]["last_evaluation"]["input"])
+        state.update(type=5, food_quality=0, devolve_counter=8)
+        self.assertEqual(runner.housing_step(rows, state), (5, 9))
+        state["devolve_counter"] = 9
+        self.assertEqual(runner.housing_step(rows, state), (4, 0))
+        state.update(type=4, devolve_counter=0, food_quality=20)
+        state["service_timers"][5] = 40
+        self.assertEqual(runner.housing_step(rows, state), (5, 0))
+        rows[2][9] = 1  # Explicitly authored missing-Hemp requirement.
+        self.assertEqual(runner.housing_step(rows, state), (4, 0))
 
 
     @staticmethod

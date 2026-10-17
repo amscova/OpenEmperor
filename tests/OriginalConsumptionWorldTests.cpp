@@ -113,12 +113,22 @@ void isolated_boundary(sim::World& w,Fixture& f,std::uint64_t at,sim::BuildingId
     auto replay=sim::World::restore_original_production_development(w.snapshot(),f.policy,f.model);
     const auto before=w.original_economy_state()->houses;
     const auto counters=w.original_production_state()->house_consumption;
+    std::vector<orig::HouseState> evolved;
+    for (const auto& home:before) {
+        auto input=home.house;
+        if (input.occupants>0) {
+            input.desirability=static_cast<std::int8_t>(w.original_influence_provenance(home.building_id).value);
+            input=orig::evolve_step(f.model->house_rules(),input);
+            if (input.type>orig::HouseType::PlainCottage) input.type=orig::HouseType::PlainCottage;
+        }
+        evolved.push_back(input);
+    }
     check(stock(w,positive,orig::Goods::Hemp)>0 && stock(w,positive,orig::Goods::Ceramics)>0,
           "Positive boundary control has no physically delivered goods");
     tick(w);tick(replay);check(w.snapshot()==replay.snapshot(),"F5/F9 immediately before consumption changed next-cycle authority");
     for (std::size_t i=0;i<before.size();++i) {
-        const auto expected=orig::consume_goods(f.model->house_rules(),before[i].house);
-        check(w.original_economy_state()->houses[i].house==expected.house,"Boundary did not apply the existing pure consumption kernel exactly once");
+        const auto expected=orig::consume_goods(f.model->house_rules(),evolved[i]);
+        check(w.original_economy_state()->houses[i].house==expected.house,"Boundary did not apply pure phase39 evolution followed by consumption exactly once");
         for (std::size_t g=0;g<orig::goods_count;++g)
             check(history(w,before[i].building_id).consumed[g]-counters[i].consumed[g]==static_cast<std::uint64_t>(expected.consumed[g]),
                   "Boundary sink differs from physically consumed units");

@@ -103,7 +103,7 @@ template<class Building,class Courier> std::uint64_t minimum_movement_ticks(cons
 }
 
 template<class Buildings,class Couriers,class Houses>
-void validate_services(const OriginalServicesState& state,const Buildings& buildings,const Couriers& couriers,const Houses& houses,
+void validate_services(const OriginalServicesState& state,const Buildings& buildings,const Couriers& couriers,const Houses& houses,const OriginalHousingState& housing,
                        std::uint64_t tick,std::uint64_t decayed_through,bool bind_movement=true) {
     if (state.providers.size()>original_service_provider_limit || state.trips.size()>original_service_trip_limit ||
         state.witnesses.size()>original_service_witness_limit || decayed_through>tick)
@@ -131,8 +131,10 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
         if (actor==couriers.end() || !service_role(actor->role)) invalid("original service trip has no compatible actual Courier");
         const auto& p=provider(state,actor->owner);const auto& source=building_row(buildings,p.building_id);
         const auto& target=building_row(buildings,trip.target);const auto& h=house_row(houses,trip.target);
+        const auto& first_admission=house_row(housing.houses,trip.target).first_admission_tick;
         if (actor->role!=courier_role_for(p.type) || target.kind!=Object::Household ||
             trip.dispatched_tick<=source.placed_tick || trip.dispatched_tick<target.placed_tick || trip.dispatched_tick-target.placed_tick<121 ||
+            !first_admission || trip.dispatched_tick<=*first_admission ||
             !original::accepts_service_visit(h.house,context(h),visit_for(p.type)))
             invalid("original service dispatch predates or mismatches its paid source/occupied target");
         if (bind_movement && (actor->target!=trip.target || actor->last_dispatched_target!=trip.target))
@@ -169,13 +171,14 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
             invalid("original service Witnesses must be sorted unique House/category pairs");
         const auto& p=provider(state,witness.provider_id);const auto& source=building_row(buildings,p.building_id);
         const auto& target=building_row(buildings,witness.building_id);const auto& h=house_row(houses,witness.building_id);
+        const auto& first_admission=house_row(housing.houses,witness.building_id).first_admission_tick;
         const auto actor=std::find_if(couriers.begin(),couriers.end(),[&](const auto& c){return c.id==witness.transfer.courier_id;});
         const auto* trip=latest_trip(state.trips,witness.transfer.courier_id);
         if (target.kind!=Object::Household || role_for(p.type)!=witness.role || actor==couriers.end() || actor->owner!=p.building_id ||
             actor->role!=courier_role_for(p.type) || !trip || !witness.transfer.sequence || witness.transfer.sequence>trip->transfer.sequence ||
             !witness.arrival_tick || witness.arrival_tick>tick || witness.transfer.sequence>witness.arrival_tick ||
             witness.arrival_tick<=source.placed_tick || witness.arrival_tick-source.placed_tick<2 ||
-            witness.arrival_tick<target.placed_tick || witness.arrival_tick-target.placed_tick<122 ||
+            witness.arrival_tick<target.placed_tick || witness.arrival_tick-target.placed_tick<122 || !first_admission || witness.arrival_tick<*first_admission ||
             !original::accepts_service_visit(h.house,context(h),visit_for(p.type)))
             invalid("original service Witness has no possible paid direct-service arrival");
         if (trip->transfer==witness.transfer) {
@@ -184,7 +187,7 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
         } else if (witness.arrival_tick>=trip->dispatched_tick)
             invalid("compacted service visit cannot postdate its Courier's later dispatch");
         const auto travel=minimum_travel_ticks(source,target);
-        if (witness.arrival_tick-source.placed_tick<travel || witness.arrival_tick-target.placed_tick<travel+120)
+        if (witness.arrival_tick-source.placed_tick<travel || witness.arrival_tick-target.placed_tick<travel+120 || witness.arrival_tick-*first_admission<travel)
             invalid("original service Witness predates possible physical travel after purchase and immigration");
     }
     // Every retained successful arrival remains represented unless a later
@@ -226,10 +229,10 @@ void World::validate_original_services_model() const {
 }
 void World::validate_original_services_snapshot(const WorldSnapshot& snapshot) {
     if (!snapshot.original_production || !snapshot.original_economy) invalid("original services require explicit production authority");
-    validate_services(snapshot.original_production->services,snapshot.buildings,snapshot.couriers,snapshot.original_economy->houses,snapshot.ticks,snapshot.ticks);
+    validate_services(snapshot.original_production->services,snapshot.buildings,snapshot.couriers,snapshot.original_economy->houses,snapshot.original_production->housing,snapshot.ticks,snapshot.ticks);
 }
 void World::validate_original_services_state() const {
-    validate_services(original_production_->services,buildings_,couriers_,original_economy_->houses,ticks_,ticks_);
+    validate_services(original_production_->services,buildings_,couriers_,original_economy_->houses,original_production_->housing,ticks_,ticks_);
 }
 bool World::original_service_courier(CourierRole role) const {return original_production_enabled() && service_role(role);}
 CourierDispatchDecision World::original_service_dispatch_status(const CourierState& c) const {
@@ -260,7 +263,7 @@ void World::dispatch_original_service(CourierState& c) {
     else candidate.trips.insert(std::lower_bound(candidate.trips.begin(),candidate.trips.end(),c.id,[](const auto& trip,CourierId key){return trip.transfer.courier_id<key;}),next);
     auto path=*route->second;
     if (!ticks_) throw std::logic_error("original service dispatch has no advanced ordinary World tick");
-    validate_services(candidate,buildings_,couriers_,original_economy_->houses,ticks_,ticks_-1,false);
+    validate_services(candidate,buildings_,couriers_,original_economy_->houses,original_production_->housing,ticks_,ticks_-1,false);
     original_production_->services=std::move(candidate);c.path=std::move(path);c.target=target;c.last_dispatched_target=target;
     c.path_vertex=0;c.edge_progress=0;c.route_pending=false;c.route_checked_revision.reset();c.phase=CourierPhase::ToWarehouse;
 }
@@ -280,7 +283,7 @@ void World::arrive_original_service(CourierState& c) {
         const auto at=std::lower_bound(candidate.witnesses.begin(),candidate.witnesses.end(),key,[](const auto& row,const auto& value){return witness_key(row)<value;});
         if (at!=candidate.witnesses.end() && witness_key(*at)==key) *at=witness;else candidate.witnesses.insert(at,witness);
     }
-    validate_services(candidate,buildings_,couriers_,houses,ticks_,ticks_-1,false);
+    validate_services(candidate,buildings_,couriers_,houses,original_production_->housing,ticks_,ticks_-1,false);
     original_production_->services=std::move(candidate);original_economy_->houses=std::move(houses);c.phase=CourierPhase::Returning;
     if (valid_return_path(c)) {std::reverse(c.path.begin(),c.path.end());c.path_vertex=0;}
     else {c.path={c.path.back()};c.path_vertex=0;c.route_pending=true;c.route_checked_revision.reset();reroute_v2(c);}
@@ -289,7 +292,7 @@ void World::decay_original_services() {
     if (!ticks_ || countdowns(ticks_)==countdowns(ticks_-1)) throw std::logic_error("original service countdown invoked outside phase35");
     auto houses=original_economy_->houses;
     for (auto& h:houses) h.house=original::decay_house_services(h.house,context(h));
-    validate_services(original_production_->services,buildings_,couriers_,houses,ticks_,ticks_);
+    validate_services(original_production_->services,buildings_,couriers_,houses,original_production_->housing,ticks_,ticks_);
     original_economy_->houses=std::move(houses);
 }
 

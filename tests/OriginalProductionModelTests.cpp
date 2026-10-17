@@ -48,7 +48,8 @@ void synthetic() {
             std::pair{f::sim::Object::OriginalFoodFarm,orig::ModelBuilding::Farmhouse},
             std::pair{f::sim::Object::OriginalWheatField,orig::ModelBuilding::WheatField},
             std::pair{f::sim::Object::OriginalMilletField,orig::ModelBuilding::MilletField},
-            std::pair{f::sim::Object::OriginalAncestorShrine214,orig::ModelBuilding::AncestralShrine}}) {
+            std::pair{f::sim::Object::OriginalAncestorShrine214,orig::ModelBuilding::AncestralShrine},
+            std::pair{f::sim::Object::OriginalWaterWell72,orig::ModelBuilding::Well}}) {
         const auto mapped=orig::functional_model_candidate(object);
         check(mapped.candidate==model && mapped.functional==orig::EvidenceStatus::AuthoredFallback &&
             mapped.mechanics_identity==orig::EvidenceStatus::AuthoredFallback &&

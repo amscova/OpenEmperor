@@ -7,7 +7,7 @@ namespace openemperor::simulation {
 bool fire_eligible(Object kind) {
     return kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Household || kind==Object::Farm || kind==Object::ServicePost ||
-        kind==Object::Market || kind==Object::HealthPost || kind==Object::OriginalAncestorShrine214;
+        kind==Object::Market || kind==Object::HealthPost || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalWaterWell72;
 }
 
 bool World::building_on_fire(BuildingId id) const {

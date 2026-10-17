@@ -266,7 +266,7 @@ constexpr std::int64_t starting_treasury_for(RulesProfile profile,std::uint32_t 
 enum class Object : std::uint8_t {
     Empty, Road, Workshop, Warehouse, ClaySource, Pottery, Household, Farm, ServicePost, Market,
     FireWatch, Well, HealthPost, OriginalInfluenceSource, OriginalHempFarm, OriginalHempField,
-    OriginalFoodFarm, OriginalWheatField, OriginalMilletField, OriginalAncestorShrine214
+    OriginalFoodFarm, OriginalWheatField, OriginalMilletField, OriginalAncestorShrine214, OriginalWaterWell72
 };
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
@@ -330,7 +330,7 @@ enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySour
                          SetBuildingOperation, SetBuildingWorkforcePriority, DemolishBuilding,
                          PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge, PlaceRamp, RemoveRamp,
                          PlaceOriginalInfluenceSource, PlaceOriginalHempFarm, PlaceOriginalHempField,
-                         PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField, PlaceOriginalAncestorShrine };
+                         PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField, PlaceOriginalAncestorShrine, PlaceOriginalWaterWell };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 struct Command {
@@ -379,7 +379,7 @@ enum class CourierRole : std::uint8_t {
     None=0, Clay=1, Pottery=2, Household=3, Food=4, Service=5,
     MarketPotteryInbound=6, MarketFoodInbound=7,
     MarketPotteryDistribution=8, MarketFoodDistribution=9, FireInspector=10, HealthWorker=11,
-    OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14, OriginalAncestor=15
+    OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14, OriginalAncestor=15, OriginalWater=16
 };
 enum class CourierDispatchStatus : std::uint8_t {
     Ready,
@@ -873,6 +873,23 @@ private:
     void dispatch_original_service(CourierState& courier);
     void arrive_original_service(CourierState& courier);
     void decay_original_services();
+    void validate_original_water_model() const;
+    static void validate_original_water_snapshot(const WorldSnapshot&);
+    void validate_original_water_state() const;
+    bool original_water_courier(CourierRole) const;
+    CourierDispatchDecision original_water_dispatch_status(const CourierState&) const;
+    void dispatch_original_water(CourierState&);
+    void arrive_original_water(CourierState&);
+    void evaluate_original_water();
+    void decay_original_water();
+    static void validate_original_water_evaluation_provenance(const WorldSnapshot&,BuildingId,std::uint64_t,
+        const std::optional<OriginalWaterWitness>&,bool);
+    void validate_original_water_evaluation_provenance(BuildingId,std::uint64_t,
+        const std::optional<OriginalWaterWitness>&,bool) const;
+    static void validate_original_housing_snapshot(const WorldSnapshot&);
+    void validate_original_housing_model();
+    void validate_original_housing_state() const;
+    void evaluate_original_houses();
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;

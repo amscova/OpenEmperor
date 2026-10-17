@@ -4,14 +4,19 @@
 // seven-row fixtures and their source/golden bytes remain unchanged.
 #include "OriginalInfluenceFixture.h"
 
+#include <array>
+#include <string_view>
+#include <utility>
+
 namespace oe_production_fixture {
 inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,int ceramics_need=0,int food_need=0,
-                                       int herbalist_need=0,int acupuncture_need=0,int ancestor_need=0) {
+                                       int herbalist_need=0,int acupuncture_need=0,int ancestor_need=0,
+                                       int hut_capacity=14,int plain_capacity=22,int plain_hemp_need=0,int plain_ceramics_need=0) {
     auto text=oe_influence_fixture::authored_model_text();
     std::string before="1: Shelter,{,",after=before;
     for (int i=0;i<17;++i) {
         before+="0,";
-        after+=std::to_string(i==2 ? herbalist_need:i==4 ? acupuncture_need:
+        after+=std::to_string(i==0 ? -99:i==2 ? herbalist_need:i==4 ? acupuncture_need:
                              i==8 ? food_need:i==9 ? hemp_need:i==10 ? ceramics_need:0)+',';
     }
     before+="0,";after+=std::to_string(shelter_capacity)+',';
@@ -21,6 +26,23 @@ inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,i
     const auto capacity=text.find(before);
     oe_influence_fixture::check(capacity!=std::string::npos,"Authored production Shelter row missing");
     text.replace(capacity,before.size(),after);
+    for (const auto& [label,cap]:std::array{std::pair{"2: Hut",hut_capacity},std::pair{"3: Plain Cottage",plain_capacity}}) {
+        const bool plain=std::string_view(label)=="3: Plain Cottage";
+        std::string empty=std::string(label)+",{,",prepared=empty;
+        for (int i=0;i<24;++i) {
+            empty+="0,";
+            prepared+=std::to_string(i==0 ? -99:i==3 ? 1:i==17 ? cap:
+                plain && i==8 ? 20:plain && i==9 ? plain_hemp_need:
+                plain && i==10 ? plain_ceramics_need:plain && i==21 ? 1:0)+',';
+        }
+        const auto at=text.find(empty);
+        oe_influence_fixture::check(at!=std::string::npos,"Authored production housing row missing");
+        text.replace(at,empty.size(),prepared);
+    }
+    const std::string old_well="72,Well,{,0,12,2,-2,5,0,0,0,0,0,0,0,0,},,,\n";
+    const auto well=text.find(old_well);
+    oe_influence_fixture::check(well!=std::string::npos,"Authored production Well row missing");
+    text.replace(well,old_well.size(),"72,Well,{,25,12,2,-2,5,4,0,0,0,0,0,0,0,},,,\n");
     const std::string old_farm="193,Farmhouse,{,0,0,0,0,0,0,0,0,0,0,0,0,0,},,,\n";
     const auto farm=text.find(old_farm);
     oe_influence_fixture::check(farm!=std::string::npos,"Authored Food Farmhouse row missing");
@@ -41,9 +63,11 @@ inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,i
     return text;
 }
 inline void write_model(const std::filesystem::path& root,int shelter_capacity=37,int hemp_need=0,int ceramics_need=0,int food_need=0,
-                        int herbalist_need=0,int acupuncture_need=0,int ancestor_need=0) {
+                        int herbalist_need=0,int acupuncture_need=0,int ancestor_need=0,
+                        int hut_capacity=14,int plain_capacity=22,int plain_hemp_need=0,int plain_ceramics_need=0) {
     std::filesystem::create_directories(root/"Model");
     oe_influence_fixture::write_text(root/"Model/EmperorBuildingModels.txt",
-        authored_model_text(shelter_capacity,hemp_need,ceramics_need,food_need,herbalist_need,acupuncture_need,ancestor_need));
+        authored_model_text(shelter_capacity,hemp_need,ceramics_need,food_need,herbalist_need,acupuncture_need,ancestor_need,
+                            hut_capacity,plain_capacity,plain_hemp_need,plain_ceramics_need));
 }
 } // namespace oe_production_fixture

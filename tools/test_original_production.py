@@ -13,7 +13,7 @@ _SPEC = importlib.util.spec_from_file_location(
 legacy = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(legacy)
 MODEL_SHA = legacy.MODEL_SHA
-PRIVATE_OUTPUT = Path(".local/original-economy/oe20/production-fixtures")
+PRIVATE_OUTPUT = Path(".local/original-economy/oe21/production-fixtures")
 RULE9_REFERENCE = Path(".local/original-economy/oe13/goods-fixtures/run-d4mm76cf")
 RULE9_REPORT_SHA = "1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2"
 RULE9_REVIEW_SHA = "c5534befba97a9ad1469bec05131d21f17fe509db101c0f4bd1e0351e742a017"
@@ -100,7 +100,7 @@ def check_balances(scene, positive=False):
         assert balances[good]["cargo"] == sum(courier["typed_cargo"] for courier in scene["couriers"]
                                               if courier["typed_cargo_good"] == good)
     for courier in scene["couriers"]:
-        if courier["role"] in (5, 6, 8, 11, 12, 13, 14, 15):
+        if courier["role"] in (5, 6, 8, 11, 12, 13, 14, 15, 16):
             assert courier["cargo"] == courier["reserved"] == 0
         else:
             assert courier["typed_cargo"] == 0
@@ -117,11 +117,266 @@ def check_balances(scene, positive=False):
         check_food(scene)
     if "services" in scene:
         check_services(scene)
+    if "water" in scene:
+        check_water(scene)
+    if "housing" in scene:
+        check_housing(scene)
 
 
 def service_countdowns(tick):
     assert type(tick) is int and 0 <= tick <= 2**64 - 1
     return 0 if tick < 36 else 1 + (tick - 36) // 51
+
+
+def water_evaluation_tick(tick):
+    assert type(tick) is int and tick >= 0
+    return 0 if tick < 29 else tick - (tick - 29) % 51
+
+
+def water_timer(witness, tick):
+    if witness is None:
+        return 0
+    assert type(witness["arrival_tick"]) is int and 0 < witness["arrival_tick"] <= tick
+    return max(96 - (service_countdowns(tick) - service_countdowns(witness["arrival_tick"] - 1)), 0)
+
+
+def check_water(scene):
+    state, tick = scene["water"], scene["tick"]
+    assert state["countdowns"] == service_countdowns(tick)
+    assert state["evaluation_tick"] == water_evaluation_tick(tick)
+    assert len(state["providers"]) <= 2 and len(state["trips"]) <= 2 and len(state["houses"]) <= 20
+    houses = {h["id"]: h for h in scene["houses"]}
+    buildings = {b["id"]: b for b in scene["buildings"]}
+    couriers = {c["id"]: c for c in scene["couriers"]}
+    providers = {p["id"]: p for p in state["providers"]}
+    assert len(providers) == len(state["providers"])
+    assert set(providers) == {b["id"] for b in scene["buildings"] if b["kind"] == 20}
+    actors = {c["id"]: c for c in scene["couriers"] if c["role"] == 16}
+    assert len(actors) == len(providers)
+    for identity, p in providers.items():
+        assert p["cost"] == 25 and p["workers_required"] == 4
+        matching = [c for c in actors.values() if c["owner"] == identity]
+        assert len(matching) == 1
+        c = matching[0]
+        assert c["cargo"] == c["reserved"] == c["typed_cargo"] == c["food_cargo"] == 0
+        assert c["typed_cargo_good"] is None
+    trips = {t["courier_id"]: t for t in state["trips"]}
+    assert len(trips) == len(state["trips"])
+    for identity, t in trips.items():
+        assert identity in actors and type(t["sequence"]) is int and 0 < t["sequence"] <= t["dispatched_tick"] <= tick
+        c = actors[identity]
+        assert c["owner"] in providers and t["target"] in houses
+        assert c["last_dispatched_target"] == t["target"]
+        assert t["dispatched_tick"] > buildings[c["owner"]]["placed_tick"]
+        assert t["dispatched_tick"] >= buildings[t["target"]]["placed_tick"] + 121
+        assert type(t["visit_applied"]) is bool
+        if t["arrival_tick"] is None:
+            assert not t["visit_applied"] and c["phase"] == 1
+        else:
+            assert type(t["arrival_tick"]) is int and t["dispatched_tick"] < t["arrival_tick"] <= tick
+            assert c["phase"] in (0, 2)
+    for identity in actors.keys() - trips.keys():
+        c = actors[identity]
+        assert c["phase"] == 0 and c["last_dispatched_target"] is None and c["target"] == c["owner"]
+
+    def witness(w, home, at):
+        if w is None:
+            return
+        assert w["house_id"] == home and w["provider_id"] in providers and w["courier_id"] in actors
+        assert actors[w["courier_id"]]["owner"] == w["provider_id"]
+        assert type(w["arrival_tick"]) is int and 0 < w["arrival_tick"] <= at
+        assert w["arrival_tick"] >= buildings[home]["placed_tick"] + 122
+        t = trips[w["courier_id"]]
+        assert type(w["sequence"]) is int and 0 < w["sequence"] <= t["sequence"]
+        if w["sequence"] == t["sequence"]:
+            assert t["visit_applied"] and t["target"] == home and t["arrival_tick"] == w["arrival_tick"]
+        else:
+            assert w["arrival_tick"] < t["dispatched_tick"]
+
+    rows = {h["id"]: h for h in state["houses"]}
+    assert len(rows) == len(state["houses"]) and rows.keys() == houses.keys()
+    for identity, h in rows.items():
+        current, evaluated = h["current_witness"], h["evaluation_witness"]
+        witness(current, identity, tick)
+        witness(evaluated, identity, state["evaluation_tick"])
+        assert type(h["normal_timer"]) is int and h["normal_timer"] == water_timer(current, tick)
+        assert type(h["special_timer"]) is int and h["special_timer"] == 0
+        if evaluated:
+            assert current and evaluated["arrival_tick"] <= current["arrival_tick"]
+        assert type(houses[identity]["water"]) is bool
+        assert houses[identity]["water"] is bool(water_timer(evaluated, state["evaluation_tick"]))
+
+
+def housing_evaluation_tick(tick):
+    return 0 if tick < 40 else tick - (tick - 40) % 51
+
+
+def housing_consumption_events(tick):
+    return (1 + (tick - 40) // 816 if tick >= 40 else 0) + (1 + (tick - 397) // 816 if tick >= 397 else 0)
+
+
+def housing_needs(row, state):
+    service_fields = (2, 4, 5, 6, 7, 21, 22, 23, 23)
+    if any(row[field] != 0 and state["service_timers"][role] == 0 for role, field in enumerate(service_fields[:7])):
+        return False
+    if row[23] and not (state["service_timers"][7] or state["service_timers"][8]):
+        return False
+    if row[3] and not state["water"]:
+        return False
+    if state["food_quality"] < row[8]:
+        return False
+    if any(state["goods"][good] < row[9 + good] for good in range(4)):
+        return False
+    return not row[13] or state["goods"][4] >= row[13] or state["goods"][5] >= row[13]
+
+
+def housing_step(rows, state):
+    """Independent early-type reference for the unchanged pure operation."""
+    kind, counter = state["type"], state["devolve_counter"]
+    if kind == 2 or not state["occupants"]:
+        return kind, counter
+    row = rows[kind - 3]
+    if not housing_needs(row, state) or state["desirability"] <= row[0]:
+        return (kind, counter + 1) if counter < 9 else (max(3, kind - 1), 0)
+    if state["desirability"] >= row[1] and kind < 5 and housing_needs(rows[kind - 2], state):
+        return kind + 1, 0
+    return kind, 0
+
+
+def check_housing(scene):
+    state, tick = scene["housing"], scene["tick"]
+    assert state["evaluation_tick"] == housing_evaluation_tick(tick)
+    assert state["consumption_events"] == housing_consumption_events(tick)
+    rows = state["model_rows"]
+    assert len(rows) == 3 and all(len(r) == 24 and all(type(n) is int for n in r) and 0 < r[17] <= 32767 for r in rows)
+    houses = {h["id"]: h for h in scene["houses"]}
+    histories = {h["id"]: h for h in state["houses"]}
+    buildings = {b["id"]: b for b in scene["buildings"]}
+    assert len(histories) == len(state["houses"]) and histories.keys() == houses.keys()
+    assert len(state["neutral_source_origins"]) <= 37
+    origins = {o["id"]: o["cell"] for o in state["neutral_source_origins"]}
+    assert len(origins) == len(state["neutral_source_origins"])
+    for identity, cell in origins.items():
+        assert type(identity) is int and identity > 0 and len(cell) == 2 and all(type(n) is int for n in cell)
+        if identity in buildings:
+            assert buildings[identity]["kind"] == 13 and buildings[identity]["cell"] == cell
+
+    def evaluation(e, identity):
+        assert type(e["tick"]) is int and 0 < e["tick"] <= tick and e["tick"] % 51 == 40
+        i = e["input"]
+        assert i["type"] in (3, 4, 5) and type(i["occupants"]) is int and 0 < i["occupants"] <= 32767
+        assert type(i["devolve_counter"]) is int and 0 <= i["devolve_counter"] <= 9
+        assert type(i["water"]) is bool and type(i["desirability"]) is int and -128 <= i["desirability"] <= 127
+        assert len(i["goods"]) == 6 and all(type(n) is int and 0 <= n <= 8 for n in i["goods"])
+        assert len(i["service_timers"]) == 9 and all(type(n) is int and 0 <= n <= 96 for n in i["service_timers"])
+        assert len(e["service_witnesses"]) == 3
+        for index, role in enumerate((0, 1, 5)):
+            w = e["service_witnesses"][index]
+            expected = 0
+            if w:
+                assert w["house_id"] == identity and w["role"] == role and 0 < w["arrival_tick"] <= e["tick"]
+                expected = max((40 if role == 5 else 96) - (service_countdowns(e["tick"]) - service_countdowns(w["arrival_tick"] - 1)), 0)
+            assert i["service_timers"][role] == expected
+        assert all(i["service_timers"][role] == 0 for role in (2, 3, 4, 6, 7, 8))
+        assert i["water"] is bool(water_timer(e["water_evaluation_witness"], water_evaluation_tick(e["tick"])))
+        assert len(e["food_received"]) == len(e["food_consumed"]) == 2
+        assert all(type(e[key][g]) is int and 0 <= e["food_consumed"][g] <= e["food_received"][g] for key in ("food_received", "food_consumed") for g in (0, 1))
+        amount = sum(e["food_received"][g] - e["food_consumed"][g] for g in (0, 1))
+        assert 0 <= amount <= 8
+        w = e["food_quality_witness"]
+        if w:
+            assert 0 < w["tick"] <= e["tick"]
+            previous = [e["food_received"][g] - w["accepted"][g] - w["consumed_before"][g] for g in (0, 1)]
+            assert all(n >= 0 for n in previous)
+            expected = food_blend(w["previous_quality"], food_batch_quality(w["accepted"]), sum(w["accepted"]), sum(previous))
+            assert i["food_quality"] == (expected if amount else 0)
+        else:
+            assert not any(e["food_received"]) and not amount and i["food_quality"] == 0
+        assert len(e["goods_consumed_before"]) == 6 and all(type(n) is int and n >= 0 for n in e["goods_consumed_before"])
+
+    capacity = 0
+    for identity, h in houses.items():
+        audit = histories[identity]
+        assert h["type"] in (2, 3, 4, 5) and type(h["devolve_counter"]) is int and 0 <= h["devolve_counter"] <= 9
+        assert type(h["occupants"]) is int and 0 <= h["occupants"] <= 32767
+        capacity += rows[max(0, h["type"] - 3)][17]
+        admitted = audit["first_admission_tick"]
+        if admitted is None:
+            assert h["type"] == 2 and h["occupants"] == 0
+        else:
+            assert type(admitted) is int and buildings[identity]["placed_tick"] + 120 <= admitted <= tick
+            assert (admitted - buildings[identity]["placed_tick"] - 120) % 40 == 0 and h["occupants"] > 0
+        assert len(audit["consumption_rows"]) == 3
+        for row, model in zip(audit["consumption_rows"], rows, strict=True):
+            assert type(row["events"]) is int and 0 <= row["events"] <= state["consumption_events"]
+            assert len(row["consumed"]) == 6
+            for good, n in enumerate(row["consumed"]):
+                need = max(model[9 + good] if good < 4 else model[13], 0)
+                assert type(n) is int and 0 <= n <= row["events"] * min(need, 8)
+        assert sum(r["events"] for r in audit["consumption_rows"]) <= state["consumption_events"]
+        assert [sum(r["consumed"][g] for r in audit["consumption_rows"]) for g in range(6)] == h["consumed"]
+        for name, input_type, output_type in (("first_hut_evaluation", 3, 4), ("first_plain_evaluation", 4, 5)):
+            e = audit[name]
+            if e:
+                evaluation(e, identity)
+                assert e["input"]["type"] == input_type and housing_step(rows, e["input"]) == (output_type, 0)
+        if h["type"] >= 4:
+            assert audit["first_hut_evaluation"]
+        if h["type"] == 5:
+            assert audit["first_plain_evaluation"]
+        if audit["first_plain_evaluation"]:
+            assert audit["first_hut_evaluation"] and audit["first_hut_evaluation"]["tick"] < audit["first_plain_evaluation"]["tick"]
+        ever = 2 if audit["first_plain_evaluation"] else 1 if audit["first_hut_evaluation"] else 0
+        assert h["occupants"] <= max(row[17] for row in rows[:ever + 1])
+        e = audit["last_evaluation"]
+        if e:
+            evaluation(e, identity)
+            assert e["tick"] == state["evaluation_tick"]
+            assert housing_step(rows, e["input"]) == (h["type"], h["devolve_counter"])
+    assert scene["capacity"] == capacity
+
+
+def check_housing_fixture(fixture):
+    assert fixture["status"] == "PASS" and fixture["snapshot_injection"] is False
+    assert fixture["authored_geography"] is fixture["real_model_housing"] is fixture["actual_first_hut_and_plain"] is True
+    assert fixture["actual_tenth_failure_devolution"] is fixture["grand_actual_all_arrivals"] is True
+    identity = fixture["home_id"]
+    for key in ("initial", "midroute", "arrived", "hut", "plain", "counter9", "devolved", "grand_initial", "grand_final"):
+        check_balances(fixture[key])
+        assert fixture[key]["model_sha256"] == MODEL_SHA
+    assert fixture["initial"]["funds"] == 11292 and fixture["initial"]["construction_spent"] == 708
+    assert fixture["initial"]["population"] == 0 and fixture["initial"]["house_count"] == 5
+    home = lambda name: next(h for h in fixture[name]["houses"] if h["id"] == identity)
+    assert any(c["role"] == 16 and c["phase"] == 1 and c["edge_progress"] > 0 for c in fixture["midroute"]["couriers"])
+    assert home("arrived")["water"] is False
+    assert next(h for h in fixture["arrived"]["water"]["houses"] if h["id"] == identity)["normal_timer"] > 0
+    assert home("hut")["type"] == 4 and home("hut")["water"] is True
+    assert home("plain")["type"] == 5
+    plain_proof = next(h for h in fixture["plain"]["housing"]["houses"] if h["id"] == identity)["first_plain_evaluation"]
+    assert plain_proof["input"]["water"] and plain_proof["input"]["food_quality"] >= 20 and plain_proof["input"]["service_timers"][5] > 0
+    assert fixture["plain"]["housing"]["model_rows"][2][9:11] == [0, 0]
+    assert home("counter9")["type"] == 5 and home("counter9")["devolve_counter"] == 9
+    assert home("devolved")["type"] == 4 and home("devolved")["devolve_counter"] == 0
+    assert home("devolved")["occupants"] >= home("counter9")["occupants"]
+    assert fixture["grand_initial"]["construction_spent"] == 1948 and fixture["grand_initial"]["population"] == 0
+    assert any(h["type"] == 5 and h["water"] and h["hemp"] > 0 and h["ceramics"] > 0 and h["food_quality"] >= 20 and
+               all(h["service_timers"][r] > 0 for r in (0, 1, 5)) for h in fixture["grand_final"]["houses"])
+    assert [n["case"] for n in fixture["negatives"]] == ["no-water-influence-only", "no-ancestor", "no-food-field", "unreachable-market",
+        "authored-missing-hemp-need1", "authored-insufficient-desirability"]
+    for index, negative in enumerate(fixture["negatives"]):
+        assert negative["authored_model"] is (index >= 4) and negative["original_model_parity"] is (index < 4)
+        check_balances(negative["final"])
+        assert all(h["type"] < 5 for h in negative["final"]["houses"])
+        assert all(not h["first_plain_evaluation"] for h in negative["final"]["housing"]["houses"])
+        if index < 4:
+            assert negative["final"]["model_sha256"] == MODEL_SHA
+        else:
+            assert negative["final"]["model_sha256"] != MODEL_SHA
+            if index == 4:
+                assert negative["final"]["housing"]["model_rows"][2][9] == 1
+                assert all(not h["hemp"] for h in negative["final"]["houses"])
+            else:
+                assert all(h["desirability"] < negative["final"]["housing"]["model_rows"][1][1] for h in negative["final"]["houses"])
 
 
 def check_services(scene, positive=False, ancestor=False):
@@ -263,7 +518,7 @@ def check_ancestor_fixture(fixture):
     assert moving["workforce_used"] == 67
     for key in ("initial", "stopped", "midroute", "disconnected", "repaired", "visited", "before_expiry", "expired", "revisited"):
         check_balances(fixture[key])
-        assert fixture[key]["model_sha256"] == MODEL_SHA and fixture[key]["development_revision"] == 20
+        assert fixture[key]["model_sha256"] == MODEL_SHA and fixture[key]["development_revision"] == 21
     moving_ancestor = next(c for c in moving["couriers"] if c["role"] == 15)
     assert moving_ancestor["phase"] == 1 and moving_ancestor["edge_progress"] > 0
     assert all(h["service_timers"][5] == 0 for h in moving["houses"])
@@ -415,9 +670,17 @@ def check_consumption_boundary(boundary):
     assert at["tick"] == before["tick"] + 1 and after["tick"] == at["tick"] + 1
     assert len(before["houses"]) == len(at["houses"]) == len(after["houses"]) == 6
     totals = [0, 0]
+    rows = before["housing"]["model_rows"]
     for previous, charged, following, recorded in zip(
             before["houses"], at["houses"], after["houses"], boundary["expected_house_deltas"], strict=True):
         assert previous["id"] == charged["id"] == following["id"] == recorded["building_id"]
+        input_state = {key: previous[key] for key in ("type", "desirability", "occupants", "devolve_counter", "water", "service_timers", "food_quality")}
+        input_state["goods"] = [previous["hemp"], previous["ceramics"], 0, 0, 0, 0]
+        evolved_type, evolved_counter = housing_step(rows, input_state)
+        assert (recorded["evolved_type"], recorded["evolved_counter"]) == (evolved_type, evolved_counter)
+        assert recorded["evolved_desirability"] == input_state["desirability"]
+        assert (charged["type"], charged["devolve_counter"]) == (evolved_type, evolved_counter)
+        assert (following["type"], following["devolve_counter"]) == (evolved_type, evolved_counter)
         expected = [min(previous[field], 1) if previous["occupants"] else 0 for field in ("hemp", "ceramics")]
         assert recorded["consumed"] == expected + [0, 0, 0, 0]
         for good, field in enumerate(("hemp", "ceramics")):
@@ -595,6 +858,24 @@ def main():
     legacy.run(binary, ["--create-ancestor", stage, output / "ancestor"], output / "ancestor.log")
     ancestor_fixture = json.loads((output / "ancestor/fixture.json").read_text())
     check_ancestor_fixture(ancestor_fixture)
+    legacy.run(binary, ["--create-housing", stage, output / "housing"], output / "housing.log")
+    housing_fixture = json.loads((output / "housing/fixture.json").read_text())
+    check_housing_fixture(housing_fixture)
+    housing_negative_inventories = []
+    for negative in housing_fixture["negatives"]:
+        if negative["authored_model"]:
+            model_path = checked_path(repo, output, negative["model_path"])
+            expected = source_model.read_bytes()
+            marker = (b"2: Hut,{," if negative["changed_row"] == 1 else b"3: Plain Cottage,{,")
+            assert expected.count(marker) == 1
+            start = expected.index(marker) + len(marker)
+            for _ in range(negative["changed_field"]):
+                start = expected.index(b",", start) + 1
+            end = expected.index(b",", start)
+            assert int(expected[start:end]) == negative["before"]
+            expected = expected[:start] + str(negative["after"]).encode() + expected[end:]
+            assert model_path.read_bytes() == expected and digest(model_path) == negative["final"]["model_sha256"]
+            housing_negative_inventories.append((model_path.parent.parent, inventory(model_path.parent.parent)))
     restarts = []
     assert [entry["tag"] for entry in fixture["checkpoints"]] == ["mid-hemp-courier", "house-two-goods"]
     assert [entry["tag"] for entry in consumption["checkpoints"]] == ["step-0-before", "step-7-before"]
@@ -605,12 +886,16 @@ def main():
     assert [entry["tag"] for entry in ancestor_fixture["checkpoints"]] == [
         "mid-ancestor-courier", "ancestor-road-disconnected", "house-ancestor-visit",
         "ancestor-before-expiry", "ancestor-expired", "ancestor-revisited"]
-    checkpoint_inputs = [(entry, stage, MODEL_SHA, False, False, False, False) for entry in fixture["checkpoints"]]
-    checkpoint_inputs += [(entry, authored_stage, authored_sha, True, False, False, False) for entry in consumption["checkpoints"]]
-    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, True, False, False) for entry in food_fixture["checkpoints"]]
-    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, True, False) for entry in services_fixture["checkpoints"]]
-    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, True, True) for entry in ancestor_fixture["checkpoints"]]
-    for checkpoint, replay_data, model_sha, authored_needs, food_scenario, services_scenario, ancestor_scenario in checkpoint_inputs:
+    assert [entry["tag"] for entry in housing_fixture["checkpoints"]] == [
+        "mid-water-courier", "water-arrived-pre-evaluation", "house-hut-upgrade", "house-plain-upgrade",
+        "house-devolution-counter9", "house-devolved"]
+    checkpoint_inputs = [(entry, stage, MODEL_SHA, False, False, False, False, False) for entry in fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, authored_stage, authored_sha, True, False, False, False, False) for entry in consumption["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, True, False, False, False) for entry in food_fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, True, False, False) for entry in services_fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, True, True, False) for entry in ancestor_fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, False, False, True) for entry in housing_fixture["checkpoints"]]
+    for checkpoint, replay_data, model_sha, authored_needs, food_scenario, services_scenario, ancestor_scenario, housing_scenario in checkpoint_inputs:
         source = checked_path(repo, output, checkpoint["save"])
         source_identity = file_identity(source)
         source_report = json.loads(checked_path(repo, output, checkpoint["report"]).read_text())
@@ -620,7 +905,7 @@ def main():
             assert any(c["role"] == 12 and c["typed_cargo_good"] == 0 and c["typed_cargo"] > 0 and
                        c["cargo"] == 0 and c["edge_progress"] > 0
                        for c in source_report["couriers"])
-        elif not authored_needs and not food_scenario and not services_scenario:
+        elif not authored_needs and not food_scenario and not services_scenario and not housing_scenario:
             check_balances(source_report, positive=True)
             assert any(house["hemp"] > 0 and house["ceramics"] > 0 for house in source_report["houses"])
         if food_scenario:
@@ -653,6 +938,22 @@ def main():
                 assert any(h["service_timers"][5] == 1 for h in source_report["houses"])
             else:
                 assert all(h["service_timers"][5] == 0 for h in source_report["houses"])
+        if housing_scenario:
+            identity = housing_fixture["home_id"]
+            home = next(h for h in source_report["houses"] if h["id"] == identity)
+            tag = checkpoint["tag"]
+            if tag == "mid-water-courier":
+                assert any(c["role"] == 16 and c["phase"] == 1 and c["edge_progress"] > 0 for c in source_report["couriers"])
+            elif tag == "water-arrived-pre-evaluation":
+                assert home["water"] is False and any(h["current_witness"] for h in source_report["water"]["houses"])
+            elif tag == "house-hut-upgrade":
+                assert home["type"] == 4 and home["water"] is True
+            elif tag == "house-plain-upgrade":
+                assert home["type"] == 5
+            elif tag == "house-devolution-counter9":
+                assert home["type"] == 5 and home["devolve_counter"] == 9
+            else:
+                assert home["type"] == 4 and home["devolve_counter"] == 0
         folder = output / ("resume-" + checkpoint["tag"])
         legacy.run(binary, ["--resume", replay_data, folder, source], output / (checkpoint["tag"] + "-resume.log"))
         actual_reports = []
@@ -665,7 +966,7 @@ def main():
             assert json.loads(actual.read_text()) == json.loads(expected.read_text()), "Full SaveDocument differs"
             report = json.loads((folder / (name + "-report.json")).read_text())
             assert report == json.loads(checked_path(repo, output, checkpoint[report_key]).read_text())
-            check_balances(report, positive=not food_scenario and not services_scenario)
+            check_balances(report, positive=not food_scenario and not services_scenario and not housing_scenario)
             assert report["model_sha256"] == model_sha
             if authored_needs:
                 assert report["shelter_needs"] == [1, 1]
@@ -675,7 +976,7 @@ def main():
                 assert all(balance["consumed"] == 0 for balance in report["balances"])
             saved = json.loads(actual.read_text())
             assert saved["schema_version"] == 26 and saved["rules"]["version"] == 10
-            assert saved["world"]["original_production"]["development_revision"] == 20
+            assert saved["world"]["original_production"]["development_revision"] == 21
             actual_reports.append(report)
         midpoint, final = actual_reports
         assert midpoint["tick"] == source_report["tick"] + 10000
@@ -687,7 +988,7 @@ def main():
         assert file_identity(source) == source_identity, "Process changed its source save or metadata"
         restarts.append({"checkpoint": checkpoint["tag"], "separate_os_process": True,
             "authored_model_needs": authored_needs, "food_scenario": food_scenario, "services_scenario": services_scenario,
-            "ancestor_scenario": ancestor_scenario, "model_sha256": model_sha,
+            "ancestor_scenario": ancestor_scenario, "housing_scenario": housing_scenario, "model_sha256": model_sha,
             "ticks_advanced": 20000, "periods": [10000, 10000], "actual_paid_road_continuation": True,
             "full_savedocument_equal": True, "canonical_bytes_equal": True, "provenance_equal": True,
             "balances_equal": True, "midpoint_equal": True, "source_save_and_metadata_unchanged": True})
@@ -698,10 +999,11 @@ def main():
     assert before == after, "Original installation bytes or metadata changed"
     assert private_before == inventory(stage), "Private hash-identical model copy or map changed"
     assert authored_before == inventory(authored_stage), "Private explicitly authored model or map changed during simulation"
+    assert all(before == inventory(root) for root, before in housing_negative_inventories), "Private authored housing copies changed"
     legacy.frozen_baseline(repo)
     frozen_rule9(repo)
-    assert len(restarts) == 18 and sum(row["ancestor_scenario"] for row in restarts) == 6
-    report = {"status": "PASS", "evidence": "Paid actual214 Ancestor40/expiry/revisit and road repair; preserved207/208 visits, Food/Ceramics/Hemp arrivals and all twelve previous process cases; separate authored consumption needs",
+    assert len(restarts) == 24 and sum(row["ancestor_scenario"] for row in restarts) == sum(row["housing_scenario"] for row in restarts) == 6
+    report = {"status": "PASS", "evidence": "Paid actual72 Water and original-model Shelter/Hut/Plain evolution with real tenth-failure devolution; full paid goods/Food/medicine/Ancestor/Water integration, six labeled negative cases and all eighteen previous process cases",
         "original_data": str(original), "original_inventory_before": before, "original_inventory_after": after,
         "original_unchanged": True, "private_source_inventory_unchanged": True,
         "original_model_sha256": MODEL_SHA, "model_copy_byte_identical": True,
@@ -713,11 +1015,14 @@ def main():
         "fixture": fixture, "consumption_fixture": consumption, "food_fixture": food_fixture,
         "services_fixture": services_fixture, "positive_runtime_services": True,
         "ancestor_fixture": ancestor_fixture, "positive_runtime_ancestor": True,
+        "housing_fixture": housing_fixture, "positive_runtime_water": True, "positive_runtime_housing": True,
         "restarts": restarts, "legacy": old,
         "frozen_baseline_capture_sha256": digest(baseline / "capture.json"),
         "frozen_baseline_head": capture["head_before_implementation"],
         "limits": ["Actual paid Food/Hemp/Ceramics delivery; original Shelter six-Goods needs0 consume0; Food sink is separate authored rule",
-            "Unsupported luxury goods and house evolution remain inactive in revision20",
+            "Unsupported luxury goods and house types above Plain remain inactive in revision21",
+            "Need1 and stricter Desirability counterexamples use explicitly authored copies; original Plain Hemp/Ceramics requirements are zero",
+            "Actual early evolution uses unchanged pure formulas with an explicit authored Plain ceiling; no full historical transport proof",
             "Ancestor elite_only=false and targeted ordinary tours are explicit authored integration, no original spawn cadence or random-walk parity claim",
             "Migration, funding, Food crop scores20/80 and recipe timing are authored; no original production parity claim",
             "Authored geography; separate SDL/native/human acceptance"]}

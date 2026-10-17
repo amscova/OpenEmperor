@@ -51,7 +51,7 @@ int main(int argc,char** argv) {
         for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField,
                 oe::sandbox_ui::Action::OriginalFoodFarm,oe::sandbox_ui::Action::OriginalWheatField,oe::sandbox_ui::Action::OriginalMilletField,
                 oe::sandbox_ui::Action::HealthPost,oe::sandbox_ui::Action::ServicePost,
-                oe::sandbox_ui::Action::OriginalAncestorShrine}) {
+                oe::sandbox_ui::Action::OriginalAncestorShrine,oe::sandbox_ui::Action::OriginalWaterWell}) {
             const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
             check(button!=buttons.end() && view->layout().button_at(button->rect.x+2,button->rect.y+2)==action &&
                 !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
@@ -239,6 +239,31 @@ int main(int argc,char** argv) {
                     h.house.hemp>0 && h.house.ceramics>0 && h.house.food_quality>0;
         }
         check(ancestor_visit,"No actual House received Ancestor plus medical visits and physical goods/Food");
+        const auto water_funds=view->world().treasury();
+        const auto old_tool=view->tool();key(*view,SDLK_H);key(*view,SDLK_Q);
+        check(view->tool()==old_tool,"Water keyboard escaped Help modal");key(*view,SDLK_H);
+        key(*view,SDLK_Q);check(view->tool()==22,"Water keyboard tool unavailable");
+        click(*view,{116,107});
+        check(view->world().object_at({117,108})==sim::Object::OriginalWaterWell72 &&
+            view->world().treasury()==water_funds-25,"Water Well UI did not pay its2x2model source");
+        bool water_trip=false;
+        for(int i=0;i<1000 && !water_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers()) water_trip|=c.role==sim::CourierRole::OriginalWater &&
+                c.phase==sim::CourierPhase::ToWarehouse && c.edge_progress>0;
+        }
+        check(water_trip,"Paid Water Well did not start real movement");
+        const auto water_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<80;++i)view->tick_once();key(*view,SDLK_F9);
+        check(view->world().snapshot()==water_saved,"Water midtrip F5/F9 changed authority");
+        bool plain=false;
+        for(int i=0;i<4000 && !plain;++i) {
+            view->tick_once();
+            for(const auto& h:view->world().original_economy_state()->houses)
+                plain|=h.house.type==orig::HouseType::PlainCottage && h.house.water && h.house.ancestor>0 &&
+                    h.house.food_quality>=20 && h.house.hemp>0 && h.house.ceramics>0 && h.house.herbalist>0 && h.house.acupuncture>0;
+        }
+        check(plain,"Actual UI city never reached paid Water/Food/Ancestor-backed Plain Cottage");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -250,7 +275,7 @@ int main(int argc,char** argv) {
         f::write_text(target,current);key(*view,SDLK_F9);
         std::optional<sim::Cell> supplied;
         for(const auto& house:view->world().original_economy_state()->houses)
-            if(house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
+            if(house.house.type==orig::HouseType::PlainCottage && house.house.water && house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
                 house.house.herbalist>0 && house.house.acupuncture>0 && house.house.ancestor>0) {supplied=view->world().building(house.building_id).cell;break;}
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
@@ -284,9 +309,11 @@ int main(int argc,char** argv) {
                 {"selected_house_food_quality",h->house.food_quality},
                 {"selected_house_hemp",h->house.hemp},{"selected_house_ceramics",h->house.ceramics},
                 {"selected_house_herbalist",h->house.herbalist},{"selected_house_acupuncture",h->house.acupuncture},
-                {"selected_house_ancestor",h->house.ancestor},
+                {"selected_house_ancestor",h->house.ancestor},{"selected_house_water",h->house.water},
+                {"selected_house_type",static_cast<unsigned>(h->house.type)},
+                {"selected_house_devolve_counter",h->house.devolve_counter},
                 {"model_sha256",view->world().original_rules_model()->provenance().sha256},
-                {"synthetic_model",true},{"idle_frames",100},{"idle_world_unchanged",true}};
+                {"synthetic_model",true},{"inspection_lines",details},{"idle_frames",100},{"idle_world_unchanged",true}};
             for(const auto& row:view->world().original_production_state()->food.stocks) if(row.building_id==id)
                 observed["selected_house_food"]=row.amounts;
             auto output=fs::path(argv[1]);output.replace_extension(".observed.json");f::write_text(output,observed.dump(2));

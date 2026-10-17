@@ -90,7 +90,8 @@ void paid_arrival_expiry_revisit_and_replay() {
     const auto home=*world.building_owner_at({0,2});
     const auto shrine=buy(world,sim::CommandType::PlaceOriginalAncestorShrine,{21,5});
     const auto id=actor(world,shrine);
-    check(world.original_production_state()->development_revision==20&&world.total_population()==0&&
+    check(world.original_production_state()->development_revision==21,"Ancestor fixture requires active revision21");
+    check(world.total_population()==0&&
           world.construction_spent_total()==568&&world.treasury()==11432,
           "Ancestor purchase did not pay24Roads/sixHouses/model40 without population grants");
     check(world.workforce_required(shrine)==4&&world.couriers().size()==1&&

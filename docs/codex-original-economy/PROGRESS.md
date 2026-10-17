@@ -26,8 +26,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-17 | PASS | `b30718f` | `.local/original-economy/oe17/implementation/`, `oe17/production-fixtures/debug-first/`, OE-00/`oe17-final-verification/` | Revision17: tatsächlicher Konsum an0/7 mit strikter House-Historie;153 relevante Konfigurations-CTests, zwei Modellpfade/vier20k-Prozessreplays,25 Saves unabhängig rekonstruiert; Legacy exakt, Gate C TODO |
 | OE-18 | PASS | `144eec6` | `.local/original-economy/oe18/implementation/`, `oe18/production-fixtures/final-53/`, OE-00/`oe18-final-verification/` | Revision18: bezahlte FoodFarm193/Felder195,196; tatsächliche Qualität20/35/80,159 volle Konfigurations-CTests plus3 nach reinem Formatfix, acht20k-Prozessreplays; Legacy exakt. Gate C TODO |
 | OE-19 | PASS | `ba116b4c97defdf134434c1b0398292fb3727d0e` | `.local/original-economy/oe19/gate-c/final-3/`, `oe19/implementation/`, OE-00/`oe19-final-verification/` | Revision19: bezahlte207/208-Ankünfte und getrennte96er-Timer; drei volle202er-Suiten, zwölf20k-Prozessfortsetzungen, strikter Restore, Legacy exakt. Gate C PASS; Originalgrafik/native/human offen |
-| OE-20 | PASS | — | `.local/original-economy/oe20/implementation/runs/final3/`, `oe20/production-fixtures/final/`, OE-00/`oe20-final-verification/` | Revision20: bezahlter Ancestor214, echter40er-Besuch/Verfall/Wiederbesuch,369 relevante Konfigurations-CTests,18 separate20k-Fortsetzungen und Legacy exakt. Gate D bleibt TODO; Originalgrafik/native/human offen |
-| OE-21 | TODO | — | — | — |
+| OE-20 | PASS | 825fd2c65d90c9139e283f2bf3e191bb5feb4e39 | `.local/original-economy/oe20/implementation/runs/final3/`, `oe20/production-fixtures/final/`, OE-00/`oe20-final-verification/` | Revision20: bezahlter Ancestor214, echter40er-Besuch/Verfall/Wiederbesuch,369 relevante Konfigurations-CTests,18 separate20k-Fortsetzungen und Legacy exakt. Gate D bleibt TODO; Originalgrafik/native/human offen |
+| OE-21 | PASS | — | `.local/original-economy/oe21/implementation/runs/final4/`, `oe21/production-fixtures/final4/` | Revision21: bezahltes Wasser, echter Hut→Plain-Aufstieg, zehnte negative Auswertung/Rückentwicklung,141 Konfigurations-CTests und24 separate20k-Prozesse; Gate D bleibt TODO |
 | OE-22 | TODO | — | — | — |
 | OE-23 | TODO | — | — | — |
 | OE-24 | TODO | — | — | — |
@@ -2565,3 +2565,74 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Tatsächliche unabhängige Vorprüfung **8/8 PASS** vor Statusänderung.
   OE-20 erhält seinen eigenen Commit; danach folgt OE-21 direkt. Gate D bleibt
   bis OE-27 offen, menschliche Abnahme bleibt NOT_RUN.
+
+
+### OE-21 – tatsächlicher Abschluss am2026-10-17
+
+- Vorheriger eigener Commit: OE-20 `825fd2c65d90c9139e283f2bf3e191bb5feb4e39`.
+  [Vorvertrag](../original-economy/housing-runtime.md) vor Implementierung;
+  ausdrücklich Rule10/Schema26/policy3, Revision21 statt20, keine Migration.
+- Eigene bezahlte Well72 (Normal25/4), normaler realer96er-Wasserbesuch,
+  Phase28-Materialisierung/Phase35-Verfall; alte Influence60 bleibt ohne Wasser.
+  Gemeinsame Routen, echter Actor und eigene Herkunftsbelege, keine Aura.
+- Produktive Phase39 führt den unveränderten puren Evolutionskern vor dem
+  Verbrauch0/7 aus. Frühe authored Grenze Plain Cottage, zwei permanente
+  erste Aufstiegsinputs, historische Bedarfssinks je drei Modellzeilen und
+  globaler Ursprung entfernter neutraler Quellen. Keine erfundene Eviction.
+- Echte Originalmodell-Szene: fünf Häuser/24 Straßen/Food/Wheat/Market/Well/
+  Ancestor kosten708 (Funds11292), initial0 Bewohner und0 Waren. Wirkliche
+  Wasserankunft Tick170; Hut193 mit4 Bewohnern; Plain346 mit12; Counter9 bei856;
+  zehnte verfehlte Auswertung907 macht Hut bei weiterhin22 Bewohnern. Die
+  vollständige bezahlte Goods/Food/Medizin/Ancestor/Water-Szene kostet1948
+  (Funds10052), erreicht deren gemeinsame tatsächliche Ankünfte plus Plain729.
+  Modellbytes bleiben SHA `7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6`.
+- Gegenproben: alte Influence60/kein Wasser, kein Ancestor, kein Food/Quality,
+  unzugänglicher Market sowie ausdrücklich authored HempNeed1/DesHigh99.
+  Original-Plain hat keinen Hemp-/Ceramicsbedarf; keine falsche Negativbehauptung.
+- Drei warnungsfreie inkrementelle Werror-Builds, je47 relevante registrierte
+  CTests in Debug/Release/ASan+UBSan:141 PASS,0 FAIL/Skip. Tatsächliche CTestzeit
+  74.89/7.65/41.05s. Kein Cleanbuild-/voller Gate-D-Claim.
+  Quelle529 rekursive Dateien inkl drei Finderdateien:
+  `b3cd644b904835e6e5b04fbe412d1c45aa01af815d0ecc6471e8b2176eaf1d08`.
+  FreezeSHA `e648143b0dbc234c3183437808c7c0a3946c6f9445387b895344f618a8e0f912`.
+  Unabhängiger141-JUnit/118-Livebinary/39-Archiv-Check:
+  `b279bf983f5cede3666db717cf9c9d3474173187add364292703e45ad06de5cc`.
+- Drei tatsächliche74er-Paritätsvergleiche,24 Archivbindungen,25 strikte
+  San-Probeaufrufe und28 Python-Paritätsprüfungen bestanden.15 reine Dateien
+  bytegleich; einzige numerische Modulergänzung ist der explizite Water-Well-
+  Mappingfall, keine Änderung einer Regelformel. Portabler Export:
+  `2226e812eff5558c47f0568a7f3ccaa7657bd07b37d01f7bb491343a23aecd65`.
+- Tatsächlich37 C++-Kindprozesse: sechs Creates,24 Production-Fortsetzungen
+  je20k und sieben Legacy-Kinder (vier davon Fortsetzungen).48 vollständige
+  Save-/Report-Paarsets gleich;125 Schema26-Dokumente/120 Raw-Projektionen,
+ 17 alte Save-/16 Report-Literalpaare und334 Dateien unabhängig neu gelesen,
+ 1.374.023 Prüfungen. Originale/Workspace/Source/Binaries vor/nach unverändert.
+  ProzessreportSHA `cd675c0145e875999151e8d2f772773af63d02a833a01fbcf70c32f130ab54ba`;
+  Workflow `167a9eeb981befaf3d5249af0d599a1f7d315fd1b6a50afcc991a572f661e094`;
+  unabhängiger Reader `cd03e84975bf48f09beaa833d095a2bff8d8af4f238d553a9774d8206f055dd1`.
+- Sechs tatsächliche C++/Python-Ausgabepfadverweigerungen vor jedem Schreiben
+  bestanden. Getrennter spielbarer Launcher gebaut, `sh -n` PASS; Standardziel
+  korrigiert auf eigenen `rule10-revision21.json` statt des alten18er-Pfads.
+- Tatsächlich geöffnete Software-SDL-Aufnahme: Typ5/Wasser1/Raw94/Counter0,
+  H1/C8, Quality65, Medizin96/95, Ancestor35 und Foodmiss5 zusammen sichtbar;
+  Q-Kauf/Maus/Modalgate, echte F5/F9-Midtrips und100 ruhende Frames geprüft.
+  Aktuelles Binary bytegleich dem aufgenommenen; synthetisches Modell,
+  kein Originalsprite-/native-/human-PASS. VisualReviewSHA
+  `9f63e3caae9a2dd5e848987c4842eb4b3ebb87b1f3fc8000b16d8d719b66f0d6`.
+- Erhaltene FAILs führten zu echten Korrekturen: Water-Fixture-Fieldindex,
+  aktiver Pausen-Syntaxadapter, exakte Evolution-vor-Verbrauch-Tests sowie
+  tatsächlich fehlende historische Populationsparität. Ungerade Bewohner
+  brauchen eine erreichbare frühere ungerade Kapazität; Shelter6→3 bleibt
+  verweigert, echtes Shelter7→Hut14 erlaubt später9/11/13. Alte positive
+  Revisionsliterale20 im Harness wurden auf21 korrigiert, Preise und volle
+  House-/Sinkvergleiche nicht gelockert. Beide gescheiterten Prozessläufe
+  bleiben mit2 bzw5 tatsächlichen Creates/0 Resumes erhalten.
+- Final3-Paritäts-Prepare verweigerte einen schon vorhandenen bytegleichen
+  Kandidaten nach25 echten Probes; ursprünglicher FAIL und unabhängiger
+  Recovery-Audit bleiben. Final4-Prepare/Export/Postcheck bestehen frisch.
+  Ein erster privater Abschlussaufruf hatte nur einen relativen Pfadfehler;
+  der vollständige korrigierte Abschlussprüfer wurde tatsächlich ausgeführt.
+  FinalvalidierungSHA `fe732bafa2d98911b4aa567279c8786582d9dd101c4ecacac8a0a1f14a11bf78`.
+- Kein Wartepunkt für manuelle Tests. Nach eigenem OE-21-Commit folgt OE-22;
+  Originalobjektgrafiken/Actors folgen weiterhin den Aufgaben26/29, voller
+  Cleanbuild-/Corpus-Gate D erst nach27.

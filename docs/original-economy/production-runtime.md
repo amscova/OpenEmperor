@@ -14,7 +14,8 @@ Besuche](services-runtime.md) an bezahlte207-/208-Provider und echte Walker-
 Ankünfte, einschließlich des unveränderten Phase35-Countdownkerns.
 Revision20 ergänzt den [eigenen bezahlten Ancestor-Schrein214](ancestor-runtime.md)
 und ausschließlich durch tatsächliche DirectReligion-Ankunft gesetzten40er-Timer.
-Aktueller Entwicklerstand ist Revision20.
+Revision21 verbindet [Wasser und echte frühe Hausentwicklung](housing-runtime.md).
+Aktueller Entwicklerstand ist Revision21.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
@@ -26,8 +27,9 @@ Zuwanderung Bewohner: Mindestalter120 Ticks, danach alle40 Ticks höchstens
 zwei, nur mit tatsächlich zulässigem Straßeneingang und ohne laufenden Brand.
 Der erste Zuzug aktiviert den Shelter-Typ. Die Kapazität kommt aus der
 gebundenen vorbereiteten Modelldatei. Eine ungerade Schlusskapazität erhält
-beim letzten Zuzug genau den verbleibenden einen Bewohner. Nicht erreichbare
-ungerade Zwischenstände werden beim Restore verweigert.
+beim letzten Zuzug genau den verbleibenden einen Bewohner. Nach einem Aufstieg kann die weitere Zweier-Zuwanderung auch ungerade
+Zwischenstände erreichen. Historische Aufnahmezeit und belegte frühere
+Kapazitäten begrenzen den Restore.
 
 Die Bewohner in `OriginalHouseState` liefern die deterministisch verteilten
 Worker. Das ältere `Building.population` bleibt null. Diese Zuzugs- und

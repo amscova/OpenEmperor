@@ -1161,6 +1161,178 @@ simulation::OriginalServicesState parse_production_services(const json& j) {
     }
     return services;
 }
+simulation::BuildingId production_id(const json& j) {
+    const auto value=number(j,UINT32_MAX);
+    require(value>0,"schema26 historical identity must be positive");
+    return static_cast<simulation::BuildingId>(value);
+}
+json production_transfer_json(simulation::OriginalGoodsTransferKey key) {
+    return {{"courier_id",static_cast<std::uint32_t>(key.courier_id)},{"sequence",key.sequence}};
+}
+simulation::OriginalGoodsTransferKey parse_production_transfer(const json& j) {
+    simulation::OriginalGoodsTransferKey key;
+    key.courier_id=static_cast<simulation::CourierId>(number(field(j,"courier_id"),UINT32_MAX));
+    key.sequence=number(field(j,"sequence"));
+    require(static_cast<std::uint32_t>(key.courier_id)>0 && key.sequence>0,
+            "schema26 historical transfer requires positive actor and sequence");
+    return key;
+}
+template<std::size_t N> std::array<std::uint64_t,N> parse_production_counters(const json& j) {
+    std::array<std::uint64_t,N> result{};
+    require(j.is_array() && j.size()==N,"schema26 historical counter array has wrong size");
+    for (std::size_t i=0;i<N;++i) result[i]=number(j[i]);
+    return result;
+}
+json production_water_witness_json(const simulation::OriginalWaterWitness& w) {
+    return {{"building_id",static_cast<std::uint32_t>(w.building_id)},
+        {"provider_id",static_cast<std::uint32_t>(w.provider_id)},
+        {"transfer",production_transfer_json(w.transfer)},{"arrival_tick",w.arrival_tick}};
+}
+simulation::OriginalWaterWitness parse_production_water_witness(const json& j) {
+    return {production_id(field(j,"building_id")),production_id(field(j,"provider_id")),
+        parse_production_transfer(field(j,"transfer")),number(field(j,"arrival_tick"))};
+}
+json production_water_json(const simulation::OriginalWaterState& state) {
+    require(state.providers.size()<=simulation::original_water_provider_limit &&
+            state.trips.size()<=simulation::original_water_trip_limit &&
+            state.houses.size()<=simulation::original_water_house_limit,"schema26 Water context exceeds bound");
+    json providers=json::array(),trips=json::array(),houses=json::array();
+    for (const auto& p:state.providers) providers.push_back({{"building_id",static_cast<std::uint32_t>(p.building_id)}});
+    for (const auto& t:state.trips)
+        trips.push_back({{"transfer",production_transfer_json(t.transfer)},
+            {"target",static_cast<std::uint32_t>(t.target)},{"dispatched_tick",t.dispatched_tick},
+            {"arrival_tick",t.arrival_tick ? json(*t.arrival_tick):json(nullptr)},{"visit_applied",t.visit_applied}});
+    for (const auto& h:state.houses)
+        houses.push_back({{"building_id",static_cast<std::uint32_t>(h.building_id)},
+            {"normal_timer",h.normal_timer},{"special_timer",h.special_timer},
+            {"current_witness",h.current_witness ? production_water_witness_json(*h.current_witness):json(nullptr)},
+            {"evaluation_witness",h.evaluation_witness ? production_water_witness_json(*h.evaluation_witness):json(nullptr)}});
+    return {{"providers",std::move(providers)},{"trips",std::move(trips)},{"houses",std::move(houses)}};
+}
+simulation::OriginalWaterState parse_production_water(const json& j) {
+    simulation::OriginalWaterState result;
+    const auto& providers=field(j,"providers");
+    require(providers.is_array() && providers.size()<=simulation::original_water_provider_limit,"schema26 Water provider bound");
+    for (const auto& p:providers) {
+        const auto id=production_id(field(p,"building_id"));
+        require(result.providers.empty() || result.providers.back().building_id<id,"schema26 Water providers must be sorted unique");
+        result.providers.push_back({id});
+    }
+    const auto& trips=field(j,"trips");
+    require(trips.is_array() && trips.size()<=simulation::original_water_trip_limit,"schema26 Water trip bound");
+    for (const auto& value:trips) {
+        simulation::OriginalWaterTrip t;t.transfer=parse_production_transfer(field(value,"transfer"));
+        require(result.trips.empty() || result.trips.back().transfer.courier_id<t.transfer.courier_id,
+                "schema26 Water trips must be sorted unique");
+        t.target=production_id(field(value,"target"));t.dispatched_tick=number(field(value,"dispatched_tick"));
+        const auto& arrival=field(value,"arrival_tick");if (!arrival.is_null()) t.arrival_tick=number(arrival);
+        t.visit_applied=boolean(field(value,"visit_applied"));result.trips.push_back(t);
+    }
+    const auto& houses=field(j,"houses");
+    require(houses.is_array() && houses.size()<=simulation::original_water_house_limit,"schema26 Water house bound");
+    for (const auto& value:houses) {
+        simulation::OriginalWaterHouseState h;h.building_id=production_id(field(value,"building_id"));
+        require(result.houses.empty() || result.houses.back().building_id<h.building_id,"schema26 Water houses must be sorted unique");
+        h.normal_timer=static_cast<std::uint8_t>(number(field(value,"normal_timer"),96));
+        h.special_timer=static_cast<std::uint8_t>(number(field(value,"special_timer"),0));
+        const auto& current=field(value,"current_witness");if (!current.is_null()) h.current_witness=parse_production_water_witness(current);
+        const auto& evaluated=field(value,"evaluation_witness");if (!evaluated.is_null()) h.evaluation_witness=parse_production_water_witness(evaluated);
+        result.houses.push_back(h);
+    }
+    return result;
+}
+json production_housing_service_json(const simulation::OriginalServiceWitness& w) {
+    return {{"building_id",static_cast<std::uint32_t>(w.building_id)},{"role",static_cast<unsigned>(w.role)},
+        {"provider_id",static_cast<std::uint32_t>(w.provider_id)},
+        {"transfer",production_transfer_json(w.transfer)},{"arrival_tick",w.arrival_tick}};
+}
+simulation::OriginalServiceWitness parse_production_housing_service(const json& j) {
+    simulation::OriginalServiceWitness result;result.building_id=production_id(field(j,"building_id"));
+    const auto role=number(field(j,"role"),5);
+    require(role==0 || role==1 || role==5,"schema26 historical service category unsupported");
+    result.role=static_cast<original::ServiceRole>(role);result.provider_id=production_id(field(j,"provider_id"));
+    result.transfer=parse_production_transfer(field(j,"transfer"));result.arrival_tick=number(field(j,"arrival_tick"));
+    return result;
+}
+json production_housing_food_json(const simulation::OriginalFoodQualityWitness& w) {
+    return {{"transfer",production_transfer_json(w.transfer)},{"tick",w.tick},{"accepted",w.accepted},
+        {"consumed_before",w.consumed_before},{"previous_quality",w.previous_quality}};
+}
+simulation::OriginalFoodQualityWitness parse_production_housing_food(const json& j) {
+    simulation::OriginalFoodQualityWitness result;result.transfer=parse_production_transfer(field(j,"transfer"));
+    result.tick=number(field(j,"tick"));const auto& accepted=field(j,"accepted");
+    require(accepted.is_array() && accepted.size()==result.accepted.size(),"schema26 historical Food requires exactly two amounts");
+    for (std::size_t i=0;i<result.accepted.size();++i) result.accepted[i]=static_cast<std::int32_t>(number(accepted[i],INT32_MAX));
+    result.consumed_before=parse_production_counters<simulation::original_food_crop_count>(field(j,"consumed_before"));
+    result.previous_quality=static_cast<std::uint8_t>(number(field(j,"previous_quality"),UINT8_MAX));return result;
+}
+json production_housing_evaluation_json(const simulation::OriginalHousingEvaluation& e) {
+    json services=json::array();
+    for (const auto& witness:e.service_witnesses)
+        services.push_back(witness ? production_housing_service_json(*witness):json(nullptr));
+    return {{"tick",e.tick},{"input",original_house_json(e.input)},{"service_witnesses",std::move(services)},
+        {"water_evaluation_witness",e.water_evaluation_witness ? production_water_witness_json(*e.water_evaluation_witness):json(nullptr)},
+        {"food_quality_witness",e.food_quality_witness ? production_housing_food_json(*e.food_quality_witness):json(nullptr)},
+        {"food_received",e.food_received},{"food_consumed",e.food_consumed},{"goods_consumed_before",e.goods_consumed_before}};
+}
+simulation::OriginalHousingEvaluation parse_production_housing_evaluation(const json& j) {
+    simulation::OriginalHousingEvaluation result;result.tick=number(field(j,"tick"));
+    result.input=parse_original_house(field(j,"input"));const auto& services=field(j,"service_witnesses");
+    require(services.is_array() && services.size()==result.service_witnesses.size(),"schema26 historical services require exactly three categories");
+    for (std::size_t i=0;i<result.service_witnesses.size();++i)
+        if (!services[i].is_null()) result.service_witnesses[i]=parse_production_housing_service(services[i]);
+    const auto& water=field(j,"water_evaluation_witness");if (!water.is_null()) result.water_evaluation_witness=parse_production_water_witness(water);
+    const auto& food=field(j,"food_quality_witness");if (!food.is_null()) result.food_quality_witness=parse_production_housing_food(food);
+    result.food_received=parse_production_counters<simulation::original_food_crop_count>(field(j,"food_received"));
+    result.food_consumed=parse_production_counters<simulation::original_food_crop_count>(field(j,"food_consumed"));
+    result.goods_consumed_before=parse_production_counters<original::goods_count>(field(j,"goods_consumed_before"));return result;
+}
+json production_housing_json(const simulation::OriginalHousingState& state) {
+    require(state.neutral_source_origins.size()<=37 && state.houses.size()<=simulation::Rules::city_v10_household_limit,
+            "schema26 housing context exceeds bound");
+    json sources=json::array(),houses=json::array();
+    for (const auto& source:state.neutral_source_origins)
+        sources.push_back({{"building_id",static_cast<std::uint32_t>(source.building_id)},
+            {"origin",json::array({source.origin.x,source.origin.y})}});
+    for (const auto& h:state.houses) {
+        json rows=json::array();for (const auto& row:h.consumption_rows) rows.push_back({{"events",row.events},{"consumed",row.consumed}});
+        houses.push_back({{"building_id",static_cast<std::uint32_t>(h.building_id)},
+            {"first_admission_tick",h.first_admission_tick ? json(*h.first_admission_tick):json(nullptr)},
+            {"consumption_rows",std::move(rows)},
+            {"last_evaluation",h.last_evaluation ? production_housing_evaluation_json(*h.last_evaluation):json(nullptr)},
+            {"first_hut_evaluation",h.first_hut_evaluation ? production_housing_evaluation_json(*h.first_hut_evaluation):json(nullptr)},
+            {"first_plain_evaluation",h.first_plain_evaluation ? production_housing_evaluation_json(*h.first_plain_evaluation):json(nullptr)}});
+    }
+    return {{"neutral_source_origins",std::move(sources)},{"houses",std::move(houses)}};
+}
+simulation::OriginalHousingState parse_production_housing(const json& j) {
+    simulation::OriginalHousingState result;const auto& sources=field(j,"neutral_source_origins");
+    require(sources.is_array() && sources.size()<=37,"schema26 housing origin collection exceeds bound");
+    for (const auto& value:sources) {
+        simulation::OriginalHousingSourceOrigin source;source.building_id=production_id(field(value,"building_id"));
+        require(result.neutral_source_origins.empty() || result.neutral_source_origins.back().building_id<source.building_id,
+                "schema26 housing origin IDs must be sorted unique");
+        source.origin=cell(field(value,"origin"));result.neutral_source_origins.push_back(source);
+    }
+    const auto& houses=field(j,"houses");
+    require(houses.is_array() && houses.size()<=simulation::Rules::city_v10_household_limit,"schema26 housing House collection exceeds bound");
+    for (const auto& value:houses) {
+        simulation::OriginalHousingHouse h;h.building_id=production_id(field(value,"building_id"));
+        require(result.houses.empty() || result.houses.back().building_id<h.building_id,"schema26 housing Houses must be sorted unique");
+        const auto& first=field(value,"first_admission_tick");if (!first.is_null()) h.first_admission_tick=number(first);
+        const auto& rows=field(value,"consumption_rows");
+        require(rows.is_array() && rows.size()==h.consumption_rows.size(),"schema26 housing requires exactly three consumption rows");
+        for (std::size_t i=0;i<h.consumption_rows.size();++i) {
+            h.consumption_rows[i].events=number(field(rows[i],"events"));
+            h.consumption_rows[i].consumed=parse_production_counters<original::goods_count>(field(rows[i],"consumed"));
+        }
+        const auto& last=field(value,"last_evaluation");if (!last.is_null()) h.last_evaluation=parse_production_housing_evaluation(last);
+        const auto& hut=field(value,"first_hut_evaluation");if (!hut.is_null()) h.first_hut_evaluation=parse_production_housing_evaluation(hut);
+        const auto& plain=field(value,"first_plain_evaluation");if (!plain.is_null()) h.first_plain_evaluation=parse_production_housing_evaluation(plain);
+        result.houses.push_back(h);
+    }
+    return result;
+}
 json production_document_json(const SaveDocument& d) {
     require(simulation::original_production_enabled(d.world.profile,d.world.rule_version) &&
             d.world.original_production && d.world.original_goods &&
@@ -1188,6 +1360,8 @@ json production_document_json(const SaveDocument& d) {
             building.kind=simulation::Object::Well;
         else if (building.kind==simulation::Object::OriginalAncestorShrine214)
             building.kind=simulation::Object::ServicePost;
+        else if (building.kind==simulation::Object::OriginalWaterWell72)
+            building.kind=simulation::Object::ServicePost;
     }
     for (auto& courier:projected.world.couriers) {
         if (courier.role==simulation::CourierRole::OriginalHempToWarehouse)
@@ -1197,6 +1371,8 @@ json production_document_json(const SaveDocument& d) {
         else if (courier.role==simulation::CourierRole::OriginalFoodToHouse)
             courier.role=simulation::CourierRole::MarketFoodDistribution;
         else if (courier.role==simulation::CourierRole::OriginalAncestor)
+            courier.role=simulation::CourierRole::Service;
+        else if (courier.role==simulation::CourierRole::OriginalWater)
             courier.role=simulation::CourierRole::Service;
     }
     auto result=document_json(projected);
@@ -1221,7 +1397,8 @@ json production_document_json(const SaveDocument& d) {
         {"residents_admitted",production.residents_admitted},{"pottery_handed_off",production.pottery_handed_off},
         {"hemp_farms",std::move(farms)},{"house_consumption",std::move(consumption)},
         {"food",production_food_json(production.food)},
-        {"services",production_services_json(production.services)}};
+        {"services",production_services_json(production.services)},
+        {"water",production_water_json(production.water)},{"housing",production_housing_json(production.housing)}};
     return result;
 }
 SaveDocument parse_production_document(const json& j) {
@@ -1268,6 +1445,8 @@ SaveDocument parse_production_document(const json& j) {
     }
     state.food=parse_production_food(field(production,"food"));
     state.services=parse_production_services(field(production,"services"));
+    state.water=parse_production_water(field(production,"water"));
+    state.housing=parse_production_housing(field(production,"housing"));
     auto projected=j;
     projected["schema_version"]=22;projected["rules"]["version"]=6;
     for (const char* key:{"original_economy","original_influence","original_goods","original_production"})
@@ -1276,7 +1455,7 @@ SaveDocument parse_production_document(const json& j) {
     require(buildings.is_array() && buildings.size()<=simulation::building_collection_limit(simulation::RulesProfile::CityV16),
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalAncestorShrine214));
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalWaterWell72));
         if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalHempFarm))
@@ -1290,12 +1469,14 @@ SaveDocument parse_production_document(const json& j) {
             building["kind"]=static_cast<int>(simulation::Object::Well);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalAncestorShrine214))
             building["kind"]=static_cast<int>(simulation::Object::ServicePost);
+        else if (kind==static_cast<unsigned>(simulation::Object::OriginalWaterWell72))
+            building["kind"]=static_cast<int>(simulation::Object::ServicePost);
     }
     auto& couriers=projected["world"]["couriers"];
     require(couriers.is_array() && couriers.size()<=simulation::courier_collection_limit(simulation::RulesProfile::CityV16),
             "schema26 courier collection exceeds bound");
     for (auto& courier:couriers) {
-        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalAncestor));
+        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalWater));
         if (role==static_cast<unsigned>(simulation::CourierRole::OriginalHempToWarehouse))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketPotteryInbound);
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalFoodToMarket))
@@ -1303,6 +1484,8 @@ SaveDocument parse_production_document(const json& j) {
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalFoodToHouse))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketFoodDistribution);
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalAncestor))
+            courier["role"]=static_cast<int>(simulation::CourierRole::Service);
+        else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalWater))
             courier["role"]=static_cast<int>(simulation::CourierRole::Service);
     }
     auto d=parse_document(projected);

@@ -53,7 +53,7 @@ struct Fixture {
         const auto before=value.snapshot();const auto d=document(value);
         save::write_save(target,d,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(d,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==20,
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==21,
               "Consumption save lost its active generation");
         auto copy=restore(parsed);check(copy.snapshot()==before,"F5/F9 changed consumption authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
@@ -109,16 +109,26 @@ sim::WorldSnapshot positive_boundary(Fixture& f,int step) {
     // can obscure the exact before/after subtraction at this boundary.
     f::buy(f.world,sim::set_building_operation(f.market,false));
     const auto before=f.world.snapshot();const auto bytes=f.roundtrip(f.world);const auto document=save::read_save(f.target);
+    std::vector<orig::HouseState> evolved;
+    for (const auto& home:before.original_economy->houses) {
+        auto input=home.house;
+        if (input.occupants>0) {
+            input.desirability=static_cast<std::int8_t>(f.world.original_influence_provenance(home.building_id).value);
+            input=orig::evolve_step(f.model->house_rules(),input);
+            if (input.type>orig::HouseType::PlainCottage) input.type=orig::HouseType::PlainCottage;
+        }
+        evolved.push_back(input);
+    }
     auto restored=f.restore(document);f.world.tick();restored.tick();
     check(restored.snapshot()==f.world.snapshot(),"F9 immediately before consumption duplicated or skipped a debit");
     bool under=false;std::array<int,2> delta{};
     for (std::size_t i=0;i<before.original_economy->houses.size();++i) {
-        const auto expected=orig::consume_goods(f.model->house_rules(),before.original_economy->houses[i].house);
-        check(f.world.original_economy_state()->houses[i].house==expected.house,"World consumption differs from current-row pure kernel");
+        const auto expected=orig::consume_goods(f.model->house_rules(),evolved[i]);
+        check(f.world.original_economy_state()->houses[i].house==expected.house,"World consumption differs from pure phase39 evolution followed by current-row consumption");
         for (std::size_t g=0;g<2;++g) {
             delta[g]+=expected.consumed[g];
-            const auto old=orig::goods_stock(before.original_economy->houses[i].house,static_cast<orig::Goods>(g));
-            under=under || (old>0 && old<f.model->house_rules().value(orig::ModelHouse::Shelter,orig::goods_field(static_cast<orig::Goods>(g))));
+            const auto old=orig::goods_stock(evolved[i],static_cast<orig::Goods>(g));
+            under=under || (old>0 && old<f.model->house_rules().value(orig::house_row(evolved[i].type),orig::goods_field(static_cast<orig::Goods>(g))));
             check(f.world.original_production_state()->house_consumption[i].consumed[g]==
                   before.original_production->house_consumption[i].consumed[g]+static_cast<std::uint64_t>(expected.consumed[g]),
                   "Actual House consumption was not booked exactly once");
@@ -153,7 +163,7 @@ void adversarial(Fixture& f,const sim::WorldSnapshot& actual) {
             {base+"/0/consumed/0",UINT64_MAX},{base+"/0/consumed/0",0.0},
             {base+"/0/consumed/0",true},{base+"/0/consumed/0","0"},
             {base+"/0/consumed/0",nullptr},{base+"/0/consumed/5",1},
-            {"/world/original_production/development_revision",16},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",21}}) {
+            {"/world/original_production/development_revision",16},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",22}}) {
         auto j=good;j.at(json::json_pointer(path))=value;reject(j);
     }
     {auto j=good;auto& rows=j.at(json::json_pointer(base));std::swap(rows[0],rows[1]);reject(j);}
@@ -252,6 +262,11 @@ void positive_model_bound_refuses_sink() {
     const auto remaining=static_cast<std::int16_t>(old-static_cast<int>(debit));
     if (good==0) house.hemp=remaining;else house.ceramics=remaining;
     counter+=debit;bad.world.original_goods->totals[good].consumed+=debit;
+    auto& housing=bad.world.original_production->housing.houses[selected];
+    check(house.type==orig::HouseType::Shelter && !housing.first_hut_evaluation && !housing.first_plain_evaluation &&
+          housing.consumption_rows[0].events==opportunities,
+          "Need1 model-only control unexpectedly left its actual Shelter consumption row");
+    housing.consumption_rows[0].consumed[good]+=debit;
     // Origin, cumulative reception, six-column mass, age, and the structural
     // eight-unit event bound all remain valid. Only prepared Need1 rejects it.
     sim::World::validate_original_production_snapshot(bad.world);
@@ -260,6 +275,7 @@ void positive_model_bound_refuses_sink() {
     auto encoded=json::parse(pristine);
     encoded["world"]["original_economy"]["houses"][selected]["house"][good==0 ? "hemp":"ceramics"]=remaining;
     encoded["world"]["original_production"]["house_consumption"][selected]["consumed"][good]=counter;
+    encoded["world"]["original_production"]["housing"]["houses"][selected]["consumption_rows"][0]["consumed"][good]=housing.consumption_rows[0].consumed[good];
     encoded["world"]["original_goods"]["totals"][good]["consumed"]=bad.world.original_goods->totals[good].consumed;
     const auto hostile=f.root.path/"positive-need-bound.json";f::write_text(hostile,encoded.dump());
     const auto structurally_valid=save::read_save(hostile);

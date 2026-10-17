@@ -58,7 +58,7 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
         Action::Pottery,Action::Warehouse,Action::RemoveRoad,Action::Household,Action::Farm,
         Action::ServicePost,Action::Market};
     if (original_production) tools[7]=Action::OriginalAncestorShrine;
-    if (fire_watch) tools.push_back(Action::FireWatch);
+    if (fire_watch) tools.push_back(original_production ? Action::OriginalWaterWell:Action::FireWatch);
     if (desirability) tools.push_back(Action::Desirability);
     if (water) { tools.push_back(Action::Well); tools.push_back(Action::Water); }
     if (health) { tools.push_back(Action::HealthPost); tools.push_back(Action::Health); }

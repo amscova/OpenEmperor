@@ -288,7 +288,8 @@ add_library(openemperor-original-service-rules STATIC
 target_include_directories(openemperor-original-service-rules PUBLIC src)
 target_link_libraries(openemperor-original-service-rules PUBLIC openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-original-service-rules)
-target_sources(openemperor-simulation PRIVATE src/simulation/WorldOriginalServices.cpp)
+target_sources(openemperor-simulation PRIVATE src/simulation/WorldOriginalServices.cpp
+    src/simulation/WorldOriginalWater.cpp src/simulation/WorldOriginalHousing.cpp)
 target_link_libraries(openemperor-simulation PUBLIC openemperor-original-service-rules)
 # Pure goods transfers/consumption/quality observations; no World/app linkage.
 add_library(openemperor-original-goods-rules STATIC
@@ -946,6 +947,29 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-ancestor-save-tests)
     add_test(NAME original-ancestor-save COMMAND openemperor-original-ancestor-save-tests)
     set_tests_properties(original-ancestor-save PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-water-world-tests tests/OriginalWaterWorldTests.cpp)
+    target_link_libraries(openemperor-original-water-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-water-world-tests)
+    add_test(NAME original-water-world COMMAND openemperor-original-water-world-tests)
+    set_tests_properties(original-water-world PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-housing-world-tests tests/OriginalHousingWorldTests.cpp)
+    target_link_libraries(openemperor-original-housing-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-housing-world-tests)
+    add_test(NAME original-housing-world COMMAND openemperor-original-housing-world-tests)
+    if(OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT)
+        add_test(NAME original-housing-world-real COMMAND openemperor-original-housing-world-tests
+            --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+        set_tests_properties(original-housing-world-real PROPERTIES TIMEOUT 300)
+    endif()
+    set_tests_properties(original-housing-world PROPERTIES TIMEOUT 300)
+
+    add_executable(openemperor-original-housing-save-tests tests/OriginalHousingSaveTests.cpp)
+    target_link_libraries(openemperor-original-housing-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-housing-save-tests)
+    add_test(NAME original-housing-save COMMAND openemperor-original-housing-save-tests)
+    set_tests_properties(original-housing-save PROPERTIES TIMEOUT 180)
 
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)

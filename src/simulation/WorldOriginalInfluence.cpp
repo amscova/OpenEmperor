@@ -218,6 +218,7 @@ CommandResult World::execute_original_influence_command(Command command,bool ref
         BuildingState source{id,Object::OriginalInfluenceSource,command.cell,true};
         source.placed_tick=ticks_; buildings_.push_back(source);
         original_influence_->sources.push_back({id,command.source_type});
+        if (original_production_enabled()) original_production_->housing.neutral_source_origins.push_back({id,command.cell});
         for (const auto cell:building_footprint_cells(profile_,rule_version_,source.kind,source.cell)) {
             objects_[index(cell)]=source.kind; owners_[index(cell)]=static_cast<std::uint32_t>(id);
         }
@@ -253,10 +254,15 @@ void World::rebuild_original_influence_cache() {
     candidate->sources.reserve(original_influence_->sources.size());
     candidate->prefixes.reserve(original_influence_->sources.size()+1);
     candidate->prefixes.emplace_back(width_,height_);
-    for (const auto& source:original_influence_->sources) {
+    auto sources=original_influence_->sources;
+    if (original_production_enabled()) {
+        for (const auto& p:original_production_->water.providers) sources.push_back({p.building_id,OriginalInfluenceSourceType::Well72});
+        std::sort(sources.begin(),sources.end(),[](const auto& a,const auto& b){return a.building_id<b.building_id;});
+    }
+    for (const auto& source:sources) {
         if (!source_type_valid(source.type)) invalid("unsupported influence cache source");
         const auto& b=building(source.building_id);
-        if (b.kind!=Object::OriginalInfluenceSource || !b.placed) invalid("influence cache source is not placed");
+        if ((b.kind!=Object::OriginalInfluenceSource && b.kind!=Object::OriginalWaterWell72) || !b.placed) invalid("influence cache source is not placed");
         const original::SpreadSpec spread{
             original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::Desirability),
             original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::DesirabilityStep),

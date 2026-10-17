@@ -1201,3 +1201,41 @@ Medizinzeilenumbruchs samt sichtbarer Food-Fehlversuche. Die einzige Änderung
 am privaten Prozessnachweis betrifft seinen falschen Resume-Zählfilter;
 ursprüngliches FAIL und echte unveränderte Prozessartefakte bleiben getrennt
 gebunden. Nach eigenem Commit folgt OE-21 ohne manuellen Testhalt.
+
+
+### OE-21: Wasser- und Housing-Vertrag vor Implementierung
+
+Nach OE-20 `825fd2c65d90c9139e283f2bf3e191bb5feb4e39` gilt der
+[Housing-Vertrag](../original-economy/housing-runtime.md). Revision21 ersetzt
+keine früheren Saveverträge. Eine neue bezahlte Well72 mit eigenem realem
+Walker liefert normalen Wasser-Timer96; Phase28 materialisiert Wasser,
+Phase35 zählt herunter, Phase39 führt den unveränderten Evolutionskern aus.
+Die alte neutrale60er-Quelle bleibt ohne Wasser. Echte Plain Cottage braucht
+laut Originalmodell Water/FoodQuality20/Ancestor, kein Hemp/Ceramics; deren
+Negativkontrolle wird deshalb ausdrücklich synthetisch modelliert. Zwei
+permanente erste Aufstiegsbelege verhindern bloß injizierte höhere Typen.
+Keine unbelegte sofortige Eviction: zugelassene Bewohner bleiben bei
+Rückentwicklung; weiterer Zuzug respektiert die aktuelle Aufnahmekapazität.
+Globale neutrale Quellenursprünge bleiben nach bezahltem Entfernen erhalten.
+Keine neue Original-Randomwalk-/Immigrations-/Grafik-Paritätsbehauptung.
+
+
+### OE-21: technische Abnahme und sichere Fortschreibung
+
+Der bezahlte Wasser-/Housing-Vertrag ist mit dem echten Originalmodell und
+normalen Commands/Zuzug bis Plain Cottage nachgewiesen.141 relevante
+Konfigurations-CTests,24 separate20k-Production-Fortsetzungen, vollständige
+Save-/Report-Gleichheit und unabhängige Herkunftsprüfungen bestehen. Die
+frühe authored Plain-Grenze und die unverifizierte Originalwander-/
+Immigrationsroutine bleiben ausdrücklich begrenzt; native/human und originale
+Sprites sind keine daraus abgeleiteten PASS.
+
+Die breitere Prüfung fand einen echten Restorefehler: Eine reine Shelter6-
+Population durfte fälschlich von4 auf3 manipuliert werden. Ohne Abgänge kann
+ungerade Bevölkerung nur aus erreichter früherer ungerader Aufnahmegrenze
+entstehen. Diese notwendige historische Grenze gilt für aktuelle Population
+und sämtliche Evolutionsinputs; frühere höhere Kapazitäten bleiben nach
+Rückentwicklung erhalten. Falsche Revisions-/Verbrauchsannahmen der alten
+Harnesses wurden eng korrigiert, volle Zustands-/Bilanzvergleiche bleiben.
+Alle ursprünglichen FAIL-Belege bleiben sichtbar. Eigenständiger Taskcommit,
+danach unmittelbare Fortsetzung OE-22 ohne manuellen Testhalt.
