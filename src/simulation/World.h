@@ -828,6 +828,8 @@ private:
     void tick_production_v2();
     void advance_clay_pottery_production();
     void tick_original_production();
+    void consume_original_house_goods();
+    void validate_original_consumption_model() const;
     void admit_original_residents();
     bool original_production_finance_valid() const;
     int original_ceramics_stock(BuildingId owner) const;

@@ -1639,6 +1639,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
             if (original_economy_enabled())
                 original_economy_->houses.push_back(OriginalHouseState{b.id});
             else b.population=Rules::household_initial_population;
+            if (original_production_enabled())
+                original_production_->house_consumption.push_back(OriginalHouseConsumptionState{b.id});
             break;
         }
         const auto id=static_cast<BuildingId>(next_household_id_);
@@ -3551,6 +3553,10 @@ std::string World::canonical_state() const {
     if (original_production_) for (const auto& farm:original_production_->hemp_farms)
         out<<"|original-hemp:"<<static_cast<std::uint32_t>(farm.farm_id)<<','
            <<(farm.field_id ? static_cast<std::uint32_t>(*farm.field_id):0)<<','<<farm.harvested;
+    if (original_production_) for (const auto& row:original_production_->house_consumption) {
+        out<<"|original-consumption:"<<static_cast<std::uint32_t>(row.building_id);
+        for (const auto amount:row.consumed) out<<','<<amount;
+    }
     return out.str();
 }
 

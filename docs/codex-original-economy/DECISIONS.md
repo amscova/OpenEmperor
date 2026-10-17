@@ -17,6 +17,73 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 ## Neue Entscheidungen
 
+### OE-17: tatsächlicher Verbrauch in gespeicherter Zyklusphase
+
+- **Vertrag vor Implementierung:**
+  [Verbrauchsvertrag](../original-economy/consumption-runtime.md), nach OE-16-
+  Commit `86cde0c54577a9889632e45432fe7fe18acd7fac`. Ausschließlich die aktive
+  Rule10/Schema26/policy3 wechselt auf Entwicklungsrevision17; frühere
+  Entwicklungsrevisionen werden verweigert. Regeln1–9/Schemas1–25 bleiben
+  unverändert, der normale Spielstart wird nicht freigegeben.
+- **`exe` und `authored` Zeitintegration:** Der unveränderte pure Kern verwendet
+  die aktuelle kanonische Housezeile, unabhängig von Footprint oder
+  Bewohnerzahl. Null Bewohner überspringt den Konsum; jede Ware bucht
+  `min(stock,max(need,0))`. Bronze und Lack sind unabhängig, bleiben hier aber
+  mangels echter Quellen0. Der gespeicherte Scheduler bleibt die einzige
+  Clock: Phase39/Selector0 oder7, sichtbar abgeschlossene Ticks40/397/856/1213.
+  Die authored Reihenfolge verarbeitet tatsächliche Bewegung, Fire und Zuzug
+  vor dem Konsum; eine reale Ankunft derselben Tickgrenze darf verbraucht
+  werden. Keine alte400-Tick-Nachfrage, zusätzliche Phase oder Besuchsgutschrift.
+- **Modelltreue und positiver Beleg:** Der gebundene originale Shelterbedarf
+  Hemp0/Ceramics0 bleibt in allen fünf Difficulties0. Der reale Modellpfad
+  konsumiert deshalb korrekt nichts. Der getrennte positive Prozesspfad ändert
+  ausschließlich zwei Bedarfsbytes einer privaten Modellkopie auf1/1; Preise,
+  Kapazität7, Employees und sämtliche anderen Bytes bleiben gleich. Sechs
+  normal bezahlte Häuser liefern42 regulär zugezogene Bewohner/Worker; Farm,
+  Feld, Clay, Pottery, Warehouse und Market produzieren und liefern tatsächlich.
+  Positive Tests sind authored Bedarfsintegration, keine originale
+  Shelterverbrauchs- oder vorgezogene Evolutionsbehauptung.
+- **Gespeicherte Senke und Restore:** `house_consumption` enthält exakt eine
+  sortierte Zeile je gekauftem House mit sechs uint64-Zählern. HouseState
+  bleibt der einzige Hausbestand; die Spaltensummen entsprechen exakt
+  `GoodsTotals.consumed`. Bounded Ledger-/Housekandidaten werden vor ihrer
+  Veröffentlichung vollständig geprüft, ohne Worldkopie oder doppelte Abbuchung.
+  Alter und tatsächlich erreichbare Konsumereignisse begrenzen die Historie;
+  die vorbereitete aktuelle Shelterzeile verschärft das strukturelle Maximum8
+  je Ereignis. Der isolierte Need1-Test erhält tatsächlichen Empfang und Masse,
+  besteht bewusst die Strukturprüfung und scheitert erst beim gebundenen
+  Restore/Writer. Nullbedarf und koordinierte Überläufe bleiben negativ geprüft.
+- **Herkunft und Rotation:** Auch vollständig konsumierte Waren brauchen eine
+  mögliche tatsächliche Farm-/Distributorankunft. Passende retained Completed-
+  Lieferzeilen dürfen den kumulativen Houseempfang aus Stock plus Verbrauch
+  nicht überschreiten. Die begrenzte letzte Transferhistorie ist weiterhin
+  notwendige Provenienz, kein vollständiges Besuchsjournal. Die gemeinsame
+  Waren-/Zielrotation verhindert die im neuen Verbrauchspfad beobachtbare
+  dauerhafte Ein-Waren-Zielbindung; finite6-/20-House-Läufe belegen beide
+  tatsächlichen Waren je Haus, keine universelle Starvation-Freiheit.
+- **Tests, Fehler und Quellenbindung:** Der erste ASan-Lauf fand einen echten
+  Use-after-free im neuen Test: Commands ersetzten die World während über
+  ihre Buildingreferenzen iteriert wurde. Der Test sammelt jetzt IDs vor den
+  Commands. Ein erster Debug-Worldtest überschritt180s; eine gemeinsame
+  Sechs-Waren-Abfrage ersetzt sechs wiederholte vollständige Abfragen bei
+  unveränderten Assertions und vollständigem20k-Snapshotvergleich. Beide
+  Erstläufe bleiben als FAIL archiviert. Der finale Quellenfreeze
+  `df7851d80fd8b2d35fcf3777e7047522afe80dd4d8bf3af536a3ad80eb1e28e7`
+  unterscheidet sich von5ed0 ausschließlich in genau diesen zwei Testdateien;
+  der vollständige frühere Hash wird mit den zwei gepinnten Overrides
+  rekonstruiert. Runtime-, Fixture- und Legacyquellen sowie das tatsächliche
+  Prozessbinary bleiben bytegleich; `test-only-fix-binding.json` bindet die
+  früheren Laufbelege ausdrücklich an den finalen Stand.
+- **Abnahmestand:** Finale Debug-/Release-/ASan+UBSan-Auswahl je51/51 PASS,
+  insgesamt153 Konfigurations-CTests ohne Skip oder Fehler. Vier separate20k-Prozessreplays,
+  unabhängiger Raw-Audit von25 Saves/20 Reports, drei74-Fall-Forkvergleiche und
+  wörtlich identische72 Legacy-Saves/72 Snapshots sind bestanden; vollständige
+  Zahlen, Commands und Grenzen im [Fortschritt](PROGRESS.md). **OE-17 technisch
+  PASS**; eigener Task-Commit nach Abschlussprüfung. Gate C und OE-18 TODO;
+  native/human NOT_RUN. Der geöffnete SDL-Nachweis zeigt reale Zweigüterankunft
+  bei synthetischer Kapazität37 und Nullbedarf, keine Konsumgrafik- oder
+  Originalsprite-Abnahme. Echte Originalgrafiken bleiben späterer Pflichtauftrag.
+
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
 ### OE-16: bezahlte Hemp Farm192 plus Hemp Field194
@@ -86,8 +153,8 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
   Saves,72 Snapshots und Vertrag unabhängig wörtlich bytegleich;167/165/zwei
   bestehende Konflikte,1485 Policyfälle und elf Rampen-/zehn Bridge-Restartpaare
   unverändert. **OE-16 technisch PASS**, OE-17 TODO/Gate C TODO,
-  native/human NOT_RUN; weder Verbrauch noch Evolution oder Originalart
-  werden durch diese Zwischenbilanz freigegeben oder als implementiert geführt.
+  native/human NOT_RUN. Verbrauch, Evolution und Originalart werden nicht als
+  bereits implementiert geführt; ihre weiteren Aufgaben folgen separat.
 
 ### OE-15: physischer Markettransport, Entwicklungsrevision15
 

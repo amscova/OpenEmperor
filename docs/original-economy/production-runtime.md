@@ -4,7 +4,9 @@ Der [Gesamtauftrag](completion-contract.md) verwendet einen ausdrücklich
 gewählten City-v16-Rule10-/Schema26-Entwicklerstand bei unveränderter policy3.
 Entwicklungsrevision14 integrierte den tatsächlichen bezahlten Ceramics-Ursprung;
 Revision15 ergänzte den physischen Markettransport bis zum Haus; Revision16
-ergänzt die [bezahlte Hemp-Kette](hemp-runtime.md) mit Farm192 und Feld194.
+ergänzte die [bezahlte Hemp-Kette](hemp-runtime.md) mit Farm192 und Feld194.
+Revision17 ergänzt [phasengenauen Verbrauch](consumption-runtime.md) und eine
+abgestimmte Waren-/Zielrotation für laufende Versorgung.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
@@ -46,8 +48,8 @@ Warehouse-Pottery-Slot bleibt null; es gibt keinen gespiegelten Vorrat.
   + cargo. Reservierungen zählen nicht zusätzlich als Masse.
 - Tatsächlich geernteter Hemp = gesamte typisierte Hemp-Produktion.
 
-Revision16 erlaubt Ceramics und Hemp über Warehouse, Market und tatsächliche
-Hausankunft. Weitere Originalwaren, Food, Konsum, Services und Steuern folgen
+Revision17 erlaubt Ceramics und Hemp über Warehouse, Market, tatsächliche
+Hausankunft und modellbasierten Verbrauch. Weitere Originalwaren, Food, Services und Steuern folgen
 ihren Aufgaben. Die frühen originalen Hausbedarfe bleiben unverändert0;
 ein ausdrücklich authored physischer Hauspuffer8 ermöglicht Provisionierung
 vor Evolution und Verbrauch.
@@ -79,12 +81,13 @@ Pausieren eines Owners bricht seine beladene Ausfahrt ab. Eine bereits
 begonnene Kante wird beendet, danach führt derselbe Navigator zurück.
 Disconnect verhindert eine Lieferung; bezahlte Reparatur ermöglicht ihre
 Fortsetzung. Häuser, Lager und Märkte mit gebundener Authority bleiben vor
-unsicherem Abriss geschützt. Der laufende Stand konsumiert keine Waren.
+unsicherem Abriss geschützt. Schritte0/7 konsumieren die aktuelle Modellmenge
+nach tatsächlicher Bewegung. Der Original-Shelterbedarf bleibt dabei0.
 
 ## Persistenz und technische Prüfung
 
 Schema26 speichert die strikte Entwicklungsrevision, Bewohner- und
-Übergabehistorie, Farm-/Feld-/Erntezuordnung, genau eine typisierte Stockzeile
+Übergabehistorie, sechs Verbrauchszähler je Haus, Farm-/Feld-/Erntezuordnung, genau eine typisierte Stockzeile
 je Farm/Warehouse/Market und die
 vorhandene vollständige Infrastruktur-/Actor-/Hausauthority. Kapazitäten,
 Readiness und vorbereitete Modelltabellen werden nicht gespeichert. Aktive
@@ -100,12 +103,17 @@ Der automatisierte [Prozessrunner](../../tools/test_original_production.py)
 verwendet eine hashidentische private Kopie des echten Modells und authored
 24×20-Geographie. Sechs bezahlte Häuser ziehen dort42 Bewohner an;34 Worker
 besetzen Clay, Kiln, Warehouse, Market und Hemp Farm.1162 Funds werden regulär
-ausgegeben,10838 bleiben. Bei Tick3650 hat Haus5 nach tatsächlichen Ankünften
-Hemp8 und Ceramics4. Ein separater Pausenstand erhält beladenen Hemp als
+ausgegeben,10838 bleiben. Im geprüften Revision17-Lauf hat Haus1 bei Tick904
+nach tatsächlichen Ankünften je eine Einheit Hemp und Ceramics. Ein separater Pausenstand erhält beladenen Hemp als
 Rücktransport ohne vorzeitige Gutschrift. Mid-Hemp- und positiver Zweigüter-
 Hausstand werden jeweils in einem neuen OS-Prozess
 über10000 Ticks, einen bezahlten Straßenbau und weitere10000 Ticks fortgesetzt;
 vollständige SaveDocuments, rohe Bytes und Bilanzen müssen übereinstimmen.
+Der echte Modellpfad verbraucht am Shelter weiterhin0. Eine getrennte private
+Modellkopie ändert ausdrücklich nur zwei Bedarfsbytes auf authored1/1; bezahlte
+Produktion und Lieferungen belegen dort positiven Verbrauch an Schritt0/7.
+Auch beide Zustände vor diesen Grenzen werden in separaten OS-Prozessen je
+20000 Ticks exakt fortgesetzt. Das ergibt vier unabhängige Prozessreplays.
 Kein Snapshot und kein Bestand wird zum Herstellen des Erfolgs injiziert.
 
 Tatsächliche Konfigurations-, Negativ-, SDL-, Prozess- und Legacybelege stehen
@@ -122,7 +130,7 @@ Er beginnt pausiert und verwendet ausschließlich den eigenen Rule10-Savepfad.
 Straßen, sechs angeschlossene Häuser, Clay, Pottery, Warehouse und Market kaufen.
 Mit N eine Hemp Farm bauen; die Farm auswählen und mit M ein angrenzendes Feld
 separat bezahlen. Danach laufen lassen; F5/F9 speichert/lädt denselben Stand.
-Defaultsave ist `rule10-revision16.json`; frühere Entwicklungsrevisionen
+Defaultsave ist `rule10-revision17.json`; frühere Entwicklungsrevisionen
 werden atomar verweigert. Die Originalgrafik-/Objektkomposition ist Bestandteil der folgenden
 Präsentationsaufgaben und wird durch diesen Produktionsnachweis nicht als
 bereits abgeschlossen ausgegeben.

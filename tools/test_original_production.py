@@ -12,7 +12,7 @@ _SPEC = importlib.util.spec_from_file_location(
 legacy = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(legacy)
 MODEL_SHA = legacy.MODEL_SHA
-PRIVATE_OUTPUT = Path(".local/original-economy/oe16/production-fixtures")
+PRIVATE_OUTPUT = Path(".local/original-economy/oe17/production-fixtures")
 RULE9_REFERENCE = Path(".local/original-economy/oe13/goods-fixtures/run-d4mm76cf")
 RULE9_REPORT_SHA = "1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2"
 RULE9_REVIEW_SHA = "c5534befba97a9ad1469bec05131d21f17fe509db101c0f4bd1e0351e742a017"
@@ -68,10 +68,10 @@ def check_balances(scene, positive=False):
         assert all(type(balance[field]) is int and balance[field] >= 0 for field in (
             "produced", "imported", "consumed", "demolished", "stock", "cargo",
             "source_reserved", "incoming_reserved"))
-        assert all(balance[field] == 0 for field in ("imported", "consumed", "demolished"))
-        assert balance["stock"] + balance["cargo"] == balance["produced"]
+        assert all(balance[field] == 0 for field in ("imported", "demolished"))
+        assert balance["stock"] + balance["cargo"] + balance["consumed"] == balance["produced"]
         if index >= 2:
-            assert all(balance[field] == 0 for field in ("stock", "cargo", "source_reserved", "incoming_reserved"))
+            assert all(balance[field] == 0 for field in ("produced", "consumed", "stock", "cargo", "source_reserved", "incoming_reserved"))
     assert balances[1]["produced"] == scene["pottery_handed_off"] <= scene["pottery_completed"]
     assert balances[0]["produced"] == scene["hemp_harvested"] == sum(
         farm["harvested"] for farm in scene["hemp_farms"])
@@ -79,6 +79,14 @@ def check_balances(scene, positive=False):
     assert sum(house["occupants"] for house in scene["houses"]) == scene["population"]
     assert all(type(house[field]) is int and 0 <= house[field] <= 8
                for house in scene["houses"] for field in ("hemp", "ceramics"))
+    for house in scene["houses"]:
+        assert len(house["consumed"]) == 6
+        assert all(type(amount) is int and amount >= 0 for amount in house["consumed"])
+        assert all(amount == 0 for amount in house["consumed"][2:])
+        if not house["occupants"]:
+            assert not any(house["consumed"]) and house["hemp"] == house["ceramics"] == 0
+    for good in range(6):
+        assert sum(house["consumed"][good] for house in scene["houses"]) == balances[good]["consumed"]
     assert all(stock["kind"] in (3, 9, 14) and len(stock["amounts"]) == 6 for stock in scene["stocks"])
     for stock in scene["stocks"]:
         assert all(type(amount) is int and amount >= 0 for amount in stock["amounts"])
@@ -114,6 +122,52 @@ def checked_path(repo, root, path):
     if not path.is_file():
         raise RuntimeError(f"Fixture output is missing: {path}")
     return path
+
+
+def authored_consumption_model(source):
+    """Change exactly two Shelter requirement bytes in a private model copy."""
+    marker = b"1: Shelter,{,"
+    if source.count(marker) != 1:
+        raise RuntimeError("Pinned Shelter row is not unique")
+    start = source.index(marker) + len(marker)
+    ends = [position for byte in (b"\r", b"\n") if (position := source.find(byte, start)) >= 0]
+    if not ends:
+        raise RuntimeError("Pinned Shelter row has no line boundary")
+    end = min(ends)
+    fields = source[start:end].split(b",")
+    if len(fields) < 24 or fields[9] != b"0" or fields[10] != b"0" or int(fields[17]) != 7:
+        raise RuntimeError("Pinned zero-need Shelter inputs changed")
+    fields[9] = fields[10] = b"1"
+    result = source[:start] + b",".join(fields) + source[end:]
+    if len(result) != len(source) or sum(a != b for a, b in zip(source, result)) != 2:
+        raise RuntimeError("Authored needs changed more than the two explicit model bytes")
+    return result
+
+
+def check_consumption_boundary(boundary):
+    assert boundary["step"] in (0, 7) and boundary["house_arrivals_at_boundary"] is False
+    before, at, after = (boundary[key] for key in ("before", "at", "after"))
+    for scene in (before, at, after):
+        check_balances(scene)
+        assert scene["shelter_needs"] == [1, 1]
+    assert before["tick"] % 816 == 39 + boundary["step"] * 51
+    assert at["tick"] == before["tick"] + 1 and after["tick"] == at["tick"] + 1
+    assert len(before["houses"]) == len(at["houses"]) == len(after["houses"]) == 6
+    totals = [0, 0]
+    for previous, charged, following, recorded in zip(
+            before["houses"], at["houses"], after["houses"], boundary["expected_house_deltas"], strict=True):
+        assert previous["id"] == charged["id"] == following["id"] == recorded["building_id"]
+        expected = [min(previous[field], 1) if previous["occupants"] else 0 for field in ("hemp", "ceramics")]
+        assert recorded["consumed"] == expected + [0, 0, 0, 0]
+        for good, field in enumerate(("hemp", "ceramics")):
+            assert charged[field] == previous[field] - expected[good] == following[field]
+            assert charged["consumed"][good] == previous["consumed"][good] + expected[good]
+            assert following["consumed"][good] == charged["consumed"][good]
+            totals[good] += expected[good]
+    assert all(amount > 0 for amount in totals)
+    for good in (0, 1):
+        assert at["balances"][good]["consumed"] == before["balances"][good]["consumed"] + totals[good]
+        assert after["balances"][good]["consumed"] == at["balances"][good]["consumed"]
 
 
 def frozen_rule9(repo):
@@ -179,7 +233,7 @@ def main():
     preflight_output(repo, args.output, original, build)
     source_model = original / "Model/EmperorBuildingModels.txt"
     if digest(source_model) != MODEL_SHA:
-        raise RuntimeError("Expected pinned original Model SHA; authored models are unit tests only")
+        raise RuntimeError("Expected pinned original Model SHA before explicitly authored copy preparation")
     binaries = {name: build / name for name in (
         "openemperor-original-production-fixture", "openemperor-original-goods-fixture",
         "openemperor-original-influence-fixture")}
@@ -214,23 +268,52 @@ def main():
     for key in ("initial", "stopped", "final", "fire", "paused_return"):
         check_balances(fixture[key], positive=key == "final")
         assert fixture[key]["model_sha256"] == MODEL_SHA
+        assert fixture[key]["shelter_needs"] == [0, 0]
+        assert all(balance["consumed"] == 0 for balance in fixture[key]["balances"])
     assert any(house["hemp"] > 0 and house["ceramics"] > 0 for house in fixture["final"]["houses"])
+    authored_stage = output / "authored-consumption-data"
+    (authored_stage / "Model").mkdir(parents=True)
+    (authored_stage / "Cities").mkdir()
+    authored_model = authored_stage / "Model/EmperorBuildingModels.txt"
+    authored_model.write_bytes(authored_consumption_model(source_model.read_bytes()))
+    shutil.copy2(stage / "Cities/Influence.map", authored_stage / "Cities/Influence.map")
+    authored_sha = digest(authored_model)
+    assert authored_sha != MODEL_SHA
+    authored_before = inventory(authored_stage)
+    legacy.run(binary, ["--create-consumption", authored_stage, output / "consumption"], output / "consumption.log")
+    consumption = json.loads((output / "consumption/fixture.json").read_text())
+    assert consumption["status"] == "PASS" and consumption["snapshot_injection"] is False
+    assert consumption["authored_model_needs"] is True and consumption["original_model_parity"] is False
+    assert consumption["positive_runtime_consumption"] is True and consumption["authored_geography"] is True
+    assert consumption["paid_house_count"] == 6 and consumption["paid_road_count"] == 24
+    assert consumption["initial"]["funds"] == 10838 and consumption["initial"]["construction_spent"] == 1162
+    assert consumption["initial"]["population"] == 0
+    assert [entry["step"] for entry in consumption["boundaries"]] == [0, 7]
+    for boundary in consumption["boundaries"]:
+        check_consumption_boundary(boundary)
+        assert all(boundary[key]["model_sha256"] == authored_sha for key in ("before", "at", "after"))
+    check_balances(consumption["final"])
+    assert all(consumption["final"]["balances"][good]["consumed"] > 0 for good in (0, 1))
     restarts = []
     assert [entry["tag"] for entry in fixture["checkpoints"]] == ["mid-hemp-courier", "house-two-goods"]
-    for checkpoint in fixture["checkpoints"]:
+    assert [entry["tag"] for entry in consumption["checkpoints"]] == ["step-0-before", "step-7-before"]
+    checkpoint_inputs = [(entry, stage, MODEL_SHA, False) for entry in fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, authored_stage, authored_sha, True) for entry in consumption["checkpoints"]]
+    for checkpoint, replay_data, model_sha, authored_needs in checkpoint_inputs:
         source = checked_path(repo, output, checkpoint["save"])
         source_identity = file_identity(source)
         source_report = json.loads(checked_path(repo, output, checkpoint["report"]).read_text())
         check_balances(source_report)
+        assert source_report["model_sha256"] == model_sha
         if checkpoint["tag"] == "mid-hemp-courier":
             assert any(c["role"] == 12 and c["typed_cargo_good"] == 0 and c["typed_cargo"] > 0 and
                        c["cargo"] == 0 and c["edge_progress"] > 0
                        for c in source_report["couriers"])
-        else:
+        elif not authored_needs:
             check_balances(source_report, positive=True)
             assert any(house["hemp"] > 0 and house["ceramics"] > 0 for house in source_report["houses"])
         folder = output / ("resume-" + checkpoint["tag"])
-        legacy.run(binary, ["--resume", stage, folder, source], output / (checkpoint["tag"] + "-resume.log"))
+        legacy.run(binary, ["--resume", replay_data, folder, source], output / (checkpoint["tag"] + "-resume.log"))
         actual_reports = []
         for name, expected_key, report_key in (
                 ("midpoint", "expected_midpoint", "expected_midpoint_report"),
@@ -242,9 +325,16 @@ def main():
             report = json.loads((folder / (name + "-report.json")).read_text())
             assert report == json.loads(checked_path(repo, output, checkpoint[report_key]).read_text())
             check_balances(report, positive=True)
+            assert report["model_sha256"] == model_sha
+            if authored_needs:
+                assert report["shelter_needs"] == [1, 1]
+                assert all(report["balances"][good]["consumed"] > 0 for good in (0, 1))
+            else:
+                assert report["shelter_needs"] == [0, 0]
+                assert all(balance["consumed"] == 0 for balance in report["balances"])
             saved = json.loads(actual.read_text())
             assert saved["schema_version"] == 26 and saved["rules"]["version"] == 10
-            assert saved["world"]["original_production"]["development_revision"] == 16
+            assert saved["world"]["original_production"]["development_revision"] == 17
             actual_reports.append(report)
         midpoint, final = actual_reports
         assert midpoint["tick"] == source_report["tick"] + 10000
@@ -255,6 +345,7 @@ def main():
         assert final["road_count"] == midpoint["road_count"] + 1
         assert file_identity(source) == source_identity, "Process changed its source save or metadata"
         restarts.append({"checkpoint": checkpoint["tag"], "separate_os_process": True,
+            "authored_model_needs": authored_needs, "model_sha256": model_sha,
             "ticks_advanced": 20000, "periods": [10000, 10000], "actual_paid_road_continuation": True,
             "full_savedocument_equal": True, "canonical_bytes_equal": True, "provenance_equal": True,
             "balances_equal": True, "midpoint_equal": True, "source_save_and_metadata_unchanged": True})
@@ -264,17 +355,22 @@ def main():
     after = inventory(original)
     assert before == after, "Original installation bytes or metadata changed"
     assert private_before == inventory(stage), "Private hash-identical model copy or map changed"
+    assert authored_before == inventory(authored_stage), "Private explicitly authored model or map changed during simulation"
     legacy.frozen_baseline(repo)
     frozen_rule9(repo)
-    report = {"status": "PASS", "evidence": "Paid production; real source model; authored geography; actual arrivals",
+    report = {"status": "PASS", "evidence": "Paid actual arrivals; original-model zero consumption; separate authored-model positive consumption",
         "original_data": str(original), "original_inventory_before": before, "original_inventory_after": after,
         "original_unchanged": True, "private_source_inventory_unchanged": True,
         "original_model_sha256": MODEL_SHA, "model_copy_byte_identical": True,
         "fixture_binary_sha256": digest(binary), "snapshot_injection": False, "positive_runtime_goods": True,
-        "fixture": fixture, "restarts": restarts, "legacy": old,
+        "positive_authored_runtime_consumption": True, "original_shelter_consumption_zero": True,
+        "authored_model_sha256": authored_sha, "authored_model_changes": {"row": "Shelter", "fields": [9, 10], "before": [0, 0], "after": [1, 1], "changed_bytes": 2},
+        "authored_private_inventory_unchanged": True,
+        "fixture": fixture, "consumption_fixture": consumption, "restarts": restarts, "legacy": old,
         "frozen_baseline_capture_sha256": digest(baseline / "capture.json"),
         "frozen_baseline_head": capture["head_before_implementation"],
-        "limits": ["Actual paid Hemp and Ceramics Market delivery; no consumption, luxury goods or house evolution yet",
+        "limits": ["Actual paid Hemp/Ceramics delivery and authored-positive consumption; original Shelter needs0 and consumes0",
+            "Luxury goods and house evolution remain inactive in revision17",
             "Migration, funding and recipe timing are authored; no original production parity claim",
             "Authored geography; separate SDL/native/human acceptance"]}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")

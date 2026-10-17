@@ -20,7 +20,7 @@ bool adjacent(Cell farm,Cell field) {
 void World::validate_original_hemp_model() const {
     if (!original_rules_model_ || !original_rules_model_->supports_building(original::ModelBuilding::HempFarm) ||
         !original_rules_model_->supports_building(original::ModelBuilding::HempField))
-        invalid("revision16 requires explicitly prepared Hemp Farm192 and Hemp Field194 model capability");
+        invalid("active original production requires explicitly prepared Hemp Farm192 and Hemp Field194 model capability");
     const auto workers=original_rules_model_->building_value(original::ModelBuilding::HempFarm,original::BuildingField::Employees);
     if (workers<=0 || workers>INT16_MAX ||
         original_rules_model_->building_value(original::ModelBuilding::HempFarm,original::BuildingField::Cost)<=0 ||
@@ -30,7 +30,7 @@ void World::validate_original_hemp_model() const {
 }
 
 CommandResult World::validate_original_hemp_command(Command command) const {
-    CommandResult result{false,false,"Hemp construction requires explicit revision16",command_sequence_,ticks_};
+    CommandResult result{false,false,"Hemp construction requires explicit original production",command_sequence_,ticks_};
     if (!original_production_enabled() || !original_production_) return result;
     const auto reject=[&](const char* why){result.reason=why;return result;};
     if (!in_bounds(command.cell)) return reject("Hemp construction outside permitted map bounds");

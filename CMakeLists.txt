@@ -896,6 +896,18 @@ if(BUILD_TESTING)
     add_test(NAME original-hemp-save COMMAND openemperor-original-hemp-save-tests)
     set_tests_properties(original-hemp-save PROPERTIES TIMEOUT 60)
 
+    add_executable(openemperor-original-consumption-world-tests tests/OriginalConsumptionWorldTests.cpp)
+    target_link_libraries(openemperor-original-consumption-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-consumption-world-tests)
+    add_test(NAME original-consumption-world COMMAND openemperor-original-consumption-world-tests)
+    set_tests_properties(original-consumption-world PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-consumption-save-tests tests/OriginalConsumptionSaveTests.cpp)
+    target_link_libraries(openemperor-original-consumption-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-consumption-save-tests)
+    add_test(NAME original-consumption-save COMMAND openemperor-original-consumption-save-tests)
+    set_tests_properties(original-consumption-save PROPERTIES TIMEOUT 120)
+
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)
     target_link_libraries(openemperor-original-economy-rule-gate-tests PRIVATE openemperor-persistence)

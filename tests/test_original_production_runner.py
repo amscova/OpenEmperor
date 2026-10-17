@@ -43,6 +43,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.private, self.private / ".." / "escape",
                        self.repo / ".local/original-economy/oe14/production-fixtures/run",
                        self.repo / ".local/original-economy/oe15/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe16/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -145,7 +146,7 @@ class ProductionRunnerTests(unittest.TestCase):
         scene.update(pottery_handed_off=2, pottery_completed=2, hemp_harvested=2, hemp_farms=[{"harvested": 2}],
                      residents_admitted=42, population=42, workforce_supply=42,
                      houses=[{"occupants": 7, "hemp": 2 if index == 0 else 0,
-                              "ceramics": 2 if index == 0 else 0} for index in range(6)])
+                              "ceramics": 2 if index == 0 else 0, "consumed": [0] * 6} for index in range(6)])
         runner.check_balances(scene, positive=True)
         for field in ("imported", "consumed", "demolished", "cargo"):
             bad = copy.deepcopy(scene)
@@ -198,6 +199,64 @@ class ProductionRunnerTests(unittest.TestCase):
         source.chmod(mode)
         source.write_bytes(b"changed\n")
         self.assertNotEqual(runner.file_identity(source)["sha256"], identity["sha256"])
+
+    def test_consumption_requires_exact_house_sinks_and_conservation(self):
+        scene = self.scene()
+        scene.update(pottery_handed_off=3, pottery_completed=3, hemp_harvested=2, hemp_farms=[{"harvested": 2}],
+                     residents_admitted=7, population=7, workforce_supply=7,
+                     houses=[{"occupants": 7, "hemp": 1, "ceramics": 1, "consumed": [1, 2, 0, 0, 0, 0]}])
+        scene["balances"][0].update(produced=2, stock=1, consumed=1)
+        scene["balances"][1].update(produced=3, stock=1, consumed=2)
+        runner.check_balances(scene)
+        for field, value in (("consumed", [2, 2, 0, 0, 0, 0]), ("consumed", [1, 2, 0, 0, 0, 1]),
+                             ("consumed", [True, 2, 0, 0, 0, 0]), ("consumed", [1, 2]), ("occupants", 0)):
+            bad = copy.deepcopy(scene)
+            bad["houses"][0][field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(AssertionError):
+                runner.check_balances(bad)
+
+    def test_authored_model_copy_changes_only_two_explicit_need_bytes(self):
+        fields = [b"0"] * 24
+        fields[17] = b"7"
+        source = b"other original rows\r\n1: Shelter,{," + b",".join(fields) + b",,,,,\r\nunchanged footer\r\n"
+        expected = fields.copy()
+        expected[9] = expected[10] = b"1"
+        changed = runner.authored_consumption_model(source)
+        self.assertEqual(changed, b"other original rows\r\n1: Shelter,{," + b",".join(expected) + b",,,,,\r\nunchanged footer\r\n")
+        for bad in (source + source, source.replace(b"1: Shelter", b"1: Unknown"), changed,
+                    source.replace(b"7", b"8"), b"1: Shelter,{,0"):
+            with self.subTest(source=bad), self.assertRaises(RuntimeError):
+                runner.authored_consumption_model(bad)
+
+    def test_boundary_guard_checks_scheduler_delta_and_no_second_booking(self):
+        before = self.scene()
+        before.update(tick=855, shelter_needs=[1, 1], pottery_handed_off=12, pottery_completed=12,
+                      hemp_harvested=6, hemp_farms=[{"harvested": 6}], residents_admitted=42,
+                      population=42, workforce_supply=42,
+                      houses=[{"id": i + 1, "occupants": 7, "hemp": 1, "ceramics": 2,
+                               "consumed": [0] * 6} for i in range(6)])
+        before["balances"][0].update(produced=6, stock=6)
+        before["balances"][1].update(produced=12, stock=12)
+        at = copy.deepcopy(before)
+        at["tick"] = 856
+        at["balances"][0].update(stock=0, consumed=6)
+        at["balances"][1].update(stock=6, consumed=6)
+        for house in at["houses"]:
+            house.update(hemp=0, ceramics=1, consumed=[1, 1, 0, 0, 0, 0])
+        after = copy.deepcopy(at)
+        after["tick"] = 857
+        boundary = {"step": 0, "house_arrivals_at_boundary": False, "before": before, "at": at, "after": after,
+                    "expected_house_deltas": [{"building_id": i + 1, "consumed": [1, 1, 0, 0, 0, 0]} for i in range(6)]}
+        runner.check_consumption_boundary(boundary)
+        for field, value in (("step", 7), ("house_arrivals_at_boundary", True)):
+            bad = copy.deepcopy(boundary)
+            bad[field] = value
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                runner.check_consumption_boundary(bad)
+        bad = copy.deepcopy(boundary)
+        bad["after"]["houses"][0]["consumed"][0] += 1
+        with self.assertRaises(AssertionError):
+            runner.check_consumption_boundary(bad)
 
     def test_frozen_rule9_requires_pinned_completed_review(self):
         root = self.repo / runner.RULE9_REFERENCE

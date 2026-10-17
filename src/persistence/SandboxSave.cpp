@@ -1022,14 +1022,17 @@ json production_document_json(const SaveDocument& d) {
     result["world"]["original_influence"]=original_influence_json(*d.world.original_influence);
     result["world"]["original_goods"]=production_goods_json(*d.world.original_goods);
     const auto& production=*d.world.original_production;
-    json farms=json::array();
+    json farms=json::array(),consumption=json::array();
     for (const auto& farm:production.hemp_farms)
         farms.push_back({{"farm_id",static_cast<std::uint32_t>(farm.farm_id)},
             {"field_id",farm.field_id ? json(static_cast<std::uint32_t>(*farm.field_id)):json(nullptr)},
             {"harvested",farm.harvested}});
+    for (const auto& house:production.house_consumption)
+        consumption.push_back({{"building_id",static_cast<std::uint32_t>(house.building_id)},
+            {"consumed",house.consumed}});
     result["world"]["original_production"]={{"development_revision",production.development_revision},
         {"residents_admitted",production.residents_admitted},{"pottery_handed_off",production.pottery_handed_off},
-        {"hemp_farms",std::move(farms)}};
+        {"hemp_farms",std::move(farms)},{"house_consumption",std::move(consumption)}};
     return result;
 }
 SaveDocument parse_production_document(const json& j) {
@@ -1058,6 +1061,21 @@ SaveDocument parse_production_document(const json& j) {
             farm.field_id=static_cast<simulation::BuildingId>(child);
         }
         farm.harvested=number(field(value,"harvested"));state.hemp_farms.push_back(farm);
+    }
+    const auto& consumption=field(production,"house_consumption");
+    require(consumption.is_array() && consumption.size()<=simulation::Rules::city_v10_household_limit,
+            "schema26 House consumption collection exceeds bound");
+    std::uint32_t previous_house=0;
+    for (const auto& value:consumption) {
+        simulation::OriginalHouseConsumptionState house;
+        const auto id=static_cast<std::uint32_t>(number(field(value,"building_id"),UINT32_MAX));
+        require(id>previous_house,"schema26 consumption House IDs must be positive, unique and sorted");
+        previous_house=id;house.building_id=static_cast<simulation::BuildingId>(id);
+        const auto& amounts=field(value,"consumed");
+        require(amounts.is_array() && amounts.size()==house.consumed.size(),
+                "schema26 House consumption requires exactly six amounts");
+        for (std::size_t i=0;i<house.consumed.size();++i) house.consumed[i]=number(amounts[i]);
+        state.house_consumption.push_back(house);
     }
     auto projected=j;
     projected["schema_version"]=22;projected["rules"]["version"]=6;

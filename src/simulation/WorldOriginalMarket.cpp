@@ -58,8 +58,13 @@ int returning_room(const OriginalGoodsState& goods,BuildingId source,original::G
     if (total>INT32_MAX) invalid("typed source return-room overflow");return static_cast<int>(total);
 }
 template<class Buildings,class Couriers> void validate_market_bindings(const Buildings& buildings,const Couriers& couriers,
-    const OriginalGoodsState& goods,std::span<const OriginalHouseState> homes) {
+    const OriginalGoodsState& goods,std::span<const OriginalHouseState> homes,
+    std::span<const OriginalHouseConsumptionState> consumption) {
     const Context context(buildings,couriers);validate_original_goods_ledger(context.view(goods,homes));
+    if (consumption.size()!=homes.size()) invalid("typed House consumption lost its purchased owner");
+    for (std::size_t i=0;i<homes.size();++i)
+        if (consumption[i].building_id!=homes[i].building_id)
+            invalid("typed House consumption is not aligned with its sole inventory");
     for (std::size_t i=0;i<goods.reservations.size();++i) {
         const auto& r=goods.reservations[i];
         if ((i && goods.reservations[i-1].transfer.courier_id==r.transfer.courier_id) ||
@@ -101,7 +106,8 @@ template<class Buildings,class Couriers> void validate_market_bindings(const Bui
         return false;
     };
     bool hemp_outside_farm=false,possible_farm_delivery=false;
-    for (const auto& home:homes) if (home.house.hemp>0) hemp_outside_farm=true;
+    for (std::size_t i=0;i<homes.size();++i)
+        if (homes[i].house.hemp>0 || consumption[i].consumed[0]) hemp_outside_farm=true;
     for (const auto& b:buildings) if (b.kind==Object::Warehouse || b.kind==Object::Market) {
         for (const auto& stock:goods.stocks)
             if (stock.building_id==b.id && stock.amounts[static_cast<std::size_t>(original::Goods::Hemp)]>0)
@@ -118,10 +124,26 @@ template<class Buildings,class Couriers> void validate_market_bindings(const Bui
     // delivery. Later compacted Farm trips remain deliberately possible.
     if (hemp_outside_farm && !possible_farm_delivery)
         invalid("Hemp outside its Farm has no possible actual Farm arrival");
-    for (const auto& home:homes) for (const auto good:{original::Goods::Hemp,original::Goods::Ceramics})
-        if (original::goods_stock(home.house,good)>0 &&
-            !possible_arrival(home.building_id,good,CourierRole::MarketPotteryDistribution))
-            invalid("positive House goods have no possible actual Distributor arrival");
+    for (std::size_t i=0;i<homes.size();++i) for (const auto good:{original::Goods::Hemp,original::Goods::Ceramics}) {
+        const auto& home=homes[i];const auto g=static_cast<std::size_t>(good);
+        const auto stock=static_cast<std::uint64_t>(original::goods_stock(home.house,good));
+        if (consumption[i].consumed[g]>UINT64_MAX-stock) invalid("House received-goods history overflows");
+        const auto received=stock+consumption[i].consumed[g];
+        if (received && !possible_arrival(home.building_id,good,CourierRole::MarketPotteryDistribution))
+            invalid("House stock or consumption has no possible actual Distributor arrival");
+        std::uint64_t latest_delivered=0;bool pruned_history=false;
+        for (const auto& c:couriers) if (c.role==CourierRole::MarketPotteryDistribution) {
+            const auto* latest=row(goods,c.id);if (!latest) continue;
+            pruned_history|=latest->transfer.sequence>1;
+            if (latest->phase==OriginalGoodsTransferPhase::Completed && latest->target==home.building_id && latest->good==good)
+                latest_delivered+=static_cast<std::uint64_t>(latest->delivered);
+        }
+        // Houses have no outbound stock: received = current stock + consumed.
+        // Sum all actual retained deliveries, including independent Markets.
+        // Only sequence one excludes possible pruned earlier target/good trips.
+        if (received<latest_delivered || (!pruned_history && received>latest_delivered))
+            invalid("House stock and consumption disagree with possible actual delivery history");
+    }
     for (const auto& b:buildings) if (b.kind==Object::Warehouse || b.kind==Object::Market) {
         for (const auto good:{original::Goods::Hemp,original::Goods::Ceramics}) {
             if (b.kind==Object::Warehouse && good==original::Goods::Ceramics) continue;
@@ -164,12 +186,14 @@ int World::original_market_headroom(BuildingId owner,original::Goods good) const
 void World::validate_original_market_snapshot(const WorldSnapshot& s) {
     for (const auto& r:s.original_goods->reservations)
         if (r.transfer.sequence>s.ticks) invalid("typed courier history exceeds elapsed dispatch opportunities");
-    validate_market_bindings(s.buildings,s.couriers,*s.original_goods,s.original_economy->houses);
+    validate_market_bindings(s.buildings,s.couriers,*s.original_goods,s.original_economy->houses,
+        s.original_production->house_consumption);
 }
 void World::validate_original_market_state() const {
     for (const auto& r:original_goods_->reservations)
         if (r.transfer.sequence>ticks_) invalid("typed courier history exceeds elapsed dispatch opportunities");
-    validate_market_bindings(buildings_,couriers_,*original_goods_,original_economy_->houses);
+    validate_market_bindings(buildings_,couriers_,*original_goods_,original_economy_->houses,
+        original_production_->house_consumption);
 }
 
 CourierDispatchDecision World::original_market_dispatch_status(const CourierState& c) const {
@@ -186,15 +210,21 @@ CourierDispatchDecision World::original_market_dispatch_status(const CourierStat
         targets[count++]=&b;
     }
     if (!count) return {CourierDispatchStatus::NoTarget,{}};
-    std::size_t start=0;
-    for (std::size_t i=0;i<count;++i) if (c.last_dispatched_target==targets[i]->id) start=(i+1)%count;
+    const auto* previous=row(*original_goods_,c.id);
+    const auto first=previous && previous->good==original::Goods::Hemp ? original::Goods::Ceramics:original::Goods::Hemp;
     bool room=false;
-    for (std::size_t step=0;step<count;++step) {
-        const auto& b=*targets[(start+step)%count];if (!original_market_dispatch_good(c,b.id)) continue;room=true;
-        const auto found=std::lower_bound(c.dynamic_target_routes.begin(),c.dynamic_target_routes.end(),b.id,
-            [](const auto& entry,BuildingId id){return entry.first<id;});
-        if (found!=c.dynamic_target_routes.end() && found->first==b.id && found->second)
-            return {CourierDispatchStatus::Ready,b.id};
+    for (const auto good:{first,first==original::Goods::Hemp ? original::Goods::Ceramics:original::Goods::Hemp}) {
+        if ((c.role==CourierRole::OriginalHempToWarehouse && good!=original::Goods::Hemp) || original_typed_stock(c.owner,good)<=0) continue;
+        std::size_t start=0;
+        for (std::size_t i=0;i<count;++i) if (c.last_dispatched_target==targets[i]->id)
+            start=previous && previous->good==original::Goods::Hemp && good==original::Goods::Ceramics ? i:(i+1)%count;
+        for (std::size_t step=0;step<count;++step) {
+            const auto& b=*targets[(start+step)%count];if (original_market_headroom(b.id,good)<=0) continue;room=true;
+            const auto found=std::lower_bound(c.dynamic_target_routes.begin(),c.dynamic_target_routes.end(),b.id,
+                [](const auto& entry,BuildingId id){return entry.first<id;});
+            if (found!=c.dynamic_target_routes.end() && found->first==b.id && found->second)
+                return {CourierDispatchStatus::Ready,b.id};
+        }
     }
     return {room ? CourierDispatchStatus::NoRoad:CourierDispatchStatus::TargetFull,{}};
 }

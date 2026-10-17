@@ -22,8 +22,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-13 | PASS | `887dda562622d59487a92b8966b62b218cb59ce3` | `.local/original-economy/oe13/implementation/`, `oe13/goods-fixtures/run-d4mm76cf/`, OE-00/`oe13-final-verification/` | Rule9/Schema25-Buchhaltungsfundament;117 relevante Konfigurations-CTests, echte F5/F9-/40k-Prozessfortsetzungen;72 Legacy-Saves/Snapshots und1485 Policyfälle sowie eingefrorene7/23-/8/24-Bytes exakt; reale Waren0/unsupported, Gate C offen |
 | OE-14 | PASS | `2bd6878f0ab06af0764d84120f8bf9cb6c2dd726` | `.local/original-economy/oe14/`, OE-00/`oe14-final-verification/` | Aktive Rule10/Schema26/Revision14; bezahlter Zuzug/Worker, echter Clay→Pottery→Warehouse→Ceramics-Ursprung,129 relevante CTests und separate20k-Prozessreplays; alte1–9/1–25-Verträge erhalten; Gate C offen |
 | OE-15 | PASS | `390c87481b2259a0e95559e0c975e974a7b627af` | `.local/original-economy/oe15/implementation/`, `oe15/production-fixtures/final-source-5f09/`, OE-00/`oe15-final-verification/` | Aktive Revision15: reale bezahlte Market→House-Lieferung, sichere Rückgabe, begrenzte Transferhistorie;135 relevante Konfigurations-CTests/3×74 Forkvergleiche/separate20k-Prozessreplays; alte1–9-Verträge exakt, Gate C offen |
-| OE-16 | PASS | — | `.local/original-economy/oe16/implementation/`, `oe16/production-fixtures/final-source-55c8/`, OE-00/`oe16-final-verification/` | Revision16: bezahlte HempFarm192/Feld194, echte Zweigüterankunft/separate Prozessreplays;147 relevante Konfigurations-CTests/3×74 Vergleiche,72 Legacy-Saves/Snapshots und1485 Policyfälle exakt. Gate C TODO |
-| OE-17 | TODO | — | — | — |
+| OE-16 | PASS | `86cde0c54577a9889632e45432fe7fe18acd7fac` | `.local/original-economy/oe16/implementation/`, `oe16/production-fixtures/final-source-55c8/`, OE-00/`oe16-final-verification/` | Revision16: bezahlte HempFarm192/Feld194, echte Zweigüterankunft/separate Prozessreplays;147 relevante Konfigurations-CTests/3×74 Vergleiche,72 Legacy-Saves/Snapshots und1485 Policyfälle exakt. Gate C TODO |
+| OE-17 | PASS | — | `.local/original-economy/oe17/implementation/`, `oe17/production-fixtures/debug-first/`, OE-00/`oe17-final-verification/` | Revision17: tatsächlicher Konsum an0/7 mit strikter House-Historie;153 relevante Konfigurations-CTests, zwei Modellpfade/vier20k-Prozessreplays,25 Saves unabhängig rekonstruiert; Legacy exakt, Gate C TODO |
 | OE-18 | TODO | — | — | — |
 | OE-19 | TODO | — | — | — |
 | OE-20 | TODO | — | — | — |
@@ -2073,7 +2073,7 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   `55c8d195d45e7b2d3a22a9fb37c69fef29e2fc7520c4c363d9aa1ec798513287`,
   35 eingefrorene Sourcepfade/42 gesamte Taskpfade. Der vorangegangene Stand
   `6967cba3fad26b862164e63c7fc495b8fe46d741dd792e41e5a5c555120953c8`
-  unterscheidet sich gegenüber Prozessstand
+  unterscheidet sich von Prozessstand
   `675a5b46cd87d0569f8e2d6810c30694112b7f9544a0d0ccf46c4982a2371007`
   ausschließlich durch den ungültigen Test-Sentinel von
   `OriginalInfluenceSource+1` auf `OriginalHempField+1`: Objects14/15 sind nun
@@ -2094,3 +2094,154 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Kein Verbrauch, keine Hausentwicklung oder vollständige Originalspiel- bzw.
   Originalsprite-Parität behauptet. Eigener Task-Commit nach Abschlussprüfung;
   danach OE-17 gemäß Gesamtauftrag ohne Wartepunkt für manuelle Playtests.
+
+### OE-17 – Umsetzung, 2026-10-17, Basis86cde0c
+
+- **Vertrag und Versionierung:**
+  [Verbrauchsvertrag](../original-economy/consumption-runtime.md) vor der
+  Implementierung festgelegt. Ausschließlich die aktive Rule10/Schema26/
+  policy3 verwendet jetzt Entwicklungsrevision17. Frühere Entwicklungsrevisionen
+  werden atomar verweigert; Regeln1–9/Schemas1–25 und normales Spielprofil
+  bleiben unverändert. Der ausdrücklich ausgeschlossene Entwicklerstart
+  `sh tools/play_original_economy.sh` verwendet seinen eigenen Revision17-Save.
+- **Tatsächliche Konsumgrenzen:** Der unveränderte pure Kern liest die aktuelle
+  Housezeile und bucht je Ware `min(stock,max(need,0))`, ohne Footprint- oder
+  Bewohnermultiplikation. Null Bewohner konsumiert nichts. Bronze und Lack
+  bleiben getrennte Kernoperationen, in dieser World ohne reale Quellen0.
+  Der unveränderte gespeicherte Scheduler ist die einzige Clock: Phase39,
+  Schritte0/7, zuerst abgeschlossene Ticks40/397/856/1213. Nach Produktion,
+  tatsächlicher Bewegung, Fire und Zuzug erfolgt genau eine Buchung. Eine
+  tatsächliche Ankunft an derselben Tickgrenze wird bereits berücksichtigt;
+  freier Puffer wirkt bei der nächsten Disposition. Keine400-Tick-Nachfrage,
+  Servicegutschrift, Warenquelle oder vorgezogene Evolution.
+- **Persistenz und unabhängiger Review:** `house_consumption` enthält genau
+  eine sortierte Zeile pro gekauftem House mit sechs uint64-Zählern. HouseState
+  bleibt der einzige Hausbestand; die Spaltensummen entsprechen dem gesamten
+  Ledgerverbrauch. Bounded House-/Ledgerkandidaten werden vor Veröffentlichung
+  geprüft, ohne Worldkopie oder doppelte Abbuchung. Das bezahlte Housealter
+  begrenzt mögliche Schedulerereignisse; die gebundene Shelterzeile verschärft
+  das strukturelle Maximum8 pro Ereignis auf ihren tatsächlichen Bedarf.
+  Der isolierte positive Need1-Test verschiebt ausschließlich real vorhandenen
+  Housebestand in Verbrauch: Empfang und Masse bleiben unverändert, der
+  statische Validator und JSON-Reader akzeptieren die Struktur, erst der
+  gebundene Restore/Writer verweigert den zu hohen Zähler. Zusätzlich sind
+  Nullbedarf, genaue IDs/Anzahl, unbekannte/fehlende/doppelte Keys, Integer-
+  und Summenüberläufe sowie koordinierte vollständig konsumierte Geschenke
+  ohne tatsächliche Distributorankunft negativ geprüft. Mögliche Farm- und
+  Hausankünfte werden auch für konsumierte Mengen verlangt; passende letzte
+  Completed-Lieferungen können den kumulativen Empfang nicht überschreiten.
+  Kompaktierte Transferhistorie bleibt notwendige Provenienz, kein vollständiges
+  Besuchsjournal. Waren-/Zielrotation wird gemeinsam fortgeschrieben; finite
+  Läufe mit sechs Häusern/einem Market sowie20 Häusern/zwei Markets liefern
+  und konsumieren tatsächlich beide Waren je Haus, ohne universelle
+  Starvation-Freiheit zu behaupten.
+- **Echte Erstlauf-Fails und Korrekturen:** Der erste ASan-Save-Test meldete
+  einen echten Use-after-free in der neuen Testiteration: normale Commands
+  ersetzten die World, während Buildingreferenzen weiterverwendet wurden.
+  Der Test sammelt nun IDs vor den Commands. Der erste Debug-Worldtest
+  überschritt sein180s-Limit. Seine unveränderten Sechs-Waren-Assertions lesen
+  nun eine gemeinsame `original_goods_balances()`-Abfrage statt sechs
+  wiederholter vollständiger Abfragen; der vollständige20k-Tick-/Snapshot-
+  Vergleich bleibt bestehen. Die fehlgeschlagenen Erstläufe werden nicht
+  nachträglich als PASS geführt: Logs/Results/JUnit bleiben unter
+  `implementation/*before-test-fix*` erhalten.
+  `implementation/test-only-fix-binding.json` rekonstruiert den vollständigen
+  Zwischenhash `5ed0df3eb0826735058e6d8760c7896bcb239b6e3a5413e37dfa1a54e79a3532`
+  aus dem finalen Stand mit genau zwei gepinnten Testdatei-Overrides.
+  Sämtliche Runtime-, Fixture- und Legacyquellen bleiben bytegleich; die
+  Legacytargets kompilieren keine der geänderten Testtranslationseinheiten.
+  Diese explizite Bindung erhält frühere Prozess-/Legacybelege am finalen
+  Quellenstand, ohne einen nicht ausgeführten erneuten Gesamtlauf zu behaupten.
+- **Finale Builds und relevante Tests:**41 Targets in Debug, Release und
+  ASan+UBSan gebaut;198 Tests je Konfiguration tatsächlich registriert.
+  Finale Auswahl jeweils **51/51 PASS**, insgesamt153 Konfigurations-CTests,
+  keine Fehler oder Skips. CTest-Laufzeiten Debug154.068s, Release10.598s,
+  Sanitizer54.619s; der finale Debug-Consumption-Worldtest benötigt76.03s.
+  Exakte Configure-/Inventory-/Build-/CTestcommands, Exitcodes und Zeiten
+  stehen unter `.local/original-economy/oe17/implementation/` in
+  `{debug,release,sanitizer}-targeted-result.json`, den gleichnamigen Logs
+  und JUnitdateien. Ausführung über
+  `python3 .local/original-economy/oe17/implementation/run_targeted.py <Konfiguration>`
+  beziehungsweise dessen getrennte `--build-only`-/`--test-only`-Schritte.
+  Saveverweigerungen je Konfiguration: Consumption34, Hemp958, Market690,
+  Produktion813 und eingefrorene Rule9-Goods575. Die neue Worldsuite prüft
+  beide Grenzen±1, min0/Unterversorgung/Leerstand, eine zeitlich regulär
+  ausgerichtete echte Ankunft auf der Konsumgrenze sowie laufende bezahlte
+  Zweigüterversorgung und20k-Snapshot-Replay. Dies ist die relevante51er-
+  Auswahl, keine vollständige198er-Phasen-Gate-Suite.
+- **Zwei Modellpfade und vier echte OS-Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/market-walkers-finish/debug-build --output .local/original-economy/oe17/production-fixtures/debug-first`:
+  **PASS**, Report-SHA
+  `5a26ddbfad4f4ac12611adbcd633ebee169ddbc9ab902ff6c6f5197054b814f2`,
+  tatsächliches Fixturebinary
+  `9780b4624c74e75c1432025d45c2e4ffb1053c7674070d4ab22af1cd1ad6d37a`.
+  Das hashidentische Originalmodell hat Shelter-Hemp0/Ceramics0 und konsumiert
+  trotz tatsächlicher Ankünfte korrekt0. Der ausdrücklich getrennte positive
+  Modellpfad verändert genau zwei Bedarfsbytes einer privaten Kopie auf1/1;
+  alle anderen Bytes einschließlich Kapazität7, Preisen und Employees bleiben
+  identisch. Seine SHA lautet
+  `6b26637469de347541154a3902a2bf4f1da5d7c35d92d56966c8f6c8f6261dfa`.
+  Beide Szenen bezahlen24 Straßen, sechs Häuser und die vollständige Clay-/
+  Pottery-/Warehouse-/Market-/HempFarm-/Feldkette mit1162 Funds;10838 bleiben.
+  42 Bewohner wandern regulär zu. Ohne Snapshot-, Stock- oder Workerinjektion
+  entstehen reale Waren und reale Lieferungen. Positive Prozessgrenzen:
+  Ticks855→856→857, Schritt0 mit Hemp1/Ceramics1;1212→1213→1214, Schritt7
+  mit Hemp1/Ceramics2. Der Market wird dabei regulär pausiert; nachweislich
+  keine Houseankunft verdeckt die geprüften Stock-/Audit-/Ledgerdeltas.
+  Die separate Worldsuite oben prüft gerade den tatsächlichen Same-Tick-Arrival.
+  Vier neue OS-Prozesse laden realen Mid-Hemp-Courier, reales Zweigüterhaus
+  sowie beide authored Vor-Konsumgrenzen. Je10000 Ticks, ein real bezahlter
+  Straßenbau und weitere10000 Ticks ergeben vollständig gleiche SaveDocuments,
+  kanonische Bytes, Provenance und Warenbilanzen. Eingabesaves samt Metadaten,
+  beide privaten Modell-/Mapinputs und das Originalinventar1464 Dateien/
+  819711091 Bytes bleiben unverändert. Sechs tatsächliche Python-/C++-CLI-
+  Guards verweigern Outside-, Symlink- und alte OE-16-Ausgabepfade ohne
+  Zielerzeugung; `oe17/runner-guards/report.json`.16 Pythonverträge PASS.
+- **Unabhängige Raw-Rekonstruktion:**
+  `.local/original-economy/oe17/world/raw-process-audit.json` bindet den finalen
+  df785-Quellenstand und das tatsächliche unveränderte Fixturebinary.
+  **92725 Checks PASS**:25 Schema26-Saves und20 Reports unabhängig aus ihren
+  gespeicherten Zahlen rekonstruiert, sechs Warenbilanzen, rohe Clay-/Pottery-
+  Vorgeschichte, Houses, Cargo, Finanzen, Quellenidentitäten sowie direkte volle
+  Byte-/Wertvergleiche aller vier Restartpaare. Der Raw-Audit bestätigt die
+  Artefakte; tatsächlicher OS-Prozessstart wird vom separat ausgeführten
+  Fixtureworkflow belegt und nicht aus Savebytes allein abgeleitet.
+- **Frische Forkvergleiche:** Debug/Release/ASan+UBSan jeweils **74/74 PASS**,
+  unverändert46 parity/18 corrected_bug/6 unverified/4 unsupported.
+  21 aktuelle Archive,18 Housingbeobachtungen und der1800-Werte-Modelldigest
+  geprüft; alte numerische Module und historische Nicht-current-Belege
+  unverändert.25 zusätzliche Sanitizerprozesse stderrleer,28 Pythonverträge
+  PASS. Portable `core-parity.json` SHA
+  `8ad785cb048893b8194ce888addc806502e30cd2f0f0b44c6cd80eedc636a952`;
+  `implementation/parity-validation-summary.json` SHA
+  `d7f518bbd74ce6f4ce53145b4a597ea3942f60dfcf5b0e162554afd4d377f70a`.
+- **Vollständiger Legacyabschluss:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe17-final-verification`:
+  **PASS** auf Zwischenquelle5ed0, durch die oben geprüften zwei ausschließlichen
+  Teständerungen strikt an die finale Quelle gebunden.72 vollständige Saves,
+  72 Snapshots und der gesamte Vertrag unabhängig wörtlich bytegleich;
+  167 vollständige Maps,165 vorbereitet/zwei bestehende Konflikte,1485 Policy-
+  Fälle sowie elf Rampen- und zehn Bridge-Restartpaare exakt. Vertragsdigest
+  weiterhin `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  run.json SHA `d7de57d34137fc7d5c236053f0b53b5b3bf5ef5fe5f83e6aa5de6ee4eb45daa1`;
+  finale `implementation/legacy-literal-proof.json` SHA
+  `a69b49031d2df97a4b4ad1a0ddfd7452beb02532d55aba95294fc54be828df69`.
+  Die separat eingefrorenen Rule7-/sechs Rule8-/zehn Rule9-Saves bleiben
+  ebenfalls wörtlich gleich; diese ergänzen die ältere vollständige OE-00-Serie.
+- **SDL und Aussagegrenze:** Geöffnete Softwareaufnahme
+  `implementation/production-view-final.png`, gebundener Bericht
+  `production-view-final.json`: Revision17/Tick1636/Funds11002, House2 mit
+  Hemp2/Ceramics4,148 regulär eingewanderte Bewohner in vier ausdrücklich
+  synthetischen Kapazität37-Häusern. Bezahlte Tastatur-/Mausbefehle, Farm/Feld,
+  tatsächliche Zweigüterankunft und F5/F9 sind geprüft.100 Idleframes ohne
+  Worldkopien, Commands, BFS-, Datei-, Decode- oder Uploadarbeit. Dieser
+  Nullbedarfs-SDL-Test ist **keine positive Konsumgrafik-Abnahme**.
+  Native/human **NOT_RUN**, vollständige Originalsprite-/Objektkomposition
+  weiterhin späterer Pflichtauftrag.
+- **Abschluss:** Finaler Source-/Test-/Toolhash
+  `df7851d80fd8b2d35fcf3777e7047522afe80dd4d8bf3af536a3ad80eb1e28e7`,
+  20 eingefrorene Sourcepfade/26 gesamte Taskpfade. **OE-17 technisch PASS**;
+  Gate C TODO, OE-18 als nächster Auftrag TODO. Kein Food-/Service-/Evolutions-
+  oder Originalart-PASS vorweggenommen. Eigener Task-Commit folgt nach finaler
+  Abschlussprüfung; anschließend gemäß Gesamtauftrag direkt OE-18, ohne
+  Wartepunkt für einen menschlichen Playtest.

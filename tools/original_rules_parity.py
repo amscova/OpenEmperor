@@ -465,7 +465,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "f5bbd2d09dcc74d431509a8b53f42fe86faa138f":
+    if world_blob != "abedd5da0b7a597762bcf2df9add342a88a5960a":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -481,7 +481,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     production_dto = ROOT / "src/simulation/OriginalProductionState.h"
     production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
-    if production_blob != "0ad3f1b185e3073dbc42bdab65c306e09299445e":
+    if production_blob != "061168081a00cefa5e1ecbb413a4b2affe3c6252":
         raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
     model_header_blobs = {}
     for name, expected in (("ModelSchema.h", "b5acdf9a5ee209a41589298cbe0b796c07600d3d"),

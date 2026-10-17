@@ -1,5 +1,6 @@
 #include "../tests/OriginalInfluenceFixture.h"
 #include "simulation/original/GoodsRules.h"
+#include "simulation/original/OriginalScheduler.h"
 
 #include <algorithm>
 #include <iostream>
@@ -21,8 +22,8 @@ bool below(const f::fs::path& path,const f::fs::path& root) {
 }
 void validate_output(const f::fs::path& output,const f::fs::path& data) {
     const auto repo=f::fs::canonical(f::fs::path(__FILE__).parent_path().parent_path());
-    const auto root=repo/".local/original-economy/oe16/production-fixtures";
-    check(output!=root && below(output,root),"Fixture output must be a new private OE16 subdirectory");
+    const auto root=repo/".local/original-economy/oe17/production-fixtures";
+    check(output!=root && below(output,root),"Fixture output must be a new private OE17 subdirectory");
     check(!below(output,data) && !below(data,output),"Fixture output overlaps source data");
     f::fs::path current=output.root_path();
     for (const auto& part:output.relative_path()) {
@@ -43,17 +44,23 @@ json inspect(const sim::World& world) {
     for (std::size_t i=0;i<all.size();++i) {
         const auto& b=all[i];
         check(b==world.original_goods_balance(static_cast<original::Goods>(i)) && b.conserved &&
-              b.supported==(i<2) && !b.totals.imported && !b.totals.consumed && !b.totals.demolished,
+              b.supported==(i<2) && !b.totals.imported && !b.totals.demolished,
               "Unexpected typed goods capability or mass");
-        if (i>=2) check(!b.stock && !b.totals.produced && !b.cargo && !b.source_reserved && !b.incoming_reserved,
-                       "Revision16 generated an unsupported good");
-        check(b.stock+b.cargo==b.totals.produced,"Physical stock and actual cargo disagree with produced mass");
+        if (i>=2) check(!b.stock && !b.totals.produced && !b.totals.consumed && !b.cargo && !b.source_reserved && !b.incoming_reserved,
+                       "Revision17 generated an unsupported good");
+        check(b.stock+b.cargo+b.totals.consumed==b.totals.produced,"Physical stock, actual cargo and consumption disagree with produced mass");
         balances.push_back({{"good",i},{"supported",b.supported},{"conserved",b.conserved},
             {"produced",b.totals.produced},{"imported",b.totals.imported},{"consumed",b.totals.consumed},
             {"demolished",b.totals.demolished},{"stock",b.stock},{"cargo",b.cargo},
             {"source_reserved",b.source_reserved},{"incoming_reserved",b.incoming_reserved}});
     }
-    for (const auto& h:world.original_economy_state()->houses) {
+    const auto& history=world.original_production_state()->house_consumption;
+    const auto& homes=world.original_economy_state()->houses;
+    check(history.size()==homes.size(),"Consumption history lost a House");
+    std::array<std::uint64_t,original::goods_count> consumed{};
+    for (std::size_t index=0;index<homes.size();++index) {
+        const auto& h=homes[index];check(history[index].building_id==h.building_id,"Consumption House identity mismatch");
+        for (std::size_t g=0;g<consumed.size();++g) consumed[g]+=history[index].consumed[g];
         for (std::size_t i=0;i<original::goods_count;++i) if (i>=2)
             check(original::goods_stock(h.house,static_cast<original::Goods>(i))==0,"House acquired a premature delivery");
         check(h.house.hemp>=0 && h.house.hemp<=sim::Rules::household_capacity &&
@@ -61,9 +68,12 @@ json inspect(const sim::World& world) {
               "House exceeded its actual delivery buffer");
         houses.push_back({{"id",static_cast<unsigned>(h.building_id)},{"type",static_cast<unsigned>(h.house.type)},
             {"occupants",h.house.occupants},{"hemp",h.house.hemp},{"ceramics",h.house.ceramics},
+            {"consumed",history[index].consumed},
             {"status",h.original_status},{"access_enabled",h.access_enabled},
             {"desirability",world.original_influence_provenance(h.building_id).value}});
     }
+    for (std::size_t g=0;g<consumed.size();++g)
+        check(consumed[g]==all[g].totals.consumed,"House consumption totals disagree with ledger");
     for (const auto& b:world.buildings()) {
         check(b.population==0 && b.pottery_stock==0,"New authority was mirrored into legacy stock or population");
         buildings.push_back({{"id",static_cast<unsigned>(b.id)},{"kind",static_cast<unsigned>(b.kind)},
@@ -105,6 +115,8 @@ json inspect(const sim::World& world) {
         {"rule_version",world.rule_version()},{"development_revision",snapshot.original_production->development_revision},
         {"model_sha256",world.original_rules_model()->provenance().sha256},
         {"difficulty",static_cast<unsigned>(world.original_rules_model()->difficulty())},
+        {"shelter_needs",json::array({world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Hemp),
+            world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Ceramics)})},
         {"balances",std::move(balances)},{"houses",std::move(houses)},{"stocks",std::move(stocks)},
         {"buildings",std::move(buildings)},{"couriers",std::move(couriers)}};
 }
@@ -143,6 +155,9 @@ json checkpoint(const f::fs::path& data,const f::fs::path& output,const char* ta
 void create(const f::fs::path& data,const f::fs::path& output) {
     const auto policy=f::permissions();
     auto world=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(data));
+    check(world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Hemp)==0 &&
+          world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Ceramics)==0,
+          "Real-model fixture requires its unchanged Shelter null needs");
     check(world.total_population()==0 && world.workforce_supply()==0 && world.treasury()==12000,
           "Production fixture did not start without residents, workers or inventory");
     for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,8}});
@@ -218,6 +233,70 @@ void create(const f::fs::path& data,const f::fs::path& output) {
         {"paused_hemp_return_verified",true},{"paused_return",inspect(returning)},{"actual_two_good_house_arrival",true},
         {"checkpoints",checkpoints}}.dump(2)+"\n");
 }
+void create_consumption(const f::fs::path& data,const f::fs::path& output) {
+    const auto policy=f::permissions();
+    auto world=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(data));
+    const auto& rules=world.original_rules_model()->house_rules();
+    check(rules.value(original::ModelHouse::Shelter,original::HouseField::Hemp)==1 &&
+          rules.value(original::ModelHouse::Shelter,original::HouseField::Ceramics)==1 &&
+          rules.row_capacity(original::ModelHouse::Shelter)==7,"Positive fixture requires explicit authored 1/1 needs and capacity7");
+    for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,8}});
+    for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,{x,6}});
+    f::buy(world,{sim::CommandType::PlaceClaySource,{0,9}});
+    f::buy(world,{sim::CommandType::PlacePottery,{8,9}});
+    f::buy(world,{sim::CommandType::PlaceWarehouse,{16,9}});
+    f::buy(world,{sim::CommandType::PlaceMarket,{21,9}});
+    f::buy(world,{sim::CommandType::PlaceOriginalHempFarm,{4,9}});
+    sim::Command field{sim::CommandType::PlaceOriginalHempField,{6,9}};
+    field.building_id=*world.building_owner_at({4,9});f::buy(world,field);
+    check(world.construction_spent_total()==1162 && world.total_population()==0 && world.couriers().size()==5,
+          "Authored-need scene was not constructed through regular paid commands");
+    const auto initial=inspect(world);const auto market=*world.building_owner_at({21,9});
+    json boundaries=json::array(),checkpoints=json::array();
+    for (const auto step:{0,7}) {
+        bool ready=false;
+        for (int i=0;i<30000 && !ready;++i) {
+            const auto dispatch=original::next_scheduler_dispatch(world.ticks());
+            int hemp=0,ceramics=0;
+            for (const auto& h:world.original_economy_state()->houses) {hemp+=h.house.hemp;ceramics+=h.house.ceramics;}
+            ready=dispatch && dispatch->consumption && dispatch->position.step==step && hemp>0 && ceramics>0;
+            if (!ready) world.tick();
+        }
+        check(ready,"Paid deliveries did not reach a positive 0/7 consumption boundary");
+        f::buy(world,sim::set_building_operation(market,false));
+        const auto before=world.snapshot();const auto before_report=inspect(world);
+        const std::string tag="step-"+std::to_string(step)+"-before";
+        checkpoints.push_back(checkpoint(data,output,tag.c_str(),world));
+        world.tick();const auto at_report=inspect(world);json deltas=json::array();
+        std::array<std::uint64_t,2> totals{};
+        for (std::size_t h=0;h<before.original_economy->houses.size();++h) {
+            const auto& previous=before.original_economy->houses[h];
+            const auto expected=original::consume_goods(rules,previous.house);
+            check(world.original_economy_state()->houses[h].house==expected.house,
+                  "Consumption boundary had an unexpected House arrival or wrong debit");
+            for (std::size_t g=0;g<2;++g) {
+                totals[g]+=static_cast<std::uint64_t>(expected.consumed[g]);
+                check(world.original_production_state()->house_consumption[h].consumed[g]==
+                      before.original_production->house_consumption[h].consumed[g]+static_cast<std::uint64_t>(expected.consumed[g]),
+                      "Boundary charged the House audit incorrectly");
+            }
+            deltas.push_back({{"building_id",static_cast<unsigned>(previous.building_id)},{"consumed",expected.consumed}});
+        }
+        check(totals[0]>0 && totals[1]>0,"Both actual goods must be consumed at each proved boundary");
+        save_world(data,output/("step-"+std::to_string(step)+"-at.json"),world);
+        const auto charged=world.original_production_state()->house_consumption;
+        world.tick();const auto after_report=inspect(world);
+        check(charged==world.original_production_state()->house_consumption,"Following scheduler phase repeated consumption");
+        save_world(data,output/("step-"+std::to_string(step)+"-after.json"),world);
+        boundaries.push_back({{"step",step},{"before",before_report},{"at",at_report},{"after",after_report},
+            {"expected_house_deltas",deltas},{"house_arrivals_at_boundary",false}});
+        f::buy(world,sim::set_building_operation(market,true));
+    }
+    f::write_text(output/"fixture.json",json{{"status","PASS"},{"authored_geography",true},
+        {"authored_model_needs",true},{"original_model_parity",false},{"snapshot_injection",false},
+        {"positive_runtime_consumption",true},{"paid_house_count",6},{"paid_road_count",24},
+        {"initial",initial},{"final",inspect(world)},{"boundaries",boundaries},{"checkpoints",checkpoints}}.dump(2)+"\n");
+}
 void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path& input) {
     const auto before=f::read_text(input);const auto document=save::read_save(input);const auto policy=f::permissions();
     auto world=save::restore_original_production_development(document,data,policy->building_mask(),policy);
@@ -228,11 +307,13 @@ void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path&
 int main(int argc,char** argv) {
     try {
         const std::string mode=argc>1 ? argv[1]:"";
-        check((argc==4 && mode=="--create") || (argc==5 && mode=="--resume"),
-              "Usage: production-fixture --create DATA OUT | --resume DATA OUT SAVE");
+        check((argc==4 && (mode=="--create" || mode=="--create-consumption")) || (argc==5 && mode=="--resume"),
+              "Usage: production-fixture --create DATA OUT | --create-consumption AUTHORED_DATA OUT | --resume DATA OUT SAVE");
         const auto data=f::fs::canonical(argv[2]);const auto output=f::fs::absolute(argv[3]);
         validate_output(output,data);f::fs::create_directories(output);
-        if (mode=="--create") create(data,output);else resume(data,output,f::fs::canonical(argv[4]));
+        if (mode=="--create") create(data,output);
+        else if (mode=="--create-consumption") create_consumption(data,output);
+        else resume(data,output,f::fs::canonical(argv[4]));
         std::cout<<"Original paid production fixture PASS\n";return 0;
     } catch (const std::exception& error) {std::cerr<<"Original production fixture FAIL: "<<error.what()<<'\n';return 1;}
 }
