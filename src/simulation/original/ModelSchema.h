@@ -24,6 +24,7 @@ enum class ModelBuilding : std::uint16_t {
     Well = 72,
     Farmhouse = 193,
     HerbalistsStall = 207,
+    AcupuncturistsClinic = 208,
     HempFarm = 192,
     HempField = 194,
     WheatField = 195,

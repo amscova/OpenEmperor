@@ -1,6 +1,7 @@
 #include "../tests/OriginalInfluenceFixture.h"
 #include "simulation/original/GoodsRules.h"
 #include "simulation/original/OriginalScheduler.h"
+#include "simulation/original/ServiceRules.h"
 
 #include <algorithm>
 #include <iostream>
@@ -22,8 +23,8 @@ bool below(const f::fs::path& path,const f::fs::path& root) {
 }
 void validate_output(const f::fs::path& output,const f::fs::path& data) {
     const auto repo=f::fs::canonical(f::fs::path(__FILE__).parent_path().parent_path());
-    const auto root=repo/".local/original-economy/oe18/production-fixtures";
-    check(output!=root && below(output,root),"Fixture output must be a new private OE18 subdirectory");
+    const auto root=repo/".local/original-economy/oe19/production-fixtures";
+    check(output!=root && below(output,root),"Fixture output must be a new private OE19 subdirectory");
     check(!below(output,data) && !below(data,output),"Fixture output overlaps source data");
     f::fs::path current=output.root_path();
     for (const auto& part:output.relative_path()) {
@@ -76,6 +77,28 @@ json inspect_food(const sim::World& world) {
     return {{"farms",farms},{"stocks",stocks},{"trips",trips},{"produced",produced},
         {"stock",held},{"cargo",carried},{"consumed",consumed},{"conserved",true}};
 }
+std::uint64_t countdowns(std::uint64_t tick) {return tick<36 ? 0:1+(tick-36)/51;}
+json inspect_services(const sim::World& world) {
+    const auto& state=world.original_production_state()->services;
+    json providers=json::array(),trips=json::array(),witnesses=json::array();
+    for (const auto& p:state.providers) {
+        const auto model_type=p.type==sim::OriginalServiceProviderType::Herbalist207 ?
+            original::ModelBuilding::HerbalistsStall:original::ModelBuilding::AcupuncturistsClinic;
+        providers.push_back({{"id",static_cast<unsigned>(p.building_id)},{"type",static_cast<unsigned>(p.type)},
+            {"model_type",static_cast<unsigned>(model_type)},
+            {"cost",world.original_rules_model()->building_value(model_type,original::BuildingField::Cost)},
+            {"workers_required",world.workforce_required(p.building_id)}});
+    }
+    for (const auto& t:state.trips)
+        trips.push_back({{"courier_id",static_cast<unsigned>(t.transfer.courier_id)},{"sequence",t.transfer.sequence},
+            {"target",static_cast<unsigned>(t.target)},{"dispatched_tick",t.dispatched_tick},
+            {"arrival_tick",t.arrival_tick ? json(*t.arrival_tick):json(nullptr)},{"visit_applied",t.visit_applied}});
+    for (const auto& w:state.witnesses)
+        witnesses.push_back({{"house_id",static_cast<unsigned>(w.building_id)},{"role",static_cast<unsigned>(w.role)},
+            {"provider_id",static_cast<unsigned>(w.provider_id)},{"courier_id",static_cast<unsigned>(w.transfer.courier_id)},
+            {"sequence",w.transfer.sequence},{"arrival_tick",w.arrival_tick}});
+    return {{"providers",providers},{"trips",trips},{"witnesses",witnesses},{"countdowns",countdowns(world.ticks())}};
+}
 json inspect(const sim::World& world) {
     check(world.original_production_enabled() && world.original_production_state() &&
           world.production_balance_valid() && world.population_valid() && world.city_economy_valid() &&
@@ -88,7 +111,7 @@ json inspect(const sim::World& world) {
               b.supported==(i<2) && !b.totals.imported && !b.totals.demolished,
               "Unexpected typed goods capability or mass");
         if (i>=2) check(!b.stock && !b.totals.produced && !b.totals.consumed && !b.cargo && !b.source_reserved && !b.incoming_reserved,
-                       "Revision18 generated an unsupported luxury good");
+                       "Revision19 generated an unsupported luxury good");
         check(b.stock+b.cargo+b.totals.consumed==b.totals.produced,"Physical stock, actual cargo and consumption disagree with produced mass");
         balances.push_back({{"good",i},{"supported",b.supported},{"conserved",b.conserved},
             {"produced",b.totals.produced},{"imported",b.totals.imported},{"consumed",b.totals.consumed},
@@ -110,6 +133,8 @@ json inspect(const sim::World& world) {
         houses.push_back({{"id",static_cast<unsigned>(h.building_id)},{"type",static_cast<unsigned>(h.house.type)},
             {"occupants",h.house.occupants},{"hemp",h.house.hemp},{"ceramics",h.house.ceramics},
             {"consumed",history[index].consumed},{"food_quality",h.house.food_quality},
+            {"service_timers",json::array({h.house.herbalist,h.house.acupuncture,h.house.music,h.house.acrobat,
+                h.house.drama,h.house.ancestor,h.house.confucian,h.house.daoist,h.house.buddhist})},
             {"status",h.original_status},{"access_enabled",h.access_enabled},
             {"desirability",world.original_influence_provenance(h.building_id).value}});
     }
@@ -117,9 +142,11 @@ json inspect(const sim::World& world) {
         check(consumed[g]==all[g].totals.consumed,"House consumption totals disagree with ledger");
     for (const auto& b:world.buildings()) {
         check(b.population==0 && b.pottery_stock==0 && b.food_stock==0 && b.food_produced==0 &&
-              b.food_consumed_total==0 && b.reserved_food_incoming==0,"New authority was mirrored into legacy stock or population");
+              b.food_consumed_total==0 && b.reserved_food_incoming==0 && b.service_until_tick==0 &&
+              b.health_protection_until_tick==0 && b.health_risk==0 && b.sick_until_tick==0,"New authority was mirrored into legacy stock or population");
         buildings.push_back({{"id",static_cast<unsigned>(b.id)},{"kind",static_cast<unsigned>(b.kind)},
             {"operating",b.operating_enabled},{"on_fire",world.building_on_fire(b.id)},
+            {"placed_tick",b.placed_tick},{"cell",json::array({b.cell.x,b.cell.y})},
             {"workers",world.workers_assigned(b.id)},{"input_clay",b.input_clay},{"output",b.output},
             {"progress",b.progress},{"recipes_completed",b.recipes_completed},{"clay_extracted",b.clay_extracted}});
     }
@@ -133,7 +160,8 @@ json inspect(const sim::World& world) {
             {"owner",static_cast<unsigned>(c.owner)},{"target",static_cast<unsigned>(c.target)},
             {"phase",static_cast<unsigned>(c.phase)},{"cargo",c.cargo},{"reserved",c.reserved},
             {"typed_cargo",typed_cargo},{"typed_cargo_good",cargo_good},{"food_cargo",food_cargo},
-            {"path_vertex",c.path_vertex},{"edge_progress",c.edge_progress}});
+            {"path_vertex",c.path_vertex},{"edge_progress",c.edge_progress},
+            {"last_dispatched_target",c.last_dispatched_target ? json(static_cast<unsigned>(*c.last_dispatched_target)):json(nullptr)}});
     }
     for (const auto& row:world.original_goods_state()->stocks)
         stocks.push_back({{"id",static_cast<unsigned>(row.building_id)},
@@ -161,7 +189,7 @@ json inspect(const sim::World& world) {
         {"difficulty",static_cast<unsigned>(world.original_rules_model()->difficulty())},
         {"shelter_needs",json::array({world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Hemp),
             world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Ceramics)})},
-        {"food",inspect_food(world)},
+        {"food",inspect_food(world)},{"services",inspect_services(world)},
         {"balances",std::move(balances)},{"houses",std::move(houses)},{"stocks",std::move(stocks)},
         {"buildings",std::move(buildings)},{"couriers",std::move(couriers)}};
 }
@@ -433,6 +461,77 @@ void create_food(const f::fs::path& data,const f::fs::path& output) {
         {"actual_mixed_cargo",true},{"actual_food_return",true},{"actual_quality_classes",json::array({20,80})},
         {"checkpoints",checkpoints}}.dump(2)+"\n");
 }
+void create_services(const f::fs::path& data,const f::fs::path& output) {
+    const auto policy=f::permissions();
+    auto world=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(data));
+    for (const int y:{5,8,12}) for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,y}});
+    for (const int y:{6,7,9,10,11}) f::buy(world,{sim::CommandType::PlaceRoad,{23,y}});
+    for (const int y:{3,6}) for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,{x,y}});
+    f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{0,13}});
+    f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{5,13}});
+    const auto wheat=*world.building_owner_at({0,13}),millet=*world.building_owner_at({5,13});
+    sim::Command field{sim::CommandType::PlaceOriginalWheatField,{3,13}};field.building_id=wheat;f::buy(world,field);
+    field={sim::CommandType::PlaceOriginalMilletField,{8,13}};field.building_id=millet;f::buy(world,field);
+    f::buy(world,{sim::CommandType::PlaceMarket,{12,13}});
+    f::buy(world,{sim::CommandType::PlaceHealthPost,{16,13}});
+    f::buy(world,{sim::CommandType::PlaceServicePost,{19,13}});
+    const auto herbalist=*world.building_owner_at({16,13}),acupuncture=*world.building_owner_at({19,13});
+    const auto initial=inspect(world);
+    check(world.total_population()==0&&world.couriers().size()==6&&world.construction_spent_total()==1443&&world.treasury()==10557,
+          "Real-model medical/Food scene must pay12Houses/77Roads/twoFarms/twoFields/Market/207/208");
+    f::buy(world,sim::set_building_operation(herbalist,false));
+    f::buy(world,sim::set_building_operation(acupuncture,false));ticks(world,400);
+    check(world.total_population()==84&&world.workforce_supply()==84&&world.workforce_required(herbalist)==7&&
+          world.workforce_required(acupuncture)==8&&world.workforce_required(wheat)==22&&world.workforce_required(millet)==22,
+          "Medical scene lacks actual paid-house immigration or exact prepared staffing");
+    check(world.original_production_state()->services.trips.empty()&&world.original_production_state()->services.witnesses.empty(),
+          "Paused medical sources created dispatch or visit authority");
+    const auto stopped=inspect(world);
+    const auto wait=[&](auto done,const char* failure) {
+        for (int i=0;i<30000&&!done();++i) world.tick();
+        check(done(),failure);
+    };
+    f::buy(world,sim::set_building_operation(herbalist,true));
+    f::buy(world,sim::set_building_operation(acupuncture,true));
+    wait([&] {
+        std::size_t moving=0;
+        for (const auto& c:world.couriers()) if (c.owner==herbalist||c.owner==acupuncture)
+            moving+=c.phase==sim::CourierPhase::ToWarehouse&&c.edge_progress>0;
+        return moving==2;
+    },"Both real medical visitors did not reach outbound begun edges");
+    check(world.original_production_state()->services.witnesses.empty(),"Medical dispatch or begun edge granted a timer");
+    json checkpoints=json::array();checkpoints.push_back(checkpoint(data,output,"mid-services-couriers",world));
+    f::buy(world,sim::set_building_operation(herbalist,false));
+    f::buy(world,sim::set_building_operation(acupuncture,false));
+    wait([&] {
+        std::size_t idle=0;
+        for (const auto& c:world.couriers()) if (c.owner==herbalist||c.owner==acupuncture)
+            idle+=c.phase==sim::CourierPhase::IdleAtWorkshop;
+        return idle==2&&world.original_production_state()->services.witnesses.size()==2;
+    },"Paused outgoing207/208 visitors did not finish their actual visits and return");
+    const auto visited=inspect(world);const auto witnesses=world.original_production_state()->services.witnesses;
+    check(witnesses[0].building_id==witnesses[1].building_id&&witnesses[0].role!=witnesses[1].role,
+          "Two medical visitors did not reach their fixed first paid House");
+    checkpoints.push_back(checkpoint(data,output,"house-medical-visits",world));
+    const auto first=std::find_if(witnesses.begin(),witnesses.end(),[](const auto& w){return w.role==original::ServiceRole::Herbalist;});
+    check(first!=witnesses.end(),"Actual Herbalist witness missing");
+    const auto expiry=36+(countdowns(first->arrival_tick-1)+95)*51;
+    check(expiry>world.ticks(),"Medical process fixture missed its future96th countdown");
+    while (world.ticks()+1<expiry) world.tick();
+    const auto before_expiry=inspect(world);
+    checkpoints.push_back(checkpoint(data,output,"service-before-expiry",world));
+    world.tick();const auto expired=inspect(world);
+    for (const auto& h:world.original_economy_state()->houses) if (h.building_id==first->building_id)
+        check(!h.house.herbalist,"Herbalist survived the actual witnessed96th countdown");
+    check(world.original_production_state()->services.witnesses==witnesses,"Return/idle/expiry created a new medical visit");
+    checkpoints.push_back(checkpoint(data,output,"service-expired",world));
+    f::write_text(output/"fixture.json",json{{"status","PASS"},{"snapshot_injection",false},{"authored_geography",true},
+        {"real_model_services",true},{"actual_two_provider_arrivals",true},{"paused_outbound_tours_finished",true},
+        {"paid_house_count",12},{"paid_road_count",77},{"paid_food_farm_count",2},{"paid_food_field_count",2},
+        {"paid_market_count",1},{"paid_herbalist_count",1},{"paid_acupuncture_count",1},
+        {"initial",initial},{"stopped",stopped},{"visited",visited},{"before_expiry",before_expiry},{"expired",expired},
+        {"expiry_tick",expiry},{"checkpoints",checkpoints}}.dump(2)+"\n");
+}
 void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path& input) {
     const auto before=f::read_text(input);const auto document=save::read_save(input);const auto policy=f::permissions();
     auto world=save::restore_original_production_development(document,data,policy->building_mask(),policy);
@@ -443,13 +542,14 @@ void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path&
 int main(int argc,char** argv) {
     try {
         const std::string mode=argc>1 ? argv[1]:"";
-        check((argc==4 && (mode=="--create" || mode=="--create-consumption" || mode=="--create-food")) || (argc==5 && mode=="--resume"),
-              "Usage: production-fixture --create DATA OUT | --create-consumption AUTHORED_DATA OUT | --create-food DATA OUT | --resume DATA OUT SAVE");
+        check((argc==4 && (mode=="--create" || mode=="--create-consumption" || mode=="--create-food" || mode=="--create-services")) || (argc==5 && mode=="--resume"),
+              "Usage: production-fixture --create DATA OUT | --create-consumption AUTHORED_DATA OUT | --create-food DATA OUT | --create-services DATA OUT | --resume DATA OUT SAVE");
         const auto data=f::fs::canonical(argv[2]);const auto output=f::fs::absolute(argv[3]);
         validate_output(output,data);f::fs::create_directories(output);
         if (mode=="--create") create(data,output);
         else if (mode=="--create-consumption") create_consumption(data,output);
         else if (mode=="--create-food") create_food(data,output);
+        else if (mode=="--create-services") create_services(data,output);
         else resume(data,output,f::fs::canonical(argv[4]));
         std::cout<<"Original paid production fixture PASS\n";return 0;
     } catch (const std::exception& error) {std::cerr<<"Original production fixture FAIL: "<<error.what()<<'\n';return 1;}

@@ -5,6 +5,7 @@
 #include <array>
 #include <iostream>
 #include <limits>
+#include <tuple>
 
 namespace {
 namespace f=oe_influence_fixture;
@@ -14,7 +15,7 @@ constexpr std::array legacy{orig::ModelBuilding::ClayPit,orig::ModelBuilding::Ki
     orig::ModelBuilding::Warehouse,orig::ModelBuilding::CommonMarketSquare,
     orig::ModelBuilding::Well,orig::ModelBuilding::Farmhouse,orig::ModelBuilding::HerbalistsStall};
 constexpr std::array extra{orig::ModelBuilding::HempFarm,orig::ModelBuilding::HempField,
-    orig::ModelBuilding::WheatField,orig::ModelBuilding::MilletField};
+    orig::ModelBuilding::WheatField,orig::ModelBuilding::MilletField,orig::ModelBuilding::AcupuncturistsClinic};
 template<class F> void refuses(F action) {
     bool denied=false;try {action();} catch (const std::exception&) {denied=true;}
     check(denied,"Active model admitted an absent/invalid explicit production capability");
@@ -67,7 +68,9 @@ void synthetic() {
         active->building_value(extra[1],orig::BuildingField::Cost)==4 &&
         active->building_value(extra[1],orig::BuildingField::Employees)==0 &&
         active->building_value(extra[2],orig::BuildingField::Cost)==4 &&
-        active->building_value(extra[3],orig::BuildingField::Cost)==4,
+        active->building_value(extra[3],orig::BuildingField::Cost)==4 &&
+        active->building_value(extra[4],orig::BuildingField::Cost)==50 &&
+        active->building_value(extra[4],orig::BuildingField::Employees)==8,
         "Authored named production values were not prepared");
     check(!active->supports_building(static_cast<orig::ModelBuilding>(4096)),"Undefined production model ID admitted");
     refuses([&]{(void)active->building_value(extra[0],static_cast<orig::BuildingField>(13));});
@@ -136,6 +139,18 @@ int real(const std::filesystem::path& data) {
         }
         check(world.construction_spent_total()==static_cast<std::uint64_t>(farm_cost+field_cost+food_paid) &&
             world.treasury()==12000-farm_cost-field_cost-food_paid,"Food Farm/Field prices did not use exact selected difficulty");
+        std::int64_t medicine_paid=0;
+        for (const auto [command,kind,cell]:std::array{
+            std::tuple{f::sim::CommandType::PlaceHealthPost,orig::ModelBuilding::HerbalistsStall,f::sim::Cell{18,9}},
+            std::tuple{f::sim::CommandType::PlaceServicePost,orig::ModelBuilding::AcupuncturistsClinic,f::sim::Cell{21,9}}}) {
+            const auto cost=orig::building_value(*loaded.model,kind,orig::BuildingField::Cost,difficulty);
+            check(world.construction_cost(command)==cost,"Medical command ignored prepared model price");
+            f::buy(world,{command,cell});medicine_paid+=cost;
+            check(world.workforce_required(*world.building_owner_at(cell))==orig::building_value(*loaded.model,kind,
+                orig::BuildingField::Employees,difficulty),"Medical source ignored prepared Employees");
+        }
+        check(world.construction_spent_total()==static_cast<std::uint64_t>(farm_cost+field_cost+food_paid+medicine_paid) &&
+            world.treasury()==12000-farm_cost-field_cost-food_paid-medicine_paid,"Actual medical model prices were not paid");
         const auto saved=world.snapshot();
         check(f::sim::World::restore_original_production_development(saved,permissions,active).snapshot()==saved,
             "Real difficulty-adjusted Farm/Field finance did not restore exactly");

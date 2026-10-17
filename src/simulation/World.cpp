@@ -154,6 +154,7 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 }
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
+    if (kind==Object::ServicePost && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::OriginalHempFarm && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::OriginalFoodFarm && original_production_enabled(profile,rule_version)) return {3,3};
     if (kind==Object::OriginalInfluenceSource) {
@@ -616,7 +617,9 @@ std::int64_t World::construction_cost(CommandType type) const {
     case CommandType::PlaceHousehold: return Rules::household_cost;
     case CommandType::PlaceFarm: return food_profile(profile_) ? Rules::farm_cost:0;
     case CommandType::PlaceServicePost:
-        return service_profile(profile_) ? Rules::service_post_cost:0;
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::AcupuncturistsClinic,original::BuildingField::Cost):
+            service_profile(profile_) ? Rules::service_post_cost:0;
     case CommandType::PlaceMarket:
         return market_profile(profile_) ? Rules::market_cost:0;
     case CommandType::PlaceFireWatch:
@@ -624,7 +627,9 @@ std::int64_t World::construction_cost(CommandType type) const {
     case CommandType::PlaceWell:
         return water_profile(profile_) ? Rules::well_cost:0;
     case CommandType::PlaceHealthPost:
-        return health_profile(profile_) ? Rules::health_post_cost:0;
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::HerbalistsStall,original::BuildingField::Cost):
+            health_profile(profile_) ? Rules::health_post_cost:0;
     case CommandType::PlaceWorkshop:
     case CommandType::RemoveRoad:
     case CommandType::SetBuildingOperation:
@@ -646,10 +651,13 @@ int World::workforce_required(BuildingId id) const {
     case Object::Pottery: return Rules::pottery_workers;
     case Object::Warehouse: return Rules::warehouse_workers;
     case Object::Farm: return Rules::farm_workers;
-    case Object::ServicePost: return Rules::service_post_workers;
+    case Object::ServicePost: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::AcupuncturistsClinic,original::BuildingField::Employees):Rules::service_post_workers;
     case Object::Market: return Rules::market_workers;
     case Object::FireWatch: return fire_profile(profile_) ? Rules::fire_watch_workers:0;
-    case Object::HealthPost: return health_profile(profile_) ? Rules::health_post_workers:0;
+    case Object::HealthPost: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::HerbalistsStall,original::BuildingField::Employees):
+        health_profile(profile_) ? Rules::health_post_workers:0;
     default: return 0;
     }
 }
@@ -1117,6 +1125,7 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceOriginalHempFarm && command.type!=CommandType::PlaceOriginalHempField &&
         command.type!=CommandType::PlaceOriginalFoodFarm && command.type!=CommandType::PlaceOriginalWheatField &&
         command.type!=CommandType::PlaceOriginalMilletField &&
+        command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceServicePost &&
         command.type!=CommandType::SetBuildingOperation &&
         command.type!=CommandType::SetBuildingWorkforcePriority)
         return {false,false,"Original production permits only its explicitly implemented paid chains",command_sequence_,ticks_};
@@ -1716,6 +1725,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         auto& post=add_v10_building(Object::HealthPost);
         post.placed_tick=ticks_;
         add_v10_courier(post.id,CourierRole::HealthWorker,Good::Goods);
+        if (original_production_enabled()) original_production_->services.providers.push_back(
+            {post.id,OriginalServiceProviderType::Herbalist207});
         break;
     }
     case CommandType::PlaceWell: {
@@ -1735,6 +1746,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
             auto& post=add_v10_building(Object::ServicePost);
             post.placed_tick=ticks_;
             add_v10_courier(post.id,CourierRole::Service,Good::Goods);
+            if (original_production_enabled()) original_production_->services.providers.push_back(
+                {post.id,OriginalServiceProviderType::Acupuncture208});
             break;
         }
         auto& post=mutable_building(BuildingId::ServicePost);
@@ -2060,6 +2073,7 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
 
     if (original_market_courier(c.role)) return original_market_dispatch_status(c);
     if (original_food_courier(c.role)) return original_food_dispatch_status(c);
+    if (original_service_courier(c.role)) return original_service_dispatch_status(c);
     if (scalable(profile_)) {
         const bool service=service_role(c.role);
         const int source_stock=courier_source_stock(source,c.role);
@@ -2410,6 +2424,7 @@ void World::advance_clay_pottery_production() {
 }
 
 void World::dispatch_v2(CourierState& courier) {
+    if (original_service_courier(courier.role)) {dispatch_original_service(courier);return;}
     if (original_market_courier(courier.role)) {dispatch_original_market(courier);return;}
     if (original_food_courier(courier.role)) {dispatch_original_food(courier);return;}
     const auto decision=courier_dispatch_status(courier.id);
@@ -2634,6 +2649,7 @@ void World::move_v2(CourierState& courier) {
     if (courier.path_vertex+1<courier.path.size()) return;
     if (original_market_courier(courier.role)) {arrive_original_market(courier);return;}
     if (original_food_courier(courier.role)) {arrive_original_food(courier);return;}
+    if (original_service_courier(courier.role)) {arrive_original_service(courier);return;}
     if (courier.phase==CourierPhase::ToWarehouse) {
         auto& target=mutable_building(courier.target);
         if (courier.role==CourierRole::HealthWorker) {
@@ -3640,6 +3656,18 @@ std::string World::canonical_state() const {
                <<static_cast<unsigned>(trip.phase);
             parts(trip.loaded);parts(trip.delivered);parts(trip.returned);
         }
+        const auto& services=original_production_->services;
+        out<<"|original-services:"<<services.providers.size()<<','<<services.trips.size()<<','<<services.witnesses.size();
+        for (const auto& row:services.providers)
+            out<<"|service-provider:"<<static_cast<std::uint32_t>(row.building_id)<<','<<static_cast<unsigned>(row.type);
+        for (const auto& row:services.trips)
+            out<<"|service-trip:"<<static_cast<std::uint32_t>(row.transfer.courier_id)<<','<<row.transfer.sequence<<','
+               <<static_cast<std::uint32_t>(row.target)<<','<<row.dispatched_tick<<','<<bool(row.arrival_tick)<<','
+               <<row.arrival_tick.value_or(0)<<','<<row.visit_applied;
+        for (const auto& row:services.witnesses)
+            out<<"|service-witness:"<<static_cast<std::uint32_t>(row.building_id)<<','<<static_cast<unsigned>(row.role)<<','
+               <<static_cast<std::uint32_t>(row.provider_id)<<','<<static_cast<std::uint32_t>(row.transfer.courier_id)<<','
+               <<row.transfer.sequence<<','<<row.arrival_tick;
     }
     return out.str();
 }

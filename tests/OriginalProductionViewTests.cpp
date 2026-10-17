@@ -49,7 +49,8 @@ int main(int argc,char** argv) {
         check(view->world().rule_version()==10 && view->world().treasury()==12000 && view->paused(),"Production identity");
         const auto& buttons=view->layout().buttons;
         for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField,
-                oe::sandbox_ui::Action::OriginalFoodFarm,oe::sandbox_ui::Action::OriginalWheatField,oe::sandbox_ui::Action::OriginalMilletField}) {
+                oe::sandbox_ui::Action::OriginalFoodFarm,oe::sandbox_ui::Action::OriginalWheatField,oe::sandbox_ui::Action::OriginalMilletField,
+                oe::sandbox_ui::Action::HealthPost,oe::sandbox_ui::Action::ServicePost}) {
             const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
             check(button!=buttons.end() && view->layout().button_at(button->rect.x+2,button->rect.y+2)==action &&
                 !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
@@ -179,6 +180,34 @@ int main(int argc,char** argv) {
                 real_quality|=house.house.food_quality>0 && house.house.hemp>0 && house.house.ceramics>0;
         }
         check(real_quality,"Actual Food House arrival never applied quality");
+        const auto medical_funds=view->world().treasury();
+        key(*view,SDLK_J);check(view->tool()==13,"Herbalist keyboard tool unavailable");
+        click(*view,{108,104});
+        key(*view,SDLK_9);check(view->tool()==9,"Acupuncture keyboard tool unavailable");
+        click(*view,{112,104});
+        check(view->world().object_at({109,105})==sim::Object::HealthPost &&
+            view->world().object_at({113,105})==sim::Object::ServicePost &&
+            view->world().treasury()==medical_funds-80,"Medical UI purchases lost2x2 ownership or prepared30/50 prices");
+        check(view->world().original_production_state()->services.witnesses.empty(),"Provider purchase granted visits");
+        bool medical_trip=false;
+        for(int i=0;i<1000 && !medical_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers())
+                medical_trip|=(c.role==sim::CourierRole::HealthWorker || c.role==sim::CourierRole::Service) &&
+                    c.phase==sim::CourierPhase::ToWarehouse && c.edge_progress>0;
+        }
+        check(medical_trip,"Paid medical sources never dispatched through ordinary movement");
+        const auto medical_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<80;++i)view->tick_once();
+        key(*view,SDLK_F9);check(view->world().snapshot()==medical_saved,"Medical midtrip F5/F9 changed sole visit authority");
+        bool medical_visits=false;
+        for(int i=0;i<4000 && !medical_visits;++i) {
+            view->tick_once();
+            for(const auto& house:view->world().original_economy_state()->houses)
+                medical_visits|=house.house.herbalist>0 && house.house.acupuncture>0 &&
+                    house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0;
+        }
+        check(medical_visits,"Actual same House never received both paid medical visits and physical goods/Food");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -190,7 +219,8 @@ int main(int argc,char** argv) {
         f::write_text(target,current);key(*view,SDLK_F9);
         std::optional<sim::Cell> supplied;
         for(const auto& house:view->world().original_economy_state()->houses)
-            if(house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0) {supplied=view->world().building(house.building_id).cell;break;}
+            if(house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
+                house.house.herbalist>0 && house.house.acupuncture>0) {supplied=view->world().building(house.building_id).cell;break;}
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
         oe::performance::set_enabled(true);oe::performance::reset();
@@ -213,6 +243,7 @@ int main(int argc,char** argv) {
                 {"selected_house",static_cast<unsigned>(id)},
                 {"selected_house_food_quality",h->house.food_quality},
                 {"selected_house_hemp",h->house.hemp},{"selected_house_ceramics",h->house.ceramics},
+                {"selected_house_herbalist",h->house.herbalist},{"selected_house_acupuncture",h->house.acupuncture},
                 {"model_sha256",view->world().original_rules_model()->provenance().sha256},
                 {"synthetic_model",true},{"idle_frames",100},{"idle_world_unchanged",true}};
             for(const auto& row:view->world().original_production_state()->food.stocks) if(row.building_id==id)
@@ -222,7 +253,7 @@ int main(int argc,char** argv) {
         }
         view->shutdown();view.reset();
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
-        std::cout<<"Original production SDL paid Hemp and two Food crops, actual House quality, typed midcourier F5/F9/100 idle frames PASS\n";return 0;
+        std::cout<<"Original production SDL paid goods/Food/medical visits, actual House timers/quality, midcourier F5/F9/100 idle frames PASS\n";return 0;
     }catch(const std::exception& error){
         std::cerr<<error.what()<<'\n';SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 1;
     }

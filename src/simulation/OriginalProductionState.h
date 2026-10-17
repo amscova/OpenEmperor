@@ -2,6 +2,7 @@
 
 #include "simulation/original/GoodsRules.h"
 #include "simulation/OriginalFoodState.h"
+#include "simulation/OriginalServicesState.h"
 
 #include <array>
 #include <cstdint>
@@ -13,7 +14,7 @@ namespace openemperor::simulation {
 // Explicit authored working-generation revision. A later stage must opt into
 // its own revision; a saved earlier development state is never reinterpreted.
 enum class BuildingId : std::uint32_t;
-inline constexpr std::uint32_t kOriginalProductionDevelopmentRevision=18;
+inline constexpr std::uint32_t kOriginalProductionDevelopmentRevision=19;
 struct OriginalHempFarmState {
     BuildingId farm_id=static_cast<BuildingId>(0);
     std::optional<BuildingId> field_id;
@@ -33,6 +34,7 @@ struct OriginalProductionState {
     std::vector<OriginalHempFarmState> hemp_farms;
     std::vector<OriginalHouseConsumptionState> house_consumption;
     OriginalFoodState food;
+    OriginalServicesState services;
     bool operator==(const OriginalProductionState&) const = default;
 };
 

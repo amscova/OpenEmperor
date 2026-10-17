@@ -45,6 +45,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe15/production-fixtures/run",
                        self.repo / ".local/original-economy/oe16/production-fixtures/run",
                        self.repo / ".local/original-economy/oe17/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe18/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -333,6 +334,103 @@ class ProductionRunnerTests(unittest.TestCase):
             self.assertEqual(runner.food_blend(80, 20, delivered, previous), expected)
         self.assertEqual(runner.food_blend(20, 80, 0, 4), 20)
         self.assertEqual(runner.food_blend(20, 80, 1, 4), 80)
+
+
+    @staticmethod
+    def services_scene():
+        tick = 300
+        witnesses = [{"house_id": 1, "role": role, "provider_id": role + 2,
+                      "courier_id": role + 1, "sequence": 1, "arrival_tick": 250 + 10 * role}
+                     for role in (0, 1)]
+        providers = [{"id": role + 2, "type": role, "model_type": 207 + role,
+                      "cost": 30 + 20 * role, "workers_required": 7 + role} for role in (0, 1)]
+        trips = [{"courier_id": w["courier_id"], "sequence": 1, "target": 1,
+                  "dispatched_tick": 200, "arrival_tick": w["arrival_tick"], "visit_applied": True}
+                 for w in witnesses]
+        couriers = [{"id": role + 1, "role": 11 if role == 0 else 5, "owner": role + 2,
+                     "target": 1, "last_dispatched_target": 1, "phase": 2,
+                     "cargo": 0, "reserved": 0, "typed_cargo": 0, "typed_cargo_good": None,
+                     "food_cargo": 0} for role in (0, 1)]
+        buildings = [{"id": identity, "kind": kind, "placed_tick": 0, "operating": False}
+                     for identity, kind in ((1, 6), (2, 12), (3, 8))]
+        return {"tick": tick, "houses": [{"id": 1, "occupants": 7, "status": 1, "access_enabled": True,
+                                            "service_timers": [95, 95] + [0] * 7}],
+                "buildings": buildings, "couriers": couriers,
+                "services": {"providers": providers, "trips": trips, "witnesses": witnesses,
+                             "countdowns": runner.service_countdowns(tick)}}
+
+    def test_medical_timers_require_actual_matching_source_trip_and_phase35_origin(self):
+        scene = self.services_scene()
+        runner.check_services(scene, positive=True)
+        mutations = (
+            lambda row: row["houses"][0]["service_timers"].__setitem__(0, 96),
+            lambda row: row["houses"][0]["service_timers"].__setitem__(2, 1),
+            lambda row: row["houses"][0]["service_timers"].__setitem__(0, True),
+            lambda row: row["houses"][0].update(access_enabled=False),
+            lambda row: row["houses"][0].update(occupants=0),
+            lambda row: row["services"]["providers"][0].update(type=1),
+            lambda row: row["services"]["providers"][0].update(model_type=208),
+            lambda row: row["services"]["providers"][0].update(workers_required=6),
+            lambda row: row["services"]["trips"][0].update(visit_applied=False),
+            lambda row: row["services"]["trips"][0].update(arrival_tick=None),
+            lambda row: row["services"]["trips"][0].update(dispatched_tick=120),
+            lambda row: row["services"]["witnesses"][0].update(arrival_tick=301),
+            lambda row: row["services"]["witnesses"][0].update(provider_id=3),
+            lambda row: row["services"]["witnesses"][0].update(sequence=2),
+            lambda row: row["services"]["witnesses"].pop(),
+            lambda row: row["couriers"][0].update(cargo=1),
+            lambda row: row["couriers"][0].update(food_cargo=1),
+            lambda row: row["couriers"][0].update(role=5),
+            lambda row: row["couriers"][0].update(last_dispatched_target=2),
+            lambda row: row["services"].update(countdowns=7),
+        )
+        for index, mutation in enumerate(mutations):
+            bad = copy.deepcopy(scene)
+            mutation(bad)
+            with self.subTest(mutation=index), self.assertRaises(AssertionError):
+                runner.check_services(bad)
+
+    def test_medical_compacted_previous_visit_remains_bound_to_later_actual_dispatch(self):
+        scene = self.services_scene()
+        scene["services"]["trips"][0].update(sequence=2, dispatched_tick=280, arrival_tick=None, visit_applied=False)
+        scene["couriers"][0]["phase"] = 1
+        runner.check_services(scene, positive=True)
+        for arrival in (280, 290):
+            bad = copy.deepcopy(scene)
+            bad["services"]["witnesses"][0]["arrival_tick"] = arrival
+            with self.subTest(arrival=arrival), self.assertRaises(AssertionError):
+                runner.check_services(bad)
+        bad = copy.deepcopy(scene)
+        bad["services"]["trips"].pop(0)
+        with self.assertRaises(AssertionError):
+            runner.check_services(bad)
+
+    def test_medical_exact96th_countdown_expiry_retains_arrival_witness(self):
+        visited = self.services_scene()
+        before, after = copy.deepcopy(visited), copy.deepcopy(visited)
+        expiry = 36 + (runner.service_countdowns(249) + 95) * 51
+        before["tick"], after["tick"] = expiry - 1, expiry
+        for scene, timers in ((before, [1, 1]), (after, [0, 0])):
+            scene["services"]["countdowns"] = runner.service_countdowns(scene["tick"])
+            scene["houses"][0]["service_timers"] = timers + [0] * 7
+        fixture = {"visited": visited, "before_expiry": before, "expired": after, "expiry_tick": expiry}
+        runner.check_service_expiry(fixture)
+        for mutation in (lambda row: row.update(expiry_tick=expiry + 1),
+                         lambda row: row["expired"]["houses"][0]["service_timers"].__setitem__(0, 1),
+                         lambda row: row["before_expiry"]["buildings"][1].update(operating=True)):
+            bad = copy.deepcopy(fixture)
+            mutation(bad)
+            with self.subTest(fixture=bad), self.assertRaises(AssertionError):
+                runner.check_service_expiry(bad)
+
+    def test_medical_countdown_boundary_is51_ticks_in_every_scheduler_step(self):
+        for step in range(16):
+            boundary = step * 51 + 36
+            self.assertEqual(runner.service_countdowns(boundary) - runner.service_countdowns(boundary - 1), 1)
+            self.assertEqual(runner.service_countdowns(boundary + 1), runner.service_countdowns(boundary))
+        for tick in (-1, True, 1.0, 2**64):
+            with self.subTest(tick=tick), self.assertRaises(AssertionError):
+                runner.service_countdowns(tick)
 
 
 if __name__ == "__main__":

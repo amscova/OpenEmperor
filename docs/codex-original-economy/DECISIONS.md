@@ -1136,3 +1136,42 @@ Gate C bleibt bis OE-19 offen. Die tatsächliche Softwareaufnahme ist kein
 native-/human-/Originalart-PASS. Die noch fehlende Originalsprite- und gesamte
 Objektkomposition bleiben Teil des ausdrücklichen Gesamtauftrags; deklarierte
 Fallbacks ersetzen diese spätere Abnahme nicht.
+
+
+### OE-19: gezielte Quellen vor Implementierung
+
+Nach OE-18 `144eec6` gilt der [Service-Vertrag](../original-economy/services-runtime.md).
+Nur der ausdrücklich gewählte Rule10-/Schema26-Stand19 bindet HealthPost an
+Herbalist207 und ServicePost als authored Adapter an Acupuncture208, mit
+echten2×2-Körpern, Modellpreisen/-Workers und je einem realen Courier. Es gibt
+keine neue Originalidentität historischer Posts, keine allgemeine Servicefreigabe
+und keinen Timer aus alten Schutzbits. Bereits entsandte cargo-freie Besucher
+kehren nach normalem Besuch auch bei später geschlossener Quelle zurück.
+Phase35-Verfall folgt Ankünften; die gleichzeitige96→95-Reihenfolge ist authored.
+
+Der Restore prüft zusätzlich eine notwendige physische Mindestfahrzeit aus
+2×2-Manhattanabstand, mindestens zwei Kanten über die gewöhnliche Straße und
+dem unveränderten Rule10-Profilwert5Ticks/Kante. Der erste Move liegt im
+Dispositionstick. Dieselbe sichere Zeitgrenze gilt nach Kauf/Zuzug für
+kompaktierte Witnesses; sie ersetzt keine vollständige historische Route.
+Koordinierte Änderungen von Trip, Witness und passend berechnetem Timer werden
+negativ geprüft. Technische Gate-Abnahme bleibt von Originalart/native/human
+getrennt; keine Warteschleife auf manuelle Nutzerprüfung.
+
+### OE-19: technische Gate-C-Abnahme
+
+Die finale Revision19 besteht drei vollständige202er-Suiten nach frischen
+warnungsfreien Cleanbuilds, tatsächliche Prozessneustarts, unabhängige
+Timer-/Warenbilanzen und den vollständigen unveränderten Legacyvertrag.
+Gate C ist damit technisch abgenommen. Native/human und Originalsprite-
+Komposition sind nicht daraus abgeleitet; OE-20 folgt unmittelbar.
+
+Zwei private Abschlussprüferannahmen wurden nach erhaltenen FAIL-Berichten
+eng korrigiert: rekursiver520-Dateien-Pin gegenüber517 tatsächlich erfassten
+Code-/Datendateien plus drei ignorierten Finderdateien, sowie der ausdrücklich
+konfigurierte externe Pythoninterpreter gegenüber Buildroot-Binaries. Alle
+aufgezeichneten Codebytes und Binaryhashes bleiben strikt geprüft. Fehlende
+historische Metadaten-/Symlinkaufnahmen werden nicht erfunden. Der separate
+historische Legacybuild behält seine ursprüngliche Warnungsbehandlung und
+genau eine bekannte Warnung des unveränderten gesperrten Playthrough-Fixtures;
+die drei aktuellen Cleanbuilds sind davon getrennt warnungsfrei.

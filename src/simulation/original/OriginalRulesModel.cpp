@@ -11,8 +11,9 @@ constexpr std::array<ModelBuilding,7> buildings{
     ModelBuilding::ClayPit,ModelBuilding::Kiln,ModelBuilding::Warehouse,
     ModelBuilding::CommonMarketSquare,ModelBuilding::Well,ModelBuilding::Farmhouse,
     ModelBuilding::HerbalistsStall};
-constexpr std::array<ModelBuilding,4> production_buildings{
-    ModelBuilding::HempFarm,ModelBuilding::HempField,ModelBuilding::WheatField,ModelBuilding::MilletField};
+constexpr std::array<ModelBuilding,5> production_buildings{
+    ModelBuilding::HempFarm,ModelBuilding::HempField,ModelBuilding::WheatField,ModelBuilding::MilletField,
+    ModelBuilding::AcupuncturistsClinic};
 
 ModelProvenance checked_provenance(const ModelData& model,Difficulty difficulty) {
     if (static_cast<std::size_t>(difficulty)>=difficulty_count)

@@ -105,7 +105,7 @@ void independent_quality_vectors() {
 }
 void paid_two_crop_arrivals_and_replay() {
     Fixture f;auto world=f.world();const auto s=scene(world);
-    check(world.original_production_state()->development_revision==18&&world.total_population()==0&&
+    check(world.original_production_state()->development_revision==sim::kOriginalProductionDevelopmentRevision&&world.total_population()==0&&
           world.workforce_required(s.wheat)==12&&world.couriers().size()==4,
           "Food purchases did not retain exact model workforce/actual actor contract");
     check(sim::building_footprint(world.profile(),world.rule_version(),sim::Object::OriginalFoodFarm)==sim::BuildingFootprint{3,3}&&
@@ -252,5 +252,5 @@ void actual_mixed_market_full_house_and_partial_arrival() {
 int main() {try {independent_quality_vectors();paid_two_crop_arrivals_and_replay();no_origin_invalid_commands_and_missed_demand();
     full_no_road_begun_edge_cancel_and_empty_quality();actual_quality_drives_original_needs_without_evolution();
     actual_mixed_market_full_house_and_partial_arrival();
-    std::cout<<"Rule10 revision18 paid two-Crop Food, actual quality arrivals, sink/conservation and20k replay PASS\n";return 0;
+    std::cout<<"Rule10 paid two-Crop Food, actual quality arrivals, sink/conservation and20k replay PASS\n";return 0;
 }catch(const std::exception& error){std::cerr<<"Original Food World FAIL: "<<error.what()<<'\n';return 1;}}

@@ -865,6 +865,14 @@ private:
     void dispatch_original_food(CourierState& courier);
     void arrive_original_food(CourierState& courier);
     void cancel_original_food(BuildingId owner);
+    void validate_original_services_model() const;
+    static void validate_original_services_snapshot(const WorldSnapshot& snapshot);
+    void validate_original_services_state() const;
+    bool original_service_courier(CourierRole role) const;
+    CourierDispatchDecision original_service_dispatch_status(const CourierState& courier) const;
+    void dispatch_original_service(CourierState& courier);
+    void arrive_original_service(CourierState& courier);
+    void decay_original_services();
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;

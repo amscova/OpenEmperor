@@ -3651,7 +3651,8 @@
       "src/simulation/OriginalFoodState.h": "01425a6efe784c3fd6a3a8c7d4c4a19799390c4c79170995108c5e6aa420993f",
       "src/simulation/OriginalGoodsState.h": "615775ef915e9ef8eb3ad697ec2b7dde4e0e03e5a203d22cf0d705ce39e10e68",
       "src/simulation/OriginalInfluenceState.h": "330831641a98171a586347a3037e26c39761a044490c1bf6ecbbb8e36af30c33",
-      "src/simulation/OriginalProductionState.h": "c4bf120e3ace0cbbdecc5bac44ffa24c18e9c120779a1765f4611051b5a8e459",
+      "src/simulation/OriginalProductionState.h": "c5c44a4a72bd2155d2348ef38755d140dffe49256ce3c500761a5bc048598150",
+      "src/simulation/OriginalServicesState.h": "bfdeecfa00afefce03cec673cb935ecc90df228154fcf0448711151309f8ab38",
       "src/simulation/original/Desirability.cpp": "129b12fd5f009e3eeec33a1ab8ea80e5c79c0124c4fa8c7cf82cfa85d454e3fb",
       "src/simulation/original/Desirability.h": "bd41dcbd5b975c0586fc5b9f21cf90efa335d9645fd5354b6ccd055569858754",
       "src/simulation/original/GoodsRules.cpp": "e937e825796dd921fa804779fc543c9c4a9fb88c43a5f2d37ba5cd01d0111f63",
@@ -3660,17 +3661,17 @@
       "src/simulation/original/HouseEvolution.h": "fca07a8dc7856eaa0540d1d7d0189f334537791ab00d53520c3f1fff30959a98",
       "src/simulation/original/ModelData.cpp": "40133ad4d729785344d72416eb469746ec7bba27b45281c16e32c87f75cbaf91",
       "src/simulation/original/ModelData.h": "3b40b06585b4a3d00c64db776d23b70dbe5639720b97dcf04b6945bd8162fc01",
-      "src/simulation/original/ModelSchema.cpp": "27259f005392eb312435f54e59a937b9d65068226588bf7b9c71ee9b9c1f5f65",
-      "src/simulation/original/ModelSchema.h": "26431385c74cb3862945692bd734c1a9385ad4b52e097c89d1853a7d0ca37e6f",
+      "src/simulation/original/ModelSchema.cpp": "bd7fe7929a3ff94ccb04575be3a5f1912d73486ee7194accb8f1695535ecd455",
+      "src/simulation/original/ModelSchema.h": "1748a35b2f91565cf3ec9f0e36dcac0a72a99eb14df914c8c3833796c8a1d1dc",
       "src/simulation/original/OriginalModelMapping.h": "544fa11a76342d016773f3c572b806ee27e9624a421dad96ef029c7d290aa5a3",
-      "src/simulation/original/OriginalRulesModel.cpp": "fa6789c24875cddb6f2fff9278ab54aba65ad0c5b7fa7d972761e5992ced082c",
-      "src/simulation/original/OriginalRulesModel.h": "7701053e8967ecd46222aa23b18fd5eb7cb80c3f4868737c9fe7e435f70a397b",
+      "src/simulation/original/OriginalRulesModel.cpp": "4027e2a0fc4289cbb4e96d2ec685295dbcdb4c178ffe0974282136d272e09480",
+      "src/simulation/original/OriginalRulesModel.h": "e52193fb8e130c739d33a4ace80e66ad9e764aa584e3bb9cbd3fb8074942cbf7",
       "src/simulation/original/OriginalScheduler.h": "8b35dbb4b57bbcf03f262d2228f3be53c19315d50c6ab75974dc6b976bc07573",
       "src/simulation/original/ServiceRules.cpp": "687bb097d1fcdaed21d96f6022fd402016ce7a99b2722a241a17caa02c4960df",
       "src/simulation/original/ServiceRules.h": "4152e969bb95d5ba28f2400beef4032f8a3026ca225aed364deb0f7da805d944",
       "tools/original-rules-parity/HousingViewProbe.cpp": "d3efec7c21c7b361f96aa245c0a4929e48f3bebd0b51e02bed6be838ddc69d80",
       "tools/original-rules-parity/RuleProbe.cpp": "70f8e715f7be03d6c2ae4ec04afc5b69f13e90b05ba82174066ac208e8c8caa2",
-      "tools/original_rules_parity.py": "c06e8551003bb0f63dd7ebf02a5159888278164246e614c9fb4049aad33eefc4"
+      "tools/original_rules_parity.py": "160ea72c1bb03937003e5ce5bc2a7460346d3925552baac6b9ff1de6c0cfb55f"
     }
   },
   "fork": {

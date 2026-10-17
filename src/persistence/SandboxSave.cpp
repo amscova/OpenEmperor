@@ -1084,6 +1084,79 @@ simulation::OriginalFoodState parse_production_food(const json& j) {
     }
     return food;
 }
+json production_services_json(const simulation::OriginalServicesState& services) {
+    require(services.providers.size()<=4 && services.trips.size()<=4 && services.witnesses.size()<=40,
+            "schema26 medical service collection exceeds bounded context");
+    const auto transfer=[](simulation::OriginalGoodsTransferKey key) {
+        return json{{"courier_id",static_cast<std::uint32_t>(key.courier_id)},{"sequence",key.sequence}};
+    };
+    json providers=json::array(),trips=json::array(),witnesses=json::array();
+    for (const auto& provider:services.providers)
+        providers.push_back({{"building_id",static_cast<std::uint32_t>(provider.building_id)},
+            {"type",static_cast<unsigned>(provider.type)}});
+    for (const auto& trip:services.trips)
+        trips.push_back({{"transfer",transfer(trip.transfer)},
+            {"target",static_cast<std::uint32_t>(trip.target)},
+            {"dispatched_tick",trip.dispatched_tick},
+            {"arrival_tick",trip.arrival_tick ? json(*trip.arrival_tick):json(nullptr)},
+            {"visit_applied",trip.visit_applied}});
+    for (const auto& witness:services.witnesses)
+        witnesses.push_back({{"building_id",static_cast<std::uint32_t>(witness.building_id)},
+            {"role",static_cast<unsigned>(witness.role)},
+            {"provider_id",static_cast<std::uint32_t>(witness.provider_id)},
+            {"transfer",transfer(witness.transfer)},{"arrival_tick",witness.arrival_tick}});
+    return {{"providers",std::move(providers)},{"trips",std::move(trips)},{"witnesses",std::move(witnesses)}};
+}
+simulation::OriginalServicesState parse_production_services(const json& j) {
+    simulation::OriginalServicesState services;
+    const auto id=[](const json& value) {
+        const auto n=number(value,UINT32_MAX);require(n>0,"schema26 medical service identity must be positive");
+        return static_cast<simulation::BuildingId>(n);
+    };
+    const auto transfer=[](const json& value) {
+        simulation::OriginalGoodsTransferKey key;
+        key.courier_id=static_cast<simulation::CourierId>(number(field(value,"courier_id"),UINT32_MAX));
+        key.sequence=number(field(value,"sequence"));
+        require(static_cast<std::uint32_t>(key.courier_id)>0 && key.sequence>0,
+                "schema26 medical service transfer requires a positive actor and sequence");
+        return key;
+    };
+    const auto& providers=field(j,"providers");
+    require(providers.is_array() && providers.size()<=4,"schema26 medical provider collection exceeds bound");
+    for (const auto& value:providers) {
+        simulation::OriginalServiceProvider provider;provider.building_id=id(field(value,"building_id"));
+        require(services.providers.empty() || services.providers.back().building_id<provider.building_id,
+                "schema26 medical providers require sorted unique IDs");
+        provider.type=static_cast<simulation::OriginalServiceProviderType>(number(field(value,"type"),1));
+        services.providers.push_back(provider);
+    }
+    const auto& trips=field(j,"trips");
+    require(trips.is_array() && trips.size()<=4,"schema26 medical trip collection exceeds bound");
+    for (const auto& value:trips) {
+        simulation::OriginalServiceTrip trip;trip.transfer=transfer(field(value,"transfer"));
+        require(services.trips.empty() || services.trips.back().transfer.courier_id<trip.transfer.courier_id,
+                "schema26 medical trips require sorted unique courier IDs");
+        trip.target=id(field(value,"target"));trip.dispatched_tick=number(field(value,"dispatched_tick"));
+        const auto& arrival=field(value,"arrival_tick");
+        if (!arrival.is_null()) trip.arrival_tick=number(arrival);
+        trip.visit_applied=boolean(field(value,"visit_applied"));services.trips.push_back(trip);
+    }
+    const auto& witnesses=field(j,"witnesses");
+    require(witnesses.is_array() && witnesses.size()<=40,"schema26 medical witness collection exceeds bound");
+    for (const auto& value:witnesses) {
+        simulation::OriginalServiceWitness witness;witness.building_id=id(field(value,"building_id"));
+        witness.role=static_cast<original::ServiceRole>(number(field(value,"role"),1));
+        if (!services.witnesses.empty()) {
+            const auto& previous=services.witnesses.back();
+            require(previous.building_id<witness.building_id ||
+                    (previous.building_id==witness.building_id && previous.role<witness.role),
+                    "schema26 medical witnesses require sorted unique House/category pairs");
+        }
+        witness.provider_id=id(field(value,"provider_id"));witness.transfer=transfer(field(value,"transfer"));
+        witness.arrival_tick=number(field(value,"arrival_tick"));services.witnesses.push_back(witness);
+    }
+    return services;
+}
 json production_document_json(const SaveDocument& d) {
     require(simulation::original_production_enabled(d.world.profile,d.world.rule_version) &&
             d.world.original_production && d.world.original_goods &&
@@ -1139,7 +1212,8 @@ json production_document_json(const SaveDocument& d) {
     result["world"]["original_production"]={{"development_revision",production.development_revision},
         {"residents_admitted",production.residents_admitted},{"pottery_handed_off",production.pottery_handed_off},
         {"hemp_farms",std::move(farms)},{"house_consumption",std::move(consumption)},
-        {"food",production_food_json(production.food)}};
+        {"food",production_food_json(production.food)},
+        {"services",production_services_json(production.services)}};
     return result;
 }
 SaveDocument parse_production_document(const json& j) {
@@ -1185,6 +1259,7 @@ SaveDocument parse_production_document(const json& j) {
         state.house_consumption.push_back(house);
     }
     state.food=parse_production_food(field(production,"food"));
+    state.services=parse_production_services(field(production,"services"));
     auto projected=j;
     projected["schema_version"]=22;projected["rules"]["version"]=6;
     for (const char* key:{"original_economy","original_influence","original_goods","original_production"})

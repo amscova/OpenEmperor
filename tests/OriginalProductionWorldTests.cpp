@@ -88,8 +88,7 @@ void immigration_and_paid_origin() {
     check(world.treasury()==11182 && world.taxes_collected_total()==0 && world.maintenance_spent_total()==0 &&
         world.building(ids.warehouse).pottery_stock==0,"Revision14 finance changed or Warehouse double-booked Ceramics");
     const auto saved=world.snapshot();
-    for (const auto type:{sim::CommandType::PlaceFarm,sim::CommandType::PlaceWell,
-            sim::CommandType::PlaceHealthPost,sim::CommandType::PlaceServicePost,sim::CommandType::PlaceFireWatch}) {
+    for (const auto type:{sim::CommandType::PlaceFarm,sim::CommandType::PlaceWell,sim::CommandType::PlaceFireWatch}) {
         check(!world.execute({type,{20,12}}).accepted && world.snapshot()==saved,"Future producer/service gained premature authority");
     }
     check(!world.execute(sim::demolish_building(ids.pottery)).accepted && world.snapshot()==saved,

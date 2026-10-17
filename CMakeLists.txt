@@ -282,12 +282,14 @@ target_include_directories(openemperor-original-rules-model PUBLIC src)
 target_link_libraries(openemperor-original-rules-model PUBLIC openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-original-rules-model)
 target_link_libraries(openemperor-simulation PUBLIC openemperor-original-rules-model openemperor-original-desirability openemperor-original-goods-ledger)
-# Explicit visit/countdown/spawn queries, without a World scheduler connection.
+# Pure visit/countdown/spawn rules; Rule10 binds actual arrival/phase35 only.
 add_library(openemperor-original-service-rules STATIC
     src/simulation/original/ServiceRules.cpp)
 target_include_directories(openemperor-original-service-rules PUBLIC src)
 target_link_libraries(openemperor-original-service-rules PUBLIC openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-original-service-rules)
+target_sources(openemperor-simulation PRIVATE src/simulation/WorldOriginalServices.cpp)
+target_link_libraries(openemperor-simulation PUBLIC openemperor-original-service-rules)
 # Pure goods transfers/consumption/quality observations; no World/app linkage.
 add_library(openemperor-original-goods-rules STATIC
     src/simulation/original/GoodsRules.cpp)
@@ -920,6 +922,18 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-food-world-tests)
     add_test(NAME original-food-world COMMAND openemperor-original-food-world-tests)
     set_tests_properties(original-food-world PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-services-world-tests tests/OriginalServicesWorldTests.cpp)
+    target_link_libraries(openemperor-original-services-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-services-world-tests)
+    add_test(NAME original-services-world COMMAND openemperor-original-services-world-tests)
+    set_tests_properties(original-services-world PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-services-save-tests tests/OriginalServicesSaveTests.cpp)
+    target_link_libraries(openemperor-original-services-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-services-save-tests)
+    add_test(NAME original-services-save COMMAND openemperor-original-services-save-tests)
+    set_tests_properties(original-services-save PROPERTIES TIMEOUT 180)
 
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)

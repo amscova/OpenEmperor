@@ -1727,8 +1727,8 @@ void SandboxView::set_tool(int tool) {
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
     if (original_production_fixture()) {
         using A=sandbox_ui::Action;
-        if (action==A::Farm || action==A::ServicePost || action==A::FireWatch ||
-            action==A::HealthPost || action==A::Health || action==A::ServiceOverlay ||
+        if (action==A::Farm || action==A::FireWatch ||
+            action==A::Health || action==A::ServiceOverlay ||
             action==A::Water || action==A::Reset) return false;
     } else if (original_influence_fixture()) {
         using A=sandbox_ui::Action;
@@ -4076,11 +4076,15 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 const auto& houses=world_->original_economy_state()->houses;
                 const auto home=std::find_if(houses.begin(),houses.end(),[&](const auto& value){return value.building_id==*house_id;});
                 if (home!=houses.end()) lines.push_back("Ceramics: "+std::to_string(home->house.ceramics)+"/"+
-                    std::to_string(simulation::Rules::household_capacity)+" | paid Market arrivals");
-                if (home!=houses.end()) lines.push_back("Hemp: "+std::to_string(home->house.hemp)+"/8 | paid Market arrivals");
+                    std::to_string(simulation::Rules::household_capacity));
+                if (home!=houses.end()) lines.push_back("Hemp: "+std::to_string(home->house.hemp)+"/8");
+                if (home!=houses.end()) {
+                    lines.push_back("Herbalist: "+std::to_string(home->house.herbalist)+"/96");
+                    lines.push_back("Acupuncture: "+std::to_string(home->house.acupuncture)+"/96");
+                }
                 for (const auto& food:world_->original_production_state()->food.stocks) if (food.building_id==*house_id) {
-                    lines.push_back("Food: "+std::to_string(food.amounts[0]+food.amounts[1])+"/8 | paid Market arrivals");
-                    if (home!=houses.end()) lines.push_back("Food quality: "+std::to_string(home->house.food_quality));
+                    lines.push_back("Food: "+std::to_string(food.amounts[0]+food.amounts[1])+"/8 | Quality: "+
+                        std::to_string(home!=houses.end() ? home->house.food_quality:0));
                     lines.push_back("Wheat "+std::to_string(food.amounts[0])+" | Millet "+std::to_string(food.amounts[1]));
                     lines.push_back("Food demand misses: "+std::to_string(food.missed_demands));
                 }
@@ -4104,6 +4108,25 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             "Developer empty container; scheduler only",
             "No active residents, goods, services or economy operations",
             "Original housing art is not selected"});
+    if (original_production_fixture() && house_id &&
+        (world_->building(*house_id).kind==simulation::Object::HealthPost ||
+         world_->building(*house_id).kind==simulation::Object::ServicePost)) {
+        const auto id=*house_id;const auto& b=world_->building(id);
+        lines.push_back(std::string(b.kind==simulation::Object::HealthPost ? "Herbalist207 #":"Acupuncture208 #")+
+            std::to_string(static_cast<std::uint32_t>(id)));
+        lines.push_back("Workers assigned "+std::to_string(world_->workers_assigned(id))+"/"+
+            std::to_string(world_->workforce_required(id)));
+        lines.push_back(std::string("Operation: ")+(b.operating_enabled ? "Running":"Paused"));
+        lines.push_back("Actual visits set this timer to 96 cycles");
+        for (const auto& c:world_->couriers()) if (c.owner==id) {
+            lines.push_back(std::string("Visitor: ")+simulation::delivery_phase_name(c.phase));
+            lines.push_back("Target: "+(c.phase==simulation::CourierPhase::IdleAtWorkshop ?
+                std::string("-"):std::to_string(static_cast<std::uint32_t>(c.target))));
+            lines.push_back(std::string("Route: ")+simulation::courier_dispatch_status_name(
+                world_->courier_dispatch_status(c.id).status));
+        }
+        add_connectivity();return wrap_panel_lines(lines);
+    }
     if (house_id && world_->building(*house_id).kind==simulation::Object::HealthPost) {
         const auto id=*house_id;
         const auto& b=world_->building(id);
@@ -4942,7 +4965,8 @@ bool SandboxView::draw_hud() {
             "/20 $80":simulation::city_profile(rules_) ? "7 House $80":"7 House";
         case A::Farm: return scalable ? "8 Farm "+std::to_string(count(simulation::Object::Farm))+
             "/2 $160":"8 Farm $160";
-        case A::ServicePost: return scalable ? "9 Service "+
+        case A::ServicePost: return original_production_fixture() ? "9 Acupuncture $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceServicePost)):scalable ? "9 Service "+
             std::to_string(count(simulation::Object::ServicePost))+"/2 $100":"9 Service $100";
         case A::Market: return "0 Market $140";
         case A::OriginalHempFarm: return "N Hemp Farm $"+
@@ -4955,7 +4979,8 @@ bool SandboxView::draw_hud() {
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalWheatField));
         case A::OriginalMilletField: return "L Millet $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalMilletField));
-        case A::HealthPost: return "J Health Post $120";
+        case A::HealthPost: return original_production_fixture() ? "J Herbalist $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceHealthPost)):"J Health Post $120";
         case A::Health: return health_overlay_ ? "K Health ON":"K Health";
         case A::ServiceOverlay: return service_overlay_ ? "V Service ON":"V Service";
         case A::Ramp: return "P Ramp $40";

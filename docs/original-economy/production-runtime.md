@@ -9,7 +9,10 @@ Revision17 ergänzt [phasengenauen Verbrauch](consumption-runtime.md) und eine
 abgestimmte Waren-/Zielrotation für laufende Versorgung. Revision18 ergänzt
 die [getrennte Food-Kette](food-runtime.md): bezahlter Farmhouse193, Wheat195/
 Millet196, tatsächliche Market-/Hausankunft, originale Qualitätsmischung und
-ein ausdrücklich authored Food-Sink. Aktueller Entwicklerstand ist Revision18.
+ein ausdrücklich authored Food-Sink. Revision19 bindet [getrennte medizinische
+Besuche](services-runtime.md) an bezahlte207-/208-Provider und echte Walker-
+Ankünfte, einschließlich des unveränderten Phase35-Countdownkerns.
+Aktueller Entwicklerstand ist Revision19.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
@@ -52,7 +55,8 @@ Warehouse-Pottery-Slot bleibt null; es gibt keinen gespiegelten Vorrat.
 - Tatsächlich geernteter Hemp = gesamte typisierte Hemp-Produktion.
 
 Revision17 erlaubt Ceramics und Hemp über Warehouse, Market, tatsächliche
-Hausankunft und modellbasierten Verbrauch. Weitere Originalwaren, Food, Services und Steuern folgen
+Hausankunft und modellbasierten Verbrauch. Revision18/19 ergänzen Food und die
+zwei medizinischen Dienste; weitere Originalwaren, Dienste und Steuern folgen
 ihren Aufgaben. Die frühen originalen Hausbedarfe bleiben unverändert0;
 ein ausdrücklich authored physischer Hauspuffer8 ermöglicht Provisionierung
 vor Evolution und Verbrauch.
