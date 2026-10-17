@@ -6,7 +6,10 @@ Entwicklungsrevision14 integrierte den tatsächlichen bezahlten Ceramics-Ursprun
 Revision15 ergänzte den physischen Markettransport bis zum Haus; Revision16
 ergänzte die [bezahlte Hemp-Kette](hemp-runtime.md) mit Farm192 und Feld194.
 Revision17 ergänzt [phasengenauen Verbrauch](consumption-runtime.md) und eine
-abgestimmte Waren-/Zielrotation für laufende Versorgung.
+abgestimmte Waren-/Zielrotation für laufende Versorgung. Revision18 ergänzt
+die [getrennte Food-Kette](food-runtime.md): bezahlter Farmhouse193, Wheat195/
+Millet196, tatsächliche Market-/Hausankunft, originale Qualitätsmischung und
+ein ausdrücklich authored Food-Sink. Aktueller Entwicklerstand ist Revision18.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.

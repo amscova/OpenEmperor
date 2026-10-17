@@ -13,7 +13,8 @@ using f::check;
 constexpr std::array legacy{orig::ModelBuilding::ClayPit,orig::ModelBuilding::Kiln,
     orig::ModelBuilding::Warehouse,orig::ModelBuilding::CommonMarketSquare,
     orig::ModelBuilding::Well,orig::ModelBuilding::Farmhouse,orig::ModelBuilding::HerbalistsStall};
-constexpr std::array extra{orig::ModelBuilding::HempFarm,orig::ModelBuilding::HempField};
+constexpr std::array extra{orig::ModelBuilding::HempFarm,orig::ModelBuilding::HempField,
+    orig::ModelBuilding::WheatField,orig::ModelBuilding::MilletField};
 template<class F> void refuses(F action) {
     bool denied=false;try {action();} catch (const std::exception&) {denied=true;}
     check(denied,"Active model admitted an absent/invalid explicit production capability");
@@ -41,12 +42,15 @@ void equivalent_legacy(const orig::OriginalRulesModel& old,const orig::OriginalR
 void synthetic() {
     for(const auto [object,model]:std::array{
             std::pair{f::sim::Object::OriginalHempFarm,orig::ModelBuilding::HempFarm},
-            std::pair{f::sim::Object::OriginalHempField,orig::ModelBuilding::HempField}}) {
+            std::pair{f::sim::Object::OriginalHempField,orig::ModelBuilding::HempField},
+            std::pair{f::sim::Object::OriginalFoodFarm,orig::ModelBuilding::Farmhouse},
+            std::pair{f::sim::Object::OriginalWheatField,orig::ModelBuilding::WheatField},
+            std::pair{f::sim::Object::OriginalMilletField,orig::ModelBuilding::MilletField}}) {
         const auto mapped=orig::functional_model_candidate(object);
         check(mapped.candidate==model && mapped.functional==orig::EvidenceStatus::AuthoredFallback &&
             mapped.mechanics_identity==orig::EvidenceStatus::AuthoredFallback &&
             mapped.presentation_identity==orig::EvidenceStatus::Unknown,
-            "Typed Hemp identity was omitted or falsely advertised as original mechanics/art parity");
+            "Typed production identity was omitted or falsely advertised as original mechanics/art parity");
     }
     f::Root root;const auto path=root.data/"Model/EmperorBuildingModels.txt";
     f::write_model(root.data);auto old=prepared(root.data,false);
@@ -61,7 +65,9 @@ void synthetic() {
     check(active->building_value(extra[0],orig::BuildingField::Cost)==40 &&
         active->building_value(extra[0],orig::BuildingField::Employees)==18 &&
         active->building_value(extra[1],orig::BuildingField::Cost)==4 &&
-        active->building_value(extra[1],orig::BuildingField::Employees)==0,
+        active->building_value(extra[1],orig::BuildingField::Employees)==0 &&
+        active->building_value(extra[2],orig::BuildingField::Cost)==4 &&
+        active->building_value(extra[3],orig::BuildingField::Cost)==4,
         "Authored named production values were not prepared");
     check(!active->supports_building(static_cast<orig::ModelBuilding>(4096)),"Undefined production model ID admitted");
     refuses([&]{(void)active->building_value(extra[0],static_cast<orig::BuildingField>(13));});
@@ -115,6 +121,21 @@ int real(const std::filesystem::path& data) {
         field.building_id=*world.building_owner_at({0,9});f::buy(world,field);
         check(world.construction_spent_total()==static_cast<std::uint64_t>(farm_cost+field_cost) &&
             world.treasury()==12000-farm_cost-field_cost,"Paid Farm/Field did not charge the selected difficulty");
+        std::int64_t food_paid=0;
+        for (const bool millet:{false,true}) {
+            const f::sim::Cell origin{millet ? 12:6,9};
+            const auto crop=millet ? orig::ModelBuilding::MilletField:orig::ModelBuilding::WheatField;
+            f::buy(world,{f::sim::CommandType::PlaceOriginalFoodFarm,origin});
+            const auto id=*world.building_owner_at(origin);
+            check(world.workforce_required(id)==orig::building_value(*loaded.model,orig::ModelBuilding::Farmhouse,
+                orig::BuildingField::Employees,difficulty),"Real Food Farm staffing did not use prepared difficulty");
+            f::sim::Command plant{millet ? f::sim::CommandType::PlaceOriginalMilletField:f::sim::CommandType::PlaceOriginalWheatField,{origin.x+3,origin.y}};
+            plant.building_id=id;f::buy(world,plant);
+            food_paid+=orig::building_value(*loaded.model,orig::ModelBuilding::Farmhouse,orig::BuildingField::Cost,difficulty)+
+                orig::building_value(*loaded.model,crop,orig::BuildingField::Cost,difficulty);
+        }
+        check(world.construction_spent_total()==static_cast<std::uint64_t>(farm_cost+field_cost+food_paid) &&
+            world.treasury()==12000-farm_cost-field_cost-food_paid,"Food Farm/Field prices did not use exact selected difficulty");
         const auto saved=world.snapshot();
         check(f::sim::World::restore_original_production_development(saved,permissions,active).snapshot()==saved,
             "Real difficulty-adjusted Farm/Field finance did not restore exactly");

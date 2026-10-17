@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import struct
 import tempfile
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -12,7 +13,7 @@ _SPEC = importlib.util.spec_from_file_location(
 legacy = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(legacy)
 MODEL_SHA = legacy.MODEL_SHA
-PRIVATE_OUTPUT = Path(".local/original-economy/oe17/production-fixtures")
+PRIVATE_OUTPUT = Path(".local/original-economy/oe18/production-fixtures")
 RULE9_REFERENCE = Path(".local/original-economy/oe13/goods-fixtures/run-d4mm76cf")
 RULE9_REPORT_SHA = "1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2"
 RULE9_REVIEW_SHA = "c5534befba97a9ad1469bec05131d21f17fe509db101c0f4bd1e0351e742a017"
@@ -99,7 +100,7 @@ def check_balances(scene, positive=False):
         assert balances[good]["cargo"] == sum(courier["typed_cargo"] for courier in scene["couriers"]
                                               if courier["typed_cargo_good"] == good)
     for courier in scene["couriers"]:
-        if courier["role"] in (6, 8, 12):
+        if courier["role"] in (6, 8, 12, 13, 14):
             assert courier["cargo"] == courier["reserved"] == 0
         else:
             assert courier["typed_cargo"] == 0
@@ -112,6 +113,101 @@ def check_balances(scene, positive=False):
     if positive:
         assert balances[0]["stock"] > 0 and balances[1]["stock"] > 0 and scene["population"] > 0
         assert scene["workforce_supply"] >= 34
+    if "food" in scene:
+        check_food(scene)
+
+
+def food_batch_quality(amounts):
+    assert len(amounts) == 2 and all(type(n) is int and 0 <= n <= 2**31 - 1 for n in amounts) and sum(amounts) <= 2**31 - 1
+    return (20 * amounts[0] + 80 * amounts[1]) // sum(amounts) if sum(amounts) else 0
+
+
+def food_blend(previous_quality, source_quality, delivered, previous_stock):
+    """Independent bounded arrival vector: physical House quantities never exceed8."""
+    assert all(type(n) is int for n in (previous_quality, source_quality, delivered, previous_stock))
+    assert 0 <= previous_quality <= 80 and 0 <= source_quality <= 80 and 0 <= delivered <= 4 and 0 <= previous_stock <= 8
+    if not delivered:
+        return previous_quality
+    if source_quality > previous_quality:
+        return source_quality
+    single = lambda n: struct.unpack("f", struct.pack("f", n))[0]
+    ratio = single(delivered / previous_stock) if previous_stock else single(10)
+    for threshold, house_weight, source_weight in ((3, 1, 3), (2, 1, 2), (.5, 1, 1), (.33, 2, 1)):
+        if ratio > single(threshold):
+            return (previous_quality * house_weight + source_quality * source_weight) // (house_weight + source_weight)
+    return (3 * previous_quality + source_quality) // 4
+
+
+def check_food(scene, positive=False):
+    food = scene["food"]
+    assert food["conserved"] is True and len(food["farms"]) <= 2 and len(food["stocks"]) <= 26 and len(food["trips"]) <= 6
+    vector = lambda values, maximum: (len(values) == 2 and all(type(n) is int and 0 <= n <= maximum for n in values))
+    for key in ("produced", "stock", "cargo", "consumed"):
+        assert vector(food[key], 2**64 - 1)
+    farms = {farm["farm_id"]: farm for farm in food["farms"]}
+    assert len(farms) == len(food["farms"])
+    for farm in food["farms"]:
+        assert type(farm["crop"]) is int and farm["crop"] in (0, 1)
+        assert type(farm["harvested"]) is int and 0 <= farm["harvested"] <= 2**64 - 1
+        if not farm["field_id"]:
+            assert farm["harvested"] == 0
+    stocks = {row["id"]: row for row in food["stocks"]}
+    assert len(stocks) == len(food["stocks"])
+    houses = {house["id"]: house for house in scene["houses"]}
+    couriers = {courier["id"]: courier for courier in scene["couriers"]}
+    trips = {trip["courier_id"]: trip for trip in food["trips"]}
+    assert len(trips) == len(food["trips"])
+    for row in food["stocks"]:
+        assert row["kind"] in (6, 9, 16) and vector(row["amounts"], 16)
+        assert sum(row["amounts"]) <= (16 if row["kind"] == 9 else 8)
+        for key in ("received", "departed", "returned", "consumed"):
+            assert vector(row[key], 2**64 - 1)
+        assert type(row["missed_demands"]) is int and 0 <= row["missed_demands"] <= 2**64 - 1
+        for good in (0, 1):
+            harvest = farms[row["id"]]["harvested"] if row["id"] in farms and farms[row["id"]]["crop"] == good else 0
+            assert harvest + row["received"][good] + row["returned"][good] == row["amounts"][good] + row["departed"][good] + row["consumed"][good]
+        if row["kind"] != 6:
+            assert row["quality"] == 0 and row["quality_witness"] is None and row["missed_demands"] == 0 and not any(row["consumed"])
+            continue
+        assert row["id"] in houses and row["quality"] == houses[row["id"]]["food_quality"]
+        assert type(row["quality"]) is int and 0 <= row["quality"] <= 80
+        assert not any(row["departed"]) and not any(row["returned"])
+        witness = row["quality_witness"]
+        if witness is None:
+            assert not any(row["received"]) and not any(row["amounts"]) and row["quality"] == 0
+            continue
+        assert vector(witness["accepted"], 4) and 0 < sum(witness["accepted"]) <= 4
+        assert vector(witness["consumed_before"], 2**64 - 1)
+        assert type(witness["tick"]) is int and 0 < witness["tick"] <= scene["tick"]
+        assert type(witness["sequence"]) is int and witness["sequence"] > 0
+        assert witness["courier_id"] in couriers and couriers[witness["courier_id"]]["role"] == 14
+        assert witness["courier_id"] in trips and witness["sequence"] <= trips[witness["courier_id"]]["sequence"]
+        previous = [row["received"][g] - witness["accepted"][g] - witness["consumed_before"][g] for g in (0, 1)]
+        assert all(n >= 0 for n in previous) and sum(previous) + sum(witness["accepted"]) <= 8
+        assert all(witness["consumed_before"][g] <= row["consumed"][g] for g in (0, 1))
+        if row["received"] == witness["accepted"]:
+            assert not any(previous) and witness["previous_quality"] == 0
+        expected = food_blend(witness["previous_quality"], food_batch_quality(witness["accepted"]), sum(witness["accepted"]), sum(previous))
+        assert row["quality"] == (expected if sum(row["amounts"]) else 0)
+    for trip in food["trips"]:
+        assert type(trip["sequence"]) is int and 0 < trip["sequence"] < 2**64 - 1
+        assert trip["source"] in stocks and trip["target"] in stocks
+        assert trip["courier_id"] in couriers and couriers[trip["courier_id"]]["role"] in (13, 14)
+        for key in ("loaded", "delivered", "returned", "cargo"):
+            assert vector(trip[key], 4)
+        assert 0 < sum(trip["loaded"]) <= 4
+        assert trip["cargo"] == [trip["loaded"][g] - trip["delivered"][g] - trip["returned"][g] for g in (0, 1)]
+        assert trip["batch_quality"] == food_batch_quality(trip["cargo"])
+        assert couriers[trip["courier_id"]]["food_cargo"] == sum(trip["cargo"])
+    for good in (0, 1):
+        assert food["produced"][good] == sum(farm["harvested"] for farm in food["farms"] if farm["crop"] == good)
+        assert food["stock"][good] == sum(row["amounts"][good] for row in food["stocks"])
+        assert food["cargo"][good] == sum(trip["cargo"][good] for trip in food["trips"])
+        assert food["consumed"][good] == sum(row["consumed"][good] for row in food["stocks"])
+        assert food["produced"][good] == food["stock"][good] + food["cargo"][good] + food["consumed"][good]
+    if positive:
+        assert all(n > 0 for n in food["produced"]) and any(row["quality_witness"] for row in food["stocks"])
+        assert all(n > 0 for n in food["consumed"])
 
 
 def checked_path(repo, root, path):
@@ -294,12 +390,36 @@ def main():
         assert all(boundary[key]["model_sha256"] == authored_sha for key in ("before", "at", "after"))
     check_balances(consumption["final"])
     assert all(consumption["final"]["balances"][good]["consumed"] > 0 for good in (0, 1))
+    legacy.run(binary, ["--create-food", stage, output / "food"], output / "food.log")
+    food_fixture = json.loads((output / "food/fixture.json").read_text())
+    assert food_fixture["status"] == "PASS" and food_fixture["snapshot_injection"] is False
+    assert food_fixture["real_model_food"] is food_fixture["positive_runtime_food"] is True
+    assert food_fixture["paid_house_count"] == 12 and food_fixture["paid_road_count"] == 77
+    assert food_fixture["paid_food_farm_count"] == food_fixture["paid_food_field_count"] == 2
+    assert food_fixture["paid_market_count"] == 1
+    assert food_fixture["initial"]["funds"] == 10637 and food_fixture["initial"]["construction_spent"] == 1363
+    assert food_fixture["initial"]["population"] == food_fixture["initial"]["workforce_supply"] == 0
+    assert food_fixture["stopped"]["population"] == food_fixture["stopped"]["workforce_supply"] == 84
+    assert food_fixture["actual_mixed_cargo"] is food_fixture["actual_food_return"] is True
+    assert food_fixture["actual_quality_classes"] == [20, 80]
+    for key in ("initial", "stopped", "low_quality", "mixed_market", "mixed_arrival", "paused_return", "final"):
+        check_balances(food_fixture[key])
+        assert food_fixture[key]["model_sha256"] == MODEL_SHA
+    assert any(house["food_quality"] == 20 for house in food_fixture["low_quality"]["houses"])
+    assert any(house["food_quality"] == 80 for house in food_fixture["final"]["houses"])
+    assert any(row["kind"] == 9 and all(n > 0 for n in row["amounts"])
+               for row in food_fixture["mixed_market"]["food"]["stocks"])
+    assert any(row["quality_witness"] and all(n > 0 for n in row["quality_witness"]["accepted"])
+               for row in food_fixture["mixed_arrival"]["food"]["stocks"])
     restarts = []
     assert [entry["tag"] for entry in fixture["checkpoints"]] == ["mid-hemp-courier", "house-two-goods"]
     assert [entry["tag"] for entry in consumption["checkpoints"]] == ["step-0-before", "step-7-before"]
-    checkpoint_inputs = [(entry, stage, MODEL_SHA, False) for entry in fixture["checkpoints"]]
-    checkpoint_inputs += [(entry, authored_stage, authored_sha, True) for entry in consumption["checkpoints"]]
-    for checkpoint, replay_data, model_sha, authored_needs in checkpoint_inputs:
+    assert [entry["tag"] for entry in food_fixture["checkpoints"]] == [
+        "mid-food-courier", "food-return", "mixed-food-courier", "house-food-quality"]
+    checkpoint_inputs = [(entry, stage, MODEL_SHA, False, False) for entry in fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, authored_stage, authored_sha, True, False) for entry in consumption["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, True) for entry in food_fixture["checkpoints"]]
+    for checkpoint, replay_data, model_sha, authored_needs, food_scenario in checkpoint_inputs:
         source = checked_path(repo, output, checkpoint["save"])
         source_identity = file_identity(source)
         source_report = json.loads(checked_path(repo, output, checkpoint["report"]).read_text())
@@ -309,9 +429,18 @@ def main():
             assert any(c["role"] == 12 and c["typed_cargo_good"] == 0 and c["typed_cargo"] > 0 and
                        c["cargo"] == 0 and c["edge_progress"] > 0
                        for c in source_report["couriers"])
-        elif not authored_needs:
+        elif not authored_needs and not food_scenario:
             check_balances(source_report, positive=True)
             assert any(house["hemp"] > 0 and house["ceramics"] > 0 for house in source_report["houses"])
+        if food_scenario:
+            if checkpoint["tag"] == "mid-food-courier":
+                assert any(c["role"] == 13 and c["food_cargo"] > 0 and c["edge_progress"] > 0 for c in source_report["couriers"])
+            elif checkpoint["tag"] == "mixed-food-courier":
+                assert any(all(n > 0 for n in trip["cargo"]) for trip in source_report["food"]["trips"])
+            elif checkpoint["tag"] == "food-return":
+                assert any(trip["phase"] == 2 and sum(trip["cargo"]) > 0 for trip in source_report["food"]["trips"])
+            else:
+                assert any(row["quality"] == 80 and row["quality_witness"] for row in source_report["food"]["stocks"])
         folder = output / ("resume-" + checkpoint["tag"])
         legacy.run(binary, ["--resume", replay_data, folder, source], output / (checkpoint["tag"] + "-resume.log"))
         actual_reports = []
@@ -324,7 +453,7 @@ def main():
             assert json.loads(actual.read_text()) == json.loads(expected.read_text()), "Full SaveDocument differs"
             report = json.loads((folder / (name + "-report.json")).read_text())
             assert report == json.loads(checked_path(repo, output, checkpoint[report_key]).read_text())
-            check_balances(report, positive=True)
+            check_balances(report, positive=not food_scenario)
             assert report["model_sha256"] == model_sha
             if authored_needs:
                 assert report["shelter_needs"] == [1, 1]
@@ -334,7 +463,7 @@ def main():
                 assert all(balance["consumed"] == 0 for balance in report["balances"])
             saved = json.loads(actual.read_text())
             assert saved["schema_version"] == 26 and saved["rules"]["version"] == 10
-            assert saved["world"]["original_production"]["development_revision"] == 17
+            assert saved["world"]["original_production"]["development_revision"] == 18
             actual_reports.append(report)
         midpoint, final = actual_reports
         assert midpoint["tick"] == source_report["tick"] + 10000
@@ -345,7 +474,7 @@ def main():
         assert final["road_count"] == midpoint["road_count"] + 1
         assert file_identity(source) == source_identity, "Process changed its source save or metadata"
         restarts.append({"checkpoint": checkpoint["tag"], "separate_os_process": True,
-            "authored_model_needs": authored_needs, "model_sha256": model_sha,
+            "authored_model_needs": authored_needs, "food_scenario": food_scenario, "model_sha256": model_sha,
             "ticks_advanced": 20000, "periods": [10000, 10000], "actual_paid_road_continuation": True,
             "full_savedocument_equal": True, "canonical_bytes_equal": True, "provenance_equal": True,
             "balances_equal": True, "midpoint_equal": True, "source_save_and_metadata_unchanged": True})
@@ -358,20 +487,21 @@ def main():
     assert authored_before == inventory(authored_stage), "Private explicitly authored model or map changed during simulation"
     legacy.frozen_baseline(repo)
     frozen_rule9(repo)
-    report = {"status": "PASS", "evidence": "Paid actual arrivals; original-model zero consumption; separate authored-model positive consumption",
+    report = {"status": "PASS", "evidence": "Paid actual Food/Ceramics/Hemp arrivals; original-model positive Food sink and zero six-Goods Shelter consumption; separate authored needs",
         "original_data": str(original), "original_inventory_before": before, "original_inventory_after": after,
         "original_unchanged": True, "private_source_inventory_unchanged": True,
         "original_model_sha256": MODEL_SHA, "model_copy_byte_identical": True,
         "fixture_binary_sha256": digest(binary), "snapshot_injection": False, "positive_runtime_goods": True,
+        "positive_runtime_food": True, "actual_food_quality_classes": [20, 80],
         "positive_authored_runtime_consumption": True, "original_shelter_consumption_zero": True,
         "authored_model_sha256": authored_sha, "authored_model_changes": {"row": "Shelter", "fields": [9, 10], "before": [0, 0], "after": [1, 1], "changed_bytes": 2},
         "authored_private_inventory_unchanged": True,
-        "fixture": fixture, "consumption_fixture": consumption, "restarts": restarts, "legacy": old,
+        "fixture": fixture, "consumption_fixture": consumption, "food_fixture": food_fixture, "restarts": restarts, "legacy": old,
         "frozen_baseline_capture_sha256": digest(baseline / "capture.json"),
         "frozen_baseline_head": capture["head_before_implementation"],
-        "limits": ["Actual paid Hemp/Ceramics delivery and authored-positive consumption; original Shelter needs0 and consumes0",
-            "Luxury goods and house evolution remain inactive in revision17",
-            "Migration, funding and recipe timing are authored; no original production parity claim",
+        "limits": ["Actual paid Food/Hemp/Ceramics delivery; original Shelter six-Goods needs0 consume0; Food sink is separate authored rule",
+            "Unsupported luxury goods and house evolution remain inactive in revision18",
+            "Migration, funding, Food crop scores20/80 and recipe timing are authored; no original production parity claim",
             "Authored geography; separate SDL/native/human acceptance"]}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"status": "PASS", "report": str(output / "report.json"),

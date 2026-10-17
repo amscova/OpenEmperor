@@ -431,7 +431,7 @@ def public_report(report: dict[str, Any]) -> dict[str, Any]:
 def current_source_hashes() -> dict[str,str]:
     module = ROOT / "src/simulation/original"
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
-    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h", ROOT / "src/simulation/OriginalProductionState.h"]
+    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h", ROOT / "src/simulation/OriginalProductionState.h", ROOT / "src/simulation/OriginalFoodState.h"]
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
 
 
@@ -461,11 +461,11 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-16: Rule10 adds paid Hemp objects and explicit production-model rows;
+    # OE-18: Rule10 adds paid Food objects and two production-model field rows;
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "abedd5da0b7a597762bcf2df9add342a88a5960a":
+    if world_blob != "1b417312f9569657bf3479dd37b3c8d076ed6508":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -481,11 +481,15 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     production_dto = ROOT / "src/simulation/OriginalProductionState.h"
     production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
-    if production_blob != "061168081a00cefa5e1ecbb413a4b2affe3c6252":
+    if production_blob != "0b8f9b8c0a7269cce6b2fa9bae43a13db446070f":
         raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
+    food_dto = ROOT / "src/simulation/OriginalFoodState.h"
+    food_blob = hashlib.sha1(b"blob " + str(food_dto.stat().st_size).encode() + b"\0" + food_dto.read_bytes()).hexdigest()
+    if food_blob != "24e0aa32ecf9293e038a6c7f465e644d6d96b1dc":
+        raise ValueError("Original-food API drift: fourth-module adapter needs a reviewed compatibility contract")
     model_header_blobs = {}
-    for name, expected in (("ModelSchema.h", "b5acdf9a5ee209a41589298cbe0b796c07600d3d"),
-                           ("OriginalRulesModel.h", "23ea997b48edadf87c1f8317df44794ef2ebdf8d")):
+    for name, expected in (("ModelSchema.h", "0d25b1f891328bde14fcbeccae033f163b96df16"),
+                           ("OriginalRulesModel.h", "bfa6e6b7fa6353e11125a1fc1a15325691864cbf")):
         header = ROOT / "src/simulation/original" / name
         actual = hashlib.sha1(b"blob " + str(header.stat().st_size).encode() + b"\0" + header.read_bytes()).hexdigest()
         if actual != expected:
@@ -494,6 +498,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     library_hashes = {str(path.resolve()):sha256(path) for path in libraries}
     report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob,"original_production_state_git_blob":production_blob}
     report["build_provenance"]["production_model_header_git_blobs"] = model_header_blobs
+    report["build_provenance"]["original_food_state_git_blob"] = food_blob
     authored = cases()
     validate_cases(authored)
     binaries = compile_probes(fork,output,args.compiler,args.configuration,library)

@@ -1100,3 +1100,39 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
 - **Review:** Unabhängiger Quellen-, API-/Test- und Dokumentationsreview ohne
   blockierenden Befund. Belegtests und Commit werden im Fortschritt/Abschluss
   festgehalten; keine Rule-/Save-/World-Verhaltensänderung durch OE-02.
+
+
+### OE-18: Food-Vertrag vor Implementierung
+
+Der Gesamtauftrag vom2026-10-17 setzt die bezahlte Food-Kette nach OE-17
+`b30718f` fort. Der [Food-Vertrag](../original-economy/food-runtime.md) trennt
+belegte Originalmischung und Objektidentitäten von authored Mengen, Zeitskala,
+Wheat20/Millet80 und einem separaten Food-Sink. Keine siebte Originalware,
+keine freie Versorgung, keine alten Saveänderungen und keine stillschweigende
+Vervollständigung der unbekannten Source-/Diversitätslogik. Revision18 wird
+strict gespeichert; Qualität ausschließlich aus tatsächlicher Ankunft.
+
+
+### OE-18: technischer Abschluss und Grenzen
+
+Der [Food-Vertrag](../original-economy/food-runtime.md) ist in Revision18
+umgesetzt. Die bezahlten Farmhouse193-/Wheat195-/Millet196-Objekte liefern
+über reale Wege, eigene Cargo und tatsächliche Ankünfte. Nur die belegte
+Originalformel ist Originalmischung;20/80-Quellklassen, Mengen, Zeitskala und
+Food-Sink sind authored. Aktuelle Qualität wird durch einen mengenabhängigen
+Arrival-Witness getragen und nach vollständiger Leerung zurückgesetzt.
+
+Die159 vollständigen Konfigurationstests, acht tatsächlichen20k-Prozessreplays,
+Rohdaten-Audits und der frische72/72-Legacyvertrag liefen auf Quelle b53edf2.
+Danach ändern genau zwei Dateien ausschließlich Whitespace zur Beseitigung von
+Einrückungswarnungen. Ein unabhängiger Clang-Token-/Literal-/Kommentar- und
+Präprozessorvergleich plus Rekonstruktion aller516 Sourceinventar-Dateien
+belegt die Bindung an die finale c3cfaf8-Quelle. Drei vollständige43-Target-
+Builds sind warnungsfrei, drei neue FoodWorld-Läufe bestanden. Der tatsächliche
+Release-Prozessfixture bleibt bytegleich. Alte Berichte behalten ausdrücklich
+ihre Originalquelle; keine stille Umetikettierung und keine geschwächten Tests.
+
+Gate C bleibt bis OE-19 offen. Die tatsächliche Softwareaufnahme ist kein
+native-/human-/Originalart-PASS. Die noch fehlende Originalsprite- und gesamte
+Objektkomposition bleiben Teil des ausdrücklichen Gesamtauftrags; deklarierte
+Fallbacks ersetzen diese spätere Abnahme nicht.

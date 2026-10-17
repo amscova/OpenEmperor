@@ -23,8 +23,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-14 | PASS | `2bd6878f0ab06af0764d84120f8bf9cb6c2dd726` | `.local/original-economy/oe14/`, OE-00/`oe14-final-verification/` | Aktive Rule10/Schema26/Revision14; bezahlter Zuzug/Worker, echter Clay→Pottery→Warehouse→Ceramics-Ursprung,129 relevante CTests und separate20k-Prozessreplays; alte1–9/1–25-Verträge erhalten; Gate C offen |
 | OE-15 | PASS | `390c87481b2259a0e95559e0c975e974a7b627af` | `.local/original-economy/oe15/implementation/`, `oe15/production-fixtures/final-source-5f09/`, OE-00/`oe15-final-verification/` | Aktive Revision15: reale bezahlte Market→House-Lieferung, sichere Rückgabe, begrenzte Transferhistorie;135 relevante Konfigurations-CTests/3×74 Forkvergleiche/separate20k-Prozessreplays; alte1–9-Verträge exakt, Gate C offen |
 | OE-16 | PASS | `86cde0c54577a9889632e45432fe7fe18acd7fac` | `.local/original-economy/oe16/implementation/`, `oe16/production-fixtures/final-source-55c8/`, OE-00/`oe16-final-verification/` | Revision16: bezahlte HempFarm192/Feld194, echte Zweigüterankunft/separate Prozessreplays;147 relevante Konfigurations-CTests/3×74 Vergleiche,72 Legacy-Saves/Snapshots und1485 Policyfälle exakt. Gate C TODO |
-| OE-17 | PASS | — | `.local/original-economy/oe17/implementation/`, `oe17/production-fixtures/debug-first/`, OE-00/`oe17-final-verification/` | Revision17: tatsächlicher Konsum an0/7 mit strikter House-Historie;153 relevante Konfigurations-CTests, zwei Modellpfade/vier20k-Prozessreplays,25 Saves unabhängig rekonstruiert; Legacy exakt, Gate C TODO |
-| OE-18 | TODO | — | — | — |
+| OE-17 | PASS | `b30718f` | `.local/original-economy/oe17/implementation/`, `oe17/production-fixtures/debug-first/`, OE-00/`oe17-final-verification/` | Revision17: tatsächlicher Konsum an0/7 mit strikter House-Historie;153 relevante Konfigurations-CTests, zwei Modellpfade/vier20k-Prozessreplays,25 Saves unabhängig rekonstruiert; Legacy exakt, Gate C TODO |
+| OE-18 | PASS | — | `.local/original-economy/oe18/implementation/`, `oe18/production-fixtures/final-53/`, OE-00/`oe18-final-verification/` | Revision18: bezahlte FoodFarm193/Felder195,196; tatsächliche Qualität20/35/80,159 volle Konfigurations-CTests plus3 nach reinem Formatfix, acht20k-Prozessreplays; Legacy exakt. Gate C TODO |
 | OE-19 | TODO | — | — | — |
 | OE-20 | TODO | — | — | — |
 | OE-21 | TODO | — | — | — |
@@ -2245,3 +2245,124 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   oder Originalart-PASS vorweggenommen. Eigener Task-Commit folgt nach finaler
   Abschlussprüfung; anschließend gemäß Gesamtauftrag direkt OE-18, ohne
   Wartepunkt für einen menschlichen Playtest.
+
+
+## OE-18 – Start: reale Food-Qualität
+
+- OE-17 ist nach finalen11/11 Prüfungen als `b30718f` committed.
+- OE-18 **IN_PROGRESS**; maßgeblich ist der vor der Implementierung erstellte
+  [Food-Vertrag](../original-economy/food-runtime.md), ausschließlich Rule10/Schema26 Revision18.
+- Getrennte zwei-Crop-Mengen, bezahlter Farmhouse193/Fields195,196, echte
+  Market-/Hausankunft und originale Mischung; Source-Scores und Food-Sink authored.
+- Gate C bleibt TODO. Keine vorgezogene Originalgrafik-/Evolution-/Endabnahme.
+
+
+### OE-18 – bezahlte Food-Kette und tatsächliche Qualitätsankunft
+
+- **Basis und Vertrag:** OE-17 `b30718fe08fb118da5dce05a6846d10bfaf3adeb`;
+  [vorab festgelegter Food-Vertrag](../original-economy/food-runtime.md).
+  Nur Rule10/Schema26/policy3 wechselt auf Revision18. Echte bezahlte
+  Farmhouse193-Körper3×3 und separat gekaufte Wheat195-/Millet196-Felder1×1
+  verwenden gebundene Modellkosten/-Employees. Maximal zwei Farms mit je
+  genau einem ausdrücklich zugeordneten Feld. Alte Farm-/Foodprofile bleiben
+  unverändert; kein Gratisfeld, Bestand, Bewohner oder Worker.
+- **Laufzeit:** getrennte zwei-Crop-Mengen, eigene reale Farm→Market- und
+  Market→House-Couriers, sechs begrenzte letzte Trips,26 begrenzte Konten.
+  `loaded-delivered-returned` ist sole Cargo; alte Food-/Cargo-/Residentfelder
+  bleiben0. Physische Reservation und Rückkehrraum, Pausen, begonnene Kante,
+  Roads, Fire, Workforce und gewöhnlicher Navigator bleiben verbindlich.
+  Pro Besitzer und Crop gilt exakt harvest+received+returned=stock+departed+consumed.
+- **Original und authored:** ausschließlich positive tatsächliche Hausankunft
+  mischt Qualität über den unveränderten Originalkern und akzeptierte Mengen.
+  Source-Scores Wheat20/Millet80 und deren volumenabhängige Mischung sind
+  ausdrücklich authored; ursprüngliche Scoreerzeugung/Diversität bleiben offen.
+  Food-Sink1 an denselben0/7-Grenzen, Wheat-first, Missed Demand und Leerung→
+  Qualität0 sind ebenfalls authored. HouseState ist die einzige Qualitätsauthority;
+  ein gespeicherter Arrival-Witness bindet vorherige Mengen, Qualität und echten
+  Transfer. Kein konstantes20 aus bloßem Stock und keine additive Behauptung
+  einer bei Originalrundung konservierten quality-times-volume-Masse.
+- **Modell und Bedürfnisse:** alle fünf Originalschwierigkeiten gegen die
+  unveränderte Modelldatei geprüft, inklusive tatsächlich berechneter
+  Farm-/Feldpreise und Farmworker. Historische sieben Modellzeilen bleiben
+  gleich.11 von16 Originalmodul-Dateien sind bytegleich; fünf eng geprüfte
+  additive Modell-/Mappingänderungen ergänzen ausschließlich zwei benannte
+  Feldzeilen und neue aktive Bindungen. Die reinen Blend-/Housing-/Warenformeln
+  bleiben exakt. Ein ausdrücklich synthetischer Foodbedarf80 prüft tatsächliche
+  Housezustände: leer falsch, reale Wheat20 falsch, reale Millet80 wahr,
+  tatsächliche Leerung wieder falsch; noch keine World-Evolution vor OE-21.
+- **Vollständige relevante Tests:** je53 CTests in Debug/Release/ASan+UBSan,
+  insgesamt **159 PASS**,0 Fehler/0 Skips, auf vollständiger Quelle
+  `b53edf2d3f505551ff8ba506f556f6a2768d1d986711c8655978a5c4db17e4c2`.
+  Zeiten194.866/11.478/81.612s. FoodSave verweigert230 Manipulationen; echte
+  gemischte20/80-Ankünfte, voller Empfänger/Teilmenge, Rückkehr, Missing Food,
+  Ursprung, Phase, Grenzen, Witness und gebundene Finanzfälschung sind geprüft.
+  20k-Direktreplay und zwei20k-Savefortsetzungen bleiben vollständig gleich.
+- **Warnungsabschluss und ehrliche Quellenbindung:** sieben mehrdeutige
+  Einrückungen in genau `OriginalProductionFixture.cpp` und
+  `OriginalFoodWorldTests.cpp` wurden ausschließlich mit Whitespace berichtigt.
+  Die frühere fehlende optionale Initialisierung war bereits vor b53 behoben;
+  erste Buildlogs enthielten noch diese alten Diagnosen. Nach dem Formatfix:
+  drei neue komplette43-Target-Builds ohne Warnungen und zusätzlich je ein
+  tatsächlicher FoodWorld-Test, also **3 weitere PASS**,10.156/0.917/4.359s.
+  Damit sind insgesamt162 tatsächlich ausgeführte Konfigurationsfälle bestanden.
+  Der private `format-only-binding/`-Nachweis vergleicht Clang-Tokens, Literale,
+  Kommentare und Präprozessorzeilen exakt und rekonstruiert das komplette
+  b53-Sourceinventar allein mit den beiden gesicherten Vorbildern. Kein Token,
+  Assert, Preis, Runtime-/Modell-/DTO-/CMakebyte geändert. Der tatsächliche
+  Release-Prozessfixture bleibt bytegleich mit SHA
+  `e967d33e3bd5ad4352bc2da322ec8d167cd4a59f16034e997c453b16db4402ad`.
+  Die159er-/Prozess-/SDL-/Legacy-Belege werden ausdrücklich als b53-Läufe
+  bewahrt und streng an diese Formatänderung gebunden, nicht umetikettiert.
+- **Tatsächliche Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/reswall/release-build --output .local/original-economy/oe18/production-fixtures/final-53`:
+  **PASS**, acht separate OS-Restarts mit je10000 Ticks, echtem bezahltem
+  Straßenbau und weiteren10000 Ticks. Ganze SaveDocuments, Rohbytes,
+  Provenance, Berichte und Bilanzen gleich. Separater Originalmodell-/authored
+  H/C1/1-/Foodpfad; Food zahlt12 Häuser,77 Straßen,zwei Farms,zwei Felder und
+  einen Markt:1363 ausgegeben/10637 Funds, anfangs0 Bewohner, später84 reguläre
+  Bewohner. Reale Lieferung: Wheat20,3W+1M→35 und reine Millet4→80 bei Haus5/
+  Tick2750. Straßenreparatur kostet weitere2 Funds. Kein Source-/Stategrant.
+  Report SHA `b025edf1e9d13d18c38d81f8ab3bbbdd2e57a563fda89fd80a44fb50a478be62`.
+  Unabhängiger Postreview prüft148 Artefakte/4316994 Bytes. Sechs tatsächliche
+  C++-/Python-Ausgabegrenzen verweigern Outside, echten Symlink und alten
+  OE-17-Root ohne Ausgabe;19 Pythonverträge PASS. Originalinventar1464 Dateien/
+  819711091 Bytes und Metadaten unverändert.
+- **Unabhängiger Rohdaten-Audit:**242831 Checks PASS,45 Schema26-Dokumente,
+  davon20 mit Foodfarms,40 aus gespeicherten Feldern rekonstruierte Foodreports
+  und acht direkte vollständige Restartsets. Cropmassen, Cargo, Quelle,
+  Ankunft, Clock, Funds und binäre32-Rundung unabhängig rekonstruiert.
+  `oe18/world/raw-food-audit.json` SHA
+  `d152cdb7d106aa88a83b32ced4c7c54b2bced234dbc20a445050c95ed071bce7`.
+  Rawbytes allein beweisen keine Prozessausführung; diese ist separat oben belegt.
+- **Parität und Legacy:** Debug/Release/Sanitizer je74/74 tatsächliche
+  Forkvergleiche, weiterhin46 parity/18 corrected_bug/6 unverified/4 unsupported;
+  21 aktuelle Archive,25 strikte Sanitizerprozesse stderrleer und28 Pythonverträge
+  PASS. Portable `core-parity.json` SHA
+  `52d1a54304d1b87cf1c6ac99c7474d2d9dc03d8ff000355c15e6ed868bef4444`.
+  Frischer vollständiger OE-00-Workflow **PASS** mit source_unchanged=true auf
+  b53:72 ganze Saves und72 Snapshots unabhängig wörtlich bytegleich,
+  167 Maps/165 vorbereitet/zwei bekannte Konflikte,1485 Policyfälle und elf
+  Rampen-/zehn Bridge-Restartpaare. Gesamter Vertragsdigest unverändert
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`.
+  Zusätzlich Rule7 ein, Rule8 sechs und Rule9 zehn eingefrorene Save-Literale exakt.
+- **SDL und Grenzen:** tatsächliche Dummy-/Softwareaufnahme geöffnet und an
+  beobachtete JSON-/Save-Sidecars gebunden: Revision18/Tick1970/Funds10802,
+  synthetische Kapazität37,148 regulär eingewanderte Bewohner, ausgewähltes
+  Haus2 H2/C7/Food[1,0]/Qualität20. Bezahlte O/W/L-Tastatur-/Mausbefehle,
+  Food-Midcourier-F5/F9 und100 Idleframes ohne World-/Datei-/Asset-/BFSarbeit.
+  Dies ist positive Food-Ankunfts-/Qualitätspräsentation, keine vollständige
+  Originalgrafik-/native-/menschliche Abnahme. Native/human **NOT_RUN**;
+  Originalsprites und vollständige Objektkomposition bleiben Pflicht von OE-29.
+- **Erhaltene Fehlversuche:** erster anonymer Validator kollidierte beim Build
+  mit World::validate und wurde gezielt umbenannt. Der SDL-Test wartete zuerst
+  auf irgendein Food-Haus statt das nachfolgend ausgewählte dreifach versorgte
+  Haus; Wartebedingung wurde verschärft. Vier aktive ältere Tests erwarteten
+  noch den einzelnen Ceramics-Distributor bzw Revision17; nun prüfen sie die
+  beiden exakten bezahlten Rollen/Owner und Revision18. Erste Paritätsprüfung
+  startete vor Export des frischen Berichts. Alte FAIL-Logs/XML/Resultate und
+  die Einrückungswarnungen bleiben privat erhalten; kein Assertionabbau.
+- **Abschluss:** finale Quelle
+  `c3cfaf8b4f61ab06f689aa1e1aed9762d656638437428d8deb9c5e5513ada9b3`,
+ 37 Sourcepfade/43 gesamte Taskpfade. OE-18 technisch PASS; eigener Commit
+ folgt nach strikter Abschlussprüfung. Gate C und OE-19 bleiben bis dessen
+ tatsächlichem Start TODO. Danach unmittelbar OE-19, ohne manuellen Testhalt.

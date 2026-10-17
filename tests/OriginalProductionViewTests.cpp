@@ -48,7 +48,8 @@ int main(int argc,char** argv) {
         view->configure_save(data,"Cities/A.map",target);view->initialize(window,renderer);
         check(view->world().rule_version()==10 && view->world().treasury()==12000 && view->paused(),"Production identity");
         const auto& buttons=view->layout().buttons;
-        for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField}) {
+        for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField,
+                oe::sandbox_ui::Action::OriginalFoodFarm,oe::sandbox_ui::Action::OriginalWheatField,oe::sandbox_ui::Action::OriginalMilletField}) {
             const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
             check(button!=buttons.end() && view->layout().button_at(button->rect.x+2,button->rect.y+2)==action &&
                 !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
@@ -141,6 +142,43 @@ int main(int argc,char** argv) {
                 both_goods|=house.house.hemp>0 && house.house.ceramics>0;
         }
         check(both_goods,"No authoritative House received two independently transported original goods");
+        const auto food_funds=view->world().treasury();
+        for(int x=104;x<=117;++x) buy(sim::CommandType::PlaceRoad,{x,106});
+        for(int y:{104,105})buy(sim::CommandType::PlaceRoad,{104,y});
+        key(*view,SDLK_O);check(view->tool()==18,"Food Farm keyboard tool unavailable");
+        click(*view,{104,107});
+        check(view->world().object_at({106,109})==sim::Object::OriginalFoodFarm &&
+            view->selected_building()==view->world().building_owner_at({104,107}),"Paid Food Farm lost3x3 occupancy or explicit selection");
+        key(*view,SDLK_W);check(view->tool()==19,"Wheat Field keyboard tool unavailable");
+        click(*view,{107,107});check(view->world().object_at({107,107})==sim::Object::OriginalWheatField,"Paid Wheat Field mouse command failed");
+        key(*view,SDLK_O);click(*view,{110,107});
+        check(view->world().object_at({112,109})==sim::Object::OriginalFoodFarm,"Second paid Food Farm footprint failed");
+        key(*view,SDLK_L);check(view->tool()==20,"Millet Field keyboard tool unavailable");
+        click(*view,{113,107});check(view->world().object_at({113,107})==sim::Object::OriginalMilletField,"Paid Millet Field mouse command failed");
+        check(food_funds-view->world().treasury()==200,"Food Farms, Fields and access roads were not separately paid");
+        bool food_trip=false;
+        for(int i=0;i<10000 && !food_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers()) if(c.role==sim::CourierRole::OriginalFoodToHouse &&
+                c.phase==sim::CourierPhase::ToWarehouse && c.edge_progress>0 && view->world().original_food_cargo(c.id)>0) {
+                const auto rows=view->walker_diagnostics();
+                const auto row=std::find_if(rows.begin(),rows.end(),[&](const auto& value){return value.id==c.id;});
+                check(c.cargo==0 && c.reserved==0 && row!=rows.end() && row->cargo==view->world().original_food_cargo(c.id),
+                    "Actual Food cargo hidden by movement or visual diagnostics");
+                food_trip=true;break;
+            }
+        }
+        check(food_trip,"Paid Food chain never dispatched an actual House courier");
+        const auto food_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<80;++i)view->tick_once();
+        key(*view,SDLK_F9);check(view->world().snapshot()==food_saved,"Food midcourier F5/F9 changed sole crop or quality authority");
+        bool real_quality=false;
+        for(int i=0;i<10000 && !real_quality;++i) {
+            view->tick_once();
+            for(const auto& house:view->world().original_economy_state()->houses)
+                real_quality|=house.house.food_quality>0 && house.house.hemp>0 && house.house.ceramics>0;
+        }
+        check(real_quality,"Actual Food House arrival never applied quality");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -152,7 +190,7 @@ int main(int argc,char** argv) {
         f::write_text(target,current);key(*view,SDLK_F9);
         std::optional<sim::Cell> supplied;
         for(const auto& house:view->world().original_economy_state()->houses)
-            if(house.house.hemp>0 && house.house.ceramics>0) {supplied=view->world().building(house.building_id).cell;break;}
+            if(house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0) {supplied=view->world().building(house.building_id).cell;break;}
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
         oe::performance::set_enabled(true);oe::performance::reset();
@@ -164,10 +202,27 @@ int main(int argc,char** argv) {
             check(oe::performance::counter(counter)==0,"Production frame prepared or mutated state");
         oe::performance::set_enabled(false);
         if(argc==2){auto* frame=SDL_RenderReadPixels(renderer,nullptr);check(frame!=nullptr,"Capture pixels");
-            const bool okay=SDL_SavePNG(frame,argv[1]);SDL_DestroySurface(frame);check(okay,"Capture output");}
+            const bool okay=SDL_SavePNG(frame,argv[1]);SDL_DestroySurface(frame);check(okay,"Capture output");
+            const auto id=*view->selected_building();
+            const auto& houses=view->world().original_economy_state()->houses;
+            const auto h=std::find_if(houses.begin(),houses.end(),[&](const auto& value){return value.building_id==id;});
+            check(h!=houses.end() && h->house.food_quality>0,"Captured House lost its actual Food quality");
+            nlohmann::json observed{{"development_revision",view->world().original_production_state()->development_revision},
+                {"ticks",view->world().ticks()},{"funds",view->world().treasury()},
+                {"population",view->world().total_population()},
+                {"selected_house",static_cast<unsigned>(id)},
+                {"selected_house_food_quality",h->house.food_quality},
+                {"selected_house_hemp",h->house.hemp},{"selected_house_ceramics",h->house.ceramics},
+                {"model_sha256",view->world().original_rules_model()->provenance().sha256},
+                {"synthetic_model",true},{"idle_frames",100},{"idle_world_unchanged",true}};
+            for(const auto& row:view->world().original_production_state()->food.stocks) if(row.building_id==id)
+                observed["selected_house_food"]=row.amounts;
+            auto output=fs::path(argv[1]);output.replace_extension(".observed.json");f::write_text(output,observed.dump(2));
+            output=fs::path(argv[1]);output.replace_extension(".save.json");f::write_text(output,current);
+        }
         view->shutdown();view.reset();
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
-        std::cout<<"Original production SDL paid Hemp Farm/Field, two-goods House arrivals, typed midcourier F5/F9/100 idle frames PASS\n";return 0;
+        std::cout<<"Original production SDL paid Hemp and two Food crops, actual House quality, typed midcourier F5/F9/100 idle frames PASS\n";return 0;
     }catch(const std::exception& error){
         std::cerr<<error.what()<<'\n';SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 1;
     }

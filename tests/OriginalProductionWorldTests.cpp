@@ -108,10 +108,11 @@ void immigration_and_paid_origin() {
     const auto actors=world.couriers().size();
     f::buy(world,{sim::CommandType::PlaceMarket,{20,12}});
     const auto market=*world.building_owner_at({20,12});
-    check(world.construction_spent_total()==958 && world.couriers().size()==actors+1 &&
-        world.couriers().back().owner==market &&
-        world.couriers().back().role==sim::CourierRole::MarketPotteryDistribution,
-        "Paid revision15 Market must create exactly its real Ceramics distributor");
+    check(world.construction_spent_total()==958 && world.couriers().size()==actors+2 &&
+        world.couriers()[actors].owner==market && world.couriers()[actors+1].owner==market &&
+        world.couriers()[actors].role==sim::CourierRole::MarketPotteryDistribution &&
+        world.couriers()[actors+1].role==sim::CourierRole::OriginalFoodToHouse,
+        "Paid revision18 Market must create exactly its actual Ceramics and Food distributors");
     check(sim::World::restore_original_production_development(world.snapshot(),fixture.policy,fixture.model).snapshot()==world.snapshot(),
         "Paid Market could not restore with real typed ownership");
 }

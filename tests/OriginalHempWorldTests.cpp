@@ -52,8 +52,10 @@ sim::CourierId loaded_hemp(sim::World& w,int limit=5000){
 }
 void paid_two_goods(){
     Fixture f;auto w=f.world();const auto s=scene(w);
-    check(w.original_production_state()->development_revision==17&&w.construction_spent_total()==1162&&w.treasury()==10838&&
-        w.workforce_required(s.farm)==18&&w.couriers().size()==5,"Paid Farm40/Field4/model18worker facts mismatch");
+    check(w.original_production_state()->development_revision==18&&w.construction_spent_total()==1162&&w.treasury()==10838&&
+        w.workforce_required(s.farm)==18&&w.couriers().size()==6&&
+        std::count_if(w.couriers().begin(),w.couriers().end(),[](const auto& c){return c.role==sim::CourierRole::OriginalFoodToHouse;})==1,
+        "Paid Farm40/Field4/model18worker and additional Market Food actor facts mismatch");
     check(sim::building_footprint(w.profile(),w.rule_version(),sim::Object::OriginalHempFarm)==sim::BuildingFootprint{2,2}&&
         sim::building_footprint(w.profile(),w.rule_version(),sim::Object::OriginalHempField)==sim::BuildingFootprint{1,1},"Farm/Field geometry mismatch");
     ticks(w,119);check(!harvested(w)&&w.total_population()==0,"Hemp preceded genuine immigrant workforce");
@@ -157,5 +159,5 @@ void historical_ceramics_cannot_create_hemp_arrivals(){
 }
 }
 int main(){try{paid_two_goods();missing_field_workers_and_pauses();full_disconnected_cancelled();historical_ceramics_cannot_create_hemp_arrivals();
-    std::cout<<"Rule10 revision17 paid Farm/Field two-good House supply, bounded harvest, actual workforce/transport and20k replay PASS\n";return 0;
+    std::cout<<"Rule10 revision18 paid Farm/Field two-good House supply, bounded harvest, actual workforce/transport and20k replay PASS\n";return 0;
 }catch(const std::exception& e){std::cerr<<"Original Hemp World FAIL: "<<e.what()<<'\n';return 1;}}

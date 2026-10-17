@@ -319,7 +319,7 @@ void functional_mapping_checks() {
     check(!source.candidate && source.functional == Status::Unknown &&
           source.mechanics_identity == Status::Unknown && source.presentation_identity == Status::Unknown,
           "authored influence binding does not upgrade functional or original identity evidence");
-    constexpr auto first_invalid = static_cast<Object>(static_cast<unsigned>(Object::OriginalHempField) + 1U);
+    constexpr auto first_invalid = static_cast<Object>(static_cast<unsigned>(Object::OriginalMilletField) + 1U);
     for (const auto bad : {first_invalid, static_cast<Object>(255)})
         expect_exception<std::out_of_range>([&] { (void)original::functional_model_candidate(bad); }, "invalid Object is not merely unmapped");
 }

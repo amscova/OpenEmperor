@@ -254,6 +254,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalProduction.cpp
     src/simulation/WorldOriginalMarket.cpp
     src/simulation/WorldOriginalHemp.cpp
+    src/simulation/WorldOriginalFood.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
@@ -907,6 +908,18 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-consumption-save-tests)
     add_test(NAME original-consumption-save COMMAND openemperor-original-consumption-save-tests)
     set_tests_properties(original-consumption-save PROPERTIES TIMEOUT 120)
+
+    add_executable(openemperor-original-food-save-tests tests/OriginalFoodSaveTests.cpp)
+    target_link_libraries(openemperor-original-food-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-food-save-tests)
+    add_test(NAME original-food-save COMMAND openemperor-original-food-save-tests)
+    set_tests_properties(original-food-save PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-food-world-tests tests/OriginalFoodWorldTests.cpp)
+    target_link_libraries(openemperor-original-food-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-food-world-tests)
+    add_test(NAME original-food-world COMMAND openemperor-original-food-world-tests)
+    set_tests_properties(original-food-world PROPERTIES TIMEOUT 180)
 
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)

@@ -171,7 +171,8 @@ template<class Buildings,class Couriers> void validate_market_bindings(const Bui
 bool World::original_market_courier(CourierRole role) const {return original_production_enabled() && typed(role);}
 int World::original_courier_cargo(CourierId id) const {
     if (!original_production_enabled()) return 0;
-    (void)courier(id);return cargo(*original_goods_,id);
+    const auto& c=courier(id);
+    return original_food_courier(c.role) ? original_food_cargo(id):cargo(*original_goods_,id);
 }
 std::optional<original::Goods> World::original_courier_good(CourierId id) const {
     if (!original_production_enabled()) return std::nullopt;

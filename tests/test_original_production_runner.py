@@ -44,6 +44,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe14/production-fixtures/run",
                        self.repo / ".local/original-economy/oe15/production-fixtures/run",
                        self.repo / ".local/original-economy/oe16/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe17/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -267,6 +268,71 @@ class ProductionRunnerTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             runner.frozen_rule9(self.repo)
         self.assertEqual(self.entries(), before)
+
+    @staticmethod
+    def food_scene():
+        def stock(identity, kind, amounts, received, departed, consumed):
+            return {"id": identity, "kind": kind, "amounts": amounts, "received": received,
+                    "departed": departed, "returned": [0, 0], "consumed": consumed,
+                    "missed_demands": 0, "quality": 0, "quality_witness": None}
+        rows = [stock(1, 6, [1, 1], [2, 2], [0, 0], [1, 1]),
+                stock(2, 16, [0, 0], [0, 0], [4, 0], [0, 0]),
+                stock(3, 9, [2, 2], [4, 4], [2, 2], [0, 0]),
+                stock(4, 16, [0, 0], [0, 0], [0, 4], [0, 0])]
+        rows[0].update(quality=50, quality_witness={"courier_id": 2, "sequence": 1, "tick": 10,
+            "accepted": [2, 2], "consumed_before": [0, 0], "previous_quality": 0})
+        trips = [{"courier_id": courier, "sequence": 1, "source": source, "target": target, "phase": 3,
+                  "loaded": amounts, "delivered": amounts.copy(), "returned": [0, 0], "cargo": [0, 0], "batch_quality": 0}
+                 for courier, source, target, amounts in ((1, 2, 3, [4, 0]), (2, 3, 1, [2, 2]), (3, 4, 3, [0, 4]))]
+        return {"tick": 11, "houses": [{"id": 1, "food_quality": 50}],
+            "couriers": [{"id": courier, "role": role, "food_cargo": 0} for courier, role in ((1, 13), (2, 14), (3, 13))],
+            "food": {"conserved": True, "farms": [{"farm_id": 2, "field_id": 5, "crop": 0, "harvested": 4},
+                        {"farm_id": 4, "field_id": 6, "crop": 1, "harvested": 4}],
+                     "stocks": rows, "trips": trips, "produced": [4, 4], "stock": [3, 3], "cargo": [0, 0], "consumed": [1, 1]}}
+
+    def test_food_arrival_witness_and_per_crop_mass_are_checked_independently(self):
+        scene = self.food_scene()
+        runner.check_food(scene, positive=True)
+        for mutation in (lambda row: row["food"]["stocks"][0].update(quality=51),
+                         lambda row: row["food"]["stocks"][0]["quality_witness"].update(previous_quality=20),
+                         lambda row: row["food"]["stocks"][0]["quality_witness"].update(accepted=[3, 1]),
+                         lambda row: row["food"]["stocks"][0]["quality_witness"].update(courier_id=1),
+                         lambda row: row["food"]["stocks"][0]["quality_witness"].update(sequence=2),
+                         lambda row: row["food"]["stocks"][0]["quality_witness"].update(tick=12),
+                         lambda row: row["food"]["stocks"][0].update(amounts=[True, 1]),
+                         lambda row: row["food"]["stocks"][1].update(departed=[3, 0]),
+                         lambda row: row["food"]["trips"][1].update(batch_quality=20),
+                         lambda row: row["food"]["produced"].__setitem__(1, 5)):
+            bad = copy.deepcopy(scene)
+            mutation(bad)
+            with self.subTest(scene=bad), self.assertRaises(AssertionError):
+                runner.check_food(bad)
+
+    def test_food_quality_is_zero_when_consumed_empty_and_cannot_be_credited(self):
+        scene = self.food_scene()
+        home = scene["food"]["stocks"][0]
+        home.update(amounts=[0, 0], consumed=[2, 2], quality=0)
+        scene["houses"][0]["food_quality"] = 0
+        scene["food"].update(stock=[2, 2], consumed=[2, 2])
+        runner.check_food(scene, positive=True)
+        home["quality"] = scene["houses"][0]["food_quality"] = 50
+        with self.assertRaises(AssertionError):
+            runner.check_food(scene)
+        empty = self.food_scene()
+        empty["food"]["stocks"][0]["quality_witness"] = None
+        with self.assertRaises(AssertionError):
+            runner.check_food(empty)
+
+    def test_food_weighted_score_and_original_blend_vectors(self):
+        for amounts, expected in (([0, 0], 0), ([4, 0], 20), ([0, 4], 80), ([3, 1], 35), ([1, 1], 50), ([1, 4], 68)):
+            self.assertEqual(runner.food_batch_quality(amounts), expected)
+        for amounts in ([-1, 1], [True, 1], [0.0, 1], [2**31 - 1, 1]):
+            with self.subTest(amounts=amounts), self.assertRaises(AssertionError):
+                runner.food_batch_quality(amounts)
+        for delivered, previous, expected in ((1, 4, 65), (1, 2, 60), (2, 2, 50), (3, 1, 40), (4, 1, 35)):
+            self.assertEqual(runner.food_blend(80, 20, delivered, previous), expected)
+        self.assertEqual(runner.food_blend(20, 80, 0, 4), 20)
+        self.assertEqual(runner.food_blend(20, 80, 1, 4), 80)
 
 
 if __name__ == "__main__":

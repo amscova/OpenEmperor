@@ -49,6 +49,15 @@ struct FunctionalModelCandidate {
     case Object::OriginalHempField:
         return {ModelBuilding::HempField, EvidenceStatus::AuthoredFallback,
                 EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalFoodFarm:
+        return {ModelBuilding::Farmhouse, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalWheatField:
+        return {ModelBuilding::WheatField, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalMilletField:
+        return {ModelBuilding::MilletField, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
     case Object::Empty:
     case Object::Road:
     case Object::Workshop:

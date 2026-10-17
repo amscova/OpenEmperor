@@ -33,6 +33,9 @@ template<class Courier> int displayed_courier_cargo(const simulation::World& wor
         std::max(courier.cargo,world.original_courier_cargo(courier.id)):courier.cargo;
 }
 template<class Courier> int displayed_courier_reservation(const simulation::World& world,const Courier& courier) {
+    if (world.original_production_enabled() && courier.phase==simulation::CourierPhase::ToWarehouse &&
+        (courier.role==simulation::CourierRole::OriginalFoodToMarket || courier.role==simulation::CourierRole::OriginalFoodToHouse))
+        return world.original_food_cargo(courier.id);
     if (world.original_production_enabled() && world.original_goods_state()) {
         for (const auto& row:world.original_goods_state()->reservations)
             if (row.transfer.courier_id==courier.id)
@@ -67,6 +70,8 @@ const char* courier_role_label(simulation::CourierRole role) {
     case simulation::CourierRole::FireInspector: return "FireInspector";
     case simulation::CourierRole::HealthWorker: return "HealthWorker";
     case simulation::CourierRole::OriginalHempToWarehouse: return "HempToWarehouse";
+    case simulation::CourierRole::OriginalFoodToMarket: return "FoodToMarket";
+    case simulation::CourierRole::OriginalFoodToHouse: return "FoodToHouse";
     case simulation::CourierRole::None: return "None";
     }
     return "Unknown";
@@ -138,6 +143,9 @@ const char* tool_name(simulation::RulesProfile rules,int tool) {
         case 12: return "Well";
         case 16: return "Hemp Farm";
         case 17: return "Hemp Field: select a Farm, then place an adjacent paid field";
+        case 18: return "Food Farmhouse: 3x3, buy an adjacent field separately";
+        case 19: return "Wheat Field: select a Food Farm, place adjacent field";
+        case 20: return "Millet Field: select a Food Farm, place adjacent field";
         default: return "Select";
         }
     }
@@ -166,6 +174,9 @@ const char* object_name(simulation::Object object) {
     case simulation::Object::FireWatch: return "Fire Watch";
     case simulation::Object::OriginalHempFarm: return "Hemp Farm";
     case simulation::Object::OriginalHempField: return "Hemp Field";
+    case simulation::Object::OriginalFoodFarm: return "Food Farmhouse";
+    case simulation::Object::OriginalWheatField: return "Wheat Field";
+    case simulation::Object::OriginalMilletField: return "Millet Field";
     }
     return "Unknown";
 }
@@ -188,6 +199,9 @@ simulation::CommandType command_type(simulation::RulesProfile rules,int tool,boo
         case 14: return simulation::CommandType::PlaceBridge;
         case 16: return simulation::CommandType::PlaceOriginalHempFarm;
         case 17: return simulation::CommandType::PlaceOriginalHempField;
+        case 18: return simulation::CommandType::PlaceOriginalFoodFarm;
+        case 19: return simulation::CommandType::PlaceOriginalWheatField;
+        case 20: return simulation::CommandType::PlaceOriginalMilletField;
         default: return simulation::CommandType::PlaceHousehold;
         }
     }
@@ -1677,7 +1691,7 @@ simulation::CommandResult SandboxView::preview(simulation::Cell cell) const {
 }
 simulation::Command SandboxView::placement_command(simulation::Cell cell) const {
     simulation::Command command{command_type(rules_,tool_,original_influence_fixture()),cell};
-    if (tool_==17) command.building_id=selected_building().value_or(simulation::BuildingId{});
+    if (tool_==17 || tool_==19 || tool_==20) command.building_id=selected_building().value_or(simulation::BuildingId{});
     return command;
 }
 void SandboxView::set_tool(int tool) {
@@ -1703,6 +1717,9 @@ void SandboxView::set_tool(int tool) {
     case 14: action=sandbox_ui::Action::Bridge; break;
     case 16: action=sandbox_ui::Action::OriginalHempFarm; break;
     case 17: action=sandbox_ui::Action::OriginalHempField; break;
+    case 18: action=sandbox_ui::Action::OriginalFoodFarm; break;
+    case 19: action=sandbox_ui::Action::OriginalWheatField; break;
+    case 20: action=sandbox_ui::Action::OriginalMilletField; break;
     default: return;
     }
     if (action_enabled(action)) perform_action(action);
@@ -1731,6 +1748,19 @@ bool SandboxView::action_enabled(sandbox_ui::Action action) const {
         return std::count_if(world_->buildings().begin(),world_->buildings().end(),
             [&](const simulation::BuildingState& b) { return b.placed && b.kind==kind; });
     };
+    if (action==sandbox_ui::Action::OriginalFoodFarm || action==sandbox_ui::Action::OriginalWheatField || action==sandbox_ui::Action::OriginalMilletField) {
+        if (!original_production_fixture()) return false;
+        const bool field=action!=sandbox_ui::Action::OriginalFoodFarm;
+        const auto command=!field ? simulation::CommandType::PlaceOriginalFoodFarm:
+            action==sandbox_ui::Action::OriginalWheatField ? simulation::CommandType::PlaceOriginalWheatField:simulation::CommandType::PlaceOriginalMilletField;
+        if (world_->treasury()<world_->construction_cost(command)) return false;
+        const auto& farms=world_->original_production_state()->food.farms;
+        if (!field) return farms.size()<2;
+        const auto selected=selected_building();
+        if (!selected || world_->building(*selected).kind!=simulation::Object::OriginalFoodFarm) return false;
+        const auto farm=std::find_if(farms.begin(),farms.end(),[&](const auto& row){return row.farm_id==*selected;});
+        return farm!=farms.end() && !farm->field_id;
+    }
     if (action==sandbox_ui::Action::OriginalHempFarm || action==sandbox_ui::Action::OriginalHempField) {
         if (!original_production_fixture()) return false;
         const bool field=action==sandbox_ui::Action::OriginalHempField;
@@ -1966,6 +1996,9 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         else if (action==A::Farm) command=simulation::CommandType::PlaceFarm;
         else if (action==A::OriginalHempFarm) command=simulation::CommandType::PlaceOriginalHempFarm;
         else if (action==A::OriginalHempField) command=simulation::CommandType::PlaceOriginalHempField;
+        else if (action==A::OriginalFoodFarm) command=simulation::CommandType::PlaceOriginalFoodFarm;
+        else if (action==A::OriginalWheatField) command=simulation::CommandType::PlaceOriginalWheatField;
+        else if (action==A::OriginalMilletField) command=simulation::CommandType::PlaceOriginalMilletField;
         else if (action==A::ServicePost) command=simulation::CommandType::PlaceServicePost;
         else if (action==A::Market) command=simulation::CommandType::PlaceMarket;
         else if (action==A::FireWatch) command=simulation::CommandType::PlaceFireWatch;
@@ -1981,13 +2014,15 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
     }
     if (action==A::Select || action==A::Road || action==A::Clay || action==A::Pottery ||
         action==A::Warehouse || action==A::RemoveRoad || action==A::Household ||
-        action==A::Farm || action==A::OriginalHempFarm || action==A::OriginalHempField || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || (action==A::Bridge || action==A::Ramp)) {
+        action==A::Farm || action==A::OriginalHempFarm || action==A::OriginalHempField || action==A::OriginalFoodFarm ||
+        action==A::OriginalWheatField || action==A::OriginalMilletField || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || (action==A::Bridge || action==A::Ramp)) {
         cancel_gesture();
         tool_=action==A::Select ? (simulation::production_profile(rules_) ? 5:4) :
             action==A::Road ? 1 : action==A::Clay ? 2 : action==A::Pottery ? 3 :
             action==A::Warehouse ? (simulation::production_profile(rules_) ? 4:3) :
             action==A::RemoveRoad ? 6:action==A::Household ? 7:action==A::Farm ? 8:
-            action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:action==A::Ramp ? 15:action==A::OriginalHempFarm ? 16:action==A::OriginalHempField ? 17:0;
+            action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:action==A::Ramp ? 15:action==A::OriginalHempFarm ? 16:action==A::OriginalHempField ? 17:
+            action==A::OriginalFoodFarm ? 18:action==A::OriginalWheatField ? 19:action==A::OriginalMilletField ? 20:0;
         last_message_=original_influence_fixture() && tool_==12 ? "Well72 influence source: 2x2, $60, no water":
             tool_==15 ? "Ramp: neighboring roads, one signed level, $40":tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
     } else if (action==A::ServiceOverlay) {
@@ -2262,6 +2297,9 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         else if (event.key.key==SDLK_J && simulation::health_profile(rules_)) set_tool(13);
         else if (event.key.key==SDLK_N && original_production_fixture()) set_tool(16);
         else if (event.key.key==SDLK_M && original_production_fixture()) set_tool(17);
+        else if (event.key.key==SDLK_O && original_production_fixture()) set_tool(18);
+        else if (event.key.key==SDLK_W && original_production_fixture()) set_tool(19);
+        else if (event.key.key==SDLK_L && original_production_fixture()) set_tool(20);
         else if(event.key.key==SDLK_P && world_->ramps_supported() && !walker_diagnostic_open_)set_tool(15);
         else if(event.key.key==SDLK_B && world_->bridges_supported() && !walker_diagnostic_open_)set_tool(14);
         else if (event.key.key==SDLK_K && simulation::health_profile(rules_))
@@ -3108,7 +3146,8 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
                 color=debug_open_ ? SDL_Color{90,245,125,255}:SDL_Color{101,128,100,255};
             if (object==simulation::Object::Farm)
                 color=debug_open_ ? SDL_Color{220,190,55,255}:SDL_Color{126,119,70,255};
-            if (object==simulation::Object::OriginalHempFarm || object==simulation::Object::OriginalHempField)
+            if (object==simulation::Object::OriginalHempFarm || object==simulation::Object::OriginalHempField ||
+                object==simulation::Object::OriginalFoodFarm || object==simulation::Object::OriginalWheatField || object==simulation::Object::OriginalMilletField)
                 color=debug_open_ ? SDL_Color{105,220,90,255}:SDL_Color{89,126,68,255};
             if (object==simulation::Object::ServicePost)
                 color=debug_open_ ? SDL_Color{80,205,255,255}:SDL_Color{91,119,132,255};
@@ -3269,6 +3308,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==9 ? simulation::Object::ServicePost:
             tool_==16 ? simulation::Object::OriginalHempFarm:
             tool_==17 ? simulation::Object::OriginalHempField:
+            tool_==18 ? simulation::Object::OriginalFoodFarm:
+            tool_==19 ? simulation::Object::OriginalWheatField:
+            tool_==20 ? simulation::Object::OriginalMilletField:
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
             tool_==11 ? simulation::Object::FireWatch:
@@ -3576,6 +3618,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==9 ? simulation::Object::ServicePost:
             tool_==16 ? simulation::Object::OriginalHempFarm:
             tool_==17 ? simulation::Object::OriginalHempField:
+            tool_==18 ? simulation::Object::OriginalFoodFarm:
+            tool_==19 ? simulation::Object::OriginalWheatField:
+            tool_==20 ? simulation::Object::OriginalMilletField:
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
             tool_==11 ? simulation::Object::FireWatch:
@@ -4033,6 +4078,12 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 if (home!=houses.end()) lines.push_back("Ceramics: "+std::to_string(home->house.ceramics)+"/"+
                     std::to_string(simulation::Rules::household_capacity)+" | paid Market arrivals");
                 if (home!=houses.end()) lines.push_back("Hemp: "+std::to_string(home->house.hemp)+"/8 | paid Market arrivals");
+                for (const auto& food:world_->original_production_state()->food.stocks) if (food.building_id==*house_id) {
+                    lines.push_back("Food: "+std::to_string(food.amounts[0]+food.amounts[1])+"/8 | paid Market arrivals");
+                    if (home!=houses.end()) lines.push_back("Food quality: "+std::to_string(home->house.food_quality));
+                    lines.push_back("Wheat "+std::to_string(food.amounts[0])+" | Millet "+std::to_string(food.amounts[1]));
+                    lines.push_back("Food demand misses: "+std::to_string(food.missed_demands));
+                }
             }
             for (const auto& entry:info.entries)
                 lines.push_back("Source #"+std::to_string(static_cast<std::uint32_t>(entry.building_id))+
@@ -4271,7 +4322,24 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         const int capacity=b.kind==simulation::Object::Warehouse ? 32:16;
         lines.push_back("Ceramics stock "+std::to_string(displayed_original_stock(*world_,*id,original::Goods::Ceramics))+"/"+std::to_string(capacity));
         lines.push_back("Hemp stock "+std::to_string(displayed_original_stock(*world_,*id,original::Goods::Hemp))+"/"+std::to_string(capacity));
+        if (b.kind==simulation::Object::Market) for (const auto& food:world_->original_production_state()->food.stocks)
+            if (food.building_id==*id) lines.push_back("Food Wheat "+std::to_string(food.amounts[0])+" / Millet "+std::to_string(food.amounts[1])+" (total cap16)");
         if (b.kind==simulation::Object::Warehouse) lines.push_back("Unconverted Pottery incoming "+std::to_string(b.reserved_incoming));
+    } else if (b.kind==simulation::Object::OriginalFoodFarm) {
+        for (const auto& food:world_->original_production_state()->food.stocks) if (food.building_id==*id)
+            lines.push_back("Food stock "+std::to_string(food.amounts[0]+food.amounts[1])+"/8");
+        lines.push_back("Harvest "+std::to_string(b.progress)+"/80 productive ticks (authored)");
+        for (const auto& farm:world_->original_production_state()->food.farms) if (farm.farm_id==*id) {
+            lines.push_back(farm.field_id ? "Paid field #"+std::to_string(static_cast<unsigned>(*farm.field_id)):
+                "Select Food Farm; W Wheat or L Millet; buy adjacent field");
+            lines.push_back("Harvested "+std::to_string(farm.harvested));
+            lines.push_back(farm.crop==simulation::OriginalFoodCrop::Wheat ? "Wheat source20 (authored)":"Millet source80 (authored)");
+        }
+        lines.push_back("Authored presentation; original Farmhouse193 identity");
+    } else if (b.kind==simulation::Object::OriginalWheatField || b.kind==simulation::Object::OriginalMilletField) {
+        for (const auto& farm:world_->original_production_state()->food.farms) if (farm.field_id==id)
+            lines.push_back("Bound Food Farm #"+std::to_string(static_cast<unsigned>(farm.farm_id)));
+        lines.push_back("Authored presentation; paid original model field");
     } else if (b.kind==simulation::Object::OriginalHempFarm) {
         lines.push_back("Hemp stock "+std::to_string(displayed_original_stock(*world_,*id,original::Goods::Hemp))+"/8");
         lines.push_back("Harvest progress "+std::to_string(b.progress)+"/80 productive ticks (authored)");
@@ -4881,6 +4949,12 @@ bool SandboxView::draw_hud() {
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalHempFarm));
         case A::OriginalHempField: return "M Hemp Field $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalHempField));
+        case A::OriginalFoodFarm: return "O Food Farm $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalFoodFarm));
+        case A::OriginalWheatField: return "W Wheat $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalWheatField));
+        case A::OriginalMilletField: return "L Millet $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalMilletField));
         case A::HealthPost: return "J Health Post $120";
         case A::Health: return health_overlay_ ? "K Health ON":"K Health";
         case A::ServiceOverlay: return service_overlay_ ? "V Service ON":"V Service";
@@ -4920,6 +4994,9 @@ bool SandboxView::draw_hud() {
         case A::Market: active=tool_==0; break;
         case A::OriginalHempFarm: active=tool_==16; break;
         case A::OriginalHempField: active=tool_==17; break;
+        case A::OriginalFoodFarm: active=tool_==18; break;
+        case A::OriginalWheatField: active=tool_==19; break;
+        case A::OriginalMilletField: active=tool_==20; break;
         case A::FireWatch: active=tool_==11; break;
         case A::HealthPost: active=tool_==13; break;
         case A::Health: active=health_overlay_; break;

@@ -265,7 +265,8 @@ constexpr std::int64_t starting_treasury_for(RulesProfile profile,std::uint32_t 
 
 enum class Object : std::uint8_t {
     Empty, Road, Workshop, Warehouse, ClaySource, Pottery, Household, Farm, ServicePost, Market,
-    FireWatch, Well, HealthPost, OriginalInfluenceSource, OriginalHempFarm, OriginalHempField
+    FireWatch, Well, HealthPost, OriginalInfluenceSource, OriginalHempFarm, OriginalHempField,
+    OriginalFoodFarm, OriginalWheatField, OriginalMilletField
 };
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
@@ -328,7 +329,8 @@ enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySour
                          RemoveRoad, PlaceHousehold, PlaceFarm, PlaceServicePost, PlaceMarket,
                          SetBuildingOperation, SetBuildingWorkforcePriority, DemolishBuilding,
                          PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge, PlaceRamp, RemoveRamp,
-                         PlaceOriginalInfluenceSource, PlaceOriginalHempFarm, PlaceOriginalHempField };
+                         PlaceOriginalInfluenceSource, PlaceOriginalHempFarm, PlaceOriginalHempField,
+                         PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 struct Command {
@@ -377,7 +379,7 @@ enum class CourierRole : std::uint8_t {
     None=0, Clay=1, Pottery=2, Household=3, Food=4, Service=5,
     MarketPotteryInbound=6, MarketFoodInbound=7,
     MarketPotteryDistribution=8, MarketFoodDistribution=9, FireInspector=10, HealthWorker=11,
-    OriginalHempToWarehouse=12
+    OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14
 };
 enum class CourierDispatchStatus : std::uint8_t {
     Ready,
@@ -596,6 +598,7 @@ public:
     OriginalGoodsBalance original_goods_balance(original::Goods good) const;
     std::array<OriginalGoodsBalance,original::goods_count> original_goods_balances() const;
     int original_courier_cargo(CourierId courier) const;
+    int original_food_cargo(CourierId courier) const;
     std::optional<original::Goods> original_courier_good(CourierId courier) const;
     // Transient on-demand test/diagnostic observation, never save authority.
     std::uint64_t original_influence_cache_build_count() const { return original_influence_cache_build_count_; }
@@ -849,6 +852,19 @@ private:
     void advance_original_hemp();
     void validate_original_hemp_model() const;
     static void validate_original_hemp_snapshot(const WorldSnapshot& snapshot);
+    CommandResult validate_original_food_command(Command command) const;
+    void validate_original_food_model() const;
+    static void validate_original_food_snapshot(const WorldSnapshot& snapshot);
+    void validate_original_food_state() const;
+    void advance_original_food();
+    void consume_original_food();
+    bool original_food_courier(CourierRole role) const;
+    int original_food_stock(BuildingId owner) const;
+    int original_food_headroom(BuildingId owner) const;
+    CourierDispatchDecision original_food_dispatch_status(const CourierState& courier) const;
+    void dispatch_original_food(CourierState& courier);
+    void arrive_original_food(CourierState& courier);
+    void cancel_original_food(BuildingId owner);
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;

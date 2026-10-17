@@ -8,7 +8,9 @@ bool market_transport(simulation::CourierRole role) {
     case simulation::CourierRole::MarketFoodInbound:
     case simulation::CourierRole::MarketPotteryDistribution:
     case simulation::CourierRole::MarketFoodDistribution: return true;
-    case simulation::CourierRole::OriginalHempToWarehouse: return true;
+    case simulation::CourierRole::OriginalHempToWarehouse:
+    case simulation::CourierRole::OriginalFoodToMarket:
+    case simulation::CourierRole::OriginalFoodToHouse: return true;
     default: return false;
     }
 }
@@ -29,7 +31,9 @@ std::optional<assets::WalkerVisualRole> walker_visual_role(simulation::CourierRo
     case simulation::CourierRole::Food:
     case simulation::CourierRole::MarketPotteryInbound:
     case simulation::CourierRole::MarketFoodInbound: return assets::WalkerVisualRole::Supplier;
-    case simulation::CourierRole::OriginalHempToWarehouse: return assets::WalkerVisualRole::Supplier;
+    case simulation::CourierRole::OriginalHempToWarehouse:
+    case simulation::CourierRole::OriginalFoodToMarket: return assets::WalkerVisualRole::Supplier;
+    case simulation::CourierRole::OriginalFoodToHouse: return assets::WalkerVisualRole::Distributor;
     case simulation::CourierRole::MarketPotteryDistribution:
     case simulation::CourierRole::MarketFoodDistribution: return assets::WalkerVisualRole::Distributor;
     case simulation::CourierRole::Service: return assets::WalkerVisualRole::Service;

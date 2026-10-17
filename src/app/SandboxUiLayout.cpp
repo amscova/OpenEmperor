@@ -41,7 +41,7 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
     const int top=std::min(height,(income ? 80:52)*unit);
     const int status=std::min(std::max(0,height-top),24*unit);
     const bool wrapped_tools=width<(health ? 2440:water ? 2180:fire_watch ? 1980:1800)*unit;
-    const int tool_count=10+(fire_watch ? 1:0)+(desirability ? 1:0)+(water ? 2:0)+(health ? 2:0)+(service ? 1:0)+(bridges ? 1:0)+(ramps ? 1:0)+(original_production ? 2:0);
+    const int tool_count=10+(fire_watch ? 1:0)+(desirability ? 1:0)+(water ? 2:0)+(health ? 2:0)+(service ? 1:0)+(bridges ? 1:0)+(ramps ? 1:0)+(original_production ? 5:0);
     const int tool_columns=wrapped_tools ? (health ? 4:5):tool_count;
     const int tool_rows=wrapped_tools ? ((service || original_production) ? (tool_count+tool_columns-1)/tool_columns:
         (health ? 4:fire_watch ? 3:2)):1;
@@ -64,7 +64,10 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
     if (service) tools.push_back(Action::ServiceOverlay);
     if (bridges) tools.push_back(Action::Bridge);
     if (ramps) tools.push_back(Action::Ramp);
-    if (original_production) { tools.push_back(Action::OriginalHempFarm);tools.push_back(Action::OriginalHempField); }
+    if (original_production) {
+        tools.push_back(Action::OriginalHempFarm);tools.push_back(Action::OriginalHempField);
+        tools.push_back(Action::OriginalFoodFarm);tools.push_back(Action::OriginalWheatField);tools.push_back(Action::OriginalMilletField);
+    }
     out.buttons.resize(tools.size()+(income ? 11:10));
     constexpr std::array<Action,8> controls={Action::Pause,Action::Step,Action::Speed1,
         Action::Speed2,Action::Speed4,Action::Reset,Action::Save,Action::Load};
