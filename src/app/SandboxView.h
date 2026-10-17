@@ -120,6 +120,8 @@ public:
     simulation::CommandResult preview(simulation::Cell cell) const;
     void set_tool(int tool);
     int tool() const { return tool_; }
+    bool industry_page() const { return industry_page_; }
+    bool industry_inspector_selected() const;
     const std::string& last_message() const { return last_message_; }
     std::optional<simulation::Cell> demo_origin() const { return demo_origin_; }
     scene::Camera2D camera() const { return camera_; }
@@ -480,6 +482,7 @@ private:
     std::string recovery_status_;
     bool demo_=false;
     int tool_=4;
+    bool industry_page_=false; // View-local page choice, never World/save authority.
     simulation::RulesProfile rules_;
     std::uint32_t requested_rule_version_=0;
     bool original_influence_fixture() const {

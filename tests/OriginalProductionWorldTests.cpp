@@ -40,7 +40,8 @@ void conserved(const sim::World& world) {
     const auto balances=world.original_goods_balances();
     for (std::size_t i=0;i<balances.size();++i) {
         const auto& b=balances[i];check(b.conserved,"Original goods conservation failed");
-        check(b.supported==(i==0 || i==static_cast<std::size_t>(orig::Goods::Ceramics)),"Revision14 granted an unsupported good");
+        check(b.supported,"Active generation omitted one of six goods capabilities");
+        if(i>=2)check(!b.totals.produced&&!b.stock&&!b.cargo&&!b.totals.consumed,"Clay-only scene fabricated luxury goods");
         check(b.totals.imported==0 && b.totals.consumed==0 && b.totals.demolished==0 && b.cargo==0,
             "Revision14 granted import, consumption or typed Courier authority");
     }

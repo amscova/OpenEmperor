@@ -22,6 +22,13 @@ const sim::OriginalServiceTrip* trip(const sim::World& w,sim::CourierId id){for(
 const sim::OriginalServiceWitness& witness(const sim::World& w,sim::BuildingId id,orig::ServiceRole role){for(const auto& x:w.original_production_state()->services.witnesses)if(x.building_id==id&&x.role==role)return x;throw std::runtime_error("Religion lost genuine arrival witness");}
 sim::CourierId actor(const sim::World& w,sim::BuildingId owner){for(const auto& c:w.couriers())if(c.owner==owner)return c.id;throw std::runtime_error("Religion source has no real actor");}
 sim::BuildingId buy(sim::World& w,sim::CommandType c,sim::Cell p){f::buy(w,{c,p});return *w.building_owner_at(p);}
+oe_production_fixture::PaperSupply paper_kit(sim::World& w,const std::vector<sim::Cell>& homes={},bool far=false){
+    oe_production_fixture::PaperSupplyLayout layout;layout.farm={0,17};layout.field={2,17};layout.paper={4,17};layout.warehouse={8,17};layout.extra_homes=homes;
+    for(int x=0;x<=12;++x)layout.roads.push_back({x,16});for(int y=5;y<16;++y)layout.roads.push_back({12,y});
+    if(far){for(int x=0;x<18;++x)layout.roads.push_back({x,4});for(int x=12;x<18;++x)layout.roads.push_back({x,8});}
+    else for(const int x:{2,5})for(int y=0;y<4;++y)layout.roads.push_back({x,y});
+    return oe_production_fixture::add_paper_supply(w,layout);
+}
 void edit(std::string& text,unsigned field,int value){const std::string marker="3: Plain Cottage,{,";auto at=text.find(marker);check(at!=std::string::npos,"Authored Plain model row missing");at+=marker.size();for(unsigned i=0;i<field;++i){at=text.find(',',at);check(at!=std::string::npos,"Authored Plain field missing");++at;}const auto end=text.find(',',at);check(end!=std::string::npos,"Authored Plain value missing");text.replace(at,end-at,std::to_string(value));}
 struct Fixture{
     f::Root root;std::shared_ptr<const sim::MapPermissions> policy=f::permissions();std::shared_ptr<const orig::OriginalRulesModel> model;
@@ -35,7 +42,7 @@ struct Fixture{
 };
 void authority(const sim::World& w){
     check(w.production_balance_valid()&&w.population_valid()&&w.navigation_valid()&&w.city_economy_valid(),"Religion World invariant failed");
-    const auto& s=w.original_production_state()->services;check(s.providers.size()<=12&&s.trips.size()<=12&&s.witnesses.size()<=120,"Religion bounded history grew");
+    const auto& s=w.original_production_state()->services;check(s.providers.size()<=18&&s.trips.size()<=18&&s.witnesses.size()<=180,"Religion bounded history grew");
     for(const auto& h:w.original_economy_state()->houses)for(unsigned r=0;r<9;++r){
         std::uint8_t expected=0;
         for(const auto& x:s.witnesses)if(x.building_id==h.building_id&&static_cast<unsigned>(x.role)==r){
@@ -59,7 +66,8 @@ Scene scene(sim::World& w,bool prior=true){
     for(unsigned i=0;i<3;++i)s.providers[i]=buy(w,commands[i],{10+4*static_cast<int>(i),5});
     check(w.construction_spent_total()-before==170,"Three paid religion sources must independently cost45+45+80=170");
     if(prior){(void)buy(w,sim::CommandType::PlaceHealthPost,{0,5});(void)buy(w,sim::CommandType::PlaceServicePost,{3,5});(void)buy(w,sim::CommandType::PlaceOriginalAncestorShrine,{6,5});(void)buy(w,sim::CommandType::PlaceOriginalWaterWell,{22,5});}
-    check(w.construction_spent_total()==static_cast<std::uint64_t>(prior?1003:858)&&!w.total_population(),"Religion scene bypassed normal cost/population origin");return s;
+    const auto kit=paper_kit(w,{{0,0},{3,0},{6,0}});check(kit.spent==568,"Paid religion Paper kit/home/roads cost differs");
+    check(w.construction_spent_total()==static_cast<std::uint64_t>(prior?1571:1426)&&!w.total_population(),"Religion scene bypassed normal cost/population origin");return s;
 }
 std::optional<sim::BuildingId> expected_target(const sim::World& w,const sim::CourierState& c){
     std::vector<sim::BuildingId> ids;
@@ -84,7 +92,7 @@ void paid_independent_visits_expiry_revisit_and_private_fairness(const f::fs::pa
     }
     const auto& h=house(w,s.home);check(h.daoist&&h.buddhist&&h.confucian&&h.ancestor&&h.herbalist&&h.acupuncture&&h.water,
         "Three religion visits lost independent Ancestor/Medical/Water");
-    check(w.workforce_used()==43&&w.workforce_supply()>=43,"Religion staffing lacks genuine admitted residents");
+    check(w.workforce_used()==73&&w.workforce_supply()>=73,"Religion staffing lacks genuine admitted residents");
     const auto before=w.snapshot().couriers;
     for(const auto p:s.providers)f::buy(w,sim::set_building_operation(p,false));
     check(w.snapshot().couriers==before,"Source pause cancelled a begun religious tour or changed another cursor");
@@ -116,6 +124,7 @@ void actual_religion_source_and_target_fire(const f::fs::path& real){
         f::buy(w,sim::set_building_operation(source,false));ticks(w,600);
         const auto home=buy(w,sim::CommandType::PlaceHousehold,{0,2});
         (void)buy(w,sim::CommandType::PlaceHousehold,{3,2});
+        if(index==2)(void)paper_kit(w,{{6,2},{9,2},{12,2},{15,2}});
         while(w.ticks()<1990)w.tick();
         f::buy(w,sim::set_building_operation(source,true));const auto id=actor(w,source);
         until(w,[&]{return w.courier(id).phase==sim::CourierPhase::ToWarehouse&&w.courier(id).edge_progress>0;},
@@ -134,7 +143,9 @@ void actual_religion_source_and_target_fire(const f::fs::path& real){
         auto target=fixture.world();
         for(int x=0;x<24;++x)f::buy(target,{sim::CommandType::PlaceRoad,{x,4}});
         const auto first=buy(target,sim::CommandType::PlaceHousehold,{0,2});
-        (void)buy(target,sim::CommandType::PlaceHousehold,{3,2});ticks(target,1000);
+        (void)buy(target,sim::CommandType::PlaceHousehold,{3,2});
+        if(index==2)(void)paper_kit(target,{{6,2},{9,2},{12,2},{15,2}});
+        ticks(target,1000);
         const auto delayed=buy(target,commands[index],{20,5});f::buy(target,sim::set_building_operation(delayed,false));
         while(target.ticks()<1990)target.tick();
         f::buy(target,sim::set_building_operation(delayed,true));const auto visitor=actor(target,delayed);
@@ -150,6 +161,7 @@ void confucian_far_body_edge_and_restore(const f::fs::path& real){
     for(const int y:{4,8})for(int x=18;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
     for(int y=5;y<8;++y)f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
     (void)buy(w,sim::CommandType::PlaceHousehold,{21,2});(void)buy(w,sim::CommandType::PlaceHousehold,{21,9});
+    (void)paper_kit(w,{{0,2},{3,2},{6,2},{9,2}},true);
     const auto academy=buy(w,commands[2],{18,5});const auto id=actor(w,academy);
     until(w,[&]{return w.courier(id).phase==sim::CourierPhase::ToWarehouse&&w.courier(id).edge_progress>0;},"Paid3x3 Confucian source never dispatched");
     check(w.courier(id).path.front().x==20||w.courier(id).path.front().y==7,"Confucian test did not exercise actual source+2 body edge");
@@ -162,8 +174,13 @@ void river_is_real_immutable_policy_blocker(const f::fs::path& real){
     auto w=f.world();for(int x=0;x<24;++x)if(x!=11)f::buy(w,{sim::CommandType::PlaceRoad,{x,4}});
     for(int x=0;x<9;x+=3)(void)buy(w,sim::CommandType::PlaceHousehold,{x,2});
     for(unsigned i=0;i<3;++i)(void)buy(w,commands[i],{12+4*static_cast<int>(i),5});
+    oe_production_fixture::PaperSupplyLayout kit;kit.farm={12,17};kit.field={14,17};kit.paper={16,17};kit.warehouse={20,17};
+    kit.extra_homes={{0,0},{3,0},{0,6},{3,6},{6,6}};
+    for(int x=0;x<10;++x)kit.roads.push_back({x,8});for(int y=5;y<8;++y)kit.roads.push_back({9,y});
+    for(int y=0;y<4;++y)kit.roads.push_back({2,y});for(int x=12;x<24;++x)kit.roads.push_back({x,16});
+    for(int y=5;y<16;++y)kit.roads.push_back({23,y});(void)oe_production_fixture::add_paper_supply(w,kit);
     const auto before=w.snapshot();check(!w.execute({sim::CommandType::PlaceRoad,{11,4}}).accepted&&w.snapshot()==before,"Immutable authored normal water accepted a crossing road");
-    ticks(w,1500);check(w.total_population()==21&&w.workforce_used()==20&&w.original_production_state()->services.trips.empty()&&w.original_production_state()->services.witnesses.empty(),"Religion crossed the actual policy water barrier or lacked real workforce");
+    ticks(w,4000);check(w.total_population()==56&&w.workforce_used()==50&&w.original_production_state()->services.trips.empty()&&w.original_production_state()->services.witnesses.empty(),"Religion crossed the actual policy water barrier or lacked real workforce");
     for(const auto& h:w.original_economy_state()->houses)check(!h.house.daoist&&!h.house.buddhist&&!h.house.confucian,"Across-river House acquired religion");
 }
 struct NeedScene{sim::BuildingId home{};};
@@ -173,7 +190,9 @@ NeedScene need_scene(sim::World& w,int mode){
     const auto farm=buy(w,sim::CommandType::PlaceOriginalFoodFarm,{0,5});sim::Command crop{sim::CommandType::PlaceOriginalWheatField,{3,5}};crop.building_id=farm;f::buy(w,crop);
     (void)buy(w,sim::CommandType::PlaceMarket,{5,5});(void)buy(w,sim::CommandType::PlaceOriginalWaterWell,{9,5});(void)buy(w,sim::CommandType::PlaceOriginalAncestorShrine,{13,5});
     if(mode!=2)(void)buy(w,commands[mode==1?1:0],{16,5});
-    if(mode!=3)(void)buy(w,commands[2],{19,5});return s;
+    if(mode!=3){(void)buy(w,commands[2],{19,5});(void)paper_kit(w,{{0,0},{3,0},{6,0},{9,0},{12,0}});
+        for(const int x:{8,11})for(int y=0;y<4;++y)if(w.object_at({x,y})!=sim::Object::Road)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});}
+    return s;
 }
 void authored_or_and_confucian_predicate_from_actual_arrivals(const f::fs::path& real){
     for(int mode=0;mode<4;++mode){Fixture f(real,true);auto w=f.world();const auto s=need_scene(w,mode);
@@ -190,5 +209,5 @@ void authored_or_and_confucian_predicate_from_actual_arrivals(const f::fs::path&
 int main(int argc,char** argv){try{
     check(argc==1||(argc==3&&std::string_view(argv[1])=="--real"),"Usage: original-religion-world [--real DATA]");const auto real=argc==3?f::fs::canonical(argv[2]):f::fs::path{};
     paid_independent_visits_expiry_revisit_and_private_fairness(real);actual_religion_source_and_target_fire(real);confucian_far_body_edge_and_restore(real);river_is_real_immutable_policy_blocker(real);authored_or_and_confucian_predicate_from_actual_arrivals(real);
-    std::cout<<"Paid215/217/219 visits, independent40 timers, private rotation, authored water barrier/OR needs and20k replays PASS; Confucian resource gate remains authored staffing-only, no resource grant\n";return 0;
+    std::cout<<"Paid215/217/219 visits, independent40 timers, private rotation, authored water barrier/OR needs and20k replays PASS; Confucian visits consume genuinely produced delivered Paper, no resource grant\n";return 0;
 }catch(const std::exception& e){std::cerr<<"Original Religion World FAIL: "<<e.what()<<'\n';return 1;}}

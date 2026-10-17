@@ -1310,3 +1310,42 @@ Ticks; negative fehlende/abgelaufene Kultur wird bei tatsächlich vorhandenen
 Der tatsächliche Release-Screenshot wurde geöffnet; experimentelle gezielte
 Besucher, originale Venue-/Training-Lücke und spätere Originalsprite-Abnahme
 bleiben getrennt. Nach eigenem Commit folgt OE-24 ohne Human-Testwartepunkt.
+
+
+### OE-24: Produktions- und Materialvertrag vor Implementierung
+
+Der [Luxuryvertrag](../original-economy/luxury-runtime.md) setzt die im Auftrag
+explizit erlaubten versionierten Rezeptannahmen um: echte Modellobjekte,
+bezahlte Pflanzen/Arbeiter, feste80er-Managed-Ernten und atomare Mehrfachinputs,
+fünf getrennte Auxmaterialien, native Raw-Clay-Zustellung und Hemp→Paper→Academy.
+Aktiv82/58, Aux20/12; pure Goods46/26 und alle alten Versionen unverändert.
+Neuer produktiver Abriss bleibt atomar verweigert, bestehender Neutralabriss
+wird bei tatsächlicher Warenproduktion geprüft. OR-Bedarf und unabhängiger
+Verbrauch beider vorhandenen Bronze-/Lacquerstocks sind original belegt;
+kein vermeintlicher Forkbug rechtfertigt einen Patch am eingefrorenen Kern.
+Papierpflicht1jeDispatch ist authored; initiales Confucian-Elitegate folgt25.
+Originalbilder29 und menschliche Abnahme werden nicht vorweggenommen.
+
+
+### OE-24: technische Abnahme und Nutzerpause
+
+Die vier bezahlten Luxusketten, fünf getrennten Auxmaterialien und tatsächliche
+Hemp→Paper→Academy-Zulieferung bestehen168 relevante Konfigurations-CTests,
+43 separate20k-Fortsetzungen und unabhängige Save-/Bilanz-/Legacyprüfungen.
+Echte Need1-Kopien prüfen positiven Aufstieg und fehlende Waren, ohne frühe
+Originalbedarfe0 oder höhere Hausstufen vor25 zu ändern. Die neue flache
+Target×Good-Rotation verwendet bestehende letzte Trips; kein zusätzlicher
+gespeicherter Cursor und keine universelle Starvationfreiheitsbehauptung.
+Produktiver Abriss bleibt atomar verweigert, bisher erlaubter Neutralabriss
+wird mit tatsächlichen Warenbilanzen geprüft.
+
+Beide tatsächlichen finalen Software-SDL-Ansichten wurden geöffnet. Original-
+modelltypen/Kosten sind belegt; Ernte-/Rezeptzeiten, Managed Ore, PaperOnly
+und direkte Schulbesuche bleiben ausdrücklich authored. Initiales Confucian-
+Elitegate, Originalsprites, vollständiger Gate D sowie native/human Abnahme
+werden durch diesen begrenzten technischen PASS nicht vorweggenommen.
+
+Der Nutzer verlangt ausdrücklich: „lass uns nach oe-24 eine pause einlegen“.
+Nach dem eigenen geprüften OE-24-Commit endet die automatische Fortsetzung.
+OE-25 bleibt TODO; erst ein neuer Fortsetzungsauftrag hebt diese Pause auf.
+Kein Push, PR, Merge, Tag oder Release während dieser Pause.

@@ -21,7 +21,10 @@ enum class Action {
     OriginalHempFarm, OriginalHempField, OriginalFoodFarm, OriginalWheatField, OriginalMilletField,
     OriginalAncestorShrine, OriginalWaterWell,
     OriginalDaoistShrine, OriginalBuddhistShrine, OriginalConfucianAcademy,
-    OriginalMusicSchool, OriginalAcrobatSchool, OriginalDramaSchool
+    OriginalMusicSchool, OriginalAcrobatSchool, OriginalDramaSchool,
+    OriginalLoggingShed, OriginalBronzeSmelter, OriginalBronzewareMaker, OriginalLacquerwareMaker,
+    OriginalPaperMaker, OriginalWeaver, OriginalTeaCuringShed, OriginalLacquerRefinery,
+    OriginalSilkwormShed, OriginalTeaBush, OriginalLacquerTree, OriginalMulberryTree, ToggleIndustryPage
 };
 
 struct Button { Action action; Rect rect; bool enabled=true; };
@@ -38,7 +41,7 @@ struct Layout {
 Layout make_layout(int output_width,int output_height,int window_width,int window_height,
                    bool panel_open,bool fire_watch=false,bool desirability=false,bool water=false,bool health=false,
                    bool income=false,bool service=false,bool bridges=false,bool ramps=false,
-                   bool original_production=false);
+                   bool original_production=false,bool industry_page=false);
 // Wrap every character, including long tokens, without ellipsis.
 std::vector<std::string> wrap_text(const std::vector<std::string>& lines,std::size_t columns);
 

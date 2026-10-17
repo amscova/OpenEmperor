@@ -1,5 +1,5 @@
 #include "simulation/World.h"
-#include "simulation/OriginalGoodsLedger.h"
+#include "simulation/OriginalIndustryGoodsContext.h"
 #include "simulation/original/OriginalRulesModel.h"
 
 #include <algorithm>
@@ -98,17 +98,9 @@ void World::advance_original_hemp() {
         if (original_market_headroom(farm.id,original::Goods::Hemp)<=0) {farm.progress=0;continue;}
         if (farm.progress<79) {++farm.progress;continue;}
         if (record.harvested==UINT64_MAX) throw std::overflow_error("Hemp harvest history exhausted");
-        std::array<OriginalGoodsOwner,original_goods_owner_limit> owners{};std::size_t count=0;
-        std::array<CourierId,8> couriers{};std::size_t actors=0;
-        for (const auto& b:buildings_) if (b.kind==Object::Household || b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm) {
-            auto& owner=owners[count++];owner.building_id=b.id;owner.household=b.kind==Object::Household;
-            const auto cap=b.kind==Object::Warehouse ? Rules::warehouse_capacity:b.kind==Object::Market ? Rules::market_pottery_capacity:Rules::household_capacity;
-            owner.capacity[0]=b.kind==Object::OriginalHempFarm ? 8:cap;
-            owner.capacity[1]=b.kind==Object::OriginalHempFarm ? 0:cap;
-        }
-        for (const auto& c:couriers_) if (original_market_courier(c.role)) couriers[actors++]=c.id;
-        auto candidate=original_goods_produce({*original_goods_,original_economy_->houses,
-            {owners.data(),count},{couriers.data(),actors}},farm.id,original::Goods::Hemp,1);
+        const original_industry_goods::Context context(buildings_,couriers_);
+        auto candidate=original_goods_produce(context.view(*original_goods_,original_economy_->houses),
+            farm.id,original::Goods::Hemp,1);
         original_goods_=std::move(candidate.goods);farm.progress=0;++record.harvested;
     }
 }

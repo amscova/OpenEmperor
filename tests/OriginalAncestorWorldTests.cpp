@@ -231,41 +231,57 @@ void full_paid_collection_preserves_road_and_refuses_new_shrine_atomically() {
         (void)buy(world,sim::CommandType::PlaceHealthPost,{36+4*i,24});
         (void)buy(world,sim::CommandType::PlaceServicePost,{36+4*i,28});
     }
-    check(world.buildings().size()==46&&world.couriers().size()==26&&world.total_population()==0&&
+    check(world.buildings().size()==46&&world.couriers().size()==28&&world.total_population()==0&&
           world.treasury()<12000&&world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
-          "Paid base collection did not reach exactly46 bodies/26 actors with conserved funds");
+          "Paid base collection did not reach exactly46 bodies/28 actors with conserved funds");
     const sim::Command shrine{sim::CommandType::PlaceOriginalAncestorShrine,{48,28}};
     const auto base=world.snapshot();
     check(world.validate(shrine).accepted&&world.snapshot()==base,
-          "Paid46/26 collection incorrectly exhausted the expanded active capacity");
+          "Paid46/28 collection incorrectly exhausted the expanded active capacity");
     const auto source_spending=world.construction_spent_total();
     for (int i=0;i<2;++i) {
         (void)buy(world,sim::CommandType::PlaceOriginalDaoistShrine,{2+4*i,32});
         (void)buy(world,sim::CommandType::PlaceOriginalBuddhistShrine,{10+4*i,32});
         (void)buy(world,sim::CommandType::PlaceOriginalConfucianAcademy,{20+5*i,32});
     }
-    check(world.buildings().size()==52&&world.couriers().size()==32&&world.total_population()==0&&
+    check(world.buildings().size()==52&&world.couriers().size()==34&&world.total_population()==0&&
           world.construction_spent_total()-source_spending==340&&
           world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
-          "Six paid religion sources did not fill exactly52 bodies/32 actors for340 conserved Funds");
-    check(world.validate(shrine).accepted,"Paid52/32 collection incorrectly exhausted expanded cultural capacity");
+          "Six paid religion sources did not fill exactly52 bodies/34 actors for340 conserved Funds");
+    check(world.validate(shrine).accepted,"Paid52/34 collection incorrectly exhausted expanded cultural capacity");
     const auto culture_spending=world.construction_spent_total();
     for (int i=0;i<2;++i) {
         (void)buy(world,sim::CommandType::PlaceOriginalMusicSchool,{2+4*i,38});
         (void)buy(world,sim::CommandType::PlaceOriginalAcrobatSchool,{12+5*i,38});
         (void)buy(world,sim::CommandType::PlaceOriginalDramaSchool,{24+5*i,38});
     }
-    check(world.buildings().size()==58&&world.couriers().size()==38&&world.total_population()==0&&
+    check(world.buildings().size()==58&&world.couriers().size()==40&&world.total_population()==0&&
           world.construction_spent_total()-culture_spending==360&&
           world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
-          "Six paid cultural sources did not fill exactly58 bodies/38 actors for360 conserved Funds");
+          "Six paid cultural sources did not fill exactly58 bodies/40 actors for360 conserved Funds");
+    check(world.validate(shrine).accepted,"Paid58/40 collection exhausted expanded industry capacity");
+    const auto industry_spending=world.construction_spent_total();
+    constexpr std::array producers{sim::CommandType::PlaceOriginalLoggingShed,sim::CommandType::PlaceOriginalBronzeSmelter,
+        sim::CommandType::PlaceOriginalBronzewareMaker,sim::CommandType::PlaceOriginalLacquerwareMaker,
+        sim::CommandType::PlaceOriginalPaperMaker,sim::CommandType::PlaceOriginalWeaver,
+        sim::CommandType::PlaceOriginalTeaCuringShed,sim::CommandType::PlaceOriginalLacquerRefinery,
+        sim::CommandType::PlaceOriginalSilkwormShed};
+    constexpr std::array plants{sim::CommandType::PlaceOriginalTeaBush,sim::CommandType::PlaceOriginalLacquerTree,sim::CommandType::PlaceOriginalMulberryTree};
+    for(int row=0;row<2;++row)for(unsigned i=0;i<producers.size();++i){
+        const sim::Cell cell{2+6*static_cast<int>(i),row?44:18};const auto id=buy(world,producers[i],cell);
+        if(i>=6){sim::Command plant{plants[i-6],{cell.x+2,cell.y}};plant.building_id=id;f::buy(world,plant);}
+    }
+    check(world.buildings().size()==82&&world.couriers().size()==58&&!world.total_population()&&
+          world.construction_spent_total()-industry_spending==1082&&
+          world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
+          "Eighteen paid industry bodies/six plants did not fill82/58 for1082 conserved Funds");
     auto restored=sim::World::restore_original_production_development(world.snapshot(),policy,fixture.model);
     check(restored.snapshot()==world.snapshot(),"Legal full paid collection did not restore exactly");
     const auto funds=world.treasury();
     f::buy(world,{sim::CommandType::PlaceRoad,{0,0}});
     f::buy(world,{sim::CommandType::RemoveRoad,{0,0}});
     f::buy(world,{sim::CommandType::PlaceRoad,{0,0}});
-    check(world.treasury()==funds-4&&world.buildings().size()==58&&world.couriers().size()==38&&
+    check(world.treasury()==funds-4&&world.buildings().size()==82&&world.couriers().size()==58&&
           world.object_at({0,0})==sim::Object::Road,"Full body/actor capacity blocked ordinary paid road placement or repair");
     const auto before=world.snapshot();const auto cache_count=world.original_influence_cache_build_count();
     const auto validation=world.validate(shrine);const auto refused=world.execute(shrine);

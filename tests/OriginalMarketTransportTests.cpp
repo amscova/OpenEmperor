@@ -77,9 +77,10 @@ void pause_loaded(sim::World& world,sim::CourierId id,Fixture& fixture) {
 }
 void paid_and_cancelled() {
     Fixture fixture;auto world=fixture.world();const auto ids=small(world);
-    check(world.construction_spent_total()==958 && world.treasury()==11042 && world.couriers().size()==5 &&
-        world.couriers()[3].role==sim::CourierRole::MarketPotteryDistribution && world.couriers()[3].owner==ids.market &&
-        world.couriers()[4].role==sim::CourierRole::OriginalFoodToHouse && world.couriers()[4].owner==ids.market,
+    check(world.construction_spent_total()==958 && world.treasury()==11042 && world.couriers().size()==6 &&
+        world.couriers()[3].role==sim::CourierRole::OriginalAuxSupplier && world.couriers()[3].owner==ids.warehouse &&
+        world.couriers()[4].role==sim::CourierRole::MarketPotteryDistribution && world.couriers()[4].owner==ids.market &&
+        world.couriers()[5].role==sim::CourierRole::OriginalFoodToHouse && world.couriers()[5].owner==ids.market,
         "Market price/exact two real owned actors mismatch");
     const auto inbound=wait_loaded(world,sim::CourierRole::MarketPotteryInbound);
     check(world.original_courier_cargo(inbound)<sim::Rules::courier_capacity,"Fixture did not prove actual partial loading");

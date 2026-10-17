@@ -21,9 +21,12 @@ Revision23 ergänzt [drei getrennte Kulturquellen](culture-runtime.md) und eine
 reine Diagnose, die verfügbare Quellen von tatsächlich geliefertem Zugang
 unterscheidet. Die gezielten Schulbesuche sind ausdrücklich experimentell;
 die originale Venue-/Training-Kette wird damit nicht als rekonstruiert behauptet.
-Aktueller Entwicklerstand ist Revision23. Die frühe Confucian-Integration
-bleibt ausdrücklich authored: initiales originales Elite-Gate und Material-
-Zulieferung sind als Folgeanforderungen dokumentiert.
+Revision24 ergänzt [bezahlte Luxus- und Materialketten](luxury-runtime.md):
+Tea, Silk, Bronzeware und Lacquerware erreichen über tatsächliche Lieferungen
+das Haus. Fünf getrennte Vorprodukte versorgen die Rezepte; angeliefertes
+Paper ist Voraussetzung für einen neuen Academy-Dispatch. Aktueller
+Entwicklerstand ist Revision24. Das anfängliche originale Confucian-Elite-Gate
+folgt in25; die gemeinsame Common-House-Berechtigung bleibt bis dahin authored.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
@@ -66,10 +69,10 @@ Warehouse-Pottery-Slot bleibt null; es gibt keinen gespiegelten Vorrat.
   + cargo. Reservierungen zählen nicht zusätzlich als Masse.
 - Tatsächlich geernteter Hemp = gesamte typisierte Hemp-Produktion.
 
-Revision17 erlaubt Ceramics und Hemp über Warehouse, Market, tatsächliche
-Hausankunft und modellbasierten Verbrauch. Revision18/19 ergänzen Food und die
-zwei medizinischen Dienste; weitere Originalwaren, Dienste und Steuern folgen
-ihren Aufgaben. Die frühen originalen Hausbedarfe bleiben unverändert0;
+Revision24 erlaubt alle sechs Hauswaren über Warehouse, Market, tatsächliche
+Hausankunft und modellbasierten Verbrauch. Food und die neun getrennten
+Dienste besitzen eigene tatsächliche Lieferwege. Höhere Hausstufen und
+Steuern folgen ihren Aufgaben. Die frühen originalen Hausbedarfe bleiben unverändert0;
 ein ausdrücklich authored physischer Hauspuffer8 ermöglicht Provisionierung
 vor Evolution und Verbrauch.
 

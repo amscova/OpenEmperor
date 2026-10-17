@@ -65,13 +65,26 @@ struct Fixture {
         well=buy(sim::CommandType::PlaceOriginalWaterWell,{11,13});
         (void)buy(sim::CommandType::PlaceClaySource,{0,10});
         (void)buy(sim::CommandType::PlacePottery,{4,10});
-        (void)buy(sim::CommandType::PlaceWarehouse,{7,10});
+        const auto warehouse=buy(sim::CommandType::PlaceWarehouse,{7,10});
         const auto hemp=buy(sim::CommandType::PlaceOriginalHempFarm,{14,13});
         field={sim::CommandType::PlaceOriginalHempField,{16,13}};field.building_id=hemp;f::buy(world,field);
         f::buy(world,{sim::CommandType::PlaceOriginalInfluenceSource,{0,0}});neutral=*world.building_owner_at({0,0});
         check(world.total_population()==0 && world.original_production_state()->water.providers.size()==1 &&
-              world.couriers().size()==9 && world.original_production_state()->water.trips.empty(),
+              world.couriers().size()==10 && world.original_production_state()->water.trips.empty() &&
+              world.original_production_state()->industry.aux_trips.empty(),
               "Paid source purchase granted free residents, extra actors or water visits");
+        check(std::count_if(world.couriers().begin(),world.couriers().end(),[](const auto& actor){return actor.role==sim::CourierRole::OriginalAuxSupplier;})==1 &&
+              std::count_if(world.couriers().begin(),world.couriers().end(),[&](const auto& actor){return actor.owner==warehouse;})==2,
+              "The one paid Warehouse did not own exactly one Goods and one material supplier");
+        int goods_suppliers=0,material_suppliers=0;
+        for (const auto& actor:world.couriers()) if (actor.owner==warehouse) {
+            if (actor.role==sim::CourierRole::MarketPotteryInbound && actor.good==sim::Good::Pottery) ++goods_suppliers;
+            else if (actor.role==sim::CourierRole::OriginalAuxSupplier && actor.good==sim::Good::Goods) ++material_suppliers;
+            else check(false,"Warehouse purchase attached an unrelated actor or incorrect relation label");
+            check(actor.enabled && !actor.cargo && !actor.reserved && actor.phase==sim::CourierPhase::IdleAtWorkshop && actor.target==warehouse,
+                  "Warehouse purchase granted a loaded, moving or foreign-target supplier");
+        }
+        check(goods_suppliers==1 && material_suppliers==1,"Warehouse supply roles were duplicated or missing");
         check(world.construction_spent_total()==1433 && world.treasury()==10567,
               "Housing scene failed regular costs including distinct60 influence and25 water sources");
         for (const auto& h:world.original_economy_state()->houses)
@@ -84,8 +97,8 @@ struct Fixture {
         const auto before=value.snapshot();const auto original=document(value);
         save::write_save(target,original,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(original,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,
-              "Housing save did not identify its explicit revision23");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,
+              "Housing save did not identify its explicit revision24");
         auto restored=restore(parsed);check(restored.snapshot()==before,"Housing F5/F9 changed full World state");
         save::write_save(target,document(restored),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Housing canonical rewrite mutated bytes/live state");return bytes;
@@ -202,7 +215,7 @@ void hostile(Fixture& f,const States& states) {
         }
     }
     for (const auto& [path,replacement]:std::vector<std::pair<std::string,json>>{
-            {base+"development_revision",20},{base+"development_revision",21},{base+"development_revision",22},{base+"development_revision",24},
+            {base+"development_revision",20},{base+"development_revision",21},{base+"development_revision",22},{base+"development_revision",23},{base+"development_revision",25},
             {h+"first_admission_tick",nullptr},{h+"first_admission_tick",0},{h+"first_admission_tick",121},
             {h+"last_evaluation",nullptr},{h+"first_hut_evaluation",nullptr},{h+"first_plain_evaluation",nullptr},
             {h+"last_evaluation/tick",1},{h+"last_evaluation/input/type",17},

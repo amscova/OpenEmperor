@@ -66,9 +66,10 @@ original::ServiceVisit visit_for(OriginalServiceProviderType type) {
     const auto role=role_for(type);
     // Fixed authored session capability: the original global constructor
     // initializes Confucian's Source+0x174 elite-only gate totrue, whereas this
-    // adapter deliberately permits occupied common Houses. Confucian219 is
-    // staffing-only: its original WORD+0x40 incoming-resource/consumption gate
-    // is not reconstructed and no resource stock or original parity is claimed.
+    // adapter deliberately permits occupied common Houses until revision25.
+    // The revision24 physical Paper input and one-Paper-per-new-tour sink are
+    // explicit authored integration, not the original global27/10 selector or
+    // its personnel-consumption accumulator.
     return {role>=original::ServiceRole::Ancestor ? original::VisitPath::DirectReligion:
         original::VisitPath::DirectService,static_cast<original::VisitAction>(role),false};
 }
@@ -283,7 +284,8 @@ OriginalServiceAvailability World::original_service_availability(BuildingId hous
         if (actor->phase==CourierPhase::ToWarehouse && actor->target==house && trip && trip->target==house && !trip->arrival_tick)
             ++result.travelling_to_target_count;
         if (!source->placed || !source->operating_enabled || building_on_fire(source->id) ||
-            !staffing[static_cast<std::size_t>(source-buildings_.begin())]) continue;
+            !staffing[static_cast<std::size_t>(source-buildings_.begin())] ||
+            (p.type==OriginalServiceProviderType::Confucian219 && !original_academy_paper_available(source->id))) continue;
         ++result.available_source_count;
         if (!result.eligible_target || actor->cached_revision!=road_revision_) continue;
         const auto route=std::lower_bound(actor->dynamic_target_routes.begin(),actor->dynamic_target_routes.end(),house,
@@ -317,6 +319,8 @@ bool World::original_service_courier(CourierRole role) const {return original_pr
 CourierDispatchDecision World::original_service_dispatch_status(const CourierState& c) const {
     const auto& p=provider(original_production_->services,c.owner);
     if (c.role!=courier_role_for(p.type)) throw std::logic_error("original service dispatch has incompatible paid Provider");
+    if (p.type==OriginalServiceProviderType::Confucian219 && !original_academy_paper_available(c.owner))
+        return {CourierDispatchStatus::NoStock,{}};
     std::array<const BuildingState*,Rules::city_v10_household_limit> targets{};std::size_t count=0;
     for (const auto& b:buildings_) if (b.kind==Object::Household && !building_on_fire(b.id)) {
         const auto& h=house_row(original_economy_->houses,b.id);
@@ -343,6 +347,9 @@ void World::dispatch_original_service(CourierState& c) {
     auto path=*route->second;
     if (!ticks_) throw std::logic_error("original service dispatch has no advanced ordinary World tick");
     validate_services(candidate,buildings_,couriers_,original_economy_->houses,original_production_->housing,ticks_,ticks_-1,false);
+    // All route allocations/service candidate checks precede the sole physical
+    // input debit. The remaining service/courier publication cannot allocate.
+    if (provider(candidate,c.owner).type==OriginalServiceProviderType::Confucian219) consume_original_academy_paper(c.owner);
     original_production_->services=std::move(candidate);c.path=std::move(path);c.target=target;c.last_dispatched_target=target;
     c.path_vertex=0;c.edge_progress=0;c.route_pending=false;c.route_checked_revision.reset();c.phase=CourierPhase::ToWarehouse;
 }

@@ -35,7 +35,19 @@ enum class ModelBuilding : std::uint16_t {
     HempFarm = 192,
     HempField = 194,
     WheatField = 195,
-    MilletField = 196
+    MilletField = 196,
+    LoggingShed = 38,
+    BronzeSmelter = 39,
+    BronzewareMaker = 42,
+    LacquerwareMaker = 44,
+    PaperMaker = 45,
+    Weaver = 47,
+    TeaCuringShed = 237,
+    LacquerRefinery = 238,
+    SilkwormShed = 239,
+    TeaBush = 26,
+    LacquerTree = 27,
+    MulberryTree = 28
 };
 
 // Ordered ALL HOUSES records. Vacant House has no separate house-table row.

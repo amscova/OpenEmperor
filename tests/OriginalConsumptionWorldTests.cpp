@@ -86,7 +86,8 @@ void conserved(const sim::World& w) {
         const auto& balance=balances[g];
         check(balance.conserved && balance.totals.consumed==sums[g] && !balance.totals.imported && !balance.totals.demolished,
               "House consumption and actual ledger sink disagree");
-        check(balance.supported==(g<2),"Consumption granted a future commodity");
+        check(balance.supported,"Active consumption omitted a supported commodity");
+        if(g>=2)check(!balance.totals.produced&&!balance.stock&&!balance.cargo&&!balance.totals.consumed,"Hemp/Ceramics consumption scene fabricated luxury goods");
     }
     for (const auto& b:w.buildings()) check(!b.population && !b.pottery_stock && !b.food_stock && !b.consumed_total && !b.food_consumed_total,
         "Original consumption was mirrored into legacy population, stock or400t-demand authority");

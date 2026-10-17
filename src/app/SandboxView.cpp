@@ -15,6 +15,7 @@
 #include "core/Version.h"
 #include "simulation/CityStartGuidance.h"
 #include "simulation/original/OriginalRulesModel.h"
+#include "simulation/OriginalIndustryGoodsContext.h"
 
 #include <SDL3/SDL.h>
 
@@ -28,11 +29,47 @@
 
 namespace openemperor {
 namespace {
+struct IndustryTool {
+    sandbox_ui::Action action;
+    simulation::CommandType command;
+    simulation::Object kind;
+    const char* name;
+    const char* recipe;
+};
+constexpr std::array<IndustryTool,12> industry_tools{{
+    {sandbox_ui::Action::OriginalLoggingShed,simulation::CommandType::PlaceOriginalLoggingShed,simulation::Object::OriginalLoggingShed38,"Logging","Managed forestry -> Wood"},
+    {sandbox_ui::Action::OriginalBronzeSmelter,simulation::CommandType::PlaceOriginalBronzeSmelter,simulation::Object::OriginalBronzeSmelter39,"Smelter","Wood + managed Ore -> Bronze"},
+    {sandbox_ui::Action::OriginalBronzewareMaker,simulation::CommandType::PlaceOriginalBronzewareMaker,simulation::Object::OriginalBronzewareMaker42,"Bronzeware","Bronze + Clay -> Bronzeware"},
+    {sandbox_ui::Action::OriginalLacquerwareMaker,simulation::CommandType::PlaceOriginalLacquerwareMaker,simulation::Object::OriginalLacquerwareMaker44,"Lacquerware","Wood + Lacquer -> Lacquerware"},
+    {sandbox_ui::Action::OriginalPaperMaker,simulation::CommandType::PlaceOriginalPaperMaker,simulation::Object::OriginalPaperMaker45,"Paper Maker","Hemp -> Paper"},
+    {sandbox_ui::Action::OriginalWeaver,simulation::CommandType::PlaceOriginalWeaver,simulation::Object::OriginalWeaver47,"Weaver","RawSilk -> Silk"},
+    {sandbox_ui::Action::OriginalTeaCuringShed,simulation::CommandType::PlaceOriginalTeaCuringShed,simulation::Object::OriginalTeaCuringShed237,"Tea Shed","Paid Tea Bush -> Tea"},
+    {sandbox_ui::Action::OriginalLacquerRefinery,simulation::CommandType::PlaceOriginalLacquerRefinery,simulation::Object::OriginalLacquerRefinery238,"Refinery","Paid Lacquer Tree -> Lacquer"},
+    {sandbox_ui::Action::OriginalSilkwormShed,simulation::CommandType::PlaceOriginalSilkwormShed,simulation::Object::OriginalSilkwormShed239,"Silkworm","Paid Mulberry -> RawSilk"},
+    {sandbox_ui::Action::OriginalTeaBush,simulation::CommandType::PlaceOriginalTeaBush,simulation::Object::OriginalTeaBush26,"Tea Bush","Adjacent free Tea Shed required"},
+    {sandbox_ui::Action::OriginalLacquerTree,simulation::CommandType::PlaceOriginalLacquerTree,simulation::Object::OriginalLacquerTree27,"Lacquer Tree","Adjacent free Refinery required"},
+    {sandbox_ui::Action::OriginalMulberryTree,simulation::CommandType::PlaceOriginalMulberryTree,simulation::Object::OriginalMulberryTree28,"Mulberry","Adjacent free Silkworm required"}
+}};
+const IndustryTool* industry_tool(int tool) {
+    return tool>=29 && tool<=40 ? &industry_tools[static_cast<std::size_t>(tool-29)]:nullptr;
+}
+const IndustryTool* industry_action(sandbox_ui::Action action) {
+    for (const auto& tool:industry_tools) if (tool.action==action) return &tool;
+    return nullptr;
+}
+const IndustryTool* industry_kind(simulation::Object kind) {
+    for (const auto& tool:industry_tools) if (tool.kind==kind) return &tool;
+    return nullptr;
+}
+constexpr std::array<const char*,5> aux_names{"Wood","Bronze","RawSilk","Lacquer","Paper"};
 template<class Courier> int displayed_courier_cargo(const simulation::World& world,const Courier& courier) {
     return world.original_production_enabled() ?
         std::max(courier.cargo,world.original_courier_cargo(courier.id)):courier.cargo;
 }
 template<class Courier> int displayed_courier_reservation(const simulation::World& world,const Courier& courier) {
+    if (world.original_production_enabled() && courier.phase==simulation::CourierPhase::ToWarehouse &&
+        (courier.role==simulation::CourierRole::OriginalAuxToWarehouse || courier.role==simulation::CourierRole::OriginalAuxSupplier))
+        return world.original_auxiliary_cargo(courier.id);
     if (world.original_production_enabled() && courier.phase==simulation::CourierPhase::ToWarehouse &&
         (courier.role==simulation::CourierRole::OriginalFoodToMarket || courier.role==simulation::CourierRole::OriginalFoodToHouse))
         return world.original_food_cargo(courier.id);
@@ -80,6 +117,9 @@ const char* courier_role_label(simulation::CourierRole role) {
     case simulation::CourierRole::OriginalMusic: return "Music";
     case simulation::CourierRole::OriginalAcrobat: return "Acrobat";
     case simulation::CourierRole::OriginalDrama: return "Drama";
+    case simulation::CourierRole::OriginalLuxuryToWarehouse: return "LuxuryToWarehouse";
+    case simulation::CourierRole::OriginalAuxToWarehouse: return "MaterialToWarehouse";
+    case simulation::CourierRole::OriginalAuxSupplier: return "MaterialSupplier";
 
     case simulation::CourierRole::None: return "None";
     }
@@ -109,6 +149,13 @@ const char* courier_good_label(simulation::Good good) {
     return "Unknown";
 }
 const char* displayed_courier_good(const simulation::World& world,const simulation::CourierState& courier) {
+    if (world.original_production_enabled() &&
+        (courier.role==simulation::CourierRole::OriginalAuxToWarehouse || courier.role==simulation::CourierRole::OriginalAuxSupplier)) {
+        for (const auto& trip:world.original_production_state()->industry.aux_trips)
+            if (trip.transfer.courier_id==courier.id && world.original_auxiliary_cargo(courier.id)>0)
+                return aux_names[static_cast<std::size_t>(trip.material)];
+        return "Empty";
+    }
     if (world.original_production_enabled()) if (const auto good=world.original_courier_good(courier.id)) {
         switch (*good) {
         case original::Goods::Hemp:return "Hemp";
@@ -120,6 +167,7 @@ const char* displayed_courier_good(const simulation::World& world,const simulati
         }
     }
     if (world.original_production_enabled() && (courier.role==simulation::CourierRole::OriginalHempToWarehouse ||
+        courier.role==simulation::CourierRole::OriginalLuxuryToWarehouse ||
         courier.role==simulation::CourierRole::MarketPotteryInbound ||
         courier.role==simulation::CourierRole::MarketPotteryDistribution)) return "Empty";
     return courier_good_label(courier.good);
@@ -152,6 +200,7 @@ std::optional<assets::StorageDirection> current_storage_direction(
 }
 const char* tool_name(simulation::RulesProfile rules,int tool) {
     if (simulation::production_profile(rules)) {
+        if (const auto* industry=industry_tool(tool)) return industry->recipe;
         switch (tool) {
         case 0: return "Market";
         case 1: return "Road";
@@ -217,12 +266,26 @@ const char* object_name(simulation::Object object) {
     case simulation::Object::OriginalMusicSchool211: return "Music School";
     case simulation::Object::OriginalAcrobatSchool212: return "Acrobat School";
     case simulation::Object::OriginalDramaSchool213: return "Drama School";
+    case simulation::Object::OriginalLoggingShed38:
+    case simulation::Object::OriginalBronzeSmelter39:
+    case simulation::Object::OriginalBronzewareMaker42:
+    case simulation::Object::OriginalLacquerwareMaker44:
+    case simulation::Object::OriginalPaperMaker45:
+    case simulation::Object::OriginalWeaver47:
+    case simulation::Object::OriginalTeaCuringShed237:
+    case simulation::Object::OriginalLacquerRefinery238:
+    case simulation::Object::OriginalSilkwormShed239:
+    case simulation::Object::OriginalTeaBush26:
+    case simulation::Object::OriginalLacquerTree27:
+    case simulation::Object::OriginalMulberryTree28:
+        return industry_kind(object)->name;
 
     }
     return "Unknown";
 }
 simulation::CommandType command_type(simulation::RulesProfile rules,int tool,bool influence=false) {
     if (simulation::production_profile(rules)) {
+        if (const auto* industry=industry_tool(tool)) return industry->command;
         switch (tool) {
         case 0: return simulation::CommandType::PlaceMarket;
         case 1: return simulation::CommandType::PlaceRoad;
@@ -1378,11 +1441,11 @@ void SandboxView::update_layout(bool preserve_center) {
         simulation::fire_profile(rules_),simulation::desirability_profile(rules_),
         simulation::water_profile(rules_),simulation::health_profile(rules_),
         simulation::market_profile(rules_),simulation::service_profile(rules_),
-        (world_ && world_->bridges_supported()) || (!world_ && rules_==simulation::RulesProfile::CityV16 && requested_rule_version_>=5),
-        (world_ && world_->ramps_supported()) || (!world_ && rules_==simulation::RulesProfile::CityV16 && requested_rule_version_==6),
-        original_production_fixture());
+        world_ ? world_->bridges_supported():simulation::bridges_rule_enabled(rules_,requested_rule_version_),
+        world_ ? world_->ramps_supported():simulation::ramps_rule_enabled(rules_,requested_rule_version_),
+        original_production_fixture(),industry_page_);
     if (preserve_center && next.map.x==layout_.map.x && next.map.y==layout_.map.y &&
-        next.map.w==layout_.map.w && next.map.h==layout_.map.h) return;
+        next.map.w==layout_.map.w && next.map.h==layout_.map.h) {layout_=next;return;}
     // Panel toggles and resize change the clipped viewport before another
     // frame is submitted. Its previous visible-pixel cache is then invalid.
     visual_frame_valid_=false;
@@ -1742,10 +1805,27 @@ simulation::CommandResult SandboxView::preview(simulation::Cell cell) const {
 simulation::Command SandboxView::placement_command(simulation::Cell cell) const {
     simulation::Command command{command_type(rules_,tool_,original_influence_fixture()),cell};
     if (tool_==17 || tool_==19 || tool_==20) command.building_id=selected_building().value_or(simulation::BuildingId{});
+    if (original_production_fixture() && tool_>=38 && tool_<=40) {
+        const auto wanted=static_cast<simulation::Object>(static_cast<unsigned>(simulation::Object::OriginalTeaCuringShed237)+static_cast<unsigned>(tool_-38));
+        std::optional<simulation::BuildingId> candidate;
+        for (const auto& row:world_->original_production_state()->industry.sources) {
+            const auto& body=world_->building(row.building_id);
+            const std::int64_t x=body.cell.x,y=body.cell.y,px=cell.x,py=cell.y;
+            if (body.kind!=wanted || row.plant_id ||
+                std::max({x-px,std::int64_t{0},px-(x+1)})+std::max({y-py,std::int64_t{0},py-(y+1)})!=1) continue;
+            if (candidate) {candidate.reset();break;} // Ambiguous ownership grants nothing.
+            candidate=row.building_id;
+        }
+        command.building_id=candidate.value_or(simulation::BuildingId{});
+    }
     return command;
 }
 void SandboxView::set_tool(int tool) {
     cancel_gesture();
+    if (const auto* industry=industry_tool(tool)) {
+        if (action_enabled(industry->action)) perform_action(industry->action);
+        return;
+    }
     sandbox_ui::Action action;
     switch (tool) {
     case 0: action=sandbox_ui::Action::Market; break;
@@ -1784,6 +1864,22 @@ void SandboxView::set_tool(int tool) {
     if (action_enabled(action)) perform_action(action);
 }
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
+    if (action==sandbox_ui::Action::ToggleIndustryPage)
+        return original_production_fixture() && !walker_diagnostic_open_;
+    if (const auto* industry=industry_action(action)) {
+        if (!original_production_fixture() || walker_diagnostic_open_ ||
+            world_->treasury()<world_->construction_cost(industry->command) ||
+            world_->buildings().size()>=simulation::Rules::original_production_building_limit) return false;
+        if (industry->kind>=simulation::Object::OriginalTeaBush26) {
+            const auto wanted=static_cast<simulation::Object>(static_cast<unsigned>(simulation::Object::OriginalTeaCuringShed237)+
+                static_cast<unsigned>(industry->kind)-static_cast<unsigned>(simulation::Object::OriginalTeaBush26));
+            for (const auto& source:world_->original_production_state()->industry.sources)
+                if (!source.plant_id && world_->building(source.building_id).kind==wanted) return true;
+            return false;
+        }
+        return world_->couriers().size()<simulation::Rules::original_production_courier_limit &&
+            std::count_if(world_->buildings().begin(),world_->buildings().end(),[&](const auto& body){return body.kind==industry->kind;})<2;
+    }
     if (action==sandbox_ui::Action::OriginalMusicSchool) {
         if (!original_production_fixture() || walker_diagnostic_open_) return false;
         return std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b) {
@@ -2115,6 +2211,7 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         else if (action==A::OriginalMusicSchool) command=simulation::CommandType::PlaceOriginalMusicSchool;
         else if (action==A::OriginalAcrobatSchool) command=simulation::CommandType::PlaceOriginalAcrobatSchool;
         else if (action==A::OriginalDramaSchool) command=simulation::CommandType::PlaceOriginalDramaSchool;
+        else if (const auto* industry=industry_action(action)) command=industry->command;
 
         else if (action==A::ServicePost) command=simulation::CommandType::PlaceServicePost;
         else if (action==A::Market) command=simulation::CommandType::PlaceMarket;
@@ -2128,6 +2225,17 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         else last_message_=save_path_.empty() && (action==A::Save || action==A::Load) ?
             "No sandbox save path configured" : "Tool unavailable or building limit reached";
         return;
+    }
+    if (action==A::ToggleIndustryPage) {
+        cancel_gesture();industry_page_=!industry_page_;tool_=5;update_layout(true);
+        last_message_=industry_page_ ? "Industry: authored80-tick recipes; original art pending":"Construction tools";
+        refresh_hover();return;
+    }
+    if (const auto* industry=industry_action(action)) {
+        cancel_gesture();tool_=29+static_cast<int>(industry-industry_tools.data());
+        if (!industry_page_) {industry_page_=true;update_layout(true);}
+        last_message_=std::string(industry->recipe)+"; authored80 ticks; marker art";
+        refresh_hover();return;
     }
     if (action==A::Select || action==A::Road || action==A::Clay || action==A::Pottery ||
         action==A::Warehouse || action==A::RemoveRoad || action==A::Household ||
@@ -3286,6 +3394,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             if (object==simulation::Object::OriginalMusicSchool211) color=SDL_Color{118,104,184,255};
             if (object==simulation::Object::OriginalAcrobatSchool212) color=SDL_Color{181,105,81,255};
             if (object==simulation::Object::OriginalDramaSchool213) color=SDL_Color{170,88,138,255};
+            if (industry_kind(object)) color=SDL_Color{157,132,73,255};
             if (object==simulation::Object::OriginalAncestorShrine214)
                 color=SDL_Color{164,116,71,255};
             if (object==simulation::Object::FireWatch)
@@ -3468,6 +3577,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==26 ? simulation::Object::OriginalMusicSchool211:
             tool_==27 ? simulation::Object::OriginalAcrobatSchool212:
             tool_==28 ? simulation::Object::OriginalDramaSchool213:
+            industry_tool(tool_) ? industry_tool(tool_)->kind:
 
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
@@ -3793,6 +3903,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==26 ? simulation::Object::OriginalMusicSchool211:
             tool_==27 ? simulation::Object::OriginalAcrobatSchool212:
             tool_==28 ? simulation::Object::OriginalDramaSchool213:
+            industry_tool(tool_) ? industry_tool(tool_)->kind:
 
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
@@ -3975,11 +4086,15 @@ bool SandboxView::fire_watch_selected() const {
     const auto id=selected_building();
     return id && world_->building(*id).kind==simulation::Object::FireWatch;
 }
+bool SandboxView::industry_inspector_selected() const {
+    const auto id=selected_building();
+    return original_production_fixture() && id && industry_kind(world_->building(*id).kind);
+}
 bool SandboxView::status_first_selected() const {
     const auto id=selected_building();
     return (id && (world_->building(*id).kind==simulation::Object::Well ||
         world_->building(*id).kind==simulation::Object::OriginalInfluenceSource)) ||
-        fire_watch_selected() || (simulation::desirability_profile(rules_) && id &&
+        fire_watch_selected() || industry_inspector_selected() || (simulation::desirability_profile(rules_) && id &&
         world_->building(*id).kind==simulation::Object::Household);
 }
 std::vector<std::string> SandboxView::wrap_panel_lines(const std::vector<std::string>& lines) const {
@@ -4229,6 +4344,46 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         return wrap_panel_lines(lines);
     }
     const auto house_id=selected_building();
+    if (original_production_fixture() && house_id) if (const auto* info=industry_kind(world_->building(*house_id).kind)) {
+        const auto id=*house_id;const auto& body=world_->building(id);
+        lines={std::string(info->name)+" #"+std::to_string(static_cast<unsigned>(id)),
+            "Authored managed recipes",info->recipe,"80 productive ticks / unit",
+            "Workers "+std::to_string(world_->workers_assigned(id))+"/"+std::to_string(world_->workforce_required(id))+
+                (body.operating_enabled ? " | Running":" | Paused")};
+        const auto& state=world_->original_production_state()->industry;
+        for (const auto& source:state.sources) if (source.building_id==id) {
+            lines.push_back("Progress "+std::to_string(source.progress)+"/80 | made "+std::to_string(source.completed));
+            if (info->kind==simulation::Object::OriginalPaperMaker45)
+                lines.push_back("Hemp input "+std::to_string(displayed_original_stock(*world_,id,original::Goods::Hemp))+"/8");
+            if (info->kind==simulation::Object::OriginalBronzewareMaker42)
+                lines.push_back("Clay input "+std::to_string(body.input_clay)+"/8; used "+std::to_string(source.clay_used));
+            if (info->kind>=simulation::Object::OriginalTeaCuringShed237 && info->kind<=simulation::Object::OriginalSilkwormShed239)
+                lines.push_back(source.plant_id ? "Paid plant #"+std::to_string(static_cast<unsigned>(*source.plant_id)):"Buy matching adjacent plant");
+        }
+        for (const auto& stock:state.auxiliary) if (stock.building_id==id) {
+            const auto amount=[&](std::size_t g){return std::string(aux_names[g])+" "+std::to_string(stock.amounts[g])+"/8";};
+            if (info->kind==simulation::Object::OriginalBronzeSmelter39) lines.push_back(amount(0)+" "+amount(1));
+            else if (info->kind==simulation::Object::OriginalLacquerwareMaker44) lines.push_back(amount(0)+" "+amount(3));
+            else if (info->kind==simulation::Object::OriginalLoggingShed38) lines.push_back(amount(0));
+            else if (info->kind==simulation::Object::OriginalBronzewareMaker42) lines.push_back(amount(1));
+            else if (info->kind==simulation::Object::OriginalPaperMaker45) lines.push_back(amount(4));
+            else if (info->kind==simulation::Object::OriginalWeaver47 || info->kind==simulation::Object::OriginalSilkwormShed239) lines.push_back(amount(2));
+            else if (info->kind==simulation::Object::OriginalLacquerRefinery238) lines.push_back(amount(3));
+        }
+        if (const auto output=simulation::original_industry_goods::output(body.kind))
+            lines.push_back(std::string(body.kind==simulation::Object::OriginalTeaCuringShed237 ? "Tea":
+                body.kind==simulation::Object::OriginalWeaver47 ? "Silk":
+                body.kind==simulation::Object::OriginalBronzewareMaker42 ? "Bronzeware":"Lacquerware")+
+                " output "+std::to_string(displayed_original_stock(*world_,id,*output))+"/8");
+        for (const auto& ore:state.managed_ore) if (ore.building_id==id)
+            lines.push_back("Managed Ore "+std::to_string(ore.stock)+"/8 | work "+std::to_string(ore.progress)+"/80");
+        for (const auto& source:state.sources) if (source.plant_id==id)
+            lines.push_back("Bound source #"+std::to_string(static_cast<unsigned>(source.building_id)));
+        for (const auto& actor:world_->couriers()) if (actor.owner==id)
+            lines.push_back(std::string(displayed_courier_good(*world_,actor))+" cargo "+std::to_string(displayed_courier_cargo(*world_,actor)));
+        lines.push_back("Marker art; original pending");
+        add_connectivity();return wrap_panel_lines(lines);
+    }
     if (original_influence_fixture() && house_id) {
         const auto& b=world_->building(*house_id);
         if (b.kind==simulation::Object::OriginalInfluenceSource)
@@ -4318,6 +4473,11 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             std::to_string(world_->workforce_required(id)));
         lines.push_back(std::string("Operation: ")+(b.operating_enabled ? "Running":"Paused"));
         if (culture) lines.push_back("Experimental school-to-House");
+        if (b.kind==simulation::Object::OriginalConfucianAcademy219) {
+            for (const auto& stock:world_->original_production_state()->industry.auxiliary) if (stock.building_id==id)
+                lines.push_back("Paper "+std::to_string(stock.amounts[4])+"/8; 1 per new tour");
+            lines.push_back("Authored Paper material gate");
+        }
         lines.push_back(water ? "Arrival96; phase28 water":religion ? "Actual visits set this timer to40 cycles":
             culture ? "Actual arrival grants96":"Actual visits set this timer to96 cycles");
         if (religion) lines.push_back("Diagnostic source and visitor markers");
@@ -5161,6 +5321,7 @@ bool SandboxView::draw_hud() {
             return std::count_if(world_->buildings().begin(),world_->buildings().end(),
                 [&](const simulation::BuildingState& b) { return b.placed && b.kind==kind; });
         };
+        if (const auto* industry=industry_action(action)) return std::string(industry->name)+" $"+std::to_string(world_->construction_cost(industry->command));
         switch (action) {
         case A::Select: return simulation::production_profile(rules_) ? "5 Select":"4 Select";
         case A::Road: return simulation::city_profile(rules_) ? "1 Road $2":"1 Road";
@@ -5242,6 +5403,20 @@ bool SandboxView::draw_hud() {
         case A::TogglePanel: return layout_.panel_open ? "Hide info":"Show info";
         case A::ToggleHelp: return help_open_ ? "Hide help":"Help";
         case A::ToggleIncome: return income_open_ ? "Inspect T":"Income T";
+        case A::ToggleIndustryPage:return industry_page_ ? "Back to city":"Industry";
+        case A::OriginalLoggingShed:
+        case A::OriginalBronzeSmelter:
+        case A::OriginalBronzewareMaker:
+        case A::OriginalLacquerwareMaker:
+        case A::OriginalPaperMaker:
+        case A::OriginalWeaver:
+        case A::OriginalTeaCuringShed:
+        case A::OriginalLacquerRefinery:
+        case A::OriginalSilkwormShed:
+        case A::OriginalTeaBush:
+        case A::OriginalLacquerTree:
+        case A::OriginalMulberryTree:
+            break;
         }
         return "";
     };
@@ -5284,6 +5459,8 @@ bool SandboxView::draw_hud() {
         case A::Desirability: active=desirability_overlay_; break;
         default: break;
         }
+        if (const auto* industry=industry_action(button.action)) active=industry_tool(tool_)==industry;
+        if (button.action==A::ToggleIndustryPage) active=industry_page_;
         const bool enabled=action_enabled(button.action);
         if (!fill(button.rect,!enabled ? SDL_Color{43,47,55,255}:
             active ? SDL_Color{38,100,125,255}:SDL_Color{38,58,77,255})) return false;
@@ -5345,6 +5522,7 @@ bool SandboxView::draw_hud() {
     if (layout_.panel_open && !income_open_) {
         if (!SDL_SetRenderDrawColor(renderer_,240,244,250,255)) return false;
         if (!draw_text(layout_.panel.x+10*layout_.scale,layout_.panel.y+14*layout_.scale,
+                       industry_inspector_selected() ? "INDUSTRY INSPECTOR":
                        selected_building() && world_->building(*selected_building()).kind==simulation::Object::Well ? "WELL INSPECTOR":
                        fire_watch_selected() ? "FIRE WATCH INSPECTOR":
                        status_first_selected() ? "HOUSE INSPECTOR":"BUILDINGS",
@@ -5495,7 +5673,7 @@ bool SandboxView::draw_hud() {
                 debug_row+=14;
             }
             std::size_t logical=0,live_submitted=0,supplier=0,distributor=0,foreign_markers=0;
-            std::array<bool,static_cast<std::size_t>(simulation::CourierRole::OriginalDrama)+1> logical_roles{};
+            std::array<bool,static_cast<std::size_t>(simulation::CourierRole::OriginalAuxSupplier)+1> logical_roles{};
             for (const auto& courier:world_->couriers()) {
                 const auto role=walker_visual_role(courier.role);
                 const auto hit=std::find_if(visual_hits_.begin(),visual_hits_.end(),

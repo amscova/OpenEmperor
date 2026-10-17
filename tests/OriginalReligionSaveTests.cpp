@@ -52,6 +52,8 @@ struct Fixture {
     f::fs::path target=root.path/"religion-schema26.json";
     std::vector<sim::BuildingId> sources;
     sim::BuildingId dao{},buddhist{},confucian{};
+    std::optional<oe_production_fixture::PaperSupply> paper;
+    int expected_population=56;
     explicit Fixture(bool populate=true,int confucian_need=1,int or_need=1,int width=24,int height=20):
         policy(std::make_shared<const sim::MapPermissions>(width,height,3,
             std::vector<sim::MapCellPermission>(static_cast<std::size_t>(width*height),
@@ -79,11 +81,25 @@ struct Fixture {
               "Eight Houses and seven real sources did not pay their exact model/road costs without grants");
         for (int y=5;y<8;++y) for (int x=18;x<21;++x)
             check(world.building_owner_at({x,y})==confucian,"Paid Academy did not own all nine actual footprint cells");
+        if (confucian_need>0) {
+            oe_production_fixture::PaperSupplyLayout layout;layout.farm={0,17};layout.field={2,17};
+            layout.paper={4,17};layout.warehouse={8,17};
+            for (int x=0;x<24;++x) layout.roads.push_back({x,16});
+            for (int y=5;y<16;++y) layout.roads.push_back({23,y});
+            for (const int x:{6,9,12}) {layout.extra_homes.push_back({x,0});for (int y=0;y<4;++y) layout.roads.push_back({x-1,y});}
+            paper=oe_production_fixture::add_paper_supply(world,layout);expected_population=77;
+        }
     }
     sim::BuildingId buy(sim::CommandType command,sim::Cell cell,bool pause=true) {
         f::buy(world,{command,cell});const auto id=*world.building_owner_at(cell);
         if (pause) {sources.push_back(id);f::buy(world,sim::set_building_operation(id,false));}
         return id;
+    }
+    void prepare_paper() {
+        check(paper.has_value(),"Positive Academy requires actual paid Paper production and delivery");
+        until(world,[&]{const auto& stocks=world.original_production_state()->industry.auxiliary;return std::any_of(stocks.begin(),stocks.end(),[&](const auto& row){return row.building_id==confucian && row.amounts[4]>0;});});
+        for (const auto id:{paper->farm,paper->paper,paper->warehouse}) f::buy(world,sim::set_building_operation(id,false));
+        until(world,[&]{return std::all_of(world.couriers().begin(),world.couriers().end(),[](const auto& c){return c.phase==sim::CourierPhase::IdleAtWorkshop;});});
     }
     save::SaveDocument document(const sim::World& value) const {
         return save::make_document(root.data,f::map_relative,policy->building_mask(),value);
@@ -95,8 +111,8 @@ struct Fixture {
         witnesses_match(value);const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,
-              "Religion save did not use its own strict active revision23");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,
+              "Religion save did not use its own strict active revision24");
         auto copy=restore(parsed);check(copy.snapshot()==before,"Religion F5/F9 changed full World authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Religion canonical rewrite mutated saved/live authority");
@@ -118,8 +134,8 @@ struct Fixture {
 };
 struct States {sim::WorldSnapshot midroute,positive,expired;};
 States lifecycle(Fixture& f) {
-    f.roundtrip(f.world);until(f.world,[&]{return f.world.total_population()==56;});
-    check(f.world.workforce_supply()==56 && f.world.original_production_state()->services.trips.empty(),
+    f.roundtrip(f.world);until(f.world,[&]{return f.world.total_population()==f.expected_population;});f.prepare_paper();
+    check(f.world.workforce_supply()==77 && f.world.original_production_state()->services.trips.empty(),
           "Paused providers granted visits or lost genuinely admitted workers");
     for (const auto id:f.sources) f::buy(f.world,sim::set_building_operation(id,true));
     until(f.world,[&] {
@@ -222,7 +238,7 @@ void hostile(Fixture& f,const States& states) {
             {home+"confucian",0},{home+"confucian",41},{home+"confucian",96},{home+"music",40},
             {evaluation+"/service_witnesses/3",nullptr},{evaluation+"/input/confucian",0},
             {"/world/couriers/"+std::to_string(ci)+"/role",17},{"/world/couriers/"+std::to_string(ci)+"/role",20},
-            {"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",24}}) {
+            {"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",25}}) {
         auto value=good;value.at(json::json_pointer(pointer))=replacement;reject(value);
     }
     for (const auto& pointer:{provider+"/building_id",witness+"/provider_id",trip+"/target",trip+"/transfer/courier_id",trip+"/transfer/sequence",trip+"/dispatched_tick",trip+"/arrival_tick"})
@@ -291,10 +307,10 @@ void maximum_context_and_legacy_limits() {
     for (std::size_t i=0;i<commands.size();++i) for (int j=0;j<2;++j)
         (void)f.buy(commands[i],{1+4*(2*static_cast<int>(i%3)+j),i<3 ? 17:21});
     for (const int x:{29,33}) (void)f.buy(sim::CommandType::PlaceOriginalWaterWell,{x,17});
-    check(f.world.buildings().size()==52 && f.world.couriers().size()==32 && f.world.next_building_id()==86 &&
-          f.world.next_courier_id()==33 && f.world.original_production_state()->services.providers.size()==12 &&
+    check(f.world.buildings().size()==52 && f.world.couriers().size()==34 && f.world.next_building_id()==86 &&
+          f.world.next_courier_id()==35 && f.world.original_production_state()->services.providers.size()==12 &&
           f.world.original_influence_state()->removed_sources.size()==33 && f.world.total_population()==0,
-          "Actual52/32 context or contiguous paid85-purchase history did not match its explicit limits");
+          "Actual52/34 context or contiguous paid85-purchase history did not match its explicit limits");
     const auto pristine=f.roundtrip(f.world);const auto good=json::parse(pristine);const auto path=f.root.path/"bounds-religion.json";
     for (const char* key:{"buildings","couriers"}) {
         auto bad=good;bad["world"][key].push_back(bad["world"][key][0]);f::write_text(path,bad.dump());
@@ -305,7 +321,7 @@ void maximum_context_and_legacy_limits() {
     const auto legacy_reject=[&](json bad) {
         f::write_text(path,bad.dump());bool exact=false;
         try {(void)save::read_save(path);} catch (const std::exception& error) {exact=std::string(error.what())=="invalid scalable City entity array length";}
-        check(exact,"Frozen schema22 inherited active52/32 entity syntax bounds");++rejected;
+        check(exact,"Frozen schema22 inherited active52/34 entity syntax bounds");++rejected;
     };
     auto too_many_bodies=legacy;too_many_bodies["world"]["couriers"].erase(too_many_bodies["world"]["couriers"].begin()+26,too_many_bodies["world"]["couriers"].end());
     legacy_reject(too_many_bodies);
@@ -316,7 +332,7 @@ void maximum_context_and_legacy_limits() {
     const auto old_restore_reject=[&](const sim::WorldSnapshot& state) {
         bool exact=false;
         try {(void)sim::World::restore(state,f.policy);} catch (const std::exception& error) {exact=std::string(error.what())=="invalid City-v10 entity counts or next IDs";}
-        check(exact,"Frozen rule6 restore inherited active52/32 entity limits");++rejected;
+        check(exact,"Frozen rule6 restore inherited active52/34 entity limits");++rejected;
     };
     auto old_bodies=old;old_bodies.couriers.resize(26);old_restore_reject(old_bodies);
     auto old_actors=old;old_actors.buildings.resize(46);old_restore_reject(old_actors);
@@ -329,7 +345,15 @@ void academy_shortest_body_route() {
     const auto target=f.buy(sim::CommandType::PlaceHousehold,{5,5},false);
     (void)f.buy(sim::CommandType::PlaceHousehold,{5,8},false);
     const auto academy=f.buy(sim::CommandType::PlaceOriginalConfucianAcademy,{0,5});
-    until(f.world,[&]{return f.world.total_population()==14;});
+    f.confucian=academy;
+    oe_production_fixture::PaperSupplyLayout layout;layout.farm={10,12};layout.field={12,12};layout.paper={15,12};layout.warehouse={18,12};
+    for (int x=3;x<23;++x) layout.roads.push_back({x,11});
+    for (int y=9;y<11;++y) layout.roads.push_back({3,y});
+    for (int x=0;x<23;++x) layout.roads.push_back({x,2});
+    for (int y=3;y<11;++y) layout.roads.push_back({22,y});
+    for (const int x:{0,3,6,9}) layout.extra_homes.push_back({x,0});
+    f.paper=oe_production_fixture::add_paper_supply(f.world,layout);
+    until(f.world,[&]{return f.world.total_population()==42;});f.prepare_paper();
     f::buy(f.world,sim::set_building_operation(academy,true));f.world.tick();
     const auto& actor=f.world.couriers().front();
     check(actor.role==sim::CourierRole::OriginalConfucian && actor.phase==sim::CourierPhase::ToWarehouse && actor.target==target &&
@@ -359,7 +383,7 @@ void academy_edges() {
 int main() {
     try {Fixture f;const auto states=lifecycle(f);hostile(f,states);single_or(false);single_or(true);
         maximum_context_and_legacy_limits();academy_shortest_body_route();academy_edges();
-        std::cout<<"Religion save PASS: paid215/217/219 actual arrivals,3x3 Academy, separate40/96 timers, OR/expiry, F5F9/20k, active52/32 versus frozen46/26 and "
+        std::cout<<"Religion save PASS: paid215/217/219 actual arrivals,3x3 Academy, separate40/96 timers, OR/expiry, F5F9/20k, active52/34 versus frozen46/26 and "
                  <<rejected<<" hostile refusals\n";return 0;
     } catch (const std::exception& error) {std::cerr<<"Original religion save FAIL: "<<error.what()<<'\n';return 1;}
 }

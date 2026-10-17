@@ -46,7 +46,7 @@ void basic_input(const original::HouseState& input) {
         invalid("unsupported early Housing evaluation input");
     for (std::size_t g=0;g<original::goods_count;++g) {
         const auto stock=original::goods_stock(input,static_cast<original::Goods>(g));
-        if (stock<0 || stock>(g<2 ? Rules::household_capacity:0)) invalid("Housing input invents unsupported goods stock");
+        if (stock<0 || stock>Rules::household_capacity) invalid("Housing input invents unsupported goods stock");
     }
 }
 void historical_service(const WorldSnapshot& s,BuildingId id,std::uint64_t first,const OriginalHousingEvaluation& proof,std::size_t index) {
@@ -189,7 +189,7 @@ void World::validate_original_housing_snapshot(const WorldSnapshot& s) {
         for (const auto& c:row.consumption_rows) {
             add(events,c.events);
             for (std::size_t g=0;g<original::goods_count;++g) {
-                if (c.consumed[g]>c.events*std::uint64_t(g<2 ? 8:0)) invalid("Housing consumption row exceeds physical stock/events");
+                if (c.consumed[g]>c.events*std::uint64_t{8}) invalid("Housing consumption row exceeds physical stock/events");
                 add(consumed[g],c.consumed[g]);
             }
         }
@@ -321,7 +321,7 @@ void World::validate_original_housing_model() {
             if (static_cast<std::uint64_t>((**proof).input.occupants)>maximum_population((**proof).tick))
                 invalid("Housing input residents exceed earlier real stage capacities/opportunities");
         for (std::size_t r=0;r<row.consumption_rows.size();++r) for (std::size_t g=0;g<original::goods_count;++g) {
-            const auto need=std::clamp(rules.value(original::house_row(static_cast<original::HouseType>(r+3)),original::goods_field(static_cast<original::Goods>(g))),0,g<2 ? 8:0);
+            const auto need=std::clamp(rules.value(original::house_row(static_cast<original::HouseType>(r+3)),original::goods_field(static_cast<original::Goods>(g))),0,8);
             if (row.consumption_rows[r].consumed[g]>row.consumption_rows[r].events*static_cast<std::uint64_t>(need))
                 invalid("Housing row consumption exceeds its actual model need");
         }

@@ -288,7 +288,8 @@ add_library(openemperor-original-service-rules STATIC
 target_include_directories(openemperor-original-service-rules PUBLIC src)
 target_link_libraries(openemperor-original-service-rules PUBLIC openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-original-service-rules)
-target_sources(openemperor-simulation PRIVATE src/simulation/WorldOriginalServices.cpp
+target_sources(openemperor-simulation PRIVATE src/simulation/WorldOriginalIndustry.cpp
+    src/simulation/WorldOriginalConsumption.cpp src/simulation/WorldOriginalServices.cpp
     src/simulation/WorldOriginalWater.cpp src/simulation/WorldOriginalHousing.cpp)
 target_link_libraries(openemperor-simulation PUBLIC openemperor-original-service-rules)
 # Pure goods transfers/consumption/quality observations; no World/app linkage.
@@ -964,6 +965,23 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-religion-save-tests)
     add_test(NAME original-religion-save COMMAND openemperor-original-religion-save-tests)
     set_tests_properties(original-religion-save PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-industry-world-tests tests/OriginalIndustryWorldTests.cpp)
+    target_link_libraries(openemperor-original-industry-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-industry-world-tests)
+    add_test(NAME original-industry-world COMMAND openemperor-original-industry-world-tests)
+    if(OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT)
+        add_test(NAME original-industry-world-real COMMAND openemperor-original-industry-world-tests
+            --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+        set_tests_properties(original-industry-world-real PROPERTIES TIMEOUT 300)
+    endif()
+    set_tests_properties(original-industry-world PROPERTIES TIMEOUT 300)
+
+    add_executable(openemperor-original-industry-save-tests tests/OriginalIndustrySaveTests.cpp)
+    target_link_libraries(openemperor-original-industry-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-industry-save-tests)
+    add_test(NAME original-industry-save COMMAND openemperor-original-industry-save-tests)
+    set_tests_properties(original-industry-save PROPERTIES TIMEOUT 180)
 
     add_executable(openemperor-original-culture-world-tests tests/OriginalCultureWorldTests.cpp)
     target_link_libraries(openemperor-original-culture-world-tests PRIVATE openemperor-persistence)

@@ -53,6 +53,8 @@ struct Fixture {
     f::fs::path target=root.path/"culture-schema26.json";
     std::vector<sim::BuildingId> sources;
     std::array<sim::BuildingId,3> schools{};
+    std::optional<oe_production_fixture::PaperSupply> paper;
+    int expected_population=70;
     explicit Fixture(bool populate=true,std::array<int,3> needs={1,1,1},int width=32,int height=24):
         policy(std::make_shared<const sim::MapPermissions>(width,height,3,
             std::vector<sim::MapCellPermission>(static_cast<std::size_t>(width*height),
@@ -80,11 +82,25 @@ struct Fixture {
             for (int y=origin.y;y<origin.y+side;++y) for (int x=origin.x;x<origin.x+side;++x)
                 check(world.building_owner_at({x,y})==schools[i],"School lost an actual2x2/3x3 body cell");
         }
+        if (std::all_of(needs.begin(),needs.end(),[](int need){return need>0;})) {
+            oe_production_fixture::PaperSupplyLayout layout;layout.farm={0,17};layout.field={2,17};
+            layout.paper={4,17};layout.warehouse={8,17};
+            for (int x=0;x<32;++x) layout.roads.push_back({x,16});
+            for (const int x:{6,9,12,15,18}) {layout.extra_homes.push_back({x,0});for (int y=0;y<4;++y) layout.roads.push_back({x-1,y});}
+            paper=oe_production_fixture::add_paper_supply(world,layout);expected_population=105;
+        }
     }
     sim::BuildingId buy(sim::CommandType command,sim::Cell cell,bool pause=true) {
         f::buy(world,{command,cell});const auto id=*world.building_owner_at(cell);
         if (pause) {sources.push_back(id);f::buy(world,sim::set_building_operation(id,false));}
         return id;
+    }
+    void prepare_paper() {
+        check(paper.has_value(),"Nine-category positive needs an actual paid Paper chain");
+        const auto academy=*std::find_if(sources.begin(),sources.end(),[&](const auto id){return world.building(id).kind==sim::Object::OriginalConfucianAcademy219;});
+        until(world,[&]{const auto& stocks=world.original_production_state()->industry.auxiliary;return std::any_of(stocks.begin(),stocks.end(),[&](const auto& row){return row.building_id==academy && row.amounts[4]>0;});});
+        for (const auto id:{paper->farm,paper->paper,paper->warehouse}) f::buy(world,sim::set_building_operation(id,false));
+        until(world,[&]{return std::all_of(world.couriers().begin(),world.couriers().end(),[](const auto& c){return c.phase==sim::CourierPhase::IdleAtWorkshop;});});
     }
     save::SaveDocument document(const sim::World& value) const {
         return save::make_document(root.data,f::map_relative,policy->building_mask(),value);
@@ -96,7 +112,7 @@ struct Fixture {
         witnesses_match(value);const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,"Culture save lost its strict revision23 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,"Culture save lost its strict revision24 identity");
         auto restored=restore(parsed);check(restored.snapshot()==before,"Culture F5/F9 changed full authority");
         save::write_save(target,document(restored),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Culture canonical rewrite mutated authority");return bytes;
@@ -113,8 +129,8 @@ struct Fixture {
 };
 struct States {sim::WorldSnapshot midroute,positive,expired;};
 States lifecycle(Fixture& f) {
-    f.roundtrip(f.world);until(f.world,[&]{return f.world.total_population()==70;});
-    check(f.world.workforce_supply()==70 && f.world.original_production_state()->services.trips.empty(),"Paused schools granted free visits or lost actual worker origin");
+    f.roundtrip(f.world);until(f.world,[&]{return f.world.total_population()==f.expected_population;});f.prepare_paper();
+    check(f.world.workforce_supply()==105 && f.world.original_production_state()->services.trips.empty(),"Paused schools granted free visits or lost actual worker origin");
     for (const auto source:f.sources) f::buy(f.world,sim::set_building_operation(source,true));
     until(f.world,[&]{return std::any_of(f.world.couriers().begin(),f.world.couriers().end(),[](const auto& c){return c.role==sim::CourierRole::OriginalDrama && c.phase==sim::CourierPhase::ToWarehouse && c.edge_progress>0;});});
     check(f.world.workforce_used()==70 && f.world.original_production_state()->services.witnesses.empty(),"School dispatch granted a category before actual arrival or lacked70 workers");
@@ -201,7 +217,7 @@ void hostile(Fixture& f,const States& states) {
             {home+"drama",0},{home+"drama",97},{home+"acrobat",96},{home+"music",255},
             {evaluation+"/service_witnesses/8",nullptr},{evaluation+"/input/drama",0},
             {"/world/couriers/"+std::to_string(ci)+"/role",20},{"/world/couriers/"+std::to_string(ci)+"/role",23},
-            {"/world/original_production/development_revision",22},{"/world/original_production/development_revision",24}}) {
+            {"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",25}}) {
         auto bad=good;bad.at(json::json_pointer(pointer))=value;reject(bad);
     }
     for (const auto& pointer:{provider+"/building_id",trip+"/target",trip+"/transfer/courier_id",trip+"/transfer/sequence",trip+"/dispatched_tick",trip+"/arrival_tick",witness+"/provider_id"})
@@ -249,18 +265,18 @@ void maximum_and_frozen_bounds() {
         sim::CommandType::PlaceOriginalMusicSchool,sim::CommandType::PlaceOriginalAcrobatSchool,sim::CommandType::PlaceOriginalDramaSchool};
     for (std::size_t i=0;i<commands.size();++i) for (int j=0;j<2;++j) (void)f.buy(commands[i],{1+4*(2*static_cast<int>(i%3)+j),17+4*static_cast<int>(i/3)});
     for (const int x:{29,33}) (void)f.buy(sim::CommandType::PlaceOriginalWaterWell,{x,17});
-    check(f.world.buildings().size()==58 && f.world.couriers().size()==38 && f.world.next_building_id()==92 && f.world.next_courier_id()==39 &&
+    check(f.world.buildings().size()==58 && f.world.couriers().size()==40 && f.world.next_building_id()==92 && f.world.next_courier_id()==41 &&
           f.world.original_production_state()->services.providers.size()==18 && f.world.original_influence_state()->removed_sources.size()==33 && !f.world.total_population(),
-          "Genuine paid58/38 context or contiguous91-purchase history failed");
+          "Genuine paid58/40 context or contiguous91-purchase history failed");
     const auto pristine=f.roundtrip(f.world);const auto good=json::parse(pristine);const auto path=f.root.path/"culture-bounds.json";
     for (const char* key:{"buildings","couriers"}) {auto bad=good;bad["world"][key].push_back(bad["world"][key][0]);f::write_text(path,bad.dump());refuses([&]{(void)save::read_save(path);});}
     auto legacy=good;legacy["schema_version"]=22;legacy["rules"]["version"]=6;
     for (const char* key:{"original_production","original_economy","original_influence","original_goods"}) legacy["world"].erase(key);
-    const auto old_parse=[&](const json& value) {f::write_text(path,value.dump());bool exact=false;try {(void)save::read_save(path);} catch (const std::exception& e) {exact=std::string(e.what())=="invalid scalable City entity array length";}check(exact,"Frozen schema22 inherited active58/38 bounds");++rejected;};
+    const auto old_parse=[&](const json& value) {f::write_text(path,value.dump());bool exact=false;try {(void)save::read_save(path);} catch (const std::exception& e) {exact=std::string(e.what())=="invalid scalable City entity array length";}check(exact,"Frozen schema22 inherited active58/40 bounds");++rejected;};
     auto bodies=legacy;bodies["world"]["couriers"].erase(bodies["world"]["couriers"].begin()+26,bodies["world"]["couriers"].end());old_parse(bodies);
     auto actors=legacy;actors["world"]["buildings"].erase(actors["world"]["buildings"].begin()+46,actors["world"]["buildings"].end());old_parse(actors);
     auto old=f.world.snapshot();old.rule_version=6;old.original_production.reset();old.original_goods.reset();old.original_influence.reset();old.original_economy.reset();
-    const auto old_restore=[&](const sim::WorldSnapshot& value) {bool exact=false;try {(void)sim::World::restore(value,f.policy);} catch (const std::exception& e) {exact=std::string(e.what())=="invalid City-v10 entity counts or next IDs";}check(exact,"Frozen rule6 restore inherited active58/38 bounds");++rejected;};
+    const auto old_restore=[&](const sim::WorldSnapshot& value) {bool exact=false;try {(void)sim::World::restore(value,f.policy);} catch (const std::exception& e) {exact=std::string(e.what())=="invalid City-v10 entity counts or next IDs";}check(exact,"Frozen rule6 restore inherited active58/40 bounds");++rejected;};
     auto old_bodies=old;old_bodies.couriers.resize(26);old_restore(old_bodies);auto old_actors=old;old_actors.buildings.resize(46);old_restore(old_actors);
     check(f::read_text(f.target)==pristine,"Entity bound refusals replaced protected good data");
 }
@@ -282,6 +298,6 @@ void school_third_column_routes() {
 int main() {
     try {Fixture fixture;const auto states=lifecycle(fixture);hostile(fixture,states);for (std::size_t i=0;i<3;++i) individual(i);
         maximum_and_frozen_bounds();school_third_column_routes();
-        std::cout<<"Culture save PASS: paid211/212/213 actual separate96 visits/expiry, nine historical categories, F5F9/20k,3x3 source travel,58/38 paid context and "<<rejected<<" hostile refusals\n";return 0;
+        std::cout<<"Culture save PASS: paid211/212/213 actual separate96 visits/expiry, nine historical categories, F5F9/20k,3x3 source travel,58/40 paid context and "<<rejected<<" hostile refusals\n";return 0;
     } catch (const std::exception& error) {std::cerr<<"Original culture save FAIL: "<<error.what()<<'\n';return 1;}
 }

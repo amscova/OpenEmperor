@@ -49,6 +49,18 @@ HouseRowId model_row(ModelHouse house) {
 
 std::string_view model_label(ModelBuilding building) {
     switch (building) {
+    case ModelBuilding::LoggingShed: return "Logging Shed";
+    case ModelBuilding::BronzeSmelter: return "Bronze Smelter";
+    case ModelBuilding::BronzewareMaker: return "Bronzeware Maker";
+    case ModelBuilding::LacquerwareMaker: return "Lacquerware Maker";
+    case ModelBuilding::PaperMaker: return "Paper Maker";
+    case ModelBuilding::Weaver: return "Weaver";
+    case ModelBuilding::TeaCuringShed: return "Tea Curing Shed";
+    case ModelBuilding::LacquerRefinery: return "Lacquer Refinery";
+    case ModelBuilding::SilkwormShed: return "Silkworm Shed";
+    case ModelBuilding::TeaBush: return "Tea Bush";
+    case ModelBuilding::LacquerTree: return "Lacquer Tree";
+    case ModelBuilding::MulberryTree: return "Mulberry Tree";
     case ModelBuilding::ClayPit: return "Clay Pit";
     case ModelBuilding::Kiln: return "Kiln";
     case ModelBuilding::Warehouse: return "Warehouse";

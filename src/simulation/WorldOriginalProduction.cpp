@@ -1,5 +1,6 @@
 #include "simulation/World.h"
 #include "simulation/OriginalGoodsLedger.h"
+#include "simulation/OriginalIndustryGoodsContext.h"
 #include "simulation/original/OriginalRulesModel.h"
 #include "simulation/original/OriginalScheduler.h"
 
@@ -13,27 +14,7 @@ namespace openemperor::simulation {
 namespace {
 constexpr auto ceramics=static_cast<std::size_t>(original::Goods::Ceramics);
 [[noreturn]] void invalid(const char* message) {throw std::invalid_argument(message);}
-struct GoodsContext {
-    std::array<OriginalGoodsOwner,original_goods_owner_limit> owners{};
-    std::array<CourierId,8> couriers{};
-    std::size_t count=0;
-    std::size_t courier_count=0;
-    template<class Buildings,class Couriers> GoodsContext(const Buildings& buildings,const Couriers& actors) {
-        for (const auto& b:buildings) if (b.kind==Object::Household || b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm) {
-            if (count==owners.size()) invalid("original production goods owner limit exceeded");
-            auto& owner=owners[count++];owner.building_id=b.id;owner.household=b.kind==Object::Household;
-            if (b.kind!=Object::OriginalHempFarm) owner.capacity[ceramics]=owner.household ? Rules::household_capacity:
-                b.kind==Object::Market ? Rules::market_pottery_capacity:Rules::warehouse_capacity;
-            owner.capacity[0]=b.kind==Object::OriginalHempFarm ? 8:owner.capacity[ceramics];
-        }
-        for (const auto& c:actors) if (c.role==CourierRole::MarketPotteryInbound || c.role==CourierRole::MarketPotteryDistribution || c.role==CourierRole::OriginalHempToWarehouse) {
-            if (courier_count==couriers.size()) invalid("typed market courier limit exceeded");
-            couriers[courier_count++]=c.id;
-        }
-    }
-    std::span<const OriginalGoodsOwner> view() const {return {owners.data(),count};}
-    std::span<const CourierId> courier_view() const {return {couriers.data(),courier_count};}
-};
+using GoodsContext=original_industry_goods::Context;
 std::uint64_t paid_cost(Object kind) {
     switch (kind) {
     case Object::Household:return Rules::household_cost;
@@ -41,6 +22,18 @@ std::uint64_t paid_cost(Object kind) {
     case Object::Pottery:return Rules::pottery_cost;
     case Object::Warehouse:return Rules::warehouse_cost;
     case Object::Market:return Rules::market_cost;
+    case Object::OriginalLoggingShed38:
+    case Object::OriginalBronzeSmelter39:
+    case Object::OriginalBronzewareMaker42:
+    case Object::OriginalLacquerwareMaker44:
+    case Object::OriginalPaperMaker45:
+    case Object::OriginalWeaver47:
+    case Object::OriginalTeaCuringShed237:
+    case Object::OriginalLacquerRefinery238:
+    case Object::OriginalSilkwormShed239:
+    case Object::OriginalTeaBush26:
+    case Object::OriginalLacquerTree27:
+    case Object::OriginalMulberryTree28:
     case Object::OriginalHempFarm:
     case Object::OriginalHempField:
     case Object::OriginalFoodFarm:
@@ -60,13 +53,30 @@ std::uint64_t paid_cost(Object kind) {
     default:invalid("unsupported original production building kind");
     }
 }
+std::optional<original::ModelBuilding> model_priced(Object kind) {
+    using B=original::ModelBuilding;
+    switch (kind) {
+    case Object::OriginalHempFarm:return B::HempFarm;
+    case Object::OriginalHempField:return B::HempField;
+    case Object::OriginalFoodFarm:return B::Farmhouse;
+    case Object::OriginalWheatField:return B::WheatField;
+    case Object::OriginalMilletField:return B::MilletField;
+    case Object::HealthPost:return B::HerbalistsStall;
+    case Object::ServicePost:return B::AcupuncturistsClinic;
+    case Object::OriginalAncestorShrine214:return B::AncestralShrine;
+    case Object::OriginalWaterWell72:return B::Well;
+    case Object::OriginalDaoistShrine215:return B::DaoistShrine;
+    case Object::OriginalBuddhistShrine217:return B::BuddhistShrine;
+    case Object::OriginalConfucianAcademy219:return B::ConfucianAcademy;
+    case Object::OriginalMusicSchool211:return B::MusicSchool;
+    case Object::OriginalAcrobatSchool212:return B::AcrobatSchool;
+    case Object::OriginalDramaSchool213:return B::DramaSchool;
+    default:return original_industry_model(kind);
+    }
+}
 template<class Buildings,class Bridges> std::uint64_t spending(const Buildings& buildings,
     const Bridges& bridges,std::size_t ramps,std::uint64_t roads,std::size_t removed,
-    std::uint64_t farm_cost=0,std::uint64_t field_cost=0,std::uint64_t food_farm_cost=0,
-    std::uint64_t wheat_cost=0,std::uint64_t millet_cost=0,
-    std::uint64_t herbalist_cost=0,std::uint64_t acupuncture_cost=0,std::uint64_t ancestor_cost=0,std::uint64_t water_cost=0,
-    std::uint64_t daoist_cost=0,std::uint64_t buddhist_cost=0,std::uint64_t confucian_cost=0,
-    std::uint64_t music_cost=0,std::uint64_t acrobat_cost=0,std::uint64_t drama_cost=0) {
+    const original::OriginalRulesModel* model=nullptr) {
     const auto budget=static_cast<std::uint64_t>(original_production_starting_treasury);
     std::uint64_t result=0;
     const auto add=[&](std::uint64_t count,std::uint64_t cost) {
@@ -75,15 +85,8 @@ template<class Buildings,class Bridges> std::uint64_t spending(const Buildings& 
     };
     add(roads,Rules::road_cost);add(ramps,ramp_cost);add(removed,original_influence_source_cost);
     for (const auto& b:buildings) {
-        const auto cost=b.kind==Object::OriginalHempFarm ? farm_cost:b.kind==Object::OriginalHempField ? field_cost:
-            b.kind==Object::OriginalFoodFarm ? food_farm_cost:b.kind==Object::OriginalWheatField ? wheat_cost:
-            b.kind==Object::OriginalMilletField ? millet_cost:b.kind==Object::HealthPost ? herbalist_cost:
-            b.kind==Object::ServicePost ? acupuncture_cost:
-            b.kind==Object::OriginalDaoistShrine215 ? daoist_cost:b.kind==Object::OriginalBuddhistShrine217 ? buddhist_cost:
-            b.kind==Object::OriginalMusicSchool211 ? music_cost:
-            b.kind==Object::OriginalAcrobatSchool212 ? acrobat_cost:
-            b.kind==Object::OriginalDramaSchool213 ? drama_cost:
-            b.kind==Object::OriginalConfucianAcademy219 ? confucian_cost:b.kind==Object::OriginalAncestorShrine214 ? ancestor_cost:b.kind==Object::OriginalWaterWell72 ? water_cost:paid_cost(b.kind);
+        const auto priced=model_priced(b.kind);
+        const auto cost=priced ? (model ? static_cast<std::uint64_t>(model->building_value(*priced,original::BuildingField::Cost)):0):paid_cost(b.kind);
         if (cost) add(1,cost);
     }
     for (const auto& bridge:bridges) {
@@ -109,48 +112,9 @@ template<class Building> void validate_neutral_fields(const Building& b) {
         expected.progress=b.progress;expected.active_recipe_clay=b.active_recipe_clay;
         expected.recipes_completed=b.recipes_completed;
     } else if (b.kind==Object::Warehouse) expected.reserved_incoming=b.reserved_incoming;
+    else if (b.kind==Object::OriginalBronzewareMaker42) {expected.input_clay=b.input_clay;expected.reserved_incoming=b.reserved_incoming;}
     else if (b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalFoodFarm) expected.progress=b.progress;
     if (b!=expected) invalid("unsupported original production building authority");
-}
-constexpr std::uint64_t consumption_events(std::uint64_t ticks) {
-    constexpr std::uint64_t month=original::scheduler_phase_count*original::scheduler_steps_per_month;
-    return (ticks>=40 ? 1+(ticks-40)/month:0)+(ticks>=397 ? 1+(ticks-397)/month:0);
-}
-template<class Buildings>
-std::array<std::uint64_t,original::goods_count> consumption_totals(
-    std::span<const OriginalHouseConsumptionState> history,std::span<const OriginalHouseState> houses,
-    const Buildings& buildings,std::uint64_t ticks,const original::HouseEvolutionRules* rules=nullptr) {
-    if (history.size()!=houses.size() || history.size()>Rules::city_v10_household_limit)
-        invalid("original consumption requires exactly one history per paid House");
-    std::array<std::uint64_t,original::goods_count> sums{};
-    for (std::size_t i=0;i<history.size();++i) {
-        const auto& entry=history[i];const auto& house=houses[i];
-        if (entry.building_id!=house.building_id || (i && !(history[i-1].building_id<entry.building_id)))
-            invalid("original consumption House references must be exact and sorted");
-        const auto b=std::lower_bound(buildings.begin(),buildings.end(),entry.building_id,
-            [](const auto& value,BuildingId id){return value.id<id;});
-        if (b==buildings.end() || b->id!=entry.building_id || b->kind!=Object::Household || b->placed_tick>ticks)
-            invalid("original consumption history has no paid House");
-        // No addition until paid age proves placed+119 is inside the tick domain.
-        const auto opportunities=ticks-b->placed_tick<120 ? 0:
-            consumption_events(ticks)-consumption_events(b->placed_tick+119);
-        for (std::size_t g=0;g<original::goods_count;++g) {
-            const auto n=entry.consumed[g];
-            int cap=g<2 ? Rules::household_capacity:0;
-            if (rules && cap) {
-                int maximum_need=0;
-                for (const auto row:{original::ModelHouse::Shelter,original::ModelHouse::Hut,original::ModelHouse::PlainCottage})
-                    maximum_need=std::max(maximum_need,rules->value(row,original::goods_field(static_cast<original::Goods>(g))));
-                cap=std::clamp(maximum_need,0,cap);
-            }
-            const auto maximum=static_cast<std::uint64_t>(cap);
-            if ((maximum && opportunities>UINT64_MAX/maximum) ||
-                n>opportunities*maximum || (!house.house.occupants && n) || n>UINT64_MAX-sums[g])
-                invalid("original consumption exceeds House age, model need or counter domain");
-            sums[g]+=n;
-        }
-    }
-    return sums;
 }
 }
 
@@ -164,7 +128,7 @@ World World::create_original_production_development(std::shared_ptr<const MapPer
     World world(width,height,std::move(mask),RulesProfile::CityV16,kOriginalProductionRuleVersion,
         std::move(permissions),true,std::move(model));
     world.validate_original_hemp_model();world.validate_original_food_model();world.validate_original_consumption_model();
-    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();
+    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();world.validate_original_industry_model();
     world.rebuild_original_influence_cache();return world;
 }
 
@@ -179,7 +143,7 @@ World World::restore_original_production_development(const WorldSnapshot& snapsh
     validate_original_production_snapshot(snapshot);
     auto world=restore_impl(snapshot,{},std::move(permissions),true,std::move(model));
     world.validate_original_hemp_model();world.validate_original_food_model();world.validate_original_consumption_model();
-    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();return world;
+    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();world.validate_original_industry_model();return world;
 }
 
 void World::validate_original_production_snapshot(const WorldSnapshot& s) {
@@ -230,10 +194,11 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
             b.kind==Object::HealthPost || b.kind==Object::ServicePost || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72 ||
             b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219 ||
             b.kind==Object::OriginalMusicSchool211 ||
-            b.kind==Object::OriginalAcrobatSchool212 || b.kind==Object::OriginalDramaSchool213) {
+            b.kind==Object::OriginalAcrobatSchool212 || b.kind==Object::OriginalDramaSchool213 || original_industry_source(b.kind)) {
             if (courier_index>=s.couriers.size()) invalid("missing purchased original production courier");
             const auto& c=s.couriers[courier_index];
-            const auto role=b.kind==Object::OriginalWaterWell72 ? CourierRole::OriginalWater:b.kind==Object::HealthPost ? CourierRole::HealthWorker:
+            const auto role=original_industry_source(b.kind) ? (original_industry_goods::output(b.kind) ? CourierRole::OriginalLuxuryToWarehouse:CourierRole::OriginalAuxToWarehouse):
+                b.kind==Object::OriginalWaterWell72 ? CourierRole::OriginalWater:b.kind==Object::HealthPost ? CourierRole::HealthWorker:
                 b.kind==Object::ServicePost ? CourierRole::Service:
                 b.kind==Object::OriginalMusicSchool211 ? CourierRole::OriginalMusic:
                 b.kind==Object::OriginalAcrobatSchool212 ? CourierRole::OriginalAcrobat:
@@ -250,6 +215,13 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
             if (static_cast<std::uint32_t>(c.id)!=courier_index+1 || c.owner!=b.id || c.role!=role)
                 invalid("original production courier IDs must follow purchased owners");
             ++courier_index;
+            if (b.kind==Object::Warehouse) {
+                if (courier_index>=s.couriers.size()) invalid("missing paid Warehouse Aux supplier");
+                const auto& supplier=s.couriers[courier_index];
+                if (static_cast<std::uint32_t>(supplier.id)!=courier_index+1 || supplier.owner!=b.id || supplier.role!=CourierRole::OriginalAuxSupplier)
+                    invalid("Warehouse Aux supplier must follow the paid Goods courier");
+                ++courier_index;
+            }
             if (b.kind==Object::Market) {
                 if (courier_index>=s.couriers.size()) invalid("missing purchased Food Distributor");
                 const auto& food=s.couriers[courier_index];
@@ -271,7 +243,8 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
                 h.original_status!=3 || !h.access_enabled || h.cycle_phase || h.house.devolve_counter>9))
                 invalid("unsupported early original House state");
             residents+=static_cast<std::uint64_t>(occupants);
-        } else if (b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm) {
+        } else if (b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm ||
+                   b.kind==Object::OriginalPaperMaker45 || original_industry_goods::output(b.kind)) {
             if (warehouse_index>=s.original_goods->stocks.size() ||
                 s.original_goods->stocks[warehouse_index++].building_id!=b.id)
                 invalid("original production requires exactly one typed stock per Warehouse");
@@ -299,15 +272,10 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         invalid("invalid original production next building identity");
     for (std::uint32_t id=1;id<s.next_building_id;++id) if (!seen[id]) invalid("missing paid original production purchase");
     const auto spent=spending(s.buildings,s.bridges,s.ramps.size(),s.roads_placed_total,removed.size());
-    const auto model_priced=std::count_if(s.buildings.begin(),s.buildings.end(),[](const auto& b){
-        return b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
-            b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
-            b.kind==Object::HealthPost || b.kind==Object::ServicePost || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72 ||
-            b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219 || b.kind==Object::OriginalMusicSchool211 ||
-            b.kind==Object::OriginalAcrobatSchool212 || b.kind==Object::OriginalDramaSchool213;});
-    if (s.construction_spent_total<spent+static_cast<std::uint64_t>(model_priced) ||
+    const auto model_priced_count=std::count_if(s.buildings.begin(),s.buildings.end(),[](const auto& body){return model_priced(body.kind).has_value();});
+    if (s.construction_spent_total<spent+static_cast<std::uint64_t>(model_priced_count) ||
         s.construction_spent_total>static_cast<std::uint64_t>(original_production_starting_treasury) ||
-        (!model_priced && spent!=s.construction_spent_total) ||
+        (!model_priced_count && spent!=s.construction_spent_total) ||
         s.treasury!=original_production_starting_treasury-static_cast<std::int64_t>(s.construction_spent_total) ||
         s.roads_removed_total>s.roads_placed_total || s.roads_placed_total-s.roads_removed_total!=s.roads.size() ||
         s.road_revision!=s.roads_placed_total+s.roads_removed_total+s.buildings.size()+2*removed.size()+s.bridges.size()+s.ramps.size())
@@ -317,29 +285,36 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
     validate_original_services_snapshot(s);
     validate_original_water_snapshot(s);
     validate_original_housing_snapshot(s);
+    validate_original_industry_snapshot(s);
     std::uint64_t hemp=0;for (const auto& farm:s.original_production->hemp_farms) hemp+=farm.harvested;
     for (std::size_t g=0;g<original::goods_count;++g) {
         const auto& totals=s.original_goods->totals[g];
+        std::uint64_t luxury=0;
+        for (const auto& producer:s.original_production->industry.sources) {
+            const auto body=std::lower_bound(s.buildings.begin(),s.buildings.end(),producer.building_id,[](const auto& value,BuildingId id){return value.id<id;});
+            if (body==s.buildings.end() || body->id!=producer.building_id) invalid("orphan paid industry source");
+            if (const auto output=original_industry_goods::output(body->kind); output && static_cast<std::size_t>(*output)==g) {
+                if (producer.completed>UINT64_MAX-luxury) invalid("luxury production sum overflow");
+                luxury+=producer.completed;
+            }
+        }
         if (totals.imported || totals.demolished ||
-            totals.produced!=(g==ceramics ? s.original_production->pottery_handed_off:g==0 ? hemp:0))
+            totals.produced!=(g==ceramics ? s.original_production->pottery_handed_off:g==0 ? hemp:luxury))
             invalid("unsupported original production goods origin");
     }
     if (s.original_production->pottery_handed_off>s.pottery_completed_total)
         invalid("Ceramics handoff exceeds actual completed Pottery");
     const GoodsContext owners(s.buildings,s.couriers);
-    validate_original_goods_ledger({*s.original_goods,s.original_economy->houses,owners.view(),owners.courier_view()});
-    const auto consumed=consumption_totals(s.original_production->house_consumption,
-        s.original_economy->houses,s.buildings,s.ticks);
-    for (std::size_t g=0;g<original::goods_count;++g)
-        if (consumed[g]!=s.original_goods->totals[g].consumed)
-            invalid("original consumption House histories disagree with goods ledger");
+    validate_original_goods_ledger({*s.original_goods,s.original_economy->houses,owners.owners(),owners.actors()});
+    validate_original_consumption_snapshot(s);
     validate_original_market_snapshot(s);
     for (const auto& c:s.couriers) if (c.role!=CourierRole::Clay && c.role!=CourierRole::Pottery &&
         c.role!=CourierRole::MarketPotteryInbound && c.role!=CourierRole::MarketPotteryDistribution &&
         c.role!=CourierRole::OriginalHempToWarehouse && c.role!=CourierRole::OriginalFoodToMarket && c.role!=CourierRole::OriginalFoodToHouse &&
         c.role!=CourierRole::HealthWorker && c.role!=CourierRole::Service && c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater &&
         c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian && c.role!=CourierRole::OriginalMusic &&
-        c.role!=CourierRole::OriginalAcrobat && c.role!=CourierRole::OriginalDrama)
+        c.role!=CourierRole::OriginalAcrobat && c.role!=CourierRole::OriginalDrama &&
+        c.role!=CourierRole::OriginalLuxuryToWarehouse && c.role!=CourierRole::OriginalAuxToWarehouse && c.role!=CourierRole::OriginalAuxSupplier)
         invalid("unsupported original production courier role");
 }
 
@@ -347,22 +322,7 @@ bool World::original_production_finance_valid() const {
     if (!original_production_ || !original_influence_ || !original_economy_ || !original_goods_ ||
         !original_rules_model_ || taxes_collected_total_ || maintenance_spent_total_ || demolition_history_!=DemolitionHistory{}) return false;
     try {
-        const auto spent=spending(buildings_,bridges_,ramps_.size(),roads_placed_total_,original_influence_->removed_sources.size(),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::HempFarm,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::HempField,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::Farmhouse,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::WheatField,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::MilletField,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::HerbalistsStall,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::AcupuncturistsClinic,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::AncestralShrine,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::DaoistShrine,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::BuddhistShrine,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::ConfucianAcademy,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::MusicSchool,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::AcrobatSchool,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::DramaSchool,original::BuildingField::Cost)));
+        const auto spent=spending(buildings_,bridges_,ramps_.size(),roads_placed_total_,original_influence_->removed_sources.size(),original_rules_model_.get());
         return construction_spent_total_==spent && treasury_==original_production_starting_treasury-static_cast<std::int64_t>(spent);
     } catch (const std::invalid_argument&) {return false;}
 }
@@ -371,8 +331,8 @@ std::array<OriginalGoodsBalance,original::goods_count> World::original_productio
     if (!original_goods_ || !original_economy_) throw std::logic_error("missing original production goods authority");
     const GoodsContext owners(buildings_,couriers_);
     validate_original_market_state();
-    auto balances=inspect_original_goods_ledger({*original_goods_,original_economy_->houses,owners.view(),owners.courier_view()});
-    balances[ceramics].supported=true;balances[0].supported=true;return balances;
+    auto balances=inspect_original_goods_ledger({*original_goods_,original_economy_->houses,owners.owners(),owners.actors()});
+    for (auto& balance:balances) balance.supported=true;return balances;
 }
 
 int World::original_ceramics_stock(BuildingId owner) const {return original_typed_stock(owner,original::Goods::Ceramics);}
@@ -396,7 +356,7 @@ void World::receive_original_ceramics(BuildingId warehouse,int amount) {
     if (amount<=0 || static_cast<std::uint64_t>(amount)>UINT64_MAX-original_production_->pottery_handed_off)
         throw std::overflow_error("original Ceramics handoff exhausted");
     const GoodsContext owners(buildings_,couriers_);
-    auto candidate=original_goods_produce({*original_goods_,original_economy_->houses,owners.view(),owners.courier_view()},warehouse,
+    auto candidate=original_goods_produce({*original_goods_,original_economy_->houses,owners.owners(),owners.actors()},warehouse,
         original::Goods::Ceramics,amount);
     // All arithmetic, capacity and conservation checks precede the handoff.
     // HouseState is unchanged by the producer; only the typed Warehouse owns it.
@@ -429,7 +389,7 @@ void World::tick_original_production() {
     capture_tick_staffing();ticks_=next;
     // Staffing belongs to the pre-tick population. Immigration cannot staff a
     // producer until the next ordinary tick. No 400t legacy demand is run.
-    advance_clay_pottery_production();advance_original_hemp();advance_original_food();
+    advance_clay_pottery_production();advance_original_hemp();advance_original_food();update_original_industry();
     for (auto& c:couriers_) dispatch_v2(c);
     for (auto& c:couriers_) move_v2(c);
     update_fire();admit_original_residents();tick_staffing_active_=false;
@@ -437,60 +397,12 @@ void World::tick_original_production() {
     if (dispatch.service_countdown) {decay_original_services();decay_original_water();}
     if (dispatch.evolution) evaluate_original_houses();
     if (dispatch.consumption) {consume_original_house_goods();consume_original_food();}
-    validate_original_food_state();
+    validate_original_food_state();validate_original_industry_state();
     validate_original_services_state();validate_original_water_state();validate_original_housing_state();
     const auto balances=original_production_goods_balances();
     if (!population_valid() || !fire_state_valid() || !production_balance_valid() || !navigation_valid() ||
         !city_economy_valid() || !std::all_of(balances.begin(),balances.end(),[](const auto& b){return b.conserved;}))
         throw std::logic_error("original production, transport, population or finance invariant violated");
-}
-
-void World::validate_original_consumption_model() const {
-    const auto sums=consumption_totals(original_production_->house_consumption,
-        original_economy_->houses,buildings_,ticks_,&original_rules_model_->house_rules());
-    for (std::size_t g=0;g<original::goods_count;++g)
-        if (sums[g]!=original_goods_->totals[g].consumed)
-            invalid("model-bound original consumption differs from goods ledger");
-}
-
-void World::consume_original_house_goods() {
-    const GoodsContext owners(buildings_,couriers_);
-    OriginalGoodsLedgerSnapshot candidate{*original_goods_,original_economy_->houses};
-    auto history=original_production_->house_consumption;
-    auto rows=original_production_->housing.houses;
-    if (history.size()!=candidate.houses.size()) throw std::logic_error("missing House consumption history");
-    for (std::size_t i=0;i<candidate.houses.size();++i) {
-        // Vacant has no model row. The occupied pure-kernel gate is evaluated
-        // after real immigration; an empty paid container consumes nothing.
-        if (!candidate.houses[i].house.occupants) continue;
-        auto& row=rows[i].consumption_rows[static_cast<std::size_t>(candidate.houses[i].house.type)-3];
-        if (row.events==UINT64_MAX) throw std::overflow_error("Housing consumption events exhausted");
-        ++row.events;
-        const auto expected=original::consume_goods(original_rules_model_->house_rules(),candidate.houses[i].house);
-        for (std::size_t g=0;g<original::goods_count;++g) {
-            const auto amount=expected.consumed[g];if (!amount) continue;
-            if (amount<0 || history[i].consumed[g]>UINT64_MAX-static_cast<std::uint64_t>(amount))
-                throw std::overflow_error("original House consumption history exhausted");
-            candidate=original_goods_consume(candidate.view(owners.view(),owners.courier_view()),
-                candidate.houses[i].building_id,static_cast<original::Goods>(g),amount);
-            history[i].consumed[g]+=static_cast<std::uint64_t>(amount);
-            if (row.consumed[g]>UINT64_MAX-static_cast<std::uint64_t>(amount)) throw std::overflow_error("Housing row sinks exhausted");
-            row.consumed[g]+=static_cast<std::uint64_t>(amount);
-        }
-        if (candidate.houses[i].house!=expected.house)
-            throw std::logic_error("original consumption ledger diverged from pure model kernel");
-    }
-    const auto sums=consumption_totals(history,candidate.houses,buildings_,ticks_,&original_rules_model_->house_rules());
-    for (std::size_t g=0;g<original::goods_count;++g)
-        if (sums[g]!=candidate.goods.totals[g].consumed)
-            throw std::logic_error("original consumption candidate history differs from ledger");
-    validate_original_goods_ledger(candidate.view(owners.view(),owners.courier_view()));
-    // Only bounded ledger/House candidates were copied. All checks precede the
-    // three noexcept vector/optional moves; HouseState is debited exactly once.
-    original_goods_=std::move(candidate.goods);
-    original_economy_->houses=std::move(candidate.houses);
-    original_production_->house_consumption=std::move(history);
-    original_production_->housing.houses=std::move(rows);
 }
 
 } // namespace openemperor::simulation

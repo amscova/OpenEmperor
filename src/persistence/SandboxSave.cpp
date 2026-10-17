@@ -1187,6 +1187,120 @@ template<std::size_t N> std::array<std::uint64_t,N> parse_production_counters(co
     for (std::size_t i=0;i<N;++i) result[i]=number(j[i]);
     return result;
 }
+json production_industry_json(const simulation::OriginalIndustryState& state) {
+    require(state.sources.size()<=simulation::original_industry_source_limit &&
+            state.managed_ore.size()<=simulation::original_managed_ore_limit &&
+            state.auxiliary.size()<=simulation::original_aux_owner_limit &&
+            state.aux_trips.size()<=simulation::original_aux_courier_limit &&
+            state.clay_trips.size()<=simulation::original_clay_trip_limit,
+            "schema26 industry collection exceeds bounded context");
+    json sources=json::array(),ore=json::array(),stocks=json::array(),aux_trips=json::array(),clay_trips=json::array();
+    for (const auto& source:state.sources) {
+        json receipt=nullptr;
+        if (source.last_clay_arrival) {
+            const auto& value=*source.last_clay_arrival;
+            receipt={{"transfer",production_transfer_json(value.transfer)},
+                {"source",static_cast<std::uint32_t>(value.source)},
+                {"amount",value.amount},{"arrival_tick",value.arrival_tick}};
+        }
+        sources.push_back({{"building_id",static_cast<std::uint32_t>(source.building_id)},
+            {"plant_id",source.plant_id ? json(static_cast<std::uint32_t>(*source.plant_id)):json(nullptr)},
+            {"completed",source.completed},{"progress",source.progress},
+            {"goods_inputs_used",source.goods_inputs_used},{"aux_inputs_used",source.aux_inputs_used},
+            {"clay_received",source.clay_received},{"clay_used",source.clay_used},
+            {"last_clay_arrival",std::move(receipt)}});
+    }
+    for (const auto& value:state.managed_ore)
+        ore.push_back({{"building_id",static_cast<std::uint32_t>(value.building_id)},
+            {"stock",value.stock},{"progress",value.progress},{"extracted",value.extracted},{"used",value.used}});
+    for (const auto& value:state.auxiliary)
+        stocks.push_back({{"building_id",static_cast<std::uint32_t>(value.building_id)},
+            {"amounts",value.amounts},{"received",value.received},{"departed",value.departed},
+            {"returned",value.returned},{"consumed",value.consumed}});
+    for (const auto& value:state.aux_trips)
+        aux_trips.push_back({{"transfer",production_transfer_json(value.transfer)},
+            {"source",static_cast<std::uint32_t>(value.source)},{"target",static_cast<std::uint32_t>(value.target)},
+            {"material",static_cast<unsigned>(value.material)},{"phase",static_cast<unsigned>(value.phase)},
+            {"loaded",value.loaded},{"delivered",value.delivered},{"returned",value.returned},
+            {"dispatched_tick",value.dispatched_tick},
+            {"arrival_tick",value.arrival_tick ? json(*value.arrival_tick):json(nullptr)}});
+    for (const auto& value:state.clay_trips)
+        clay_trips.push_back({{"transfer",production_transfer_json(value.transfer)},
+            {"source",static_cast<std::uint32_t>(value.source)},{"target",static_cast<std::uint32_t>(value.target)},
+            {"loaded",value.loaded},{"delivered",value.delivered},{"dispatched_tick",value.dispatched_tick},
+            {"arrival_tick",value.arrival_tick ? json(*value.arrival_tick):json(nullptr)}});
+    return {{"sources",std::move(sources)},{"managed_ore",std::move(ore)},
+        {"auxiliary",std::move(stocks)},{"aux_trips",std::move(aux_trips)},{"clay_trips",std::move(clay_trips)}};
+}
+simulation::OriginalIndustryState parse_production_industry(const json& j) {
+    simulation::OriginalIndustryState result;
+    const auto collection=[&](const char* key,std::size_t limit)->const json& {
+        const auto& value=field(j,key);
+        require(value.is_array() && value.size()<=limit,"schema26 industry collection exceeds bound");
+        return value;
+    };
+    for (const auto& value:collection("sources",simulation::original_industry_source_limit)) {
+        simulation::OriginalIndustrySource source;source.building_id=production_id(field(value,"building_id"));
+        require(result.sources.empty() || result.sources.back().building_id<source.building_id,
+                "schema26 industry source IDs must be sorted unique");
+        const auto& plant=field(value,"plant_id");if (!plant.is_null()) source.plant_id=production_id(plant);
+        source.completed=number(field(value,"completed"));source.progress=small(field(value,"progress"));
+        source.goods_inputs_used=parse_production_counters<original::goods_count>(field(value,"goods_inputs_used"));
+        source.aux_inputs_used=parse_production_counters<simulation::original_aux_material_count>(field(value,"aux_inputs_used"));
+        source.clay_received=number(field(value,"clay_received"));source.clay_used=number(field(value,"clay_used"));
+        const auto& receipt=field(value,"last_clay_arrival");
+        if (!receipt.is_null()) {
+            simulation::OriginalClayReceipt row;row.transfer=parse_production_transfer(field(receipt,"transfer"));
+            row.source=production_id(field(receipt,"source"));row.amount=small(field(receipt,"amount"));
+            row.arrival_tick=number(field(receipt,"arrival_tick"));source.last_clay_arrival=row;
+        }
+        result.sources.push_back(source);
+    }
+    for (const auto& value:collection("managed_ore",simulation::original_managed_ore_limit)) {
+        simulation::OriginalManagedOre row;row.building_id=production_id(field(value,"building_id"));
+        require(result.managed_ore.empty() || result.managed_ore.back().building_id<row.building_id,
+                "schema26 managed ore IDs must be sorted unique");
+        row.stock=small(field(value,"stock"));row.progress=small(field(value,"progress"));
+        row.extracted=number(field(value,"extracted"));row.used=number(field(value,"used"));result.managed_ore.push_back(row);
+    }
+    for (const auto& value:collection("auxiliary",simulation::original_aux_owner_limit)) {
+        simulation::OriginalAuxStock row;row.building_id=production_id(field(value,"building_id"));
+        require(result.auxiliary.empty() || result.auxiliary.back().building_id<row.building_id,
+                "schema26 material owner IDs must be sorted unique");
+        const auto& amounts=field(value,"amounts");
+        require(amounts.is_array() && amounts.size()==simulation::original_aux_material_count,
+                "schema26 material stock requires exactly five amounts");
+        for (std::size_t i=0;i<row.amounts.size();++i) row.amounts[i]=small(amounts[i]);
+        row.received=parse_production_counters<simulation::original_aux_material_count>(field(value,"received"));
+        row.departed=parse_production_counters<simulation::original_aux_material_count>(field(value,"departed"));
+        row.returned=parse_production_counters<simulation::original_aux_material_count>(field(value,"returned"));
+        row.consumed=parse_production_counters<simulation::original_aux_material_count>(field(value,"consumed"));
+        result.auxiliary.push_back(row);
+    }
+    for (const auto& value:collection("aux_trips",simulation::original_aux_courier_limit)) {
+        simulation::OriginalAuxTrip row;row.transfer=parse_production_transfer(field(value,"transfer"));
+        require(result.aux_trips.empty() || result.aux_trips.back().transfer.courier_id<row.transfer.courier_id,
+                "schema26 material trips require sorted unique actor IDs");
+        row.source=production_id(field(value,"source"));row.target=production_id(field(value,"target"));
+        row.material=static_cast<simulation::OriginalAuxMaterial>(number(field(value,"material"),simulation::original_aux_material_count-1));
+        row.phase=static_cast<simulation::OriginalGoodsTransferPhase>(number(field(value,"phase"),5));
+        row.loaded=small(field(value,"loaded"));row.delivered=small(field(value,"delivered"));row.returned=small(field(value,"returned"));
+        row.dispatched_tick=number(field(value,"dispatched_tick"));
+        const auto& arrival=field(value,"arrival_tick");if (!arrival.is_null()) row.arrival_tick=number(arrival);
+        result.aux_trips.push_back(row);
+    }
+    for (const auto& value:collection("clay_trips",simulation::original_clay_trip_limit)) {
+        simulation::OriginalClayTrip row;row.transfer=parse_production_transfer(field(value,"transfer"));
+        require(result.clay_trips.empty() || result.clay_trips.back().transfer.courier_id<row.transfer.courier_id,
+                "schema26 native Clay trips require sorted unique actor IDs");
+        row.source=production_id(field(value,"source"));row.target=production_id(field(value,"target"));
+        row.loaded=small(field(value,"loaded"));row.delivered=small(field(value,"delivered"));
+        row.dispatched_tick=number(field(value,"dispatched_tick"));
+        const auto& arrival=field(value,"arrival_tick");if (!arrival.is_null()) row.arrival_tick=number(arrival);
+        result.clay_trips.push_back(row);
+    }
+    return result;
+}
 json production_water_witness_json(const simulation::OriginalWaterWitness& w) {
     return {{"building_id",static_cast<std::uint32_t>(w.building_id)},
         {"provider_id",static_cast<std::uint32_t>(w.provider_id)},
@@ -1361,6 +1475,13 @@ json production_document_json(const SaveDocument& d) {
         else if (building.kind==simulation::Object::OriginalFoodFarm) building.kind=simulation::Object::Farm;
         else if (building.kind==simulation::Object::OriginalWheatField || building.kind==simulation::Object::OriginalMilletField)
             building.kind=simulation::Object::Well;
+        else if (building.kind>=simulation::Object::OriginalLoggingShed38 &&
+                 building.kind<=simulation::Object::OriginalSilkwormShed239)
+            building.kind=simulation::Object::Pottery;
+        else if (building.kind==simulation::Object::OriginalTeaBush26 ||
+                 building.kind==simulation::Object::OriginalLacquerTree27 ||
+                 building.kind==simulation::Object::OriginalMulberryTree28)
+            building.kind=simulation::Object::Well;
         else if (building.kind==simulation::Object::OriginalAncestorShrine214 ||
                  building.kind==simulation::Object::OriginalWaterWell72 ||
                  building.kind==simulation::Object::OriginalDaoistShrine215 ||
@@ -1372,7 +1493,10 @@ json production_document_json(const SaveDocument& d) {
             building.kind=simulation::Object::ServicePost;
     }
     for (auto& courier:projected.world.couriers) {
-        if (courier.role==simulation::CourierRole::OriginalHempToWarehouse)
+        if (courier.role==simulation::CourierRole::OriginalHempToWarehouse ||
+            courier.role==simulation::CourierRole::OriginalLuxuryToWarehouse ||
+            courier.role==simulation::CourierRole::OriginalAuxToWarehouse ||
+            courier.role==simulation::CourierRole::OriginalAuxSupplier)
             courier.role=simulation::CourierRole::MarketPotteryInbound;
         else if (courier.role==simulation::CourierRole::OriginalFoodToMarket)
             courier.role=simulation::CourierRole::MarketFoodInbound;
@@ -1411,7 +1535,8 @@ json production_document_json(const SaveDocument& d) {
         {"hemp_farms",std::move(farms)},{"house_consumption",std::move(consumption)},
         {"food",production_food_json(production.food)},
         {"services",production_services_json(production.services)},
-        {"water",production_water_json(production.water)},{"housing",production_housing_json(production.housing)}};
+        {"water",production_water_json(production.water)},{"housing",production_housing_json(production.housing)},
+        {"industry",production_industry_json(production.industry)}};
     return result;
 }
 SaveDocument parse_production_document(const json& j) {
@@ -1460,6 +1585,7 @@ SaveDocument parse_production_document(const json& j) {
     state.services=parse_production_services(field(production,"services"));
     state.water=parse_production_water(field(production,"water"));
     state.housing=parse_production_housing(field(production,"housing"));
+    state.industry=parse_production_industry(field(production,"industry"));
     auto projected=j;
     projected["schema_version"]=22;projected["rules"]["version"]=6;
     for (const char* key:{"original_economy","original_influence","original_goods","original_production"})
@@ -1468,7 +1594,7 @@ SaveDocument parse_production_document(const json& j) {
     require(buildings.is_array() && buildings.size()<=simulation::Rules::original_production_building_limit,
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalDramaSchool213));
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalMulberryTree28));
         if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalHempFarm))
@@ -1479,6 +1605,13 @@ SaveDocument parse_production_document(const json& j) {
             building["kind"]=static_cast<int>(simulation::Object::Farm);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalWheatField) ||
                  kind==static_cast<unsigned>(simulation::Object::OriginalMilletField))
+            building["kind"]=static_cast<int>(simulation::Object::Well);
+        else if (kind>=static_cast<unsigned>(simulation::Object::OriginalLoggingShed38) &&
+                 kind<=static_cast<unsigned>(simulation::Object::OriginalSilkwormShed239))
+            building["kind"]=static_cast<int>(simulation::Object::Pottery);
+        else if (kind==static_cast<unsigned>(simulation::Object::OriginalTeaBush26) ||
+                 kind==static_cast<unsigned>(simulation::Object::OriginalLacquerTree27) ||
+                 kind==static_cast<unsigned>(simulation::Object::OriginalMulberryTree28))
             building["kind"]=static_cast<int>(simulation::Object::Well);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalAncestorShrine214) ||
                  kind==static_cast<unsigned>(simulation::Object::OriginalWaterWell72) ||
@@ -1494,8 +1627,11 @@ SaveDocument parse_production_document(const json& j) {
     require(couriers.is_array() && couriers.size()<=simulation::Rules::original_production_courier_limit,
             "schema26 courier collection exceeds bound");
     for (auto& courier:couriers) {
-        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalDrama));
-        if (role==static_cast<unsigned>(simulation::CourierRole::OriginalHempToWarehouse))
+        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalAuxSupplier));
+        if (role==static_cast<unsigned>(simulation::CourierRole::OriginalHempToWarehouse) ||
+            role==static_cast<unsigned>(simulation::CourierRole::OriginalLuxuryToWarehouse) ||
+            role==static_cast<unsigned>(simulation::CourierRole::OriginalAuxToWarehouse) ||
+            role==static_cast<unsigned>(simulation::CourierRole::OriginalAuxSupplier))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketPotteryInbound);
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalFoodToMarket))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketFoodInbound);

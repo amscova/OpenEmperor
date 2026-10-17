@@ -58,6 +58,42 @@ struct FunctionalModelCandidate {
     case Object::OriginalMilletField:
         return {ModelBuilding::MilletField, EvidenceStatus::AuthoredFallback,
                 EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalLoggingShed38:
+        return {ModelBuilding::LoggingShed, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalBronzeSmelter39:
+        return {ModelBuilding::BronzeSmelter, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalBronzewareMaker42:
+        return {ModelBuilding::BronzewareMaker, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalLacquerwareMaker44:
+        return {ModelBuilding::LacquerwareMaker, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalPaperMaker45:
+        return {ModelBuilding::PaperMaker, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalWeaver47:
+        return {ModelBuilding::Weaver, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalTeaCuringShed237:
+        return {ModelBuilding::TeaCuringShed, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalLacquerRefinery238:
+        return {ModelBuilding::LacquerRefinery, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalSilkwormShed239:
+        return {ModelBuilding::SilkwormShed, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalTeaBush26:
+        return {ModelBuilding::TeaBush, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalLacquerTree27:
+        return {ModelBuilding::LacquerTree, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalMulberryTree28:
+        return {ModelBuilding::MulberryTree, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
     case Object::OriginalMusicSchool211:
         return {ModelBuilding::MusicSchool, EvidenceStatus::AuthoredFallback,
                 EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};

@@ -50,6 +50,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe20/production-fixtures/run",
                        self.repo / ".local/original-economy/oe21/production-fixtures/run",
                        self.repo / ".local/original-economy/oe22/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe23/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -134,7 +135,7 @@ class ProductionRunnerTests(unittest.TestCase):
 
     @staticmethod
     def scene():
-        return {"balances": [{"good": index, "supported": index < 2, "conserved": True,
+        return {"balances": [{"good": index, "supported": True, "conserved": True,
                     "produced": 0, "imported": 0, "consumed": 0, "demolished": 0,
                     "stock": 0, "cargo": 0, "source_reserved": 0, "incoming_reserved": 0}
                 for index in range(6)], "pottery_handed_off": 0, "pottery_completed": 0,
@@ -190,6 +191,69 @@ class ProductionRunnerTests(unittest.TestCase):
             bad["balances"][1][field] = value
             with self.subTest(field=field), self.assertRaises(AssertionError):
                 runner.check_balances(bad)
+
+    @staticmethod
+    def auxiliary_scene():
+        # Parser-only reference: two produced Wood units, one held and one
+        # physically loaded. This never supplies a positive World snapshot.
+        scene = ProductionRunnerTests.scene()
+        scene.update(tick=200, buildings=[{"id": 1, "kind": 27, "cell": [0, 0], "placed_tick": 0},
+            {"id": 2, "kind": 3, "cell": [8, 0], "placed_tick": 0}],
+            couriers=[{"id": 1, "owner": 1, "role": 24, "aux_cargo": 1, "cargo": 0, "reserved": 0}])
+        source = {"id": 1, "plant_id": None, "completed": 2, "progress": 0,
+                  "goods_inputs_used": [0]*6, "aux_inputs_used": [0]*5, "clay_received": 0, "clay_used": 0}
+        stock = {"id": 1, "amounts": [1, 0, 0, 0, 0], "received": [0]*5,
+                 "departed": [1, 0, 0, 0, 0], "returned": [0]*5, "consumed": [0]*5}
+        empty = {"id": 2, "amounts": [0]*5, "received": [0]*5, "departed": [0]*5,
+                 "returned": [0]*5, "consumed": [0]*5}
+        trip = {"courier_id": 1, "sequence": 1, "source": 1, "target": 2, "material": 0, "phase": 1,
+                "loaded": 1, "delivered": 0, "returned": 0, "dispatched_tick": 180, "arrival_tick": None}
+        balances = [{"material": a, "produced": 2 if a == 0 else 0, "stock": 1 if a == 0 else 0,
+                     "cargo": 1 if a == 0 else 0, "consumed": 0, "conserved": True} for a in range(5)]
+        scene["industry"] = {"sources": [source], "managed_ore": [], "stocks": [stock, empty],
+                             "trips": [trip], "clay_trips": [], "balances": balances}
+        return scene
+
+    def test_auxiliary_physical_cargo_and_owner_equations_reject_mirrors(self):
+        scene = self.auxiliary_scene()
+        runner.check_industry(scene)
+        for mutate in (
+            lambda s: s["industry"]["stocks"][0]["amounts"].__setitem__(0, 2),
+            lambda s: s["couriers"][0].__setitem__("cargo", 1),
+            lambda s: s["industry"]["trips"][0].__setitem__("delivered", 1),
+            lambda s: s["industry"]["sources"][0].__setitem__("progress", 80),
+            lambda s: s["industry"]["trips"][0].__setitem__("sequence", 201),
+        ):
+            bad = copy.deepcopy(scene)
+            mutate(bad)
+            with self.assertRaises(AssertionError):
+                runner.check_industry(bad)
+
+    def test_recipe_uses_native_clay_and_actual_hemp_instead_of_auxiliary_mirrors(self):
+        scene = self.auxiliary_scene()
+        bad = copy.deepcopy(scene)
+        bad["industry"]["sources"][0]["goods_inputs_used"][0] = 2
+        with self.assertRaises(AssertionError):
+            runner.check_industry(bad)
+        bad = copy.deepcopy(scene)
+        bad["industry"]["sources"][0]["aux_inputs_used"][0] = 2
+        with self.assertRaises(AssertionError):
+            runner.check_industry(bad)
+        bad = copy.deepcopy(scene)
+        bad["industry"]["sources"][0]["clay_used"] = 1
+        with self.assertRaises(AssertionError):
+            runner.check_industry(bad)
+
+    def test_managed_ore_and_paid_crop_age_cannot_be_backdated(self):
+        scene = self.auxiliary_scene()
+        bad = copy.deepcopy(scene)
+        bad["tick"] = 159
+        with self.assertRaises(AssertionError):
+            runner.check_industry(bad)
+        bad = copy.deepcopy(scene)
+        bad["industry"]["managed_ore"] = [{"id": 1, "stock": 1, "progress": 0, "extracted": 1, "used": 0}]
+        with self.assertRaises(AssertionError):
+            runner.check_industry(bad)
 
     def test_inventory_and_save_identity_detect_bytes_and_metadata_changes(self):
         source = self.original / "file"

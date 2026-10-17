@@ -50,7 +50,7 @@ struct Fixture {
         const auto before=world.snapshot();const auto d=document(world);
         save::write_save(target,d,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(d,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,
               "Hemp save did not require its explicit development revision");
         auto restored=restore(parsed);check(restored.snapshot()==before,"Full Hemp save/restore changed authority");
         check(restored.original_rules_model()->supports_building(orig::ModelBuilding::HempFarm) &&
@@ -68,7 +68,7 @@ void conserved(const sim::World& world) {
     for (const auto& farm:world.original_production_state()->hemp_farms) harvested+=farm.harvested;
     for (std::size_t good=0;good<orig::goods_count;++good) {
         const auto b=world.original_goods_balance(static_cast<orig::Goods>(good));
-        check(b.conserved && b.stock+b.cargo==b.totals.produced && b.supported==(good<2) &&
+        check(b.conserved && b.stock+b.cargo==b.totals.produced && b.supported &&
               !b.totals.imported && !b.totals.consumed && !b.totals.demolished,
               "Two-good stock/cargo/history conservation or capability failed");
         if (good==0) check(b.totals.produced==harvested,"Hemp production lacks its actual Farm harvest origin");
@@ -146,7 +146,7 @@ void adversarial(Fixture& f,const sim::WorldSnapshot& captured) {
         }
     }
     for (const auto& [path,value]:std::vector<std::pair<std::string,json>>{
-            {"/world/original_production/development_revision",15},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",24},
+            {"/world/original_production/development_revision",15},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",25},
             {"/world/original_production/hemp_farms/0/farm_id",0},
             {"/world/original_production/hemp_farms/0/farm_id",UINT32_MAX},
             {"/world/original_production/hemp_farms/0/field_id",nullptr},

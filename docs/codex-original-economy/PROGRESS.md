@@ -4,6 +4,9 @@
 
 Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei der **nächsten** Aufgabe die vorige SHA in dieser Datei nachtragen, weil ein Commit seine eigene SHA nicht enthalten kann.
 
+**Nutzerpause nach OE-24:** OE-24 ist technisch abgeschlossen. OE-25 bleibt
+TODO und wird erst nach ausdrücklicher Fortsetzung begonnen.
+
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
@@ -29,9 +32,9 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-20 | PASS | 825fd2c65d90c9139e283f2bf3e191bb5feb4e39 | `.local/original-economy/oe20/implementation/runs/final3/`, `oe20/production-fixtures/final/`, OE-00/`oe20-final-verification/` | Revision20: bezahlter Ancestor214, echter40er-Besuch/Verfall/Wiederbesuch,369 relevante Konfigurations-CTests,18 separate20k-Fortsetzungen und Legacy exakt. Gate D bleibt TODO; Originalgrafik/native/human offen |
 | OE-21 | PASS | d0dae2830a7025c12b32ce783fa6de416e131b44 | `.local/original-economy/oe21/implementation/runs/final4/`, `oe21/production-fixtures/final4/` | Revision21: bezahltes Wasser, echter Hut→Plain-Aufstieg, zehnte negative Auswertung/Rückentwicklung,141 Konfigurations-CTests und24 separate20k-Prozesse; Gate D bleibt TODO |
 | OE-22 | PASS | 1e7e2715704bd7b5def483d4924292c1d4d41181 | `.local/original-economy/oe22/validation2/`, `oe22/production-fixtures/final2/` | Revision22: bezahlte215/217/219, getrennte40er-Timer/OR, echte3×3-Ankunft;150 Konfigurations-CTests und30 separate20k-Fortsetzungen. Confucian-Elite/Material ausdrücklich authored/offen; Gate D TODO |
-| OE-23 | PASS | pending | `.local/original-economy/oe23/validation/`, `oe23/production-fixtures/final/` | Revision23: bezahlte211/212/213, neun getrennte Timer, reine Verfügbarkeit/Ankunft-Diagnose und echte Quellenbrände;159 Konfigurations-CTests,36 separate20k-Fortsetzungen. Originale Venue-/Performer-Kette weiterhin ausdrücklich experimentell; Gate D TODO |
-| OE-24 | TODO | — | — | — |
-| OE-25 | TODO | — | — | — |
+| OE-23 | PASS | 95967cec1e691a50e9a771a59940deda2230807b | `.local/original-economy/oe23/validation/`, `oe23/production-fixtures/final/` | Revision23: bezahlte211/212/213, neun getrennte Timer, reine Verfügbarkeit/Ankunft-Diagnose und echte Quellenbrände;159 Konfigurations-CTests,36 separate20k-Fortsetzungen. Originale Venue-/Performer-Kette weiterhin ausdrücklich experimentell; Gate D TODO |
+| OE-24 | PASS | — | `.local/original-economy/oe24/validation2/`, `oe24/production-fixtures/final2/` | Revision24: vier bezahlte Luxusketten, fünf getrennte Vorprodukte und echter Paper→Academy-Materialpfad; 168 Konfigurations-CTests, 43 separate20k-Replays, beide Software-SDL-Ansichten geöffnet. Nutzerpause nach diesem Task; Gate D TODO |
+| OE-25 | TODO | — | — | Nicht begonnen; Nutzerpause nach OE-24 |
 | OE-26 | TODO | — | — | — |
 | OE-27 | TODO | — | — | — |
 | OE-28 | TODO | — | — | — |
@@ -2797,3 +2800,81 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   kein Original-EXE-Lauf. Gate D folgt27, Originalsprites29, vollständiger
   Original167er-Corpus hier nicht erneut ausgeführt. Nach eigenem23er-Commit
   unmittelbar OE-24, ohne manuellen Testhalt.
+
+
+### OE-24 – 2026-10-17, Basis95967ce
+
+- Vorabvertrag: [luxury-runtime.md](../original-economy/luxury-runtime.md),
+  Originalquellen: [original-luxury-source-contract.md](../reverse/original-luxury-source-contract.md).
+  Neun separat bezahlte Producer und drei passende bezahlte Pflanzen verwenden
+  echte vorbereitete Modellkosten/Employees. Tea, Silk, Bronzeware und
+  Lacquerware erreichen über tatsächliche Carts, Warehouse und Market das Haus
+  und dessen Verbrauch. Fünf Auxmaterialien bleiben getrennt von den sechs
+  Hauswaren; Clay und Hemp behalten jeweils ihre vorhandene Mengenauthority.
+- Aktive Revision24 erweitert auf82Bodies/58Courier; alte Regeln1–9,
+  Schemas1–25 und deren46/26-Grenzen bleiben erhalten. Bezahlte Hemp→Paper-
+  Produktion und tatsächliche Paperankunft sperren/erlauben Academy-Dispatch;
+  je neuer Tour wird1Paper verbraucht. Managed Ernten,80er-Rezeptzeiten,
+  PaperOnly und direkte Schulbesuche bleiben ausdrücklich authored.
+  Das anfängliche originale Confucian-Elitegate gehört weiterhin zu25.
+- Der Originalnachweis bestätigt Bronze/Lacquer als OR-Bedarf, aber getrennten
+  Verbrauch beider tatsächlich vorhandenen Bestände. Der eingefrorene reine
+  GoodsRules-Kern bleibt unverändert. Echte positive Aufstiegs-/Verbrauchs-
+  zeugen und strikte fehlende-Ware-Kontrollen verwenden klar markierte Need1-
+  Modellkopien; unveränderte frühe Originalbedarfe0 werden nicht erfunden.
+- Tatsächliche frühe Läufe fanden Clay-Reservierungs-, Reisezeit- und
+  Bootstrapfehler sowie einen Market ohne angrenzende Straße. Die bezahlte
+  Hauptszene kauft43Bodies/107Roads für3159 und wartet auf echten Zuzug bis
+  zur installierten Workeranforderung185. Eine gekoppelte Goods-/Zielrotation
+  konnte bei sechs Waren Tea übergehen; feste Target×Good-Paare beheben dies
+  ohne neue gespeicherte Authority. Belegte endliche Ankünfte/Verbräuche sind
+  keine universelle Starvationfreiheitsgarantie.
+- Produktive neue Bodies/Pflanzen/Materialempfänger verweigern Abriss atomar.
+  Der bisher erlaubte bezahlte neutrale Wellabriss besteht während realer
+  Warenproduktion mit vollständiger Conservation. Tests decken vier Luxusgüter,
+  Teilmengen, fehlende Zutaten, volle Reservierungen/Rückkehrraum, zwei
+  Warehouses, Pause, Brand, Straßenreparatur, Überlauf und strikten Restore ab.
+- Finale Quelle539Dateien:
+  9c8be66e22201027849937025a7b350061c7e66f0b0c8527ca864f79bf19f75c;
+  `oe24/validation2/source-freeze.json` SHA
+  cc3b57ec89817ee14c230fe2b22b2c26a8fd1ec5bb0894d00b0938709981985d.
+  Drei warnungsfreie inkrementelle Werror-Builds; **3×56 CTests PASS**,0Fail/Skip.
+  Tatsächliche CTestzeiten: Debug583.761s, Release34.899s,
+  ASan+UBSan195.559s; keine Sanitizerdiagnose. Unabhängig136Livebinary-
+  und39Archivepfade an die tatsächlichen Builds/JUnit-Dateien gebunden.
+  Kein vollständiger Cleanbuild-/Gate-D-Nachweis.
+- Frische3×74 Kernvergleiche,25 strenge Sanitizerprozesse und28 Python-
+  Postexporttests PASS. Alte numerische Beobachtungen/Klassifikationen exakt;
+  aktive Modellergänzungen und neue DTO-Pins eng geprüft. `core-parity.json`
+  SHA09cf9096bb3e18c2c65999c516a8d4ec9a2cb720b58234c54f38530c41cccbd5.
+- Tatsächlicher final2-Workflow:59 unterschiedliche C++-PIDs = neun aktive
+  Creates, **43 separate aktive20k-Fortsetzungen**, drei historische Creates
+  und vier historische Resumes. Unabhängiger Reader PASS:5.784.687Checks,
+  220Schema26-Dokumente/215Rohprojektionen,86 volle Save-/Reportpaare exakt;
+  alte Regeln7/8/9 mit17Save-/16Report-Literalpaaren unverändert.
+  563Dateien/78.329.192Byte gebunden. Sechs echte C++-/Python-Refusals für
+  Außenpfad, Symlink und alten23er-Ausgabebereich PASS.
+- Der erste finale Workflow verweigerte seine Services-Szene: deren Test
+  erwartete fälschlich sieben statt sechs Actors ohne Warehouse. Nur dieser
+  Fixturezähler wurde auf sechs exakte Owner/Rollen korrigiert; ursprünglicher
+  Source, drei Binaries und FAIL bleiben unter `oe24/validation/` erhalten.
+  Der unabhängige final2-Reader rechnete zunächst bestehendes Pottery mit
+  einem statt zwei Clay pro Einheit. Nur diese Prüfformel wurde korrigiert;
+  erster Reader/FAIL unter `validation2/reader-before-pottery-coefficient-fix/`
+  erhalten. Danach tatsächlich neu ausgeführter Reader PASS; keine Save-,
+  Runtime- oder Bilanzmanipulation.
+- Beide finalen Release-Software-SDL-Bilder tatsächlich geöffnet, PID73969:
+  House bei3639Ticks/148Bewohnern, Typ5 mit37Bewohnern, alle neun Timer,
+  Water1/raw94 und Food5/8/Quality80/Misses5 lesbar. Industry bei2947Ticks:
+  PaperMaker#22, Hemp→Paper, Workers10/10, tatsächlicher Progress/Input/Output/
+  Cargo und explizites Original-Art-pending-Label ohne Überlappung. Industry-
+  Bauaktionen, echte Maus-/Tastaturkäufe, F5/F9 und Idle-Grenzen bestehen.
+  Bilder/Beobachtungs-JSON/Saves unter `oe24/validation2/view/` gebunden.
+- Statische Originalprüfung PASS_BOUNDED_STATIC_RESEARCH mit234Assertions;
+  Originale unverändert, kein Original-EXE-Lauf. Root-Abschluss
+  `oe24/validation2/final-validation.json` PASS, SHA
+  305cd8ff9066c6ab9e338d5ad14598117f2bdb843c943855bad77387a9a6c512.
+  Voller167er-Corpus hier nicht erneut ausgeführt. Gate D bleibt bis27 offen;
+  Originalsprites29 sowie native/human Abnahme bleiben getrennte offene Arbeit.
+- **Ausdrückliche Nutzerentscheidung:** nach dem geprüften eigenen24er-Commit
+  Pause. OE-25 wird nicht begonnen; kein Push, PR, Merge, Tag oder Release.

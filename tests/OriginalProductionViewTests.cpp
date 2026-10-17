@@ -18,6 +18,15 @@ void key(oe::SandboxView& view,SDL_Keycode code) {
     SDL_Event event{};event.type=SDL_EVENT_KEY_DOWN;event.key.key=code;
     bool running=true;view.handle_event(event,running);
 }
+void action_click(oe::SandboxView& view,oe::sandbox_ui::Action action) {
+    const auto& buttons=view.layout().buttons;
+    const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
+    check(button!=buttons.end(),"Requested production toolbar action is missing");
+    const auto rect=button->rect;bool running=true;SDL_Event event{};
+    event.type=SDL_EVENT_MOUSE_BUTTON_DOWN;event.button.button=SDL_BUTTON_LEFT;
+    event.button.x=static_cast<float>(rect.x+rect.w/2);event.button.y=static_cast<float>(rect.y+rect.h/2);
+    view.handle_event(event,running);event.type=SDL_EVENT_MOUSE_BUTTON_UP;view.handle_event(event,running);
+}
 void click(oe::SandboxView& view,sim::Cell cell) {
     double sx=0,sy=0;unsigned count=0;
     for(int y=80;y<660;y+=4)for(int x=8;x<1090;x+=4)
@@ -66,7 +75,12 @@ int main(int argc,char** argv) {
         auto view=oe::SandboxView::create_original_production_save_fixture(session());
         view->configure_save(data,"Cities/A.map",target);view->initialize(window,renderer);
         check(view->world().rule_version()==10 && view->world().treasury()==12000 && view->paused(),"Production identity");
+        check(!view->industry_page(),"Industry page was not view-local defaultOFF");
         const auto& buttons=view->layout().buttons;
+        check(view->world().bridges_supported() && view->world().ramps_supported() && buttons.size()==39 &&
+              std::count_if(buttons.begin(),buttons.end(),[](const auto& b){return b.action==oe::sandbox_ui::Action::Bridge;})==1 &&
+              std::count_if(buttons.begin(),buttons.end(),[](const auto& b){return b.action==oe::sandbox_ui::Action::Ramp;})==1,
+              "Initial production toolbar disagrees with the actual inherited Bridge/Ramp capabilities");
         for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField,
                 oe::sandbox_ui::Action::OriginalFoodFarm,oe::sandbox_ui::Action::OriginalWheatField,oe::sandbox_ui::Action::OriginalMilletField,
                 oe::sandbox_ui::Action::HealthPost,oe::sandbox_ui::Action::ServicePost,
@@ -302,6 +316,91 @@ int main(int argc,char** argv) {
                 view->world().treasury()==funds-price,"Religion UI purchase lost actual footprint or model price");
         }
         check(view->world().treasury()==religion_funds-208,"Religion sources and access roads were not separately paid");
+        using A=oe::sandbox_ui::Action;
+        const auto page_before=view->world().snapshot();
+        const auto main_layout_before=view->layout();
+        key(*view,SDLK_H);action_click(*view,A::ToggleIndustryPage);
+        check(!view->industry_page() && view->world().snapshot()==page_before,"Industry page escaped Help modal or changed World");key(*view,SDLK_H);
+        action_click(*view,A::ToggleIndustryPage);
+        check(view->industry_page() && view->world().snapshot()==page_before && view->layout().buttons.size()<=31,
+              "Industry page changed authority or exceeded20 construction tools");
+        for (const auto action:{A::OriginalLoggingShed,A::OriginalBronzeSmelter,A::OriginalBronzewareMaker,A::OriginalLacquerwareMaker,
+                A::OriginalPaperMaker,A::OriginalWeaver,A::OriginalTeaCuringShed,A::OriginalLacquerRefinery,A::OriginalSilkwormShed,
+                A::OriginalTeaBush,A::OriginalLacquerTree,A::OriginalMulberryTree})
+            check(std::count_if(view->layout().buttons.begin(),view->layout().buttons.end(),[&](const auto& b){return b.action==action;})==1,
+                  "Industry page lost one of its12 actual paid construction tools");
+        const auto industry_funds=view->world().treasury();
+        for (int x=104;x<=120;++x) buy(sim::CommandType::PlaceRoad,{x,91});
+        for (int y=92;y<100;++y) buy(sim::CommandType::PlaceRoad,{104,y});
+        action_click(*view,A::OriginalPaperMaker);check(view->tool()==33,"Paper Maker industry tool is unavailable");
+        click(*view,{110,89});
+        check(view->world().object_at({111,90})==sim::Object::OriginalPaperMaker45,"Paper mouse purchase lost actual2x2 body");
+        const auto paper_id=*view->world().building_owner_at({110,89});
+        action_click(*view,A::OriginalTeaCuringShed);check(view->tool()==35,"Tea Shed industry tool is unavailable");click(*view,{118,89});
+        const auto tea_id=*view->world().building_owner_at({118,89});
+        action_click(*view,A::OriginalTeaBush);check(view->tool()==38,"Paid Tea Bush tool did not find its free purchased source");click(*view,{120,89});
+        const auto plant=*view->world().building_owner_at({120,89});
+        const auto& sources=view->world().original_production_state()->industry.sources;
+        const auto tea=std::find_if(sources.begin(),sources.end(),[&](const auto& row){return row.building_id==tea_id;});
+        check(tea!=sources.end() && tea->plant_id==plant && view->world().object_at({120,89})==sim::Object::OriginalTeaBush26 &&
+              view->world().treasury()==industry_funds-166,"Plant mouse placement lost unique adjacent ownership or separate50/70/40/6 costs");
+        const auto pause_tea=view->execute(sim::set_building_operation(tea_id,false));check(pause_tea.accepted && pause_tea.changed,"Tea did not pause through ordinary operation control");
+        view->set_tool(5);click(*view,{110,89});
+        const auto paper_details=view->inspection_lines();
+        check(view->industry_inspector_selected() && paper_details.size()<=10,
+              "Actual sidebar did not select the compact visible Industry inspector");
+        for (const std::string_view expected:{"Authored managed recipes","Hemp -> Paper","80 productive ticks","Hemp input","Marker art; original pending"})
+            check(std::any_of(paper_details.begin(),paper_details.end(),[&](const auto& line){return line.find(expected)!=std::string::npos;}),
+                  "Paper inspector hid actual input, authored recipe or pending original art");
+        const auto page_saved=view->world().snapshot();key(*view,SDLK_F5);
+        if (argc==2) {
+            check(view->industry_page() && view->selected_building()==paper_id,"Industry capture lost its actual Paper inspector selection");
+            view->update(0);check(view->render(),"Industry page actual capture frame");
+            auto output=fs::path(argv[1]).parent_path()/"production.industry.png";
+            auto* frame=SDL_RenderReadPixels(renderer,nullptr);check(frame!=nullptr,"Industry page capture pixels");
+            const bool okay=SDL_SavePNG(frame,output.string().c_str());SDL_DestroySurface(frame);check(okay,"Industry page capture output");
+            nlohmann::json tools=nlohmann::json::array();
+            for (const auto& button:view->layout().buttons)
+                tools.push_back({{"action",static_cast<unsigned>(button.action)},
+                    {"rect",nlohmann::json::array({button.rect.x,button.rect.y,button.rect.w,button.rect.h})}});
+            nlohmann::json observed{{"capture","paid-industry-page-paper-inspector"},
+                {"development_revision",view->world().original_production_state()->development_revision},
+                {"ticks",view->world().ticks()},{"funds",view->world().treasury()},
+                {"population",view->world().total_population()},{"industry_page",view->industry_page()},
+                {"industry_inspector",view->industry_inspector_selected()},
+                {"selected_building",static_cast<unsigned>(*view->selected_building())},
+                {"paper_id",static_cast<unsigned>(paper_id)},{"tea_id",static_cast<unsigned>(tea_id)},
+                {"plant_id",static_cast<unsigned>(plant)},{"tools",tools},{"inspection_lines",paper_details},
+                {"original_art_restored",false},{"human_acceptance_claimed",false}};
+            auto observed_output=output;observed_output.replace_extension(".observed.json");f::write_text(observed_output,observed.dump(2)+"\n");
+            auto saved_output=output;saved_output.replace_extension(".save.json");f::write_text(saved_output,f::read_text(target));
+            check(view->world().snapshot()==page_saved,"Industry screenshot preparation mutated paid World authority");
+        }
+        for (int i=0;i<3;++i) view->tick_once();key(*view,SDLK_F9);
+        check(view->industry_page() && view->world().snapshot()==page_saved,"Industry F5/F9 changed new body/plant binding or saved page authority");
+        action_click(*view,A::ToggleIndustryPage);check(!view->industry_page(),"Industry Back action did not restore city tools");
+        const auto& main_layout=view->layout();
+        check(main_layout.buttons.size()==39 && main_layout.buttons.size()==main_layout_before.buttons.size() &&
+              std::equal(main_layout.buttons.begin(),main_layout.buttons.end(),main_layout_before.buttons.begin(),[](const auto& a,const auto& b){
+                  return a.action==b.action && a.rect.x==b.rect.x && a.rect.y==b.rect.y && a.rect.w==b.rect.w && a.rect.h==b.rect.h;
+              }),"Industry Back changed the exact27 historical tools, page toggle or11 existing controls");
+        check(main_layout.buttons[28].action==A::Pause &&
+              main_layout.buttons[28].rect.y==main_layout.toolbar.y+6*36*main_layout.scale &&
+              main_layout.toolbar.h==7*36*main_layout.scale,
+              "Main page exceeded its actual six construction rows plus one control row");
+        bool real_paper_trip=false;
+        for (int i=0;i<3000 && !real_paper_trip;++i) {
+            view->tick_once();
+            for (const auto& trip:view->world().original_production_state()->industry.aux_trips)
+                real_paper_trip|=trip.material==sim::OriginalAuxMaterial::Paper && trip.phase==sim::OriginalGoodsTransferPhase::Loaded &&
+                    view->world().courier(trip.transfer.courier_id).role==sim::CourierRole::OriginalAuxSupplier;
+        }
+        check(real_paper_trip && view->world().workers_assigned(paper_id)==10,"Actual paid Paper chain did not supply a real Academy material courier");
+        const auto walkers=view->walker_diagnostics();
+        check(std::any_of(walkers.begin(),walkers.end(),[](const auto& row){return row.role==sim::CourierRole::OriginalAuxSupplier && row.cargo>0 && row.live_visible;}),
+              "Actual material cargo was hidden by marker or diagnostic presentation");
+        const auto paper_trip_saved=view->world().snapshot();key(*view,SDLK_F5);for (int i=0;i<40;++i) view->tick_once();key(*view,SDLK_F9);
+        check(view->world().snapshot()==paper_trip_saved,"Material midcourier F5/F9 changed sole cargo or recipe sinks");
         bool religion_trip=false;
         for(int i=0;i<1200 && !religion_trip;++i) {
             view->tick_once();
@@ -322,10 +421,12 @@ int main(int argc,char** argv) {
         }
         check(all_religions,"No actual House simultaneously received six independent service categories and water/goods");
         const auto culture_funds=view->world().treasury();
-        for(int x=104;x<=120;++x)buy(sim::CommandType::PlaceRoad,{x,96});
-        for(int y:{97,98,99})buy(sim::CommandType::PlaceRoad,{104,y});
+        for(int x=104;x<=120;++x)if(!view->world().road_cell({x,96}))buy(sim::CommandType::PlaceRoad,{x,96});
+        for(int y:{97,98,99})if(!view->world().road_cell({104,y}))buy(sim::CommandType::PlaceRoad,{104,y});
         view->set_walker_visuals(authored_walker_profile(data));
         check(view->walker_display_stats().schema_version==1,"Authored profile did not enable actual F3 input gate");
+        const auto diagnostic_world=view->world().snapshot();key(*view,SDLK_F3);action_click(*view,A::ToggleIndustryPage);
+        check(!view->industry_page() && view->world().snapshot()==diagnostic_world,"Industry page escaped F3 diagnostics or changed authority");key(*view,SDLK_F3);
         for(const auto [code,tool,origin,kind,command,side]:std::array{
                 std::tuple{SDLK_E,26,sim::Cell{106,94},sim::Object::OriginalMusicSchool211,sim::CommandType::PlaceOriginalMusicSchool,2},
                 std::tuple{SDLK_C,27,sim::Cell{110,93},sim::Object::OriginalAcrobatSchool212,sim::CommandType::PlaceOriginalAcrobatSchool,3},
@@ -345,7 +446,7 @@ int main(int argc,char** argv) {
                 check(h.house.music==0 && h.house.acrobat==0 && h.house.drama==0,"School purchase granted a free culture visit");
         }
         view->set_walker_visuals({});
-        check(view->world().treasury()==culture_funds-220,"Schools and physical access roads were not separately paid");
+        check(view->world().treasury()==culture_funds-212,"Schools and16 additional physical access roads were not separately paid");
         bool culture_trip=false;
         for(int i=0;i<2000 && !culture_trip;++i) {
             view->tick_once();

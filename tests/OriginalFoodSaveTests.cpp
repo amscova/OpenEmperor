@@ -49,8 +49,8 @@ struct Fixture {
         const auto before=value.snapshot();const auto d=document(value);
         save::write_save(target,d,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(d,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,
-              "Food save lost its explicit revision23 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,
+              "Food save lost its explicit revision24 identity");
         auto copy=restore(parsed);check(copy.snapshot()==before,"Food F5/F9 changed the complete snapshot");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Food save rewrite changed bytes or World");
@@ -180,7 +180,7 @@ void hostile(Fixture& f,const sim::WorldSnapshot& actual) {
             {base+"/trips/0/source",0},{base+"/trips/0/target",UINT32_MAX},
             {base+"/trips/0/phase",0},{base+"/trips/0/phase",4},{base+"/trips/0/phase",6},
             {base+"/trips/0/loaded",json::array({0,0})},
-            {"/world/original_production/development_revision",17},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",24}}) {
+            {"/world/original_production/development_revision",17},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",25}}) {
         auto j=good;j.at(json::json_pointer(path))=value;reject(j);
     }
     for (const char* key:{"farms","stocks","trips"}) {

@@ -18,7 +18,19 @@ constexpr std::array extra{orig::ModelBuilding::HempFarm,orig::ModelBuilding::He
     orig::ModelBuilding::WheatField,orig::ModelBuilding::MilletField,orig::ModelBuilding::AcupuncturistsClinic,
     orig::ModelBuilding::AncestralShrine,orig::ModelBuilding::DaoistShrine,
     orig::ModelBuilding::BuddhistShrine,orig::ModelBuilding::ConfucianAcademy,
-    orig::ModelBuilding::MusicSchool,orig::ModelBuilding::AcrobatSchool,orig::ModelBuilding::DramaSchool};
+    orig::ModelBuilding::MusicSchool,orig::ModelBuilding::AcrobatSchool,orig::ModelBuilding::DramaSchool,
+    orig::ModelBuilding::LoggingShed,
+    orig::ModelBuilding::BronzeSmelter,
+    orig::ModelBuilding::BronzewareMaker,
+    orig::ModelBuilding::LacquerwareMaker,
+    orig::ModelBuilding::PaperMaker,
+    orig::ModelBuilding::Weaver,
+    orig::ModelBuilding::TeaCuringShed,
+    orig::ModelBuilding::LacquerRefinery,
+    orig::ModelBuilding::SilkwormShed,
+    orig::ModelBuilding::TeaBush,
+    orig::ModelBuilding::LacquerTree,
+    orig::ModelBuilding::MulberryTree};
 template<class F> void refuses(F action) {
     bool denied=false;try {action();} catch (const std::exception&) {denied=true;}
     check(denied,"Active model admitted an absent/invalid explicit production capability");
@@ -57,6 +69,18 @@ void synthetic() {
             std::pair{f::sim::Object::OriginalMusicSchool211,orig::ModelBuilding::MusicSchool},
             std::pair{f::sim::Object::OriginalAcrobatSchool212,orig::ModelBuilding::AcrobatSchool},
             std::pair{f::sim::Object::OriginalDramaSchool213,orig::ModelBuilding::DramaSchool},
+            std::pair{f::sim::Object::OriginalLoggingShed38,orig::ModelBuilding::LoggingShed},
+            std::pair{f::sim::Object::OriginalBronzeSmelter39,orig::ModelBuilding::BronzeSmelter},
+            std::pair{f::sim::Object::OriginalBronzewareMaker42,orig::ModelBuilding::BronzewareMaker},
+            std::pair{f::sim::Object::OriginalLacquerwareMaker44,orig::ModelBuilding::LacquerwareMaker},
+            std::pair{f::sim::Object::OriginalPaperMaker45,orig::ModelBuilding::PaperMaker},
+            std::pair{f::sim::Object::OriginalWeaver47,orig::ModelBuilding::Weaver},
+            std::pair{f::sim::Object::OriginalTeaCuringShed237,orig::ModelBuilding::TeaCuringShed},
+            std::pair{f::sim::Object::OriginalLacquerRefinery238,orig::ModelBuilding::LacquerRefinery},
+            std::pair{f::sim::Object::OriginalSilkwormShed239,orig::ModelBuilding::SilkwormShed},
+            std::pair{f::sim::Object::OriginalTeaBush26,orig::ModelBuilding::TeaBush},
+            std::pair{f::sim::Object::OriginalLacquerTree27,orig::ModelBuilding::LacquerTree},
+            std::pair{f::sim::Object::OriginalMulberryTree28,orig::ModelBuilding::MulberryTree},
             std::pair{f::sim::Object::OriginalWaterWell72,orig::ModelBuilding::Well}}) {
         const auto mapped=orig::functional_model_candidate(object);
         check(mapped.candidate==model && mapped.functional==orig::EvidenceStatus::AuthoredFallback &&
@@ -97,6 +121,22 @@ void synthetic() {
         active->building_value(extra[11],orig::BuildingField::Cost)==70 &&
         active->building_value(extra[11],orig::BuildingField::Employees)==10,
         "Authored named production values were not prepared");
+    for(const auto [kind,cost,workers]:std::array{
+        std::tuple{orig::ModelBuilding::LoggingShed,70,14},
+        std::tuple{orig::ModelBuilding::BronzeSmelter,80,19},
+        std::tuple{orig::ModelBuilding::BronzewareMaker,60,12},
+        std::tuple{orig::ModelBuilding::LacquerwareMaker,65,11},
+        std::tuple{orig::ModelBuilding::PaperMaker,70,10},
+        std::tuple{orig::ModelBuilding::Weaver,60,11},
+        std::tuple{orig::ModelBuilding::TeaCuringShed,40,12},
+        std::tuple{orig::ModelBuilding::LacquerRefinery,40,12},
+        std::tuple{orig::ModelBuilding::SilkwormShed,40,12},
+        std::tuple{orig::ModelBuilding::TeaBush,6,0},
+        std::tuple{orig::ModelBuilding::LacquerTree,5,0},
+        std::tuple{orig::ModelBuilding::MulberryTree,5,0}})
+        check(active->building_value(kind,orig::BuildingField::Cost)==cost&&
+              active->building_value(kind,orig::BuildingField::Employees)==workers,
+              "Named industry Cost/Employees not prepared");
     check(!active->supports_building(static_cast<orig::ModelBuilding>(4096)),"Undefined production model ID admitted");
     refuses([&]{(void)active->building_value(extra[0],static_cast<orig::BuildingField>(13));});
     const auto pristine=f::read_text(path);
@@ -202,6 +242,36 @@ int real(const std::filesystem::path& data) {
         const auto saved=world.snapshot();
         check(f::sim::World::restore_original_production_development(saved,permissions,active).snapshot()==saved,
             "Real difficulty-adjusted Farm/Field finance did not restore exactly");
+        for(const auto [command,kind]:std::array{
+            std::pair{f::sim::CommandType::PlaceOriginalLoggingShed,orig::ModelBuilding::LoggingShed},
+            std::pair{f::sim::CommandType::PlaceOriginalBronzeSmelter,orig::ModelBuilding::BronzeSmelter},
+            std::pair{f::sim::CommandType::PlaceOriginalBronzewareMaker,orig::ModelBuilding::BronzewareMaker},
+            std::pair{f::sim::CommandType::PlaceOriginalLacquerwareMaker,orig::ModelBuilding::LacquerwareMaker},
+            std::pair{f::sim::CommandType::PlaceOriginalPaperMaker,orig::ModelBuilding::PaperMaker},
+            std::pair{f::sim::CommandType::PlaceOriginalWeaver,orig::ModelBuilding::Weaver},
+            std::pair{f::sim::CommandType::PlaceOriginalTeaCuringShed,orig::ModelBuilding::TeaCuringShed},
+            std::pair{f::sim::CommandType::PlaceOriginalLacquerRefinery,orig::ModelBuilding::LacquerRefinery},
+            std::pair{f::sim::CommandType::PlaceOriginalSilkwormShed,orig::ModelBuilding::SilkwormShed}}) {
+            auto industry=f::sim::World::create_original_production_development(permissions,active);
+            const auto cost=active->building_value(kind,orig::BuildingField::Cost);
+            check(industry.construction_cost(command)==cost,"Industry command ignored selected difficulty price");
+            f::buy(industry,{command,{4,9}});const auto id=*industry.building_owner_at({4,9});
+            check(industry.workforce_required(id)==active->building_value(kind,orig::BuildingField::Employees)&&
+                  industry.construction_spent_total()==static_cast<std::uint64_t>(cost)&&industry.treasury()==12000-cost,
+                  "Actual industry purchase ignored model Cost/Employees");
+            if(kind==orig::ModelBuilding::TeaCuringShed||kind==orig::ModelBuilding::LacquerRefinery||kind==orig::ModelBuilding::SilkwormShed){
+                const auto crop=kind==orig::ModelBuilding::TeaCuringShed?orig::ModelBuilding::TeaBush:
+                    kind==orig::ModelBuilding::LacquerRefinery?orig::ModelBuilding::LacquerTree:orig::ModelBuilding::MulberryTree;
+                const auto place=crop==orig::ModelBuilding::TeaBush?f::sim::CommandType::PlaceOriginalTeaBush:
+                    crop==orig::ModelBuilding::LacquerTree?f::sim::CommandType::PlaceOriginalLacquerTree:f::sim::CommandType::PlaceOriginalMulberryTree;
+                f::sim::Command plant{place,{6,9}};plant.building_id=id;f::buy(industry,plant);
+                const auto plant_cost=active->building_value(crop,orig::BuildingField::Cost);
+                check(industry.construction_spent_total()==static_cast<std::uint64_t>(cost+plant_cost)&&
+                      industry.workforce_required(*industry.building_owner_at({6,9}))==0,"Actual plant price/zero workforce differs");
+            }
+            check(f::sim::World::restore_original_production_development(industry.snapshot(),permissions,active).snapshot()==industry.snapshot(),
+                  "Real industry difficulty-adjusted paid bodies did not restore");
+        }
         auto bad=saved;++bad.construction_spent_total;--bad.treasury;
         refuses([&]{(void)f::sim::World::restore_original_production_development(bad,permissions,active);});
     }

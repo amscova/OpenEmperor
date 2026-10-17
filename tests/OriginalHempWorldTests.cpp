@@ -26,7 +26,7 @@ std::uint64_t harvested(const sim::World& w){return w.original_goods_balance(ori
 void conserved(const sim::World& w){
     check(w.production_balance_valid()&&w.navigation_valid()&&w.city_economy_valid()&&w.population_valid(),"Hemp World invariants failed");
     const auto balances=w.original_goods_balances();
-    for(std::size_t i=0;i<balances.size();++i)check(balances[i].conserved&&balances[i].supported==(i<2),"Hemp conservation/capability mismatch");
+    for(std::size_t i=0;i<balances.size();++i){check(balances[i].conserved&&balances[i].supported,"Hemp conservation/capability mismatch");if(i>=2)check(!balances[i].totals.produced&&!balances[i].stock&&!balances[i].cargo&&!balances[i].totals.consumed,"Hemp-only scene fabricated luxury goods");}
     check(w.original_goods_state()->reservations.size()<=8&&w.original_goods_state()->cargo.size()<=8,"Hemp latest-trip bound grew");
     for(const auto& b:w.buildings())check(!b.pottery_stock&&!b.food_stock&&!b.population&&!b.food_produced,"Hemp was mirrored into old Food/Pottery/resident fields");
     for(const auto& c:w.couriers())if(c.role==sim::CourierRole::OriginalHempToWarehouse)
@@ -53,7 +53,7 @@ sim::CourierId loaded_hemp(sim::World& w,int limit=5000){
 void paid_two_goods(){
     Fixture f;auto w=f.world();const auto s=scene(w);
     check(w.original_production_state()->development_revision==sim::kOriginalProductionDevelopmentRevision&&w.construction_spent_total()==1162&&w.treasury()==10838&&
-        w.workforce_required(s.farm)==18&&w.couriers().size()==6&&
+        w.workforce_required(s.farm)==18&&w.couriers().size()==7&&
         std::count_if(w.couriers().begin(),w.couriers().end(),[](const auto& c){return c.role==sim::CourierRole::OriginalFoodToHouse;})==1,
         "Paid Farm40/Field4/model18worker and additional Market Food actor facts mismatch");
     check(sim::building_footprint(w.profile(),w.rule_version(),sim::Object::OriginalHempFarm)==sim::BuildingFootprint{2,2}&&
