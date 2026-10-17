@@ -28,8 +28,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-19 | PASS | `ba116b4c97defdf134434c1b0398292fb3727d0e` | `.local/original-economy/oe19/gate-c/final-3/`, `oe19/implementation/`, OE-00/`oe19-final-verification/` | Revision19: bezahlte207/208-Ankünfte und getrennte96er-Timer; drei volle202er-Suiten, zwölf20k-Prozessfortsetzungen, strikter Restore, Legacy exakt. Gate C PASS; Originalgrafik/native/human offen |
 | OE-20 | PASS | 825fd2c65d90c9139e283f2bf3e191bb5feb4e39 | `.local/original-economy/oe20/implementation/runs/final3/`, `oe20/production-fixtures/final/`, OE-00/`oe20-final-verification/` | Revision20: bezahlter Ancestor214, echter40er-Besuch/Verfall/Wiederbesuch,369 relevante Konfigurations-CTests,18 separate20k-Fortsetzungen und Legacy exakt. Gate D bleibt TODO; Originalgrafik/native/human offen |
 | OE-21 | PASS | d0dae2830a7025c12b32ce783fa6de416e131b44 | `.local/original-economy/oe21/implementation/runs/final4/`, `oe21/production-fixtures/final4/` | Revision21: bezahltes Wasser, echter Hut→Plain-Aufstieg, zehnte negative Auswertung/Rückentwicklung,141 Konfigurations-CTests und24 separate20k-Prozesse; Gate D bleibt TODO |
-| OE-22 | PASS | — | `.local/original-economy/oe22/validation2/`, `oe22/production-fixtures/final2/` | Revision22: bezahlte215/217/219, getrennte40er-Timer/OR, echte3×3-Ankunft;150 Konfigurations-CTests und30 separate20k-Fortsetzungen. Confucian-Elite/Material ausdrücklich authored/offen; Gate D TODO |
-| OE-23 | TODO | — | — | — |
+| OE-22 | PASS | 1e7e2715704bd7b5def483d4924292c1d4d41181 | `.local/original-economy/oe22/validation2/`, `oe22/production-fixtures/final2/` | Revision22: bezahlte215/217/219, getrennte40er-Timer/OR, echte3×3-Ankunft;150 Konfigurations-CTests und30 separate20k-Fortsetzungen. Confucian-Elite/Material ausdrücklich authored/offen; Gate D TODO |
+| OE-23 | PASS | pending | `.local/original-economy/oe23/validation/`, `oe23/production-fixtures/final/` | Revision23: bezahlte211/212/213, neun getrennte Timer, reine Verfügbarkeit/Ankunft-Diagnose und echte Quellenbrände;159 Konfigurations-CTests,36 separate20k-Fortsetzungen. Originale Venue-/Performer-Kette weiterhin ausdrücklich experimentell; Gate D TODO |
 | OE-24 | TODO | — | — | — |
 | OE-25 | TODO | — | — | — |
 | OE-26 | TODO | — | — | — |
@@ -2726,3 +2726,74 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Voller167er-Corpus wurde hier nicht erneut als neu ausgeführt ausgegeben;
   aktueller begrenzter Legacybeleg ist obige Auswahl plus Literalprozesspaare.
   Eigenständiger22er-Commit, danach unmittelbar23 ohne manuellen Testhalt.
+
+
+### OE-23 – 2026-10-17, Basis1e7e271
+
+- Vorabvertrag: [culture-runtime.md](../original-economy/culture-runtime.md),
+  Quellenbefund: [original-culture-source-contract.md](../reverse/original-culture-source-contract.md).
+  Bezahlte Music211/Acrobat212/Drama213 mit2×2/3×3/3×3 und echten Modellpreisen,
+  Employees, privaten Zielrotationen und getrennten96er-DirectService-Ankünften.
+  Die originale Schule→Venue-/Performer-Ausbildung wird nicht behauptet;
+  gezielte Schulbesuche sind in UI/Report als experimentell gekennzeichnet.
+- Aktive Revision23:58Bodies/38Courier,18Provider/18Trips/180Witnesses.
+  Neun historische Slots bewahren das alte Präfix0/1/5/6/7/8 und hängen2/3/4 an.
+  Veröffentlichte Regeln/Schemas und alte46/26-Grenzen bleiben erhalten.
+  Reine Availability-Diagnose trennt vorhandene, tatsächlich beschäftigte,
+  bereits erreichbar vorbereitete Quellen, aktuelle Hinfahrt und wirklichen
+  House-Timer/letzte Ankunft; keine Zukunftszusage, Mutation oder BFS.
+- Review fand fehlende Fire-Registrierung bei Kultur und den drei zuvor
+  ergänzten Religionstypen. Alle sechs sind nun im unveränderten Brandpfad.
+  Echte Quellen-/Zielbrände, laufende Tour, Dispatchsperre und Restore wurden
+  tatsächlich geprüft; dies ist kein rückwirkender Revision22-Nachweis.
+- Frühe4Debugtests PASS. Früher C++-Aufruf ohne authored Influence.map wurde
+  vor Checkpoint abgewiesen; neue private Datenkopie enthält nur originale
+  Modellbytes plus authored Map. PID29278/68.276s lieferte echten Kultur-PASS.
+  Dessen erster Pythoncheck verlangte irrtümlich aktuellen Food20 nach dem
+  Aufstieg397; der belegte Input war Food20, danach verbrauchte derselbe Tick
+  die letzte Nahrung. Historischer Input und exakter wheat-first-Sink sind
+  jetzt getrennt streng geprüft. Negative Kontrollen behalten echte Food20.
+  Ursprüngliche FAILs und unveränderte echte Artefakte bleiben privat erhalten.
+- UI-Frühprüfung fand umbrochene Diagnoseworte; kurze vollständige Zeilen
+  halten alle neun Timer, Foodquality/Wheat/Millet und Foodmisses sichtbar.
+  Doppelte Bauzähler wurden in den tatsächlich geöffneten Bildern korrigiert.
+  Externe SDL-Umgebungsvariablen hatten zuvor die eigenen Hints übersteuert;
+  der echte Software-SDL-Test läuft mit seinen vorgesehenen eigenen Hints.
+- Finaler Sourcefreeze533Dateien:
+  daaf02b0b2bae7a9fa174f1781e9d54affa63f3c25f4ed4e93523b9081a21d28;
+  `oe23/validation/source-freeze.json` SHA
+  baa706b1d2a451eb8a5d32c2f02a6db5a0e50ed877a0ea224177de155f8f92d4.
+  Drei warnungsfreie inkrementelle Werror-Builds, **3×53 CTests PASS**,0Fail/Skip.
+  Debug150.745s, Release14.675s, Sanitizer68.600s. Unabhängig130Livebinary-
+  und39Archivepfade gebunden. Keine Cleanbuild-/Gate-D-Behauptung.
+- Frische3×74 Paritätsfälle,24 Archivebindungen,25 strenge Sanitizeraufrufe
+  und28 Python-Postexporttests PASS. Alte Beobachtungen/Klassifikationen exakt;
+  elf Originaldateien bytegleich, fünf exakt begrenzte aktive Modellergänzungen,
+  sechs verifizierte ABI-Pins. `core-parity.json` SHA
+  cd335d3de7a962982a432a640b4b171f04dcae4dc17047d35c3441fa9f530722.
+- Tatsächlicher Workflow:51 unterschiedliche C++-PIDs =8 aktive Creates,
+  **36 aktive separate20k-Resumes**,3 historische Creates und4 historische
+  Resumes. Hauptszene kauft10Häuser/44Roads/alle neun Services/Water für1383;
+  70 echte Shelterworker vor Dispatch,43 nach Pausieren der drei Schulen.
+  Reparatur kostet2. Need1-Kopien ändern jeweils exakt ein Plain-Feld5/6/7.
+  Kein Stock-/Worker-/Snapshotgrant. Vollständige Source-/Original-/Workspace-
+  und Binärinventare während der tatsächlichen Ausführung unverändert.
+- Unabhängiger Reader PASS:3.434.555Checks,72 ganze Save-/Reportpaare exakt,
+  185Schema26-Saves/180 Rohprojektionen,17 alteSave-/16 alteReport-Literalpaare;
+  484Dateien/46.574.517Byte gebunden. Zusätzlicher adversarialer Reportcheck
+  bindet Status/Access exakt an den Save und verweigert drei koordinierte
+  Falschmeldungen, während20 reale Availability-Szenen/3Rawpaare gültig bleiben.
+  Sechs echte C++-/Python-CLI-Refusals für Außenpfad/Symlink/alten22er-Bereich PASS.
+- Finale Release-Software-SDL-Aufnahme tatsächlich geöffnet:3082Ticks,
+  synthetisches Modell,148 regulär zugezogene Bewohner, ausgewähltes Typ5-Haus
+  mit37Bewohnern, allen neun echten Timern, Water1/Raw92, Food3/8/Quality65,
+  Hemp1/Ceramics8 undFoodmisses5. Echte Maus-/Tastaturkäufe, F3-/Help-Gates,
+  Mid-Walker-F5/F9 und100Idleframes ohne World-/BFS-/Datei-/Assetarbeit PASS.
+  Bild, Beobachtungs-JSON, Save, tatsächlicher PID38906 und finaler Binaryhash
+  unter `oe23/validation/view/` gebunden. Kein Originalgrafik-/Native-/Human-PASS.
+- Root-Abschluss `oe23/validation/final-validation.json` PASS, SHA
+  c67a6d655a29af764ac49a869381d8cfe4fbe3225c86282d9b6c23c396245c98.
+  Statische Quellenprüfung bleibt ausdrücklich PASS_BOUNDED_STATIC_RESEARCH;
+  kein Original-EXE-Lauf. Gate D folgt27, Originalsprites29, vollständiger
+  Original167er-Corpus hier nicht erneut ausgeführt. Nach eigenem23er-Commit
+  unmittelbar OE-24, ohne manuellen Testhalt.

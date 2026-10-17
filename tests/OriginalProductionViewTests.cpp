@@ -30,6 +30,24 @@ void click(oe::SandboxView& view,sim::Cell cell) {
     event.button.x=static_cast<float>(sx/count);event.button.y=static_cast<float>(sy/count);
     view.handle_event(event,running);event.type=SDL_EVENT_MOUSE_BUTTON_UP;view.handle_event(event,running);
 }
+fs::path authored_walker_profile(const fs::path& data) {
+    using namespace oe::testing::economy;
+    Bytes archive(40680U+2U*72U,0);
+    u32(archive,0,static_cast<std::uint32_t>(archive.size()));u32(archive,4,214);
+    u32(archive,12,2);u32(archive,16,2);u32(archive,20,1);
+    const std::string name="authored-clip.bmp";
+    std::copy(name.begin(),name.end(),archive.begin()+680);u32(archive,680+124,2);
+    const auto at=40680U+72U;u32(archive,at,4);u32(archive,at+4,10);
+    u16(archive,at+20,2);u16(archive,at+22,2);u16(archive,at+50,256);
+    write(data/"DATA/culture-input.sg3",archive);
+    write(data/"DATA/culture-input.555",{0,0,0,0,2,0,0x7c,0,0x7c,2,0,0x7c,0,0x7c});
+    const auto path=data/"culture-input.json";
+    f::write_text(path,R"({"schema_version":1,"mode":"curated_walker_preview","role":"clay",
+"ticks_per_frame":1,"evidence":"Authored2x2clip solely to exercise real F3 input gating",
+"frames":[{"alias":"dot","archive":"DATA/culture-input.sg3","image_index":1,"foot_anchor":[1,1]}],
+"clips":{"pos_x":["dot"],"neg_x":["dot"],"pos_y":["dot"],"neg_y":["dot"]},"idle":"dot"})");
+    return path;
+}
 }
 int main(int argc,char** argv) {
     SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;
@@ -54,7 +72,8 @@ int main(int argc,char** argv) {
                 oe::sandbox_ui::Action::HealthPost,oe::sandbox_ui::Action::ServicePost,
                 oe::sandbox_ui::Action::OriginalAncestorShrine,oe::sandbox_ui::Action::OriginalWaterWell,
                 oe::sandbox_ui::Action::OriginalDaoistShrine,oe::sandbox_ui::Action::OriginalBuddhistShrine,
-                oe::sandbox_ui::Action::OriginalConfucianAcademy}) {
+                oe::sandbox_ui::Action::OriginalConfucianAcademy,oe::sandbox_ui::Action::OriginalMusicSchool,
+                oe::sandbox_ui::Action::OriginalAcrobatSchool,oe::sandbox_ui::Action::OriginalDramaSchool}) {
             const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
             check(button!=buttons.end() && view->layout().button_at(button->rect.x+2,button->rect.y+2)==action &&
                 !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
@@ -302,6 +321,55 @@ int main(int argc,char** argv) {
                     h.house.herbalist>0 && h.house.acupuncture>0 && h.house.hemp>0 && h.house.ceramics>0 && h.house.food_quality>0;
         }
         check(all_religions,"No actual House simultaneously received six independent service categories and water/goods");
+        const auto culture_funds=view->world().treasury();
+        for(int x=104;x<=120;++x)buy(sim::CommandType::PlaceRoad,{x,96});
+        for(int y:{97,98,99})buy(sim::CommandType::PlaceRoad,{104,y});
+        view->set_walker_visuals(authored_walker_profile(data));
+        check(view->walker_display_stats().schema_version==1,"Authored profile did not enable actual F3 input gate");
+        for(const auto [code,tool,origin,kind,command,side]:std::array{
+                std::tuple{SDLK_E,26,sim::Cell{106,94},sim::Object::OriginalMusicSchool211,sim::CommandType::PlaceOriginalMusicSchool,2},
+                std::tuple{SDLK_C,27,sim::Cell{110,93},sim::Object::OriginalAcrobatSchool212,sim::CommandType::PlaceOriginalAcrobatSchool,3},
+                std::tuple{SDLK_A,28,sim::Cell{114,93},sim::Object::OriginalDramaSchool213,sim::CommandType::PlaceOriginalDramaSchool,3}}) {
+            const auto old=view->tool();key(*view,SDLK_H);key(*view,code);
+            check(view->tool()==old,"Culture key escaped Help modal");key(*view,SDLK_H);
+            key(*view,SDLK_F3);key(*view,code);
+            check(view->tool()==old,"Culture key changed the tool during walker diagnostics");key(*view,SDLK_F3);
+            key(*view,code);check(view->tool()==tool,"Paid school keyboard tool unavailable");
+            const auto funds=view->world().treasury(),price=view->world().construction_cost(command);
+            click(*view,origin);
+            check(view->world().object_at({origin.x+side-1,origin.y+side-1})==kind &&
+                view->world().treasury()==funds-price,"School UI purchase lost its evidenced footprint or prepared model price");
+            check(view->world().workers_assigned(*view->world().building_owner_at(origin))==view->world().workforce_required(*view->world().building_owner_at(origin)),
+                "Paid culture view scene did not supply actual full workers");
+            for(const auto& h:view->world().original_economy_state()->houses)
+                check(h.house.music==0 && h.house.acrobat==0 && h.house.drama==0,"School purchase granted a free culture visit");
+        }
+        view->set_walker_visuals({});
+        check(view->world().treasury()==culture_funds-220,"Schools and physical access roads were not separately paid");
+        bool culture_trip=false;
+        for(int i=0;i<2000 && !culture_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers()) culture_trip|=c.role==sim::CourierRole::OriginalDrama &&
+                c.phase==sim::CourierPhase::ToWarehouse && c.edge_progress>0;
+        }
+        check(culture_trip,"Paid Drama3x3 source never dispatched through shared movement");
+        view->set_tool(5);click(*view,{114,93});
+        const auto source_details=view->inspection_lines();
+        for(const std::string_view expected:{"Experimental school-to-House","Target timer:","Available ","No future visit promised"})
+            check(std::any_of(source_details.begin(),source_details.end(),[&](const auto& line){return line.find(expected)!=std::string::npos;}),
+                "School inspector hid its experimental adapter or derived actual-target delivery status");
+        const auto culture_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<80;++i)view->tick_once();key(*view,SDLK_F9);
+        check(view->world().snapshot()==culture_saved,"Culture midtrip F5/F9 changed real trip/clock authority");
+        bool all_services=false;
+        for(int i=0;i<6000 && !all_services;++i) {
+            view->tick_once();
+            for(const auto& h:view->world().original_economy_state()->houses)
+                all_services|=h.house.type==orig::HouseType::PlainCottage && h.house.music>0 && h.house.acrobat>0 && h.house.drama>0 &&
+                    h.house.confucian>0 && h.house.daoist>0 && h.house.buddhist>0 && h.house.ancestor>0 && h.house.water &&
+                    h.house.herbalist>0 && h.house.acupuncture>0 && h.house.hemp>0 && h.house.ceramics>0 && h.house.food_quality>0;
+        }
+        check(all_services,"No actual House simultaneously received nine separate services and paid water/goods/Food");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -315,13 +383,21 @@ int main(int argc,char** argv) {
         for(const auto& house:view->world().original_economy_state()->houses)
             if(house.house.type==orig::HouseType::PlainCottage && house.house.water && house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
                 house.house.herbalist>0 && house.house.acupuncture>0 && house.house.ancestor>0 &&
-                house.house.confucian>0 && house.house.daoist>0 && house.house.buddhist>0) {supplied=view->world().building(house.building_id).cell;break;}
+                house.house.confucian>0 && house.house.daoist>0 && house.house.buddhist>0 &&
+                house.house.music>0 && house.house.acrobat>0 && house.house.drama>0) {supplied=view->world().building(house.building_id).cell;break;}
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
         const auto details=view->inspection_lines();
         check(std::count_if(details.begin(),details.end(),[](const auto& line) {
             return line.find("Herbalist")!=std::string::npos && line.find("Acupuncture")!=std::string::npos;
         })==1,"Medical values wrapped and displaced the default House inspector");
+        check(std::count_if(details.begin(),details.end(),[](const auto& line) {
+            return line.find("Music")!=std::string::npos && line.find("Acrobat")!=std::string::npos && line.find("Drama")!=std::string::npos;
+        })==1,"Three culture timers did not fit on their own visible inspector line");
+        check(std::count_if(details.begin(),details.end(),[](const auto& line) {
+            return line.find("Food:")!=std::string::npos && line.find("Quality:")!=std::string::npos &&
+                line.find(" W")!=std::string::npos && line.find(" M")!=std::string::npos;
+        })==1,"Food stock, quality and actual crop amounts did not fit on one inspector line");
         const auto misses=std::find_if(details.begin(),details.end(),[](const auto& line) {
             return line.find("Food demand misses:")!=std::string::npos;
         });
@@ -351,6 +427,8 @@ int main(int argc,char** argv) {
                 {"selected_house_ancestor",h->house.ancestor},{"selected_house_water",h->house.water},
                 {"selected_house_confucian",h->house.confucian},{"selected_house_daoist",h->house.daoist},
                 {"selected_house_buddhist",h->house.buddhist},
+                {"selected_house_music",h->house.music},{"selected_house_acrobat",h->house.acrobat},
+                {"selected_house_drama",h->house.drama},
                 {"selected_house_type",static_cast<unsigned>(h->house.type)},
                 {"selected_house_devolve_counter",h->house.devolve_counter},
                 {"model_sha256",view->world().original_rules_model()->provenance().sha256},
@@ -362,7 +440,7 @@ int main(int argc,char** argv) {
         }
         view->shutdown();view.reset();
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
-        std::cout<<"Original production SDL paid goods/Food/medical visits, actual House timers/quality, midcourier F5/F9/100 idle frames PASS\n";return 0;
+        std::cout<<"Original production SDL paid goods/Food/nine services, actual House timers/quality, midcourier F5/F9/100 idle frames PASS\n";return 0;
     }catch(const std::exception& error){
         std::cerr<<error.what()<<'\n';SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 1;
     }

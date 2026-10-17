@@ -11,12 +11,14 @@ namespace {
 [[noreturn]] void invalid(const char* reason) {throw std::invalid_argument(reason);}
 bool service_role(CourierRole role) {
     return role==CourierRole::Service || role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor ||
-        role==CourierRole::OriginalDaoist || role==CourierRole::OriginalBuddhist || role==CourierRole::OriginalConfucian;
+        role==CourierRole::OriginalDaoist || role==CourierRole::OriginalBuddhist || role==CourierRole::OriginalConfucian ||
+        role==CourierRole::OriginalMusic || role==CourierRole::OriginalAcrobat || role==CourierRole::OriginalDrama;
 }
 bool supported_role(original::ServiceRole role) {
     return role==original::ServiceRole::Herbalist || role==original::ServiceRole::Acupuncture ||
         role==original::ServiceRole::Ancestor || role==original::ServiceRole::Confucian ||
-        role==original::ServiceRole::Daoist || role==original::ServiceRole::Buddhist;
+        role==original::ServiceRole::Daoist || role==original::ServiceRole::Buddhist ||
+        role==original::ServiceRole::Music || role==original::ServiceRole::Acrobat || role==original::ServiceRole::Drama;
 }
 original::ServiceRole role_for(OriginalServiceProviderType type) {
     switch (type) {
@@ -26,6 +28,9 @@ original::ServiceRole role_for(OriginalServiceProviderType type) {
     case OriginalServiceProviderType::Daoist215:return original::ServiceRole::Daoist;
     case OriginalServiceProviderType::Buddhist217:return original::ServiceRole::Buddhist;
     case OriginalServiceProviderType::Confucian219:return original::ServiceRole::Confucian;
+    case OriginalServiceProviderType::Music211:return original::ServiceRole::Music;
+    case OriginalServiceProviderType::Acrobat212:return original::ServiceRole::Acrobat;
+    case OriginalServiceProviderType::Drama213:return original::ServiceRole::Drama;
     }
     invalid("unsupported original service Provider identity");
 }
@@ -37,6 +42,9 @@ Object kind_for(OriginalServiceProviderType type) {
     case OriginalServiceProviderType::Daoist215:return Object::OriginalDaoistShrine215;
     case OriginalServiceProviderType::Buddhist217:return Object::OriginalBuddhistShrine217;
     case OriginalServiceProviderType::Confucian219:return Object::OriginalConfucianAcademy219;
+    case OriginalServiceProviderType::Music211:return Object::OriginalMusicSchool211;
+    case OriginalServiceProviderType::Acrobat212:return Object::OriginalAcrobatSchool212;
+    case OriginalServiceProviderType::Drama213:return Object::OriginalDramaSchool213;
     }
     invalid("unsupported original service Provider body");
 }
@@ -48,6 +56,9 @@ CourierRole courier_role_for(OriginalServiceProviderType type) {
     case OriginalServiceProviderType::Daoist215:return CourierRole::OriginalDaoist;
     case OriginalServiceProviderType::Buddhist217:return CourierRole::OriginalBuddhist;
     case OriginalServiceProviderType::Confucian219:return CourierRole::OriginalConfucian;
+    case OriginalServiceProviderType::Music211:return CourierRole::OriginalMusic;
+    case OriginalServiceProviderType::Acrobat212:return CourierRole::OriginalAcrobat;
+    case OriginalServiceProviderType::Drama213:return CourierRole::OriginalDrama;
     }
     invalid("unsupported original service Provider actor");
 }
@@ -124,11 +135,12 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
     if (state.providers.size()>original_service_provider_limit || state.trips.size()>original_service_trip_limit ||
         state.witnesses.size()>original_service_witness_limit || decayed_through>tick)
         invalid("original service bounded authority exceeded");
-    std::array<std::size_t,6> counts{};
+    std::array<std::size_t,9> counts{};
     std::size_t source_count=0,actor_count=0;
     for (const auto& b:buildings) source_count+=b.kind==Object::HealthPost || b.kind==Object::ServicePost ||
         b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalDaoistShrine215 ||
-        b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219;
+        b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219 ||
+        b.kind==Object::OriginalMusicSchool211 || b.kind==Object::OriginalAcrobatSchool212 || b.kind==Object::OriginalDramaSchool213;
     for (const auto& c:couriers) actor_count+=service_role(c.role);
     if (source_count!=state.providers.size() || actor_count!=source_count) invalid("paid original service Provider/Courier authority is incomplete");
     for (std::size_t i=0;i<state.providers.size();++i) {
@@ -218,7 +230,8 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
     }
     for (const auto& h:houses) {
         for (const auto role:{original::ServiceRole::Herbalist,original::ServiceRole::Acupuncture,original::ServiceRole::Ancestor,
-            original::ServiceRole::Confucian,original::ServiceRole::Daoist,original::ServiceRole::Buddhist}) {
+            original::ServiceRole::Confucian,original::ServiceRole::Daoist,original::ServiceRole::Buddhist,
+            original::ServiceRole::Music,original::ServiceRole::Acrobat,original::ServiceRole::Drama}) {
             const auto* witness=witness_for(state,h.building_id,role);std::uint8_t expected=0;
             if (witness) {
                 const auto before=countdowns(witness->arrival_tick-1),after=countdowns(decayed_through);
@@ -228,17 +241,65 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
             }
             if (original::service_timer(h.house,role)!=expected) invalid("sole original House timer disagrees with actual arrival and phase35 countdowns");
         }
-        for (const auto role:{original::ServiceRole::Music,original::ServiceRole::Acrobat,original::ServiceRole::Drama})
-            if (original::service_timer(h.house,role)) invalid("unsupported original service category acquired a timer");
     }
 }
+}
+
+OriginalServiceAvailability World::original_service_availability(BuildingId house,original::ServiceRole role) const {
+    if (!supported_role(role)) invalid("unsupported original service inspection category");
+    OriginalServiceAvailability result;
+    if (!original_production_enabled() || !original_production_ || !original_economy_) return result;
+
+    const auto& houses=original_economy_->houses;
+    const auto home=std::lower_bound(houses.begin(),houses.end(),house,
+        [](const auto& value,BuildingId id){return value.building_id<id;});
+    const auto body=std::lower_bound(buildings_.begin(),buildings_.end(),house,
+        [](const auto& value,BuildingId id){return value.id<id;});
+    if (home!=houses.end() && home->building_id==house && body!=buildings_.end() && body->id==house &&
+        body->kind==Object::Household && body->placed) {
+        const original::ServiceVisit visit{
+            role>=original::ServiceRole::Ancestor ? original::VisitPath::DirectReligion:original::VisitPath::DirectService,
+            static_cast<original::VisitAction>(role),false};
+        result.eligible_target=!building_on_fire(house) && original::accepts_service_visit(home->house,context(*home),visit);
+        result.delivered_timer=original::service_timer(home->house,role);
+        if (const auto* witness=witness_for(original_production_->services,house,role))
+            result.last_arrival_tick=witness->arrival_tick;
+    }
+
+    // Read the existing current allocation and prepared routes. No World or
+    // authority snapshot is copied and no route/model/asset work is triggered.
+    const auto staffing=workforce_allocation();
+    for (const auto& p:original_production_->services.providers) {
+        if (role_for(p.type)!=role) continue;
+        ++result.provider_count;
+        const auto source=std::lower_bound(buildings_.begin(),buildings_.end(),p.building_id,
+            [](const auto& value,BuildingId id){return value.id<id;});
+        if (source==buildings_.end() || source->id!=p.building_id) continue;
+        const auto actor=std::find_if(couriers_.begin(),couriers_.end(),[&](const auto& value){
+            return value.owner==p.building_id && value.role==courier_role_for(p.type);
+        });
+        if (actor==couriers_.end()) continue;
+        const auto* trip=latest_trip(original_production_->services.trips,actor->id);
+        if (actor->phase==CourierPhase::ToWarehouse && actor->target==house && trip && trip->target==house && !trip->arrival_tick)
+            ++result.travelling_to_target_count;
+        if (!source->placed || !source->operating_enabled || building_on_fire(source->id) ||
+            !staffing[static_cast<std::size_t>(source-buildings_.begin())]) continue;
+        ++result.available_source_count;
+        if (!result.eligible_target || actor->cached_revision!=road_revision_) continue;
+        const auto route=std::lower_bound(actor->dynamic_target_routes.begin(),actor->dynamic_target_routes.end(),house,
+            [](const auto& value,BuildingId id){return value.first<id;});
+        if (route!=actor->dynamic_target_routes.end() && route->first==house && route->second)
+            ++result.reachable_source_count;
+    }
+    return result;
 }
 
 void World::validate_original_services_model() const {
     if (!original_rules_model_) invalid("original service Providers require a bound prepared model");
     for (const auto kind:{original::ModelBuilding::HerbalistsStall,original::ModelBuilding::AcupuncturistsClinic,
         original::ModelBuilding::AncestralShrine,original::ModelBuilding::DaoistShrine,
-        original::ModelBuilding::BuddhistShrine,original::ModelBuilding::ConfucianAcademy}) {
+        original::ModelBuilding::BuddhistShrine,original::ModelBuilding::ConfucianAcademy,
+        original::ModelBuilding::MusicSchool,original::ModelBuilding::AcrobatSchool,original::ModelBuilding::DramaSchool}) {
         if (!original_rules_model_->supports_building(kind) || original_rules_model_->building_value(kind,original::BuildingField::Cost)<=0)
             invalid("original service Provider requires positive prepared model price/capability");
         const auto employees=original_rules_model_->building_value(kind,original::BuildingField::Employees);

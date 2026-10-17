@@ -84,8 +84,8 @@ struct Fixture {
         witnesses_match(value);const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==22,
-              "Ancestor save did not require its explicit active revision22");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,
+              "Ancestor save did not require its explicit active revision23");
         auto copy=restore(parsed);check(copy.snapshot()==before,"Ancestor F5/F9 changed the entire snapshot");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Ancestor canonical rewrite mutated bytes or live state");
@@ -268,7 +268,7 @@ void hostile(Fixture& f,const States& states) {
             {home+"ancestor",0},{home+"ancestor",41},{home+"ancestor",96},{home+"ancestor",255},
             {home+"daoist",40},{home+"confucian",40},{home+"buddhist",40},
             {"/world/couriers/"+std::to_string(ci)+"/role",5},
-            {"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",23}}) {
+            {"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",24}}) {
         auto value=good;value.at(json::json_pointer(path))=replacement;reject(value);
     }
     for (const auto& path:{provider,base}) {

@@ -107,6 +107,44 @@ void paid_independent_visits_expiry_revisit_and_private_fairness(const f::fs::pa
     }
     for(const auto& home:w.original_economy_state()->houses)for(const auto role:faiths)(void)witness(w,home.building_id,role);
 }
+void actual_religion_source_and_target_fire(const f::fs::path& real){
+    for(unsigned index=0;index<3;++index){
+        Fixture fixture(real);auto w=fixture.world();
+        for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,4}});
+        const auto source=buy(w,commands[index],{20,5});
+        check(sim::fire_eligible(w.building(source).kind),"Active religion source is not fire eligible");
+        f::buy(w,sim::set_building_operation(source,false));ticks(w,600);
+        const auto home=buy(w,sim::CommandType::PlaceHousehold,{0,2});
+        (void)buy(w,sim::CommandType::PlaceHousehold,{3,2});
+        while(w.ticks()<1990)w.tick();
+        f::buy(w,sim::set_building_operation(source,true));const auto id=actor(w,source);
+        until(w,[&]{return w.courier(id).phase==sim::CourierPhase::ToWarehouse&&w.courier(id).edge_progress>0;},
+            "Religion did not begin actual trip before source fire");
+        until(w,[&]{return w.building_on_fire(source);},"Actual religion source incident did not occur",30);
+        check(trip(w,id)&&!trip(w,id)->arrival_tick,"Religion source-fire scene arrived before intended incident");
+        until(w,[&]{return trip(w,id)->arrival_tick.has_value();},"Later source fire cancelled existing religion visit",500);
+        check(trip(w,id)->visit_applied&&w.building_on_fire(source)&&orig::service_timer(house(w,home),faiths[index])>0,
+            "Burning religious source erased genuine inflight arrival");
+        const auto available=w.original_service_availability(home,faiths[index]);
+        check(!available.available_source_count&&available.delivered_timer>0,
+            "Religion source fire confused available staff with delivered access");
+        auto replay=fixture.restore(w);
+        for(int i=0;i<1000;++i){w.tick();replay.tick();authority(w);check(w.snapshot()==replay.snapshot(),
+            "Burning religion source full Snapshot restore diverged");}
+        auto target=fixture.world();
+        for(int x=0;x<24;++x)f::buy(target,{sim::CommandType::PlaceRoad,{x,4}});
+        const auto first=buy(target,sim::CommandType::PlaceHousehold,{0,2});
+        (void)buy(target,sim::CommandType::PlaceHousehold,{3,2});ticks(target,1000);
+        const auto delayed=buy(target,commands[index],{20,5});f::buy(target,sim::set_building_operation(delayed,false));
+        while(target.ticks()<1990)target.tick();
+        f::buy(target,sim::set_building_operation(delayed,true));const auto visitor=actor(target,delayed);
+        until(target,[&]{const auto* t=trip(target,visitor);return t&&t->arrival_tick;},
+            "Religion target-fire attempted arrival missing",500);
+        check(target.building_on_fire(first)&&!trip(target,visitor)->visit_applied&&
+            !orig::service_timer(house(target,first),faiths[index])&&target.original_production_state()->services.witnesses.empty(),
+            "Burning target acquired actual religion");
+    }
+}
 void confucian_far_body_edge_and_restore(const f::fs::path& real){
     Fixture f(real);auto w=f.world();
     for(const int y:{4,8})for(int x=18;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
@@ -151,6 +189,6 @@ void authored_or_and_confucian_predicate_from_actual_arrivals(const f::fs::path&
 }
 int main(int argc,char** argv){try{
     check(argc==1||(argc==3&&std::string_view(argv[1])=="--real"),"Usage: original-religion-world [--real DATA]");const auto real=argc==3?f::fs::canonical(argv[2]):f::fs::path{};
-    paid_independent_visits_expiry_revisit_and_private_fairness(real);confucian_far_body_edge_and_restore(real);river_is_real_immutable_policy_blocker(real);authored_or_and_confucian_predicate_from_actual_arrivals(real);
+    paid_independent_visits_expiry_revisit_and_private_fairness(real);actual_religion_source_and_target_fire(real);confucian_far_body_edge_and_restore(real);river_is_real_immutable_policy_blocker(real);authored_or_and_confucian_predicate_from_actual_arrivals(real);
     std::cout<<"Paid215/217/219 visits, independent40 timers, private rotation, authored water barrier/OR needs and20k replays PASS; Confucian resource gate remains authored staffing-only, no resource grant\n";return 0;
 }catch(const std::exception& e){std::cerr<<"Original Religion World FAIL: "<<e.what()<<'\n';return 1;}}

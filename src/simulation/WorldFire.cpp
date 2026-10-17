@@ -5,7 +5,10 @@
 namespace openemperor::simulation {
 
 bool fire_eligible(Object kind) {
-    return kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
+    return kind==Object::OriginalMusicSchool211 || kind==Object::OriginalAcrobatSchool212 ||
+        kind==Object::OriginalDramaSchool213 || kind==Object::OriginalDaoistShrine215 ||
+        kind==Object::OriginalBuddhistShrine217 || kind==Object::OriginalConfucianAcademy219 ||
+        kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Household || kind==Object::Farm || kind==Object::ServicePost ||
         kind==Object::Market || kind==Object::HealthPost || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalWaterWell72;
 }

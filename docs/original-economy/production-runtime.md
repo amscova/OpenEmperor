@@ -17,7 +17,11 @@ und ausschließlich durch tatsächliche DirectReligion-Ankunft gesetzten40er-Tim
 Revision21 verbindet [Wasser und echte frühe Hausentwicklung](housing-runtime.md).
 Revision22 ergänzt [drei weitere religiöse Dienste](religion-runtime.md) mit
 bezahlten215/217/219-Quellen, echten Walkern und getrennten40er-Timern.
-Aktueller Entwicklerstand ist Revision22. Die frühe Confucian-Integration
+Revision23 ergänzt [drei getrennte Kulturquellen](culture-runtime.md) und eine
+reine Diagnose, die verfügbare Quellen von tatsächlich geliefertem Zugang
+unterscheidet. Die gezielten Schulbesuche sind ausdrücklich experimentell;
+die originale Venue-/Training-Kette wird damit nicht als rekonstruiert behauptet.
+Aktueller Entwicklerstand ist Revision23. Die frühe Confucian-Integration
 bleibt ausdrücklich authored: initiales originales Elite-Gate und Material-
 Zulieferung sind als Folgeanforderungen dokumentiert.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten

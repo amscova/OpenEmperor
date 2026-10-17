@@ -53,7 +53,7 @@ struct Fixture {
         const auto before=value.snapshot();const auto d=document(value);
         save::write_save(target,d,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(d,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==22,
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,
               "Consumption save lost its active generation");
         auto copy=restore(parsed);check(copy.snapshot()==before,"F5/F9 changed consumption authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
@@ -163,7 +163,7 @@ void adversarial(Fixture& f,const sim::WorldSnapshot& actual) {
             {base+"/0/consumed/0",UINT64_MAX},{base+"/0/consumed/0",0.0},
             {base+"/0/consumed/0",true},{base+"/0/consumed/0","0"},
             {base+"/0/consumed/0",nullptr},{base+"/0/consumed/5",1},
-            {"/world/original_production/development_revision",16},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",23}}) {
+            {"/world/original_production/development_revision",16},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",24}}) {
         auto j=good;j.at(json::json_pointer(path))=value;reject(j);
     }
     {auto j=good;auto& rows=j.at(json::json_pointer(base));std::swap(rows[0],rows[1]);reject(j);}

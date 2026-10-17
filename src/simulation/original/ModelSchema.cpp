@@ -57,6 +57,9 @@ std::string_view model_label(ModelBuilding building) {
     case ModelBuilding::Farmhouse: return "Farmhouse";
     case ModelBuilding::HerbalistsStall: return "Herbalist's Stall";
     case ModelBuilding::AcupuncturistsClinic: return "Acupuncturist's Clinic";
+    case ModelBuilding::MusicSchool: return "Music  School";
+    case ModelBuilding::AcrobatSchool: return "Acrobat School";
+    case ModelBuilding::DramaSchool: return "Drama School";
     case ModelBuilding::AncestralShrine: return "Ancestral Shrine";
     case ModelBuilding::DaoistShrine: return "Daoist Shrine";
     case ModelBuilding::BuddhistShrine: return "Buddhist Shrine";

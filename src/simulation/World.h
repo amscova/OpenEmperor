@@ -180,8 +180,8 @@ struct Rules {
     static constexpr std::size_t health_post_limit = 2;
     static constexpr std::size_t city_v15_building_limit = 46;
     static constexpr std::size_t city_v15_courier_limit = 26;
-    static constexpr std::size_t original_production_building_limit = 52;
-    static constexpr std::size_t original_production_courier_limit = 32;
+    static constexpr std::size_t original_production_building_limit = 58;
+    static constexpr std::size_t original_production_courier_limit = 38;
     static constexpr std::uint64_t health_risk_step_ticks = 100;
     static constexpr int health_risk_threshold = 100;
     static constexpr std::uint64_t health_protection_ticks = 2400;
@@ -269,7 +269,8 @@ enum class Object : std::uint8_t {
     Empty, Road, Workshop, Warehouse, ClaySource, Pottery, Household, Farm, ServicePost, Market,
     FireWatch, Well, HealthPost, OriginalInfluenceSource, OriginalHempFarm, OriginalHempField,
     OriginalFoodFarm, OriginalWheatField, OriginalMilletField, OriginalAncestorShrine214, OriginalWaterWell72,
-    OriginalDaoistShrine215, OriginalBuddhistShrine217, OriginalConfucianAcademy219
+    OriginalDaoistShrine215, OriginalBuddhistShrine217, OriginalConfucianAcademy219,
+    OriginalMusicSchool211, OriginalAcrobatSchool212, OriginalDramaSchool213
 };
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
@@ -334,7 +335,8 @@ enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySour
                          PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge, PlaceRamp, RemoveRamp,
                          PlaceOriginalInfluenceSource, PlaceOriginalHempFarm, PlaceOriginalHempField,
                          PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField, PlaceOriginalAncestorShrine, PlaceOriginalWaterWell,
-                         PlaceOriginalDaoistShrine, PlaceOriginalBuddhistShrine, PlaceOriginalConfucianAcademy };
+                         PlaceOriginalDaoistShrine, PlaceOriginalBuddhistShrine, PlaceOriginalConfucianAcademy,
+                         PlaceOriginalMusicSchool, PlaceOriginalAcrobatSchool, PlaceOriginalDramaSchool };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 struct Command {
@@ -384,7 +386,8 @@ enum class CourierRole : std::uint8_t {
     MarketPotteryInbound=6, MarketFoodInbound=7,
     MarketPotteryDistribution=8, MarketFoodDistribution=9, FireInspector=10, HealthWorker=11,
     OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14, OriginalAncestor=15, OriginalWater=16,
-    OriginalDaoist=17, OriginalBuddhist=18, OriginalConfucian=19
+    OriginalDaoist=17, OriginalBuddhist=18, OriginalConfucian=19,
+    OriginalMusic=20, OriginalAcrobat=21, OriginalDrama=22
 };
 enum class CourierDispatchStatus : std::uint8_t {
     Ready,
@@ -600,6 +603,7 @@ public:
     const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
     const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
     const std::optional<OriginalProductionState>& original_production_state() const { return original_production_; }
+    OriginalServiceAvailability original_service_availability(BuildingId house,original::ServiceRole role) const;
     OriginalGoodsBalance original_goods_balance(original::Goods good) const;
     std::array<OriginalGoodsBalance,original::goods_count> original_goods_balances() const;
     int original_courier_cargo(CourierId courier) const;

@@ -49,6 +49,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe19/production-fixtures/run",
                        self.repo / ".local/original-economy/oe20/production-fixtures/run",
                        self.repo / ".local/original-economy/oe21/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe22/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -256,7 +257,7 @@ class ProductionRunnerTests(unittest.TestCase):
                 evaluation = {"tick": evaluation_tick,
                     "input": {"type": 3, "occupants": 7, "desirability": 0, "devolve_counter": before_counter,
                         "water": False, "service_timers": [0] * 9, "food_quality": 0, "goods": goods.copy()},
-                    "service_witnesses": [None] * 6, "water_evaluation_witness": None, "food_quality_witness": None,
+                    "service_witnesses": [None] * 9, "water_evaluation_witness": None, "food_quality_witness": None,
                     "food_received": [0, 0], "food_consumed": [0, 0], "goods_consumed_before": [0] * 6}
                 histories.append({"id": i + 1, "first_admission_tick": 120, "last_evaluation": evaluation,
                     "first_hut_evaluation": None, "first_plain_evaluation": None,
@@ -429,7 +430,7 @@ class ProductionRunnerTests(unittest.TestCase):
         rows[2][8] = 20
         i = {"type": 3, "occupants": 4, "devolve_counter": 0, "water": True, "desirability": 0,
              "service_timers": [0] * 9, "food_quality": 0, "goods": [0] * 6}
-        e = {"tick": 193, "input": i, "service_witnesses": [None] * 6,
+        e = {"tick": 193, "input": i, "service_witnesses": [None] * 9,
              "water_evaluation_witness": {"house_id": 1, "provider_id": 2, "courier_id": 1,
                                           "sequence": 1, "arrival_tick": 150},
              "food_quality_witness": None, "food_received": [0, 0], "food_consumed": [0, 0],
@@ -737,6 +738,114 @@ class ProductionRunnerTests(unittest.TestCase):
             state["service_timers"][6] = 40
         state["service_timers"][7] = state["service_timers"][8] = 0
         self.assertFalse(runner.housing_needs(row, state))
+
+    @staticmethod
+    def culture_scene():
+        # Synthetic parser records only; actual paid sources are exercised by C++.
+        scene = ProductionRunnerTests.religion_scene()
+        for index, role in enumerate(runner.CULTURE_ROLES):
+            owner, actor = 8 + index, 7 + index
+            scene["buildings"].append({"id": owner, "kind": 24 + index, "placed_tick": 0, "operating": False})
+            scene["couriers"].append({"id": actor, "role": 20 + index, "owner": owner, "target": 1,
+                "last_dispatched_target": 1, "phase": 2, "cargo": 0, "reserved": 0,
+                "typed_cargo": 0, "typed_cargo_good": None, "food_cargo": 0})
+            scene["services"]["providers"].append({"id": owner, "type": 6 + index,
+                "model_type": 211 + index, "cost": 50 + 10 * index, "workers_required": 8 + index})
+            scene["services"]["trips"].append({"courier_id": actor, "sequence": 1, "target": 1,
+                "dispatched_tick": 200, "arrival_tick": 280 + index, "visit_applied": True})
+            scene["services"]["witnesses"].append({"house_id": 1, "role": role, "provider_id": owner,
+                "courier_id": actor, "sequence": 1, "arrival_tick": 280 + index})
+            scene["houses"][0]["service_timers"][role] = 95
+        return scene
+
+    def test_culture_separate96_source_category_actor_and_paid_model_bindings(self):
+        scene = self.culture_scene()
+        runner.check_services(scene, culture=True)
+        for mutation in (
+                lambda row: row["services"]["providers"][6].update(model_type=212),
+                lambda row: row["services"]["providers"][7].update(workers_required=8),
+                lambda row: row["services"]["providers"][8].update(cost=0),
+                lambda row: row["couriers"][6].update(role=21),
+                lambda row: row["couriers"][8].update(cargo=1),
+                lambda row: row["services"]["witnesses"][7].update(role=4),
+                lambda row: row["services"]["trips"][6].update(visit_applied=False),
+                lambda row: row["houses"][0]["service_timers"].__setitem__(2, 39),
+                lambda row: row["houses"][0]["service_timers"].__setitem__(3, 96)):
+            bad = copy.deepcopy(scene)
+            mutation(bad)
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                runner.check_services(bad, culture=True)
+        for role in runner.CULTURE_ROLES:
+            for step in range(16):
+                for offset, expected in ((0, 95), (1, 96)):
+                    aligned = self.culture_scene()
+                    at = 816 + 51 * step + 36 + offset
+                    aligned["tick"] = at
+                    aligned["services"]["countdowns"] = runner.service_countdowns(at)
+                    for w in aligned["services"]["witnesses"]:
+                        if w["role"] == role:
+                            w["arrival_tick"] = at
+                            next(t for t in aligned["services"]["trips"] if t["courier_id"] == w["courier_id"]).update(
+                                dispatched_tick=at - 50, arrival_tick=at)
+                        duration = 96 if w["role"] < 5 else 40
+                        aligned["houses"][0]["service_timers"][w["role"]] = max(duration - (
+                            runner.service_countdowns(at) - runner.service_countdowns(w["arrival_tick"] - 1)), 0)
+                    runner.check_services(aligned)
+                    self.assertEqual(aligned["houses"][0]["service_timers"][role], expected)
+
+    def test_historical_culture_slots_append_without_reindexing_six_prior_categories(self):
+        scene = self.housing_scene()
+        row = scene["housing"]["houses"][0]
+        for key in ("last_evaluation", "first_hut_evaluation"):
+            e = row[key]
+            for index, role in enumerate((0, 1, 5, 6, 7, 8, 2, 3, 4)):
+                e["service_witnesses"][index] = {"house_id": 1, "role": role, "provider_id": role + 10,
+                    "courier_id": role + 10, "sequence": 1, "arrival_tick": 180}
+                e["input"]["service_timers"][role] = 95 if role < 5 else 39
+        runner.check_housing(scene)
+        for left, right in ((6, 7), (7, 8), (2, 6)):
+            bad = copy.deepcopy(scene)
+            slots = bad["housing"]["houses"][0]["last_evaluation"]["service_witnesses"]
+            slots[left], slots[right] = slots[right], slots[left]
+            with self.subTest(swapped=(left, right)), self.assertRaises(AssertionError):
+                runner.check_housing(bad)
+
+    def test_availability_capacity_travel_and_received_access_are_independent(self):
+        scene = self.culture_scene()
+        for b in scene["buildings"]:
+            b.update(on_fire=False, workers=0)
+        visits = {w["role"]: w for w in scene["services"]["witnesses"]}
+        scene["service_availability"] = [{"house_id": 1, "role": role, "eligible_target": True,
+            "delivered_timer": scene["houses"][0]["service_timers"][role], "provider_count": 1,
+            "available_source_count": 0, "reachable_source_count": 0, "travelling_to_target_count": 0,
+            "last_arrival_tick": visits[role]["arrival_tick"]} for role in range(9)]
+        runner.check_availability(scene)  # paused sources retain actual prior access
+        active = scene["buildings"][7]
+        self.assertEqual(active["id"], 8)
+        active.update(operating=True, workers=8)
+        scene["services"]["witnesses"] = [w for w in scene["services"]["witnesses"] if w["role"] != 2]
+        scene["services"]["trips"][6].update(arrival_tick=None, visit_applied=False)
+        scene["couriers"][6].update(phase=1)
+        scene["houses"][0]["service_timers"][2] = 0
+        diagnosis = scene["service_availability"][2]
+        diagnosis.update(delivered_timer=0, last_arrival_tick=None, available_source_count=1,
+                         reachable_source_count=1, travelling_to_target_count=1)
+        runner.check_services(scene)
+        runner.check_availability(scene)  # available+reachable+inflight still is not received
+        active.update(operating=False, workers=0)
+        diagnosis.update(available_source_count=0, reachable_source_count=0)
+        runner.check_availability(scene)  # begun tour survives source pause
+        for mutation in (
+                lambda row: row["service_availability"][2].update(delivered_timer=96),
+                lambda row: row["service_availability"][2].update(available_source_count=1),
+                lambda row: row["service_availability"][2].update(reachable_source_count=1),
+                lambda row: row["service_availability"][2].update(travelling_to_target_count=0),
+                lambda row: row["service_availability"].pop()):
+            bad = copy.deepcopy(scene)
+            mutation(bad)
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                runner.check_availability(bad)
+
 
 
 if __name__ == "__main__":

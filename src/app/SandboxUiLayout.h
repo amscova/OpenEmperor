@@ -20,7 +20,8 @@ enum class Action {
     FireWatch, Desirability, Well, Water, HealthPost, Health, ToggleIncome, ServiceOverlay, Bridge, Ramp,
     OriginalHempFarm, OriginalHempField, OriginalFoodFarm, OriginalWheatField, OriginalMilletField,
     OriginalAncestorShrine, OriginalWaterWell,
-    OriginalDaoistShrine, OriginalBuddhistShrine, OriginalConfucianAcademy
+    OriginalDaoistShrine, OriginalBuddhistShrine, OriginalConfucianAcademy,
+    OriginalMusicSchool, OriginalAcrobatSchool, OriginalDramaSchool
 };
 
 struct Button { Action action; Rect rect; bool enabled=true; };

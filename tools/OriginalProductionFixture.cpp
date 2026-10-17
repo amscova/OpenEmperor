@@ -25,8 +25,8 @@ bool below(const f::fs::path& path,const f::fs::path& root) {
 }
 void validate_output(const f::fs::path& output,const f::fs::path& data) {
     const auto repo=f::fs::canonical(f::fs::path(__FILE__).parent_path().parent_path());
-    const auto root=repo/".local/original-economy/oe22/production-fixtures";
-    check(output!=root && below(output,root),"Fixture output must be a new private OE22 subdirectory");
+    const auto root=repo/".local/original-economy/oe23/production-fixtures";
+    check(output!=root && below(output,root),"Fixture output must be a new private OE23 subdirectory");
     check(!below(output,data) && !below(data,output),"Fixture output overlaps source data");
     f::fs::path current=output.root_path();
     for (const auto& part:output.relative_path()) {
@@ -92,6 +92,9 @@ json inspect_services(const sim::World& world) {
         case sim::OriginalServiceProviderType::Daoist215: model_type=original::ModelBuilding::DaoistShrine;break;
         case sim::OriginalServiceProviderType::Buddhist217: model_type=original::ModelBuilding::BuddhistShrine;break;
         case sim::OriginalServiceProviderType::Confucian219: model_type=original::ModelBuilding::ConfucianAcademy;break;
+        case sim::OriginalServiceProviderType::Music211: model_type=original::ModelBuilding::MusicSchool;break;
+        case sim::OriginalServiceProviderType::Acrobat212: model_type=original::ModelBuilding::AcrobatSchool;break;
+        case sim::OriginalServiceProviderType::Drama213: model_type=original::ModelBuilding::DramaSchool;break;
         default: throw std::runtime_error("Unknown paid original service provider");
         }
         providers.push_back({{"id",static_cast<unsigned>(p.building_id)},{"type",static_cast<unsigned>(p.type)},
@@ -108,6 +111,17 @@ json inspect_services(const sim::World& world) {
             {"provider_id",static_cast<unsigned>(w.provider_id)},{"courier_id",static_cast<unsigned>(w.transfer.courier_id)},
             {"sequence",w.transfer.sequence},{"arrival_tick",w.arrival_tick}});
     return {{"providers",providers},{"trips",trips},{"witnesses",witnesses},{"countdowns",countdowns(world.ticks())}};
+}
+json inspect_availability(const sim::World& world) {
+    json rows=json::array();
+    for(const auto& h:world.original_economy_state()->houses)for(unsigned r=0;r<9;++r) {
+        const auto d=world.original_service_availability(h.building_id,static_cast<original::ServiceRole>(r));
+        rows.push_back({{"house_id",static_cast<unsigned>(h.building_id)},{"role",r},{"eligible_target",d.eligible_target},
+            {"delivered_timer",d.delivered_timer},{"provider_count",d.provider_count},{"available_source_count",d.available_source_count},
+            {"reachable_source_count",d.reachable_source_count},{"travelling_to_target_count",d.travelling_to_target_count},
+            {"last_arrival_tick",d.last_arrival_tick ? json(*d.last_arrival_tick):json(nullptr)}});
+    }
+    return rows;
 }
 json water_witness(const std::optional<sim::OriginalWaterWitness>& value) {
     if (!value) return nullptr;
@@ -188,7 +202,7 @@ json inspect(const sim::World& world) {
               b.supported==(i<2) && !b.totals.imported && !b.totals.demolished,
               "Unexpected typed goods capability or mass");
         if (i>=2) check(!b.stock && !b.totals.produced && !b.totals.consumed && !b.cargo && !b.source_reserved && !b.incoming_reserved,
-                       "Revision22 generated an unsupported luxury good");
+                       "Revision23 generated an unsupported luxury good");
         check(b.stock+b.cargo+b.totals.consumed==b.totals.produced,"Physical stock, actual cargo and consumption disagree with produced mass");
         balances.push_back({{"good",i},{"supported",b.supported},{"conserved",b.conserved},
             {"produced",b.totals.produced},{"imported",b.totals.imported},{"consumed",b.totals.consumed},
@@ -267,7 +281,7 @@ json inspect(const sim::World& world) {
         {"difficulty",static_cast<unsigned>(world.original_rules_model()->difficulty())},
         {"shelter_needs",json::array({world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Hemp),
             world.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Ceramics)})},
-        {"food",inspect_food(world)},{"services",inspect_services(world)},
+        {"food",inspect_food(world)},{"services",inspect_services(world)},{"service_availability",inspect_availability(world)},
         {"water",inspect_water(world)},{"housing",inspect_housing(world)},
         {"balances",std::move(balances)},{"houses",std::move(houses)},{"stocks",std::move(stocks)},
         {"buildings",std::move(buildings)},{"couriers",std::move(couriers)}};
@@ -946,6 +960,50 @@ void create_religion(const f::fs::path& data,const f::fs::path& output) {
         {"initial",initial},{"stopped",stopped},{"midroute",midroute},{"disconnected",disconnected},{"visited",visited},{"before_expiry",before_expiry},{"expired",expired},{"revisited",revisited},
         {"expiry_ticks",expiries},{"expiry_tick",expiry},{"predicate_controls",predicates},{"barrier",inspect(barrier)},{"barrier_authored_topology",true},{"barrier_shared_policy_navigation",true},{"checkpoints",checkpoints}}.dump(2)+"\n");
 }
+void create_culture(const f::fs::path& data,const f::fs::path& output) {
+    const auto policy=f::permissions();const auto model=save::prepare_original_production_rules_model(data);
+    constexpr std::array<sim::CommandType,3> commands{sim::CommandType::PlaceOriginalMusicSchool,sim::CommandType::PlaceOriginalAcrobatSchool,sim::CommandType::PlaceOriginalDramaSchool};
+    constexpr std::array<original::ServiceRole,3> roles{original::ServiceRole::Music,original::ServiceRole::Acrobat,original::ServiceRole::Drama};
+    const auto buy=[](sim::World& w,sim::CommandType type,sim::Cell cell){f::buy(w,{type,cell});return *w.building_owner_at(cell);};
+    auto world=sim::World::create_original_production_development(policy,model);
+    for(int x=0;x<24;++x)f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
+    sim::BuildingId home{};for(int x=0;x<24;x+=3){const auto id=buy(world,sim::CommandType::PlaceHousehold,{x,2});if(!x)home=id;}
+    (void)buy(world,sim::CommandType::PlaceHousehold,{0,0});(void)buy(world,sim::CommandType::PlaceHousehold,{3,0});
+    for(int y=0;y<4;++y)f::buy(world,{sim::CommandType::PlaceRoad,{2,y}});
+    for(int x=0;x<=12;++x)f::buy(world,{sim::CommandType::PlaceRoad,{x,8}});
+    for(int y=5;y<8;++y)f::buy(world,{sim::CommandType::PlaceRoad,{12,y}});
+    std::vector<sim::BuildingId> all_sources;
+    for(const auto& [type,cell]:std::array{std::pair{sim::CommandType::PlaceOriginalDaoistShrine,sim::Cell{10,5}},std::pair{sim::CommandType::PlaceOriginalBuddhistShrine,sim::Cell{14,5}},std::pair{sim::CommandType::PlaceOriginalConfucianAcademy,sim::Cell{18,5}},std::pair{sim::CommandType::PlaceHealthPost,sim::Cell{0,5}},std::pair{sim::CommandType::PlaceServicePost,sim::Cell{3,5}},std::pair{sim::CommandType::PlaceOriginalAncestorShrine,sim::Cell{6,5}},std::pair{sim::CommandType::PlaceOriginalWaterWell,sim::Cell{22,5}}})all_sources.push_back(buy(world,type,cell));
+    std::array<sim::BuildingId,3> providers{};std::array<sim::CourierId,3> actors{};const auto spent=world.construction_spent_total();
+    for(unsigned i=0;i<3;++i){providers[i]=buy(world,commands[i],{4*static_cast<int>(i),9});all_sources.push_back(providers[i]);for(const auto& c:world.couriers())if(c.owner==providers[i])actors[i]=c.id;}
+    check(world.construction_spent_total()-spent==180&&world.construction_spent_total()==1383&&world.treasury()==10617&&!world.total_population()&&world.couriers().size()==10,"Culture scene must pay1383 with only real schools/10Houses/44Roads, no free venue or performer");
+    const auto initial=inspect(world);for(const auto id:all_sources)f::buy(world,sim::set_building_operation(id,false));ticks(world,400);
+    check(world.total_population()==70&&world.workforce_supply()==70&&world.original_production_state()->services.trips.empty(),"Culture scene lacks70 actual admitted Shelter workers or paused source granted visit");const auto stopped=inspect(world);
+    const auto wait=[&](auto done,const char* reason,int limit=20000){for(int i=0;i<limit&&!done();++i)world.tick();check(done(),reason);};
+    const auto latest=[&](unsigned i)->const sim::OriginalServiceWitness&{for(const auto& row:world.original_production_state()->services.witnesses)if(row.building_id==home&&row.role==roles[i])return row;throw std::runtime_error("Culture lost actual target visit witness");};
+    for(const auto id:all_sources)f::buy(world,sim::set_building_operation(id,true));
+    wait([&]{return std::all_of(actors.begin(),actors.end(),[&](auto id){const auto& c=world.courier(id);return c.phase==sim::CourierPhase::ToWarehouse&&c.edge_progress>0;});},"Three real school actors never shared genuine outbound edges");
+    check(world.workforce_used()==70,"Culture scene did not actually staff all70 workers at dispatch");for(const auto role:roles){const auto d=world.original_service_availability(home,role);check(d.available_source_count==1&&d.reachable_source_count==1&&d.travelling_to_target_count==1&&!d.delivered_timer,"Available/inflight culture was confused with delivered access");}
+    const auto midroute=inspect(world);json checkpoints=json::array();checkpoints.push_back(checkpoint(data,output,"mid-culture-couriers",world));
+    for(const auto id:providers)f::buy(world,sim::set_building_operation(id,false));const sim::Command cut{sim::CommandType::RemoveRoad,{12,6}};
+    wait([&]{return world.validate(cut).accepted;},"Culture trunk never became safe to remove");f::buy(world,cut);ticks(world,250);
+    for(const auto role:roles)check(!original::service_timer(housing_house(world,home),role),"Culture crossed actual disconnected trunk before arrival");
+    const auto disconnected=inspect(world);checkpoints.push_back(checkpoint(data,output,"culture-road-disconnected",world));const auto before_repair=world.snapshot();f::buy(world,{sim::CommandType::PlaceRoad,{12,6}});
+    check(world.treasury()==before_repair.treasury-2&&world.construction_spent_total()==before_repair.construction_spent_total+2,"Culture road repair did not pay2");
+    wait([&]{const auto& h=housing_house(world,home);for(unsigned r=0;r<9;++r)if(!original::service_timer(h,static_cast<original::ServiceRole>(r)))return false;return h.water&&std::all_of(actors.begin(),actors.end(),[&](auto id){return world.courier(id).phase==sim::CourierPhase::IdleAtWorkshop;});},"Paused school tours did not finish actual nine-category/Water arrivals");
+    check(world.workforce_used()==43,"Paused27 culture workers did not leave exactly43 prior active workers");const auto visited=inspect(world);checkpoints.push_back(checkpoint(data,output,"house-three-cultures",world));
+    std::array<sim::OriginalServiceWitness,3> first{};std::array<std::uint64_t,3> expiries{};for(unsigned i=0;i<3;++i){first[i]=latest(i);expiries[i]=36+(countdowns(first[i].arrival_tick-1)+95)*51;}
+    const auto expiry=*std::max_element(expiries.begin(),expiries.end());check(expiry>world.ticks(),"Culture missed its actual96th countdown");while(world.ticks()+1<expiry){world.tick();}
+    check(std::any_of(roles.begin(),roles.end(),[&](auto role){return original::service_timer(housing_house(world,home),role)==1;}),"Culture timer did not reach1 before last expiry");const auto before_expiry=inspect(world);checkpoints.push_back(checkpoint(data,output,"culture-before-expiry",world));world.tick();
+    for(unsigned i=0;i<3;++i)check(!original::service_timer(housing_house(world,home),roles[i])&&latest(i)==first[i],"Culture96th countdown retained access or rewrote origin");
+    const auto expired=inspect(world);checkpoints.push_back(checkpoint(data,output,"culture-expired",world));for(const auto id:providers)f::buy(world,sim::set_building_operation(id,true));
+    wait([&]{for(unsigned i=0;i<3;++i)if(!original::service_timer(housing_house(world,home),roles[i])||latest(i).transfer.sequence<=first[i].transfer.sequence)return false;return true;},"Private school rotations did not genuinely revisit expired target");
+    for(const auto id:providers)f::buy(world,sim::set_building_operation(id,false));const auto revisited=inspect(world);checkpoints.push_back(checkpoint(data,output,"culture-revisited",world));
+    json controls=json::array();const auto bytes=f::read_text(data/"Model/EmperorBuildingModels.txt");
+    for(unsigned index=0;index<3;++index){const auto private_data=output/("authored-culture-"+std::to_string(index));f::fs::create_directories(private_data/"Model");f::fs::create_directories(private_data/"Cities");f::write_text(private_data/"Model/EmperorBuildingModels.txt",edited_housing_model(bytes,2,5+index,1));f::write_text(private_data/f::map_relative,f::read_text(data/f::map_relative));auto candidate=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(private_data));for(int x=0;x<24;++x)f::buy(candidate,{sim::CommandType::PlaceRoad,{x,4}});sim::BuildingId target{};for(int x=0;x<18;x+=3){const auto id=buy(candidate,sim::CommandType::PlaceHousehold,{x,2});if(!x)target=id;}const auto farm=buy(candidate,sim::CommandType::PlaceOriginalFoodFarm,{0,5});sim::Command field{sim::CommandType::PlaceOriginalWheatField,{3,5}};field.building_id=farm;f::buy(candidate,field);(void)buy(candidate,sim::CommandType::PlaceMarket,{5,5});(void)buy(candidate,sim::CommandType::PlaceOriginalWaterWell,{9,5});(void)buy(candidate,sim::CommandType::PlaceOriginalAncestorShrine,{13,5});const auto school=buy(candidate,commands[index],{17,5});f::buy(candidate,sim::set_building_operation(school,false));const auto supplied=[&]{const auto& h=housing_house(candidate,target);return h.water&&h.food_quality>=20&&h.ancestor;};for(int i=0;i<20000&&!supplied();++i){candidate.tick();}check(supplied()&&!original::service_timer(housing_house(candidate,target),roles[index])&&!original::needs_met(candidate.original_rules_model()->house_rules(),original::ModelHouse::PlainCottage,housing_house(candidate,target)),"Authored culture negative lacked true remaining prerequisites or passed missing category");const auto prerequisites=inspect(candidate);f::buy(candidate,sim::set_building_operation(school,true));for(int i=0;i<20000&&housing_house(candidate,target).type!=original::HouseType::PlainCottage;++i){candidate.tick();}check(housing_house(candidate,target).type==original::HouseType::PlainCottage&&housing_history(candidate,target).first_plain_evaluation&&housing_history(candidate,target).first_plain_evaluation->service_witnesses[6+index],"Actual culture did not upgrade authored Need1 through appended historical slot");const auto delivered=inspect(candidate);f::buy(candidate,sim::set_building_operation(school,false));for(int i=0;i<20000&&(original::service_timer(housing_house(candidate,target),roles[index])||!supplied());++i){candidate.tick();}check(supplied()&&!original::service_timer(housing_house(candidate,target),roles[index])&&!original::needs_met(candidate.original_rules_model()->house_rules(),original::ModelHouse::PlainCottage,housing_house(candidate,target)),"Expired culture lacked actual other prerequisites or retained authored Need1");controls.push_back({{"role",static_cast<unsigned>(roles[index])},{"home_id",static_cast<unsigned>(target)},{"authored_model",true},{"original_plain_requirement",false},{"model_path",(private_data/"Model/EmperorBuildingModels.txt").string()},{"changed_field",5+index},{"prerequisites",prerequisites},{"delivered",delivered},{"expired",inspect(candidate)}});}
+    json no_road=json::array();for(unsigned index=0;index<3;++index){auto denied=sim::World::create_original_production_development(policy,model);for(int x=0;x<24;++x)f::buy(denied,{sim::CommandType::PlaceRoad,{x,4}});sim::BuildingId target{};for(int x=0;x<6;x+=3){const auto id=buy(denied,sim::CommandType::PlaceHousehold,{x,2});if(!x)target=id;}(void)buy(denied,commands[index],{20,9});ticks(denied,600);check(denied.original_production_state()->services.trips.empty()&&!original::service_timer(housing_house(denied,target),roles[index]),"NoRoad cultural source granted actual access");no_road.push_back({{"role",static_cast<unsigned>(roles[index])},{"home_id",static_cast<unsigned>(target)},{"final",inspect(denied)}});}
+    f::write_text(output/"fixture.json",json{{"status","PASS"},{"snapshot_injection",false},{"authored_geography",true},{"real_model_prices_and_workers",true},{"experimental_authored_targeted_school_visits",true},{"original_venue_performer_loop",false},{"free_venue_or_performer",false},{"home_id",static_cast<unsigned>(home)},{"culture_source_cost",180},{"culture_source_workers",27},{"combined_workers",70},{"paused_workers",43},{"initial",initial},{"stopped",stopped},{"midroute",midroute},{"disconnected",disconnected},{"visited",visited},{"before_expiry",before_expiry},{"expired",expired},{"revisited",revisited},{"expiry_ticks",expiries},{"expiry_tick",expiry},{"predicate_controls",controls},{"no_road_controls",no_road},{"checkpoints",checkpoints}}.dump(2)+"\n");
+}
 void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path& input) {
     const auto before=f::read_text(input);const auto document=save::read_save(input);const auto policy=f::permissions();
     auto world=save::restore_original_production_development(document,data,policy->building_mask(),policy);
@@ -956,8 +1014,8 @@ void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path&
 int main(int argc,char** argv) {
     try {
         const std::string mode=argc>1 ? argv[1]:"";
-        check((argc==4 && (mode=="--create" || mode=="--create-consumption" || mode=="--create-food" || mode=="--create-services" || mode=="--create-ancestor" || mode=="--create-housing" || mode=="--create-religion")) || (argc==5 && mode=="--resume"),
-              "Usage: production-fixture --create DATA OUT | --create-consumption AUTHORED_DATA OUT | --create-food DATA OUT | --create-services DATA OUT | --create-ancestor DATA OUT | --create-housing DATA OUT | --create-religion DATA OUT | --resume DATA OUT SAVE");
+        check((argc==4 && (mode=="--create" || mode=="--create-consumption" || mode=="--create-food" || mode=="--create-services" || mode=="--create-ancestor" || mode=="--create-housing" || mode=="--create-religion" || mode=="--create-culture")) || (argc==5 && mode=="--resume"),
+              "Usage: production-fixture --create DATA OUT | --create-consumption AUTHORED_DATA OUT | --create-food DATA OUT | --create-services DATA OUT | --create-ancestor DATA OUT | --create-housing DATA OUT | --create-religion DATA OUT | --create-culture DATA OUT | --resume DATA OUT SAVE");
         const auto data=f::fs::canonical(argv[2]);const auto output=f::fs::absolute(argv[3]);
         validate_output(output,data);f::fs::create_directories(output);
         if (mode=="--create") create(data,output);
@@ -967,6 +1025,7 @@ int main(int argc,char** argv) {
         else if (mode=="--create-ancestor") create_ancestor(data,output);
         else if (mode=="--create-housing") create_housing(data,output);
         else if (mode=="--create-religion") create_religion(data,output);
+        else if (mode=="--create-culture") create_culture(data,output);
         else resume(data,output,f::fs::canonical(argv[4]));
         std::cout<<"Original paid production fixture PASS\n";return 0;
     } catch (const std::exception& error) {std::cerr<<"Original production fixture FAIL: "<<error.what()<<'\n';return 1;}

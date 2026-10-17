@@ -17,8 +17,8 @@ namespace openemperor::simulation {
 struct OriginalHousingEvaluation {
     std::uint64_t tick=0;
     original::HouseState input;
-    // Fixed order: Herbalist, Acupuncture, Ancestor, Confucian, Daoist, Buddhist.
-    std::array<std::optional<OriginalServiceWitness>,6> service_witnesses{};
+    // Fixed order: Herbalist, Acupuncture, Ancestor, Confucian, Daoist, Buddhist, Music, Acrobat, Drama.
+    std::array<std::optional<OriginalServiceWitness>,9> service_witnesses{};
     std::optional<OriginalWaterWitness> water_evaluation_witness;
     std::optional<OriginalFoodQualityWitness> food_quality_witness;
     OriginalFoodCounters food_received{},food_consumed{};

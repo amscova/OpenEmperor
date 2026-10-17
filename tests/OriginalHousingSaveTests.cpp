@@ -84,8 +84,8 @@ struct Fixture {
         const auto before=value.snapshot();const auto original=document(value);
         save::write_save(target,original,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(original,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==22,
-              "Housing save did not identify its explicit revision22");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==23,
+              "Housing save did not identify its explicit revision23");
         auto restored=restore(parsed);check(restored.snapshot()==before,"Housing F5/F9 changed full World state");
         save::write_save(target,document(restored),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Housing canonical rewrite mutated bytes/live state");return bytes;
@@ -202,7 +202,7 @@ void hostile(Fixture& f,const States& states) {
         }
     }
     for (const auto& [path,replacement]:std::vector<std::pair<std::string,json>>{
-            {base+"development_revision",20},{base+"development_revision",21},{base+"development_revision",23},
+            {base+"development_revision",20},{base+"development_revision",21},{base+"development_revision",22},{base+"development_revision",24},
             {h+"first_admission_tick",nullptr},{h+"first_admission_tick",0},{h+"first_admission_tick",121},
             {h+"last_evaluation",nullptr},{h+"first_hut_evaluation",nullptr},{h+"first_plain_evaluation",nullptr},
             {h+"last_evaluation/tick",1},{h+"last_evaluation/input/type",17},

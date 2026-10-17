@@ -50,8 +50,8 @@ struct Fixture {
         const auto before=world.snapshot();const auto d=document(world);
         save::write_save(target,d,root.data,policy->building_mask());
         const auto bytes=f::read_text(target);const auto j=json::parse(bytes);
-        check(j.at("schema_version")==26 && j.at("world").at("original_production").at("development_revision")==22,
-              "Market save did not identify revision22");
+        check(j.at("schema_version")==26 && j.at("world").at("original_production").at("development_revision")==23,
+              "Market save did not identify revision23");
         const auto parsed=save::read_save(target);f::same_document(d,parsed);
         auto restored=restore(parsed);check(restored.snapshot()==before,"Full typed Market restore changed authority");
         save::write_save(target,document(restored),root.data,policy->building_mask());
@@ -159,7 +159,7 @@ void malformed_typed_payloads(Fixture& f,const sim::WorldSnapshot& midroute) {
         }
     }
     for (const auto& [path,value]:std::vector<std::pair<std::string,json>>{
-            {"/world/original_production/development_revision",15},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",23},
+            {"/world/original_production/development_revision",15},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",24},
             {"/world/original_goods/cargo/0/transfer/courier_id",0},
             {"/world/original_goods/cargo/0/transfer/sequence",0},
             {"/world/original_goods/cargo/0/transfer/sequence",UINT64_MAX},
@@ -227,7 +227,7 @@ void malformed_typed_payloads(Fixture& f,const sim::WorldSnapshot& midroute) {
 } // namespace
 int main() {
     try {Fixture f;const auto midroute=deliveries_and_replay(f);malformed_typed_payloads(f,midroute);
-        std::cout<<"Schema26 revision22 paid Market, typed midroute/return, House arrival, 20k replay and "
+        std::cout<<"Schema26 revision23 paid Market, typed midroute/return, House arrival, 20k replay and "
                  <<rejected<<" adversarial refusals PASS\n";return 0;}
     catch (const std::exception& error) {std::cerr<<"Original Market save FAIL: "<<error.what()<<'\n';return 1;}
 }

@@ -248,13 +248,24 @@ void full_paid_collection_preserves_road_and_refuses_new_shrine_atomically() {
           world.construction_spent_total()-source_spending==340&&
           world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
           "Six paid religion sources did not fill exactly52 bodies/32 actors for340 conserved Funds");
+    check(world.validate(shrine).accepted,"Paid52/32 collection incorrectly exhausted expanded cultural capacity");
+    const auto culture_spending=world.construction_spent_total();
+    for (int i=0;i<2;++i) {
+        (void)buy(world,sim::CommandType::PlaceOriginalMusicSchool,{2+4*i,38});
+        (void)buy(world,sim::CommandType::PlaceOriginalAcrobatSchool,{12+5*i,38});
+        (void)buy(world,sim::CommandType::PlaceOriginalDramaSchool,{24+5*i,38});
+    }
+    check(world.buildings().size()==58&&world.couriers().size()==38&&world.total_population()==0&&
+          world.construction_spent_total()-culture_spending==360&&
+          world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
+          "Six paid cultural sources did not fill exactly58 bodies/38 actors for360 conserved Funds");
     auto restored=sim::World::restore_original_production_development(world.snapshot(),policy,fixture.model);
     check(restored.snapshot()==world.snapshot(),"Legal full paid collection did not restore exactly");
     const auto funds=world.treasury();
     f::buy(world,{sim::CommandType::PlaceRoad,{0,0}});
     f::buy(world,{sim::CommandType::RemoveRoad,{0,0}});
     f::buy(world,{sim::CommandType::PlaceRoad,{0,0}});
-    check(world.treasury()==funds-4&&world.buildings().size()==52&&world.couriers().size()==32&&
+    check(world.treasury()==funds-4&&world.buildings().size()==58&&world.couriers().size()==38&&
           world.object_at({0,0})==sim::Object::Road,"Full body/actor capacity blocked ordinary paid road placement or repair");
     const auto before=world.snapshot();const auto cache_count=world.original_influence_cache_build_count();
     const auto validation=world.validate(shrine);const auto refused=world.execute(shrine);

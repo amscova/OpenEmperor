@@ -49,6 +49,9 @@ std::uint64_t paid_cost(Object kind) {
     case Object::HealthPost:
     case Object::OriginalDaoistShrine215:
     case Object::OriginalBuddhistShrine217:
+    case Object::OriginalMusicSchool211:
+    case Object::OriginalAcrobatSchool212:
+    case Object::OriginalDramaSchool213:
     case Object::OriginalConfucianAcademy219:
     case Object::OriginalAncestorShrine214:
     case Object::OriginalWaterWell72:
@@ -62,7 +65,8 @@ template<class Buildings,class Bridges> std::uint64_t spending(const Buildings& 
     std::uint64_t farm_cost=0,std::uint64_t field_cost=0,std::uint64_t food_farm_cost=0,
     std::uint64_t wheat_cost=0,std::uint64_t millet_cost=0,
     std::uint64_t herbalist_cost=0,std::uint64_t acupuncture_cost=0,std::uint64_t ancestor_cost=0,std::uint64_t water_cost=0,
-    std::uint64_t daoist_cost=0,std::uint64_t buddhist_cost=0,std::uint64_t confucian_cost=0) {
+    std::uint64_t daoist_cost=0,std::uint64_t buddhist_cost=0,std::uint64_t confucian_cost=0,
+    std::uint64_t music_cost=0,std::uint64_t acrobat_cost=0,std::uint64_t drama_cost=0) {
     const auto budget=static_cast<std::uint64_t>(original_production_starting_treasury);
     std::uint64_t result=0;
     const auto add=[&](std::uint64_t count,std::uint64_t cost) {
@@ -76,6 +80,9 @@ template<class Buildings,class Bridges> std::uint64_t spending(const Buildings& 
             b.kind==Object::OriginalMilletField ? millet_cost:b.kind==Object::HealthPost ? herbalist_cost:
             b.kind==Object::ServicePost ? acupuncture_cost:
             b.kind==Object::OriginalDaoistShrine215 ? daoist_cost:b.kind==Object::OriginalBuddhistShrine217 ? buddhist_cost:
+            b.kind==Object::OriginalMusicSchool211 ? music_cost:
+            b.kind==Object::OriginalAcrobatSchool212 ? acrobat_cost:
+            b.kind==Object::OriginalDramaSchool213 ? drama_cost:
             b.kind==Object::OriginalConfucianAcademy219 ? confucian_cost:b.kind==Object::OriginalAncestorShrine214 ? ancestor_cost:b.kind==Object::OriginalWaterWell72 ? water_cost:paid_cost(b.kind);
         if (cost) add(1,cost);
     }
@@ -221,11 +228,16 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
             invalid("original production building footprint outside saved grid");
         if (b.kind==Object::ClaySource || b.kind==Object::Pottery || b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalFoodFarm ||
             b.kind==Object::HealthPost || b.kind==Object::ServicePost || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72 ||
-            b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219) {
+            b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219 ||
+            b.kind==Object::OriginalMusicSchool211 ||
+            b.kind==Object::OriginalAcrobatSchool212 || b.kind==Object::OriginalDramaSchool213) {
             if (courier_index>=s.couriers.size()) invalid("missing purchased original production courier");
             const auto& c=s.couriers[courier_index];
             const auto role=b.kind==Object::OriginalWaterWell72 ? CourierRole::OriginalWater:b.kind==Object::HealthPost ? CourierRole::HealthWorker:
                 b.kind==Object::ServicePost ? CourierRole::Service:
+                b.kind==Object::OriginalMusicSchool211 ? CourierRole::OriginalMusic:
+                b.kind==Object::OriginalAcrobatSchool212 ? CourierRole::OriginalAcrobat:
+                b.kind==Object::OriginalDramaSchool213 ? CourierRole::OriginalDrama:
                 b.kind==Object::OriginalDaoistShrine215 ? CourierRole::OriginalDaoist:
                 b.kind==Object::OriginalBuddhistShrine217 ? CourierRole::OriginalBuddhist:
                 b.kind==Object::OriginalConfucianAcademy219 ? CourierRole::OriginalConfucian:
@@ -291,7 +303,8 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         return b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
             b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
             b.kind==Object::HealthPost || b.kind==Object::ServicePost || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72 ||
-            b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219;});
+            b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219 || b.kind==Object::OriginalMusicSchool211 ||
+            b.kind==Object::OriginalAcrobatSchool212 || b.kind==Object::OriginalDramaSchool213;});
     if (s.construction_spent_total<spent+static_cast<std::uint64_t>(model_priced) ||
         s.construction_spent_total>static_cast<std::uint64_t>(original_production_starting_treasury) ||
         (!model_priced && spent!=s.construction_spent_total) ||
@@ -325,7 +338,8 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         c.role!=CourierRole::MarketPotteryInbound && c.role!=CourierRole::MarketPotteryDistribution &&
         c.role!=CourierRole::OriginalHempToWarehouse && c.role!=CourierRole::OriginalFoodToMarket && c.role!=CourierRole::OriginalFoodToHouse &&
         c.role!=CourierRole::HealthWorker && c.role!=CourierRole::Service && c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater &&
-        c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian)
+        c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian && c.role!=CourierRole::OriginalMusic &&
+        c.role!=CourierRole::OriginalAcrobat && c.role!=CourierRole::OriginalDrama)
         invalid("unsupported original production courier role");
 }
 
@@ -345,7 +359,10 @@ bool World::original_production_finance_valid() const {
             static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::Cost)),
             static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::DaoistShrine,original::BuildingField::Cost)),
             static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::BuddhistShrine,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::ConfucianAcademy,original::BuildingField::Cost)));
+            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::ConfucianAcademy,original::BuildingField::Cost)),
+            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::MusicSchool,original::BuildingField::Cost)),
+            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::AcrobatSchool,original::BuildingField::Cost)),
+            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::DramaSchool,original::BuildingField::Cost)));
         return construction_spent_total_==spent && treasury_==original_production_starting_treasury-static_cast<std::int64_t>(spent);
     } catch (const std::invalid_argument&) {return false;}
 }

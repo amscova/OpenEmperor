@@ -1275,3 +1275,38 @@ echten dreifachen FAIL auf zusätzliche reale Käufe bis52/32 erweitert; die
 atomare Negativprüfung bleibt strikt. Source-/UI-/Originalgrenzen bleiben
 explizit: Confucian-Material/Elite folgt später, Originalsprites29 und Human
 werden nicht vorweggenommen. Nach eigenem Commit startet OE-23 unmittelbar.
+
+
+### OE-23: Kultur- und Diagnosevertrag vor Implementierung
+
+Nach OE-22 gilt der [Kulturvertrag](../original-economy/culture-runtime.md):
+bezahlte2112×2/2123×3/2133×3 mit eigenem echten96er-DirectService-Visit.
+Gezielter School→House-Dispatch ist experimentell authored; originale Venues,
+32er-Performerzeiten und Actor36 werden nicht gratis erfunden. Neue reine
+Verfügbarkeitsdiagnose ist ausdrücklich keine Ankunft oder Zukunftszusage.
+Aktive58/38 und18/18/180 ersetzen keine historischen Limits; neun feste
+Housing-Slots bewahren0/1/5/6/7/8 und hängen2/3/4 an. Nach eigenem geprüften
+Taskcommit folgt24 ohne menschlichen Testhalt.
+
+### OE-23: Brandregistrierung der aktiven Dienstquellen
+
+Der Implementierungsreview fand einen fehlenden `fire_eligible`-Anschluss: die
+neuen Kulturkörper und die drei in Revision22 hinzugefügten Religionskörper
+wurden vom vorhandenen Brandrisikopfad übersprungen. Revision23 registriert alle
+sechs ausschließlich aktiven Objecttypen; die bestehenden Firezeiten und Gates
+bleiben unverändert. Echte Brandereignisse müssen sowohl neuen Dispatch sperren
+als auch bereits laufende Touren nach den normalen Regeln behandeln. Das ist
+eine Korrektur der aktiven Integration, kein rückwirkender OE-22-Brandnachweis;
+veröffentlichte Regeln und alte Körper erhalten keine andere Brandsemantik.
+
+
+### OE-23: technische Abnahme
+
+Die getrennten Kulturquellen und reine Diagnose bestehen159 Konfigurations-
+CTests,36 separate20k-Replays, strikte Raw-/Legacy- und Paritätsprüfungen.
+Ein positiver Aufstiegsnachweis bindet die Bedarfe vor dem Verbrauch desselben
+Ticks; negative fehlende/abgelaufene Kultur wird bei tatsächlich vorhandenen
+übrigen Bedarfen geprüft. Alle neun Timer bleiben allein in HouseState.
+Der tatsächliche Release-Screenshot wurde geöffnet; experimentelle gezielte
+Besucher, originale Venue-/Training-Lücke und spätere Originalsprite-Abnahme
+bleiben getrennt. Nach eigenem Commit folgt OE-24 ohne Human-Testwartepunkt.

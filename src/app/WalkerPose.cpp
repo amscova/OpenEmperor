@@ -19,7 +19,8 @@ bool walker_live_visible(const simulation::CourierState& courier) {
     if (market_transport(courier.role) || courier.role==simulation::CourierRole::Service ||
         courier.role==simulation::CourierRole::HealthWorker || (courier.role==simulation::CourierRole::OriginalAncestor || courier.role==simulation::CourierRole::OriginalWater ||
          courier.role==simulation::CourierRole::OriginalDaoist || courier.role==simulation::CourierRole::OriginalBuddhist ||
-         courier.role==simulation::CourierRole::OriginalConfucian))
+         courier.role==simulation::CourierRole::OriginalConfucian || courier.role==simulation::CourierRole::OriginalMusic ||
+         courier.role==simulation::CourierRole::OriginalAcrobat || courier.role==simulation::CourierRole::OriginalDrama))
         return courier.phase!=simulation::CourierPhase::IdleAtWorkshop;
     return courier.role!=simulation::CourierRole::FireInspector ||
         (courier.enabled && courier.phase!=simulation::CourierPhase::IdleAtWorkshop);
@@ -43,6 +44,9 @@ std::optional<assets::WalkerVisualRole> walker_visual_role(simulation::CourierRo
     case simulation::CourierRole::OriginalDaoist:
     case simulation::CourierRole::OriginalBuddhist:
     case simulation::CourierRole::OriginalConfucian:
+    case simulation::CourierRole::OriginalMusic:
+    case simulation::CourierRole::OriginalAcrobat:
+    case simulation::CourierRole::OriginalDrama:
     case simulation::CourierRole::OriginalAncestor:
     case simulation::CourierRole::OriginalWater: return std::nullopt;
     case simulation::CourierRole::None: return std::nullopt;
@@ -59,7 +63,8 @@ WalkerPose walker_pose(const simulation::CourierState& courier,std::uint64_t wor
         courier.role==simulation::CourierRole::Service ||
         courier.role==simulation::CourierRole::HealthWorker || (courier.role==simulation::CourierRole::OriginalAncestor || courier.role==simulation::CourierRole::OriginalWater ||
          courier.role==simulation::CourierRole::OriginalDaoist || courier.role==simulation::CourierRole::OriginalBuddhist ||
-         courier.role==simulation::CourierRole::OriginalConfucian);
+         courier.role==simulation::CourierRole::OriginalConfucian || courier.role==simulation::CourierRole::OriginalMusic ||
+         courier.role==simulation::CourierRole::OriginalAcrobat || courier.role==simulation::CourierRole::OriginalDrama);
     if (!courier.enabled || courier.phase==simulation::CourierPhase::IdleAtWorkshop ||
         courier.path.size()<2 || courier.path_vertex>=courier.path.size()-1 ||
         (waiting && !faces_wait_edge)) {

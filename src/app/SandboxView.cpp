@@ -77,10 +77,27 @@ const char* courier_role_label(simulation::CourierRole role) {
     case simulation::CourierRole::OriginalDaoist: return "Daoist";
     case simulation::CourierRole::OriginalBuddhist: return "Buddhist";
     case simulation::CourierRole::OriginalConfucian: return "Confucian";
+    case simulation::CourierRole::OriginalMusic: return "Music";
+    case simulation::CourierRole::OriginalAcrobat: return "Acrobat";
+    case simulation::CourierRole::OriginalDrama: return "Drama";
 
     case simulation::CourierRole::None: return "None";
     }
     return "Unknown";
+}
+std::optional<original::ServiceRole> original_service_role(simulation::CourierRole role) {
+    switch (role) {
+    case simulation::CourierRole::HealthWorker: return original::ServiceRole::Herbalist;
+    case simulation::CourierRole::Service: return original::ServiceRole::Acupuncture;
+    case simulation::CourierRole::OriginalAncestor: return original::ServiceRole::Ancestor;
+    case simulation::CourierRole::OriginalDaoist: return original::ServiceRole::Daoist;
+    case simulation::CourierRole::OriginalBuddhist: return original::ServiceRole::Buddhist;
+    case simulation::CourierRole::OriginalConfucian: return original::ServiceRole::Confucian;
+    case simulation::CourierRole::OriginalMusic: return original::ServiceRole::Music;
+    case simulation::CourierRole::OriginalAcrobat: return original::ServiceRole::Acrobat;
+    case simulation::CourierRole::OriginalDrama: return original::ServiceRole::Drama;
+    default: return std::nullopt;
+    }
 }
 const char* courier_good_label(simulation::Good good) {
     switch (good) {
@@ -157,6 +174,9 @@ const char* tool_name(simulation::RulesProfile rules,int tool) {
         case 23: return "Daoist: 2x2, staffed actual visits supply religion";
         case 24: return "Buddhist: 2x2, staffed actual visits supply religion";
         case 25: return "Confucian: 3x3, staffed actual visits supply religion";
+        case 26: return "Music School: experimental direct school-to-House visits";
+        case 27: return "Acrobat School: experimental direct school-to-House visits";
+        case 28: return "Drama School: experimental direct school-to-House visits";
 
         default: return "Select";
         }
@@ -194,6 +214,9 @@ const char* object_name(simulation::Object object) {
     case simulation::Object::OriginalDaoistShrine215: return "Daoist";
     case simulation::Object::OriginalBuddhistShrine217: return "Buddhist";
     case simulation::Object::OriginalConfucianAcademy219: return "Confucian";
+    case simulation::Object::OriginalMusicSchool211: return "Music School";
+    case simulation::Object::OriginalAcrobatSchool212: return "Acrobat School";
+    case simulation::Object::OriginalDramaSchool213: return "Drama School";
 
     }
     return "Unknown";
@@ -225,6 +248,9 @@ simulation::CommandType command_type(simulation::RulesProfile rules,int tool,boo
         case 23: return simulation::CommandType::PlaceOriginalDaoistShrine;
         case 24: return simulation::CommandType::PlaceOriginalBuddhistShrine;
         case 25: return simulation::CommandType::PlaceOriginalConfucianAcademy;
+        case 26: return simulation::CommandType::PlaceOriginalMusicSchool;
+        case 27: return simulation::CommandType::PlaceOriginalAcrobatSchool;
+        case 28: return simulation::CommandType::PlaceOriginalDramaSchool;
 
         default: return simulation::CommandType::PlaceHousehold;
         }
@@ -1749,12 +1775,33 @@ void SandboxView::set_tool(int tool) {
     case 23: action=sandbox_ui::Action::OriginalDaoistShrine; break;
     case 24: action=sandbox_ui::Action::OriginalBuddhistShrine; break;
     case 25: action=sandbox_ui::Action::OriginalConfucianAcademy; break;
+    case 26: action=sandbox_ui::Action::OriginalMusicSchool; break;
+    case 27: action=sandbox_ui::Action::OriginalAcrobatSchool; break;
+    case 28: action=sandbox_ui::Action::OriginalDramaSchool; break;
 
     default: return;
     }
     if (action_enabled(action)) perform_action(action);
 }
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
+    if (action==sandbox_ui::Action::OriginalMusicSchool) {
+        if (!original_production_fixture() || walker_diagnostic_open_) return false;
+        return std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b) {
+            return b.kind==simulation::Object::OriginalMusicSchool211;
+        })<2 && world_->treasury()>=world_->construction_cost(simulation::CommandType::PlaceOriginalMusicSchool);
+    }
+    if (action==sandbox_ui::Action::OriginalAcrobatSchool) {
+        if (!original_production_fixture() || walker_diagnostic_open_) return false;
+        return std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b) {
+            return b.kind==simulation::Object::OriginalAcrobatSchool212;
+        })<2 && world_->treasury()>=world_->construction_cost(simulation::CommandType::PlaceOriginalAcrobatSchool);
+    }
+    if (action==sandbox_ui::Action::OriginalDramaSchool) {
+        if (!original_production_fixture() || walker_diagnostic_open_) return false;
+        return std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b) {
+            return b.kind==simulation::Object::OriginalDramaSchool213;
+        })<2 && world_->treasury()>=world_->construction_cost(simulation::CommandType::PlaceOriginalDramaSchool);
+    }
     if (action==sandbox_ui::Action::OriginalDaoistShrine) {
         if (!original_production_fixture() || walker_diagnostic_open_) return false;
         return std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b) {
@@ -2065,6 +2112,9 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         else if (action==A::OriginalDaoistShrine) command=simulation::CommandType::PlaceOriginalDaoistShrine;
         else if (action==A::OriginalBuddhistShrine) command=simulation::CommandType::PlaceOriginalBuddhistShrine;
         else if (action==A::OriginalConfucianAcademy) command=simulation::CommandType::PlaceOriginalConfucianAcademy;
+        else if (action==A::OriginalMusicSchool) command=simulation::CommandType::PlaceOriginalMusicSchool;
+        else if (action==A::OriginalAcrobatSchool) command=simulation::CommandType::PlaceOriginalAcrobatSchool;
+        else if (action==A::OriginalDramaSchool) command=simulation::CommandType::PlaceOriginalDramaSchool;
 
         else if (action==A::ServicePost) command=simulation::CommandType::PlaceServicePost;
         else if (action==A::Market) command=simulation::CommandType::PlaceMarket;
@@ -2083,14 +2133,15 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         action==A::Warehouse || action==A::RemoveRoad || action==A::Household ||
         action==A::Farm || action==A::OriginalHempFarm || action==A::OriginalHempField || action==A::OriginalFoodFarm ||
         action==A::OriginalWheatField || action==A::OriginalMilletField || action==A::OriginalAncestorShrine || action==A::OriginalWaterWell ||
-        action==A::OriginalDaoistShrine || action==A::OriginalBuddhistShrine || action==A::OriginalConfucianAcademy || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || (action==A::Bridge || action==A::Ramp)) {
+        action==A::OriginalDaoistShrine || action==A::OriginalBuddhistShrine || action==A::OriginalConfucianAcademy ||
+        action==A::OriginalMusicSchool || action==A::OriginalAcrobatSchool || action==A::OriginalDramaSchool || action==A::ServicePost || action==A::Market || action==A::FireWatch || action==A::Well || action==A::HealthPost || (action==A::Bridge || action==A::Ramp)) {
         cancel_gesture();
         tool_=action==A::Select ? (simulation::production_profile(rules_) ? 5:4) :
             action==A::Road ? 1 : action==A::Clay ? 2 : action==A::Pottery ? 3 :
             action==A::Warehouse ? (simulation::production_profile(rules_) ? 4:3) :
             action==A::RemoveRoad ? 6:action==A::Household ? 7:action==A::Farm ? 8:
             action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:action==A::Ramp ? 15:action==A::OriginalHempFarm ? 16:action==A::OriginalHempField ? 17:
-            action==A::OriginalFoodFarm ? 18:action==A::OriginalWheatField ? 19:action==A::OriginalMilletField ? 20:action==A::OriginalAncestorShrine ? 21:action==A::OriginalWaterWell ? 22:action==A::OriginalDaoistShrine ? 23:action==A::OriginalBuddhistShrine ? 24:action==A::OriginalConfucianAcademy ? 25:0;
+            action==A::OriginalFoodFarm ? 18:action==A::OriginalWheatField ? 19:action==A::OriginalMilletField ? 20:action==A::OriginalAncestorShrine ? 21:action==A::OriginalWaterWell ? 22:action==A::OriginalDaoistShrine ? 23:action==A::OriginalBuddhistShrine ? 24:action==A::OriginalConfucianAcademy ? 25:action==A::OriginalMusicSchool ? 26:action==A::OriginalAcrobatSchool ? 27:action==A::OriginalDramaSchool ? 28:0;
         last_message_=original_influence_fixture() && tool_==12 ? "Well72 influence source: 2x2, $60, no water":
             tool_==15 ? "Ramp: neighboring roads, one signed level, $40":tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
     } else if (action==A::ServiceOverlay) {
@@ -2373,6 +2424,9 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         else if (event.key.key==SDLK_U && original_production_fixture() && !walker_diagnostic_open_) set_tool(23);
         else if (event.key.key==SDLK_K && original_production_fixture() && !walker_diagnostic_open_) set_tool(24);
         else if (event.key.key==SDLK_V && original_production_fixture() && !walker_diagnostic_open_) set_tool(25);
+        else if (event.key.key==SDLK_E && original_production_fixture() && !walker_diagnostic_open_) set_tool(26);
+        else if (event.key.key==SDLK_C && original_production_fixture() && !walker_diagnostic_open_) set_tool(27);
+        else if (event.key.key==SDLK_A && original_production_fixture() && !walker_diagnostic_open_) set_tool(28);
 
         else if(event.key.key==SDLK_P && world_->ramps_supported() && !walker_diagnostic_open_)set_tool(15);
         else if(event.key.key==SDLK_B && world_->bridges_supported() && !walker_diagnostic_open_)set_tool(14);
@@ -3229,6 +3283,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             if (object==simulation::Object::OriginalDaoistShrine215) color=SDL_Color{78,154,120,255};
             if (object==simulation::Object::OriginalBuddhistShrine217) color=SDL_Color{175,146,67,255};
             if (object==simulation::Object::OriginalConfucianAcademy219) color=SDL_Color{156,96,103,255};
+            if (object==simulation::Object::OriginalMusicSchool211) color=SDL_Color{118,104,184,255};
+            if (object==simulation::Object::OriginalAcrobatSchool212) color=SDL_Color{181,105,81,255};
+            if (object==simulation::Object::OriginalDramaSchool213) color=SDL_Color{170,88,138,255};
             if (object==simulation::Object::OriginalAncestorShrine214)
                 color=SDL_Color{164,116,71,255};
             if (object==simulation::Object::FireWatch)
@@ -3244,6 +3301,8 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             if (debug_open_ && (object==simulation::Object::Household || object==simulation::Object::Farm ||
                 object==simulation::Object::ServicePost || object==simulation::Object::Market ||
                 object==simulation::Object::OriginalAncestorShrine214 ||
+                object==simulation::Object::OriginalMusicSchool211 || object==simulation::Object::OriginalAcrobatSchool212 ||
+                object==simulation::Object::OriginalDramaSchool213 ||
                 object==simulation::Object::FireWatch ||
                 (simulation::industry_profile(rules_) &&
                  (object==simulation::Object::ClaySource || object==simulation::Object::Pottery)))) {
@@ -3254,7 +3313,10 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
                     object==simulation::Object::Market ? 'M':
                     object==simulation::Object::ClaySource ? 'C':'P';
                 const std::string label=(object==simulation::Object::OriginalAncestorShrine214 ?
-                    std::string("AS"):object==simulation::Object::FireWatch ? std::string("FW"):std::string(1,prefix))+
+                    std::string("AS"):object==simulation::Object::OriginalMusicSchool211 ? std::string("Mu"):
+                    object==simulation::Object::OriginalAcrobatSchool212 ? std::string("Ac"):
+                    object==simulation::Object::OriginalDramaSchool213 ? std::string("Dr"):
+                    object==simulation::Object::FireWatch ? std::string("FW"):std::string(1,prefix))+
                     std::to_string(static_cast<unsigned>(*id));
                 if (!SDL_SetRenderDrawColor(renderer_,255,255,255,255) ||
                     !SDL_RenderDebugText(renderer_,static_cast<float>(center.x)+7,
@@ -3346,6 +3408,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         if (!draw_agent(position,marker_color,cargo_color,displayed_courier_cargo(*world_,courier),marker_shift)) return false;
         if (debug_open_ && (courier.role==simulation::CourierRole::Food ||
                             courier.role==simulation::CourierRole::Service ||
+                            courier.role==simulation::CourierRole::OriginalMusic ||
+                            courier.role==simulation::CourierRole::OriginalAcrobat ||
+                            courier.role==simulation::CourierRole::OriginalDrama ||
                             courier.role==simulation::CourierRole::FireInspector ||
                             courier.role==simulation::CourierRole::MarketPotteryInbound ||
                             courier.role==simulation::CourierRole::MarketFoodInbound ||
@@ -3354,6 +3419,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             const auto ground=camera_.world_to_screen(world_for(position));
             const char* label=courier.role==simulation::CourierRole::Food ? "F":
                 courier.role==simulation::CourierRole::Service ? "S":
+                courier.role==simulation::CourierRole::OriginalMusic ? "Mu":
+                courier.role==simulation::CourierRole::OriginalAcrobat ? "Ac":
+                courier.role==simulation::CourierRole::OriginalDrama ? "Dr":
                 courier.role==simulation::CourierRole::FireInspector ? "FI":
                 courier.role==simulation::CourierRole::MarketPotteryInbound ? "WP":
                 courier.role==simulation::CourierRole::MarketFoodInbound ? "FF":
@@ -3397,6 +3465,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==23 ? simulation::Object::OriginalDaoistShrine215:
             tool_==24 ? simulation::Object::OriginalBuddhistShrine217:
             tool_==25 ? simulation::Object::OriginalConfucianAcademy219:
+            tool_==26 ? simulation::Object::OriginalMusicSchool211:
+            tool_==27 ? simulation::Object::OriginalAcrobatSchool212:
+            tool_==28 ? simulation::Object::OriginalDramaSchool213:
 
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
@@ -3476,6 +3547,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             id==3 ? SDL_Color{110,255,130,255}:
             courier.role==simulation::CourierRole::Food ? SDL_Color{235,200,70,255}:
             courier.role==simulation::CourierRole::Service ? SDL_Color{120,205,220,255}:
+            courier.role==simulation::CourierRole::OriginalMusic ? SDL_Color{160,140,235,255}:
+            courier.role==simulation::CourierRole::OriginalAcrobat ? SDL_Color{235,160,110,255}:
+            courier.role==simulation::CourierRole::OriginalDrama ? SDL_Color{220,125,190,255}:
             courier.role==simulation::CourierRole::FireInspector ? SDL_Color{200,150,95,255}:
             courier.role==simulation::CourierRole::MarketPotteryInbound ? SDL_Color{205,145,90,255}:
             courier.role==simulation::CourierRole::MarketFoodInbound ? SDL_Color{180,165,70,255}:
@@ -3487,6 +3561,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
              courier.role==simulation::CourierRole::Pottery ? SDL_Color{143,121,95,255}:
              courier.role==simulation::CourierRole::Food ? SDL_Color{137,125,77,255}:
              courier.role==simulation::CourierRole::Service ? SDL_Color{105,120,126,255}:
+             courier.role==simulation::CourierRole::OriginalMusic ? SDL_Color{123,112,170,255}:
+             courier.role==simulation::CourierRole::OriginalAcrobat ? SDL_Color{172,121,88,255}:
+             courier.role==simulation::CourierRole::OriginalDrama ? SDL_Color{166,99,143,255}:
              courier.role==simulation::CourierRole::FireInspector ? SDL_Color{132,110,85,255}:
              courier.role==simulation::CourierRole::MarketPotteryInbound ? SDL_Color{128,104,79,255}:
              courier.role==simulation::CourierRole::MarketFoodInbound ? SDL_Color{121,112,73,255}:
@@ -3713,6 +3790,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==23 ? simulation::Object::OriginalDaoistShrine215:
             tool_==24 ? simulation::Object::OriginalBuddhistShrine217:
             tool_==25 ? simulation::Object::OriginalConfucianAcademy219:
+            tool_==26 ? simulation::Object::OriginalMusicSchool211:
+            tool_==27 ? simulation::Object::OriginalAcrobatSchool212:
+            tool_==28 ? simulation::Object::OriginalDramaSchool213:
 
             tool_==13 ? simulation::Object::HealthPost:
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
@@ -4178,11 +4258,13 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                     lines.push_back("Herbalist"+std::to_string(home->house.herbalist)+" | Acupuncture"+std::to_string(home->house.acupuncture));
                     lines.push_back("Ancestor"+std::to_string(home->house.ancestor)+" Confucian"+std::to_string(home->house.confucian));
                     lines.push_back("Daoist"+std::to_string(home->house.daoist)+" Buddhist"+std::to_string(home->house.buddhist)+" /40");
+                    lines.push_back("Music"+std::to_string(home->house.music)+" Acrobat"+std::to_string(home->house.acrobat)+
+                        " Drama"+std::to_string(home->house.drama));
                 }
                 for (const auto& food:world_->original_production_state()->food.stocks) if (food.building_id==*house_id) {
-                    lines.push_back("Food: "+std::to_string(food.amounts[0]+food.amounts[1])+"/8 | Quality: "+
-                        std::to_string(home!=houses.end() ? home->house.food_quality:0));
-                    lines.push_back("Wheat "+std::to_string(food.amounts[0])+" | Millet "+std::to_string(food.amounts[1]));
+                    lines.push_back("Food: "+std::to_string(food.amounts[0]+food.amounts[1])+"/8 Quality: "+
+                        std::to_string(home!=houses.end() ? home->house.food_quality:0)+
+                        " W"+std::to_string(food.amounts[0])+" M"+std::to_string(food.amounts[1]));
                     lines.push_back("Food demand misses: "+std::to_string(food.missed_demands));
                 }
             }
@@ -4212,22 +4294,32 @@ std::vector<std::string> SandboxView::inspection_lines() const {
          world_->building(*house_id).kind==simulation::Object::OriginalWaterWell72 ||
          world_->building(*house_id).kind==simulation::Object::OriginalDaoistShrine215 ||
          world_->building(*house_id).kind==simulation::Object::OriginalBuddhistShrine217 ||
-         world_->building(*house_id).kind==simulation::Object::OriginalConfucianAcademy219)) {
+         world_->building(*house_id).kind==simulation::Object::OriginalConfucianAcademy219 ||
+         world_->building(*house_id).kind==simulation::Object::OriginalMusicSchool211 ||
+         world_->building(*house_id).kind==simulation::Object::OriginalAcrobatSchool212 ||
+         world_->building(*house_id).kind==simulation::Object::OriginalDramaSchool213)) {
         const auto id=*house_id;const auto& b=world_->building(id);
         const bool ancestor=b.kind==simulation::Object::OriginalAncestorShrine214;
         const bool water=b.kind==simulation::Object::OriginalWaterWell72;
+        const bool culture=b.kind==simulation::Object::OriginalMusicSchool211 ||
+            b.kind==simulation::Object::OriginalAcrobatSchool212 || b.kind==simulation::Object::OriginalDramaSchool213;
         const bool religion=ancestor || b.kind==simulation::Object::OriginalDaoistShrine215 ||
             b.kind==simulation::Object::OriginalBuddhistShrine217 || b.kind==simulation::Object::OriginalConfucianAcademy219;
         lines.push_back(std::string(water ? "WaterWell72 #":ancestor ? "Ancestor214 #":
             b.kind==simulation::Object::OriginalDaoistShrine215 ? "Daoist215 #":
             b.kind==simulation::Object::OriginalBuddhistShrine217 ? "Buddhist217 #":
             b.kind==simulation::Object::OriginalConfucianAcademy219 ? "Confucian219 #":
+            b.kind==simulation::Object::OriginalMusicSchool211 ? "Music211 #":
+            b.kind==simulation::Object::OriginalAcrobatSchool212 ? "Acrobat212 #":
+            b.kind==simulation::Object::OriginalDramaSchool213 ? "Drama213 #":
             b.kind==simulation::Object::HealthPost ? "Herbalist207 #":"Acupuncture208 #")+
             std::to_string(static_cast<std::uint32_t>(id)));
         lines.push_back("Workers assigned "+std::to_string(world_->workers_assigned(id))+"/"+
             std::to_string(world_->workforce_required(id)));
         lines.push_back(std::string("Operation: ")+(b.operating_enabled ? "Running":"Paused"));
-        lines.push_back(water ? "Arrival96; phase28 water":religion ? "Actual visits set this timer to40 cycles":"Actual visits set this timer to96 cycles");
+        if (culture) lines.push_back("Experimental school-to-House");
+        lines.push_back(water ? "Arrival96; phase28 water":religion ? "Actual visits set this timer to40 cycles":
+            culture ? "Actual arrival grants96":"Actual visits set this timer to96 cycles");
         if (religion) lines.push_back("Diagnostic source and visitor markers");
         for (const auto& c:world_->couriers()) if (c.owner==id) {
             lines.push_back(std::string("Visitor: ")+simulation::delivery_phase_name(c.phase));
@@ -4235,6 +4327,15 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 std::string("-"):std::to_string(static_cast<std::uint32_t>(c.target))));
             lines.push_back(std::string("Route: ")+simulation::courier_dispatch_status_name(
                 world_->courier_dispatch_status(c.id).status));
+            if (const auto category=original_service_role(c.role); category && c.phase!=simulation::CourierPhase::IdleAtWorkshop) {
+                const auto status=world_->original_service_availability(c.target,*category);
+                lines.push_back("Target timer: "+std::to_string(status.delivered_timer)+
+                    " | travelling: "+std::to_string(status.travelling_to_target_count));
+                lines.push_back("Available "+std::to_string(status.available_source_count)+
+                    "/"+std::to_string(status.provider_count)+" | reachable "+std::to_string(status.reachable_source_count));
+                lines.push_back(status.last_arrival_tick ? "Last arrival: "+std::to_string(*status.last_arrival_tick):"No actual arrival yet");
+                lines.push_back("No future visit promised");
+            }
         }
         add_connectivity();return wrap_panel_lines(lines);
     }
@@ -5063,23 +5164,28 @@ bool SandboxView::draw_hud() {
         switch (action) {
         case A::Select: return simulation::production_profile(rules_) ? "5 Select":"4 Select";
         case A::Road: return simulation::city_profile(rules_) ? "1 Road $2":"1 Road";
-        case A::Clay: return scalable ? "2 Clay "+std::to_string(count(simulation::Object::ClaySource))+
+        case A::Clay: return original_production_fixture() ? "2 Clay $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceClaySource)):scalable ? "2 Clay "+std::to_string(count(simulation::Object::ClaySource))+
             "/4 $120":simulation::city_profile(rules_) ? "2 Clay $120":
             simulation::production_profile(rules_) ? "2 Clay" : "2 Workshop";
-        case A::Pottery: return scalable ? "3 Pottery "+std::to_string(count(simulation::Object::Pottery))+
+        case A::Pottery: return original_production_fixture() ? "3 Pottery $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlacePottery)):scalable ? "3 Pottery "+std::to_string(count(simulation::Object::Pottery))+
             "/4 $180":simulation::city_profile(rules_) ? "3 Pottery $180":"3 Pottery";
-        case A::Warehouse: return scalable ? "4 Store "+std::to_string(count(simulation::Object::Warehouse))+
+        case A::Warehouse: return original_production_fixture() ? "4 Store $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceWarehouse)):scalable ? "4 Store "+std::to_string(count(simulation::Object::Warehouse))+
             "/2 $150":simulation::city_profile(rules_) ? "4 Store $150":
             simulation::production_profile(rules_) ? "4 Store" : "3 Store";
         case A::RemoveRoad: return "6 Remove";
-        case A::Household: return scalable ? "7 House "+std::to_string(count(simulation::Object::Household))+
+        case A::Household: return original_production_fixture() ? "7 House $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceHousehold)):scalable ? "7 House "+std::to_string(count(simulation::Object::Household))+
             "/20 $80":simulation::city_profile(rules_) ? "7 House $80":"7 House";
         case A::Farm: return scalable ? "8 Farm "+std::to_string(count(simulation::Object::Farm))+
             "/2 $160":"8 Farm $160";
         case A::ServicePost: return original_production_fixture() ? "9 Acupuncture $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceServicePost)):scalable ? "9 Service "+
             std::to_string(count(simulation::Object::ServicePost))+"/2 $100":"9 Service $100";
-        case A::Market: return "0 Market $140";
+        case A::Market: return original_production_fixture() ? "0 Market $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceMarket)):"0 Market $140";
         case A::OriginalHempFarm: return "N Hemp Farm $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalHempFarm));
         case A::OriginalHempField: return "M Hemp Field $"+
@@ -5099,6 +5205,15 @@ bool SandboxView::draw_hud() {
         case A::OriginalConfucianAcademy: return "V Confucian "+
             std::to_string(count(simulation::Object::OriginalConfucianAcademy219))+"/2 $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalConfucianAcademy));
+        case A::OriginalMusicSchool: return "E Music "+
+            std::to_string(count(simulation::Object::OriginalMusicSchool211))+"/2 $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalMusicSchool));
+        case A::OriginalAcrobatSchool: return "C Acrobat "+
+            std::to_string(count(simulation::Object::OriginalAcrobatSchool212))+"/2 $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalAcrobatSchool));
+        case A::OriginalDramaSchool: return "A Drama "+
+            std::to_string(count(simulation::Object::OriginalDramaSchool213))+"/2 $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalDramaSchool));
         case A::OriginalWaterWell: return "Q Water Well "+
             std::to_string(count(simulation::Object::OriginalWaterWell72))+"/2 $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalWaterWell));
@@ -5153,6 +5268,9 @@ bool SandboxView::draw_hud() {
         case A::OriginalDaoistShrine: active=tool_==23; break;
         case A::OriginalBuddhistShrine: active=tool_==24; break;
         case A::OriginalConfucianAcademy: active=tool_==25; break;
+        case A::OriginalMusicSchool: active=tool_==26; break;
+        case A::OriginalAcrobatSchool: active=tool_==27; break;
+        case A::OriginalDramaSchool: active=tool_==28; break;
 
         case A::FireWatch: active=tool_==11; break;
         case A::HealthPost: active=tool_==13; break;
@@ -5377,7 +5495,7 @@ bool SandboxView::draw_hud() {
                 debug_row+=14;
             }
             std::size_t logical=0,live_submitted=0,supplier=0,distributor=0,foreign_markers=0;
-            std::array<bool,static_cast<std::size_t>(simulation::CourierRole::HealthWorker)+1> logical_roles{};
+            std::array<bool,static_cast<std::size_t>(simulation::CourierRole::OriginalDrama)+1> logical_roles{};
             for (const auto& courier:world_->couriers()) {
                 const auto role=walker_visual_role(courier.role);
                 const auto hit=std::find_if(visual_hits_.begin(),visual_hits_.end(),
@@ -5645,15 +5763,16 @@ bool SandboxView::draw_help_overlay() {
     const int pad=12*layout_.scale;
     const int line=16*layout_.scale;
     if (original_production_fixture()) {
-        constexpr std::array<const char*,16> help{
+        constexpr std::array<const char*,17> help{
             "ORIGINAL ECONOMY - H closes", "Q Water Well | Y Ancestor Shrine",
             "U Daoist | K Buddhist | V Confucian",
+            "E Music | C Acrobat | A Drama",
             "O Food Farm | W Wheat | L Millet", "N Hemp Farm | M Hemp Field",
             "J Herbalist | 9 Acupuncture", "0 Market | 5 Select | 1 Road",
             "F5 Save | F9 Load | Space Pause", "All sources need actual workers",
             "Actual arrivals supply Houses", "Water is evaluated on phase28",
             "House evolution runs on phase39", "Plain needs Water/Food/Ancestor",
-            "Inspect type, water and counter", "Current early ceiling: Plain Cottage",
+            "Schools: experimental direct visits", "Current early ceiling: Plain Cottage",
             "Original graphics follow separately"};
         for (std::size_t row=0;row<help.size();++row)
             if (!draw_text(x+pad,y+pad+static_cast<int>(row)*line,help[row],width-2*pad)) return false;

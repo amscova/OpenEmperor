@@ -47,7 +47,8 @@ bool food_role(CourierRole role) {
 bool service_role(CourierRole role) {
     return role==CourierRole::Service || role==CourierRole::FireInspector ||
         role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor || role==CourierRole::OriginalWater ||
-        role==CourierRole::OriginalDaoist || role==CourierRole::OriginalBuddhist || role==CourierRole::OriginalConfucian;
+        role==CourierRole::OriginalDaoist || role==CourierRole::OriginalBuddhist || role==CourierRole::OriginalConfucian ||
+        role==CourierRole::OriginalMusic || role==CourierRole::OriginalAcrobat || role==CourierRole::OriginalDrama;
 }
 Object courier_target_kind(CourierRole role) {
     switch (role) {
@@ -55,6 +56,9 @@ Object courier_target_kind(CourierRole role) {
     case CourierRole::OriginalFoodToHouse: return Object::Household;
     case CourierRole::OriginalDaoist:
     case CourierRole::OriginalBuddhist:
+    case CourierRole::OriginalMusic:
+    case CourierRole::OriginalAcrobat:
+    case CourierRole::OriginalDrama:
     case CourierRole::OriginalConfucian:
     case CourierRole::OriginalAncestor:
     case CourierRole::OriginalWater: return Object::Household;
@@ -86,6 +90,9 @@ std::size_t building_limit(RulesProfile profile,Object kind) {
     case Object::OriginalMilletField: return 2;
     case Object::OriginalDaoistShrine215:
     case Object::OriginalBuddhistShrine217:
+    case Object::OriginalMusicSchool211:
+    case Object::OriginalAcrobatSchool212:
+    case Object::OriginalDramaSchool213:
     case Object::OriginalConfucianAcademy219:
     case Object::OriginalAncestorShrine214:
     case Object::OriginalWaterWell72: return 2;
@@ -161,6 +168,9 @@ std::optional<Object> placed_object(CommandType type) {
     case CommandType::PlaceOriginalDaoistShrine: return Object::OriginalDaoistShrine215;
     case CommandType::PlaceOriginalBuddhistShrine: return Object::OriginalBuddhistShrine217;
     case CommandType::PlaceOriginalConfucianAcademy: return Object::OriginalConfucianAcademy219;
+    case CommandType::PlaceOriginalMusicSchool: return Object::OriginalMusicSchool211;
+    case CommandType::PlaceOriginalAcrobatSchool: return Object::OriginalAcrobatSchool212;
+    case CommandType::PlaceOriginalDramaSchool: return Object::OriginalDramaSchool213;
 
     default: return std::nullopt;
     }
@@ -172,6 +182,8 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
     if (original_production_enabled(profile,rule_version)) {
+        if (kind==Object::OriginalAcrobatSchool212 || kind==Object::OriginalDramaSchool213) return {3,3};
+        if (kind==Object::OriginalMusicSchool211) return {2,2};
         if (kind==Object::OriginalConfucianAcademy219) return {3,3};
         if (kind==Object::OriginalDaoistShrine215 || kind==Object::OriginalBuddhistShrine217) return {2,2};
     }
@@ -614,6 +626,15 @@ CourierState& World::mutable_courier(CourierId id) {
 std::int64_t World::construction_cost(CommandType type) const {
     if (!city_profile(profile_)) return 0;
     switch (type) {
+    case CommandType::PlaceOriginalMusicSchool:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::MusicSchool,original::BuildingField::Cost):0;
+    case CommandType::PlaceOriginalAcrobatSchool:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::AcrobatSchool,original::BuildingField::Cost):0;
+    case CommandType::PlaceOriginalDramaSchool:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::DramaSchool,original::BuildingField::Cost):0;
     case CommandType::PlaceOriginalDaoistShrine:
         return original_production_enabled() ? original_rules_model_->building_value(
             original::ModelBuilding::DaoistShrine,original::BuildingField::Cost):0;
@@ -681,6 +702,12 @@ int World::workforce_required(BuildingId id) const {
     const auto& value=building(id);
     if (!value.placed) return 0;
     switch (value.kind) {
+    case Object::OriginalMusicSchool211: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::MusicSchool,original::BuildingField::Employees):0;
+    case Object::OriginalAcrobatSchool212: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::AcrobatSchool,original::BuildingField::Employees):0;
+    case Object::OriginalDramaSchool213: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::DramaSchool,original::BuildingField::Employees):0;
     case Object::OriginalDaoistShrine215: return original_production_enabled() ? original_rules_model_->building_value(
         original::ModelBuilding::DaoistShrine,original::BuildingField::Employees):0;
     case Object::OriginalBuddhistShrine217: return original_production_enabled() ? original_rules_model_->building_value(
@@ -711,7 +738,8 @@ int World::workforce_required(BuildingId id) const {
 }
 
 bool World::operation_controllable(Object kind) {
-    return kind==Object::OriginalDaoistShrine215 || kind==Object::OriginalBuddhistShrine217 ||
+    return kind==Object::OriginalMusicSchool211 || kind==Object::OriginalAcrobatSchool212 ||
+        kind==Object::OriginalDramaSchool213 || kind==Object::OriginalDaoistShrine215 || kind==Object::OriginalBuddhistShrine217 ||
         kind==Object::OriginalConfucianAcademy219 || kind==Object::OriginalWaterWell72 || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Farm || kind==Object::ServicePost || kind==Object::Market || kind==Object::FireWatch || kind==Object::HealthPost;
 }
@@ -1170,6 +1198,9 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if ((command.type==CommandType::PlaceOriginalMusicSchool || command.type==CommandType::PlaceOriginalAcrobatSchool ||
+         command.type==CommandType::PlaceOriginalDramaSchool) && !original_production_enabled())
+        return {false,false,"Culture providers require explicit original production rules",command_sequence_,ticks_};
     if ((command.type==CommandType::PlaceOriginalDaoistShrine || command.type==CommandType::PlaceOriginalBuddhistShrine ||
          command.type==CommandType::PlaceOriginalConfucianAcademy) && !original_production_enabled())
         return {false,false,"Religious providers require explicit original production rules",command_sequence_,ticks_};
@@ -1200,6 +1231,8 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceServicePost &&
         command.type!=CommandType::PlaceOriginalDaoistShrine && command.type!=CommandType::PlaceOriginalBuddhistShrine &&
         command.type!=CommandType::PlaceOriginalConfucianAcademy &&
+        command.type!=CommandType::PlaceOriginalMusicSchool && command.type!=CommandType::PlaceOriginalAcrobatSchool &&
+        command.type!=CommandType::PlaceOriginalDramaSchool &&
         command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell &&
         command.type!=CommandType::SetBuildingOperation &&
         command.type!=CommandType::SetBuildingWorkforcePriority)
@@ -1269,6 +1302,8 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceOriginalWheatField && command.type!=CommandType::PlaceOriginalMilletField &&
         command.type!=CommandType::PlaceOriginalDaoistShrine && command.type!=CommandType::PlaceOriginalBuddhistShrine &&
         command.type!=CommandType::PlaceOriginalConfucianAcademy &&
+        command.type!=CommandType::PlaceOriginalMusicSchool && command.type!=CommandType::PlaceOriginalAcrobatSchool &&
+        command.type!=CommandType::PlaceOriginalDramaSchool &&
         command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell) {
         result.reason="Unknown placement command"; return result;
     }
@@ -1416,11 +1451,12 @@ CommandResult World::validate(Command command) const {
         })>=static_cast<std::ptrdiff_t>(Rules::health_post_limit)) {
         result.reason="Health Post limit reached"; return result;
     }
-    if (command.type==CommandType::PlaceOriginalDaoistShrine || command.type==CommandType::PlaceOriginalBuddhistShrine ||
-        command.type==CommandType::PlaceOriginalConfucianAcademy) {
+    if (command.type==CommandType::PlaceOriginalMusicSchool || command.type==CommandType::PlaceOriginalAcrobatSchool ||
+        command.type==CommandType::PlaceOriginalDramaSchool || command.type==CommandType::PlaceOriginalDaoistShrine ||
+        command.type==CommandType::PlaceOriginalBuddhistShrine || command.type==CommandType::PlaceOriginalConfucianAcademy) {
         const auto kind=*placed_object(command.type);
         if (std::count_if(buildings_.begin(),buildings_.end(),[&](const BuildingState& b){return b.kind==kind;})>=2) {
-            result.reason="Religious provider type limit reached";return result;
+            result.reason="Service provider type limit reached";return result;
         }
     }
     if (command.type==CommandType::PlaceOriginalWaterWell &&
@@ -1453,7 +1489,8 @@ CommandResult World::validate(Command command) const {
         command.type==CommandType::PlaceHealthPost || command.type==CommandType::PlaceOriginalHempFarm ||
         command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalAncestorShrine || command.type==CommandType::PlaceOriginalWaterWell ||
         command.type==CommandType::PlaceOriginalDaoistShrine || command.type==CommandType::PlaceOriginalBuddhistShrine ||
-        command.type==CommandType::PlaceOriginalConfucianAcademy;
+        command.type==CommandType::PlaceOriginalConfucianAcademy || command.type==CommandType::PlaceOriginalMusicSchool ||
+        command.type==CommandType::PlaceOriginalAcrobatSchool || command.type==CommandType::PlaceOriginalDramaSchool;
     if (original_production_enabled()) {
         if (command.type!=CommandType::PlaceRoad && buildings_.size()>=Rules::original_production_building_limit) {
             result.reason="Original production building capacity reached";return result;
@@ -1690,6 +1727,21 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         couriers_.push_back(std::move(courier));
     };
     switch (command.type) {
+    case CommandType::PlaceOriginalMusicSchool: {
+        auto& source=add_v10_building(Object::OriginalMusicSchool211);source.placed_tick=ticks_;
+        original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Music211});
+        add_v10_courier(source.id,CourierRole::OriginalMusic,Good::Goods);break;
+    }
+    case CommandType::PlaceOriginalAcrobatSchool: {
+        auto& source=add_v10_building(Object::OriginalAcrobatSchool212);source.placed_tick=ticks_;
+        original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Acrobat212});
+        add_v10_courier(source.id,CourierRole::OriginalAcrobat,Good::Goods);break;
+    }
+    case CommandType::PlaceOriginalDramaSchool: {
+        auto& source=add_v10_building(Object::OriginalDramaSchool213);source.placed_tick=ticks_;
+        original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Drama213});
+        add_v10_courier(source.id,CourierRole::OriginalDrama,Good::Goods);break;
+    }
     case CommandType::PlaceOriginalDaoistShrine: {
         auto& source=add_v10_building(Object::OriginalDaoistShrine215);source.placed_tick=ticks_;
         original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Daoist215});
@@ -2687,6 +2739,9 @@ void World::dispatch_v2(CourierState& courier) {
     case CourierRole::HealthWorker:
     case CourierRole::OriginalDaoist:
     case CourierRole::OriginalBuddhist:
+    case CourierRole::OriginalMusic:
+    case CourierRole::OriginalAcrobat:
+    case CourierRole::OriginalDrama:
     case CourierRole::OriginalConfucian:
     case CourierRole::OriginalAncestor:
     case CourierRole::OriginalWater:
@@ -3124,6 +3179,9 @@ bool World::industry_balance_valid() const {
             case Object::OriginalMilletField:
             case Object::OriginalDaoistShrine215:
             case Object::OriginalBuddhistShrine217:
+            case Object::OriginalMusicSchool211:
+            case Object::OriginalAcrobatSchool212:
+            case Object::OriginalDramaSchool213:
             case Object::OriginalConfucianAcademy219:
             case Object::OriginalAncestorShrine214:
             case Object::OriginalWaterWell72:
@@ -3186,6 +3244,9 @@ bool World::industry_balance_valid() const {
                 c.role==CourierRole::OriginalFoodToHouse ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse ? Object::OriginalHempFarm:
                 c.role==CourierRole::OriginalWater ? Object::OriginalWaterWell72:
+                c.role==CourierRole::OriginalMusic ? Object::OriginalMusicSchool211:
+                c.role==CourierRole::OriginalAcrobat ? Object::OriginalAcrobatSchool212:
+                c.role==CourierRole::OriginalDrama ? Object::OriginalDramaSchool213:
                 c.role==CourierRole::OriginalDaoist ? Object::OriginalDaoistShrine215:
                 c.role==CourierRole::OriginalBuddhist ? Object::OriginalBuddhistShrine217:
                 c.role==CourierRole::OriginalConfucian ? Object::OriginalConfucianAcademy219:
@@ -3223,7 +3284,8 @@ bool World::industry_balance_valid() const {
             }
             else if ((!original_food_courier(c.role) && c.role!=CourierRole::OriginalHempToWarehouse &&
                       c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater &&
-                      c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian) || !original_production_enabled()) return false;
+                      c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian && c.role!=CourierRole::OriginalMusic &&
+                      c.role!=CourierRole::OriginalAcrobat && c.role!=CourierRole::OriginalDrama) || !original_production_enabled()) return false;
             if (c.phase==CourierPhase::ToWarehouse && !service_role(c.role)) {
                 auto& reservations=food_role(c.role) ? food_reservations:pottery_reservations;
                 const auto found=std::lower_bound(reservations.begin(),reservations.end(),c.target,
@@ -3261,6 +3323,9 @@ bool World::industry_balance_valid() const {
                 (b.kind==Object::ServicePost && owned(CourierRole::Service)!=1) ||
                 (b.kind==Object::FireWatch && owned(CourierRole::FireInspector)!=1) ||
                 (b.kind==Object::HealthPost && owned(CourierRole::HealthWorker)!=1) ||
+                (b.kind==Object::OriginalMusicSchool211 && owned(CourierRole::OriginalMusic)!=1) ||
+                (b.kind==Object::OriginalAcrobatSchool212 && owned(CourierRole::OriginalAcrobat)!=1) ||
+                (b.kind==Object::OriginalDramaSchool213 && owned(CourierRole::OriginalDrama)!=1) ||
                 (b.kind==Object::OriginalDaoistShrine215 && owned(CourierRole::OriginalDaoist)!=1) ||
                 (b.kind==Object::OriginalBuddhistShrine217 && owned(CourierRole::OriginalBuddhist)!=1) ||
                 (b.kind==Object::OriginalConfucianAcademy219 && owned(CourierRole::OriginalConfucian)!=1) ||
@@ -4032,7 +4097,8 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                 b.kind==Object::Workshop ||
                 ((b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
                   b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
-                  (b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 ||
+                  (b.kind==Object::OriginalMusicSchool211 || b.kind==Object::OriginalAcrobatSchool212 ||
+                   b.kind==Object::OriginalDramaSchool213 || b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 ||
                    b.kind==Object::OriginalConfucianAcademy219 || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72)) && !w.original_production_enabled()) ||
                 (b.kind==Object::OriginalInfluenceSource && !w.original_influence_enabled()) || (b.kind==Object::Market && !market_profile(s.profile)) ||
                 (b.kind==Object::FireWatch && !fire_profile(s.profile)) ||
@@ -4087,6 +4153,9 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                 c.role==CourierRole::OriginalFoodToHouse && w.original_production_enabled() ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse && w.original_production_enabled() ? Object::OriginalHempFarm:
                 c.role==CourierRole::OriginalWater && w.original_production_enabled() ? Object::OriginalWaterWell72:
+                c.role==CourierRole::OriginalMusic && w.original_production_enabled() ? Object::OriginalMusicSchool211:
+                c.role==CourierRole::OriginalAcrobat && w.original_production_enabled() ? Object::OriginalAcrobatSchool212:
+                c.role==CourierRole::OriginalDrama && w.original_production_enabled() ? Object::OriginalDramaSchool213:
                 c.role==CourierRole::OriginalDaoist && w.original_production_enabled() ? Object::OriginalDaoistShrine215:
                 c.role==CourierRole::OriginalBuddhist && w.original_production_enabled() ? Object::OriginalBuddhistShrine217:
                 c.role==CourierRole::OriginalConfucian && w.original_production_enabled() ? Object::OriginalConfucianAcademy219:

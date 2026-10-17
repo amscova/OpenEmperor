@@ -20,11 +20,14 @@ template<class Rows> const auto& by_id(const Rows& rows,BuildingId id) {
     return *it;
 }
 constexpr std::array roles{original::ServiceRole::Herbalist,original::ServiceRole::Acupuncture,original::ServiceRole::Ancestor,
-    original::ServiceRole::Confucian,original::ServiceRole::Daoist,original::ServiceRole::Buddhist};
+    original::ServiceRole::Confucian,original::ServiceRole::Daoist,original::ServiceRole::Buddhist,
+    original::ServiceRole::Music,original::ServiceRole::Acrobat,original::ServiceRole::Drama};
 constexpr std::array service_kinds{Object::HealthPost,Object::ServicePost,Object::OriginalAncestorShrine214,
-    Object::OriginalConfucianAcademy219,Object::OriginalDaoistShrine215,Object::OriginalBuddhistShrine217};
+    Object::OriginalConfucianAcademy219,Object::OriginalDaoistShrine215,Object::OriginalBuddhistShrine217,
+    Object::OriginalMusicSchool211,Object::OriginalAcrobatSchool212,Object::OriginalDramaSchool213};
 constexpr std::array service_actor_roles{CourierRole::HealthWorker,CourierRole::Service,CourierRole::OriginalAncestor,
-    CourierRole::OriginalConfucian,CourierRole::OriginalDaoist,CourierRole::OriginalBuddhist};
+    CourierRole::OriginalConfucian,CourierRole::OriginalDaoist,CourierRole::OriginalBuddhist,
+    CourierRole::OriginalMusic,CourierRole::OriginalAcrobat,CourierRole::OriginalDrama};
 bool early(original::HouseType type) {return type>=original::HouseType::Shelter && type<=original::HouseType::PlainCottage;}
 original::HouseState evolved(const original::HouseEvolutionRules& rules,const original::HouseState& input) {
     auto result=original::evolve_step(rules,input);
@@ -39,8 +42,7 @@ std::uint64_t admission_opportunities(std::uint64_t first,std::uint64_t through)
 }
 void basic_input(const original::HouseState& input) {
     if (!early(input.type) || input.occupants<=0 || input.devolve_counter>9 ||
-        input.desirability<-100 || input.desirability>100 || input.food_quality>80 ||
-        input.music || input.acrobat || input.drama)
+        input.desirability<-100 || input.desirability>100 || input.food_quality>80)
         invalid("unsupported early Housing evaluation input");
     for (std::size_t g=0;g<original::goods_count;++g) {
         const auto stock=original::goods_stock(input,static_cast<original::Goods>(g));
