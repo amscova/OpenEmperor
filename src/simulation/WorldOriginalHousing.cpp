@@ -19,7 +19,12 @@ template<class Rows> const auto& by_id(const Rows& rows,BuildingId id) {
     else {if (it->id!=id) invalid("Housing history has orphan body");}
     return *it;
 }
-constexpr std::array roles{original::ServiceRole::Herbalist,original::ServiceRole::Acupuncture,original::ServiceRole::Ancestor};
+constexpr std::array roles{original::ServiceRole::Herbalist,original::ServiceRole::Acupuncture,original::ServiceRole::Ancestor,
+    original::ServiceRole::Confucian,original::ServiceRole::Daoist,original::ServiceRole::Buddhist};
+constexpr std::array service_kinds{Object::HealthPost,Object::ServicePost,Object::OriginalAncestorShrine214,
+    Object::OriginalConfucianAcademy219,Object::OriginalDaoistShrine215,Object::OriginalBuddhistShrine217};
+constexpr std::array service_actor_roles{CourierRole::HealthWorker,CourierRole::Service,CourierRole::OriginalAncestor,
+    CourierRole::OriginalConfucian,CourierRole::OriginalDaoist,CourierRole::OriginalBuddhist};
 bool early(original::HouseType type) {return type>=original::HouseType::Shelter && type<=original::HouseType::PlainCottage;}
 original::HouseState evolved(const original::HouseEvolutionRules& rules,const original::HouseState& input) {
     auto result=original::evolve_step(rules,input);
@@ -35,7 +40,7 @@ std::uint64_t admission_opportunities(std::uint64_t first,std::uint64_t through)
 void basic_input(const original::HouseState& input) {
     if (!early(input.type) || input.occupants<=0 || input.devolve_counter>9 ||
         input.desirability<-100 || input.desirability>100 || input.food_quality>80 ||
-        input.music || input.acrobat || input.drama || input.confucian || input.daoist || input.buddhist)
+        input.music || input.acrobat || input.drama)
         invalid("unsupported early Housing evaluation input");
     for (std::size_t g=0;g<original::goods_count;++g) {
         const auto stock=original::goods_stock(input,static_cast<original::Goods>(g));
@@ -49,10 +54,14 @@ void historical_service(const WorldSnapshot& s,BuildingId id,std::uint64_t first
         const auto actor=std::find_if(s.couriers.begin(),s.couriers.end(),[&](const auto& c){return c.id==w.transfer.courier_id;});
         const auto trip=std::find_if(s.original_production->services.trips.begin(),s.original_production->services.trips.end(),
             [&](const auto& row){return row.transfer.courier_id==w.transfer.courier_id;});
-        const auto kind=index==0 ? Object::HealthPost:index==1 ? Object::ServicePost:Object::OriginalAncestorShrine214;
-        const auto actor_role=index==0 ? CourierRole::HealthWorker:index==1 ? CourierRole::Service:CourierRole::OriginalAncestor;
-        const auto delta=[](int a,int b){const auto d=std::int64_t(a)-b;return std::max<std::int64_t>(0,(d<0 ? -d:d)-1);};
-        const auto travel=static_cast<std::uint64_t>(std::max<std::int64_t>(2,delta(source.cell.x,target.cell.x)+delta(source.cell.y,target.cell.y)))*
+        const auto kind=service_kinds[index];const auto actor_role=service_actor_roles[index];
+        const auto from=building_footprint(s.profile,s.rule_version,source.kind),to=building_footprint(s.profile,s.rule_version,target.kind);
+        const auto gap=[](int a,int a_size,int b,int b_size) {
+            const auto first=static_cast<std::int64_t>(a),second=static_cast<std::int64_t>(b);
+            return std::max({std::int64_t{0},first-(second+b_size-1),second-(first+a_size-1)});
+        };
+        const auto travel=static_cast<std::uint64_t>(std::max<std::int64_t>(2,
+            gap(source.cell.x,from.width,target.cell.x,to.width)+gap(source.cell.y,from.height,target.cell.y,to.height)))*
             static_cast<std::uint64_t>(profile_rules(s.profile,s.rule_version).courier_edge_ticks);
         if (w.building_id!=id || w.role!=role || source.kind!=kind || actor==s.couriers.end() || actor->owner!=w.provider_id ||
             actor->role!=actor_role || trip==s.original_production->services.trips.end() || !w.transfer.sequence ||
@@ -81,7 +90,7 @@ void historical_service(const WorldSnapshot& s,BuildingId id,std::uint64_t first
         if (known.building_id==id && known.role==role) require_known(known);
     for (const auto& trip:s.original_production->services.trips) if (trip.visit_applied && trip.target==id && trip.arrival_tick) {
         const auto actor=std::find_if(s.couriers.begin(),s.couriers.end(),[&](const auto& c){return c.id==trip.transfer.courier_id;});
-        const auto actor_role=index==0 ? CourierRole::HealthWorker:index==1 ? CourierRole::Service:CourierRole::OriginalAncestor;
+        const auto actor_role=service_actor_roles[index];
         if (actor!=s.couriers.end() && actor->role==actor_role) require_known({id,role,actor->owner,trip.transfer,*trip.arrival_tick});
     }
     if (original::service_timer(proof.input,role)!=expected) invalid("Housing input service timer differs from actual visit phase");

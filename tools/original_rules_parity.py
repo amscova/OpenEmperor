@@ -462,13 +462,13 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-21: Rule10 adds paid Water and early productive Housing authority.
-    # New DTOs/enums require matching ABI pins; every pure numerical kernel
+    # OE-22: Rule10 adds three paid religion providers and six-role history.
+    # Additive model rows/DTOs require matching ABI pins; every pure numerical kernel
     # and the legacy HouseholdV3/CityV7 probe behavior remain unchanged.
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "e5ed60c266ae6295772a560dd725b3519dd2c1cb":
+    if world_blob != "7f7c904bb81a0979a24a5eb47f3e3f332f6d116e":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -484,7 +484,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     production_dto = ROOT / "src/simulation/OriginalProductionState.h"
     production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
-    if production_blob != "e7cbb8d4ab96677e4817ebc907bd207257ae3674":
+    if production_blob != "1b6fdf400911614a2caf683853e587c7af6b0897":
         raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
     food_dto = ROOT / "src/simulation/OriginalFoodState.h"
     food_blob = hashlib.sha1(b"blob " + str(food_dto.stat().st_size).encode() + b"\0" + food_dto.read_bytes()).hexdigest()
@@ -492,7 +492,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-food API drift: fourth-module adapter needs a reviewed compatibility contract")
     services_dto = ROOT / "src/simulation/OriginalServicesState.h"
     services_blob = hashlib.sha1(b"blob " + str(services_dto.stat().st_size).encode() + b"\0" + services_dto.read_bytes()).hexdigest()
-    if services_blob != "0bdb8e7bbdbd8438a738a60fdbb15d77bc2fe360":
+    if services_blob != "9590adb9179a77edca055ad16f6959f500731585":
         raise ValueError("Original-services API drift: fourth-module adapter needs a reviewed compatibility contract")
     added_header_blobs = {}
     added_header = ROOT / "src/simulation/OriginalWaterState.h"
@@ -504,12 +504,12 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     added_header = ROOT / "src/simulation/OriginalHousingState.h"
     added_bytes = added_header.read_bytes()
     added_blob = hashlib.sha1(b"blob " + str(len(added_bytes)).encode() + b"\0" + added_bytes).hexdigest()
-    if added_blob != "dafd8f26a1bd9b0c41344b783d4d43f8db8ba620":
+    if added_blob != "0e337381d48c6542314148c84670a40ebce032a9":
         raise ValueError("Water/Housing ABI drift requires reviewed compatibility contract")
     added_header_blobs["OriginalHousingState.h"] = added_blob
     model_header_blobs = {}
-    for name, expected in (("ModelSchema.h", "c9253f5eddb8cd7166dcc15bb6f8825ea33e35bd"),
-                           ("OriginalRulesModel.h", "a391919d746d40b662e160ef7548a3b410b18d3e")):
+    for name, expected in (("ModelSchema.h", "2003d316eebeda132e71b744fd12dfe5bb86bb9a"),
+                           ("OriginalRulesModel.h", "082d61de997c38d572d858feebd77cf343cbf9e7")):
         header = ROOT / "src/simulation/original" / name
         actual = hashlib.sha1(b"blob " + str(header.stat().st_size).encode() + b"\0" + header.read_bytes()).hexdigest()
         if actual != expected:

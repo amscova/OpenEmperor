@@ -72,3 +72,14 @@ verbindet beide Bilanzen. Rezepte und Übergabepunkt sind authored Integration.
 Ergebnisse stehen in [PROGRESS](../codex-original-economy/PROGRESS.md). Ein echter
 Quellen- oder technischer Blocker bleibt sichtbar; weder ein übersprungener Task
 noch ein Plan oder ein generiertes Bild ist ein Feature-PASS.
+
+
+## Quellenbefund aus OE-22 für die Folgeaufgaben
+
+Confucian219 besitzt im normalen originalen Managerinitialzustand ein echtes
+Elite-only-Gate und verlangt zusätzlich tatsächlich angeliefertes Material
+WORD+0x40. Der frühe22er-Adapter ist dafür ausdrücklich authored. Der spätere
+Elite-/Produktions-/Objektanschluss muss beide Bedingungen erneut bearbeiten;
+keine gratis Materialbestände oder aus normalen Häusern erfundene Original-
+Confucian-Parität. Der [Religionsvertrag](religion-runtime.md) und der
+Quellennachweis halten die genaue Aussagegrenze fest.

@@ -1239,3 +1239,39 @@ Rückentwicklung erhalten. Falsche Revisions-/Verbrauchsannahmen der alten
 Harnesses wurden eng korrigiert, volle Zustands-/Bilanzvergleiche bleiben.
 Alle ursprünglichen FAIL-Belege bleiben sichtbar. Eigenständiger Taskcommit,
 danach unmittelbare Fortsetzung OE-22 ohne manuellen Testhalt.
+
+
+### OE-22: Religionsvertrag vor Implementierung
+
+Nach OE-21 gilt der [Religionsvertrag](../original-economy/religion-runtime.md):
+bezahlte215/2172×2 und2193×3, eigene Walker, getrennte40er-Timer und das
+unveränderte Daoist/Buddhist-OR-Prädikat. Aktive52/32- und12/12/120-Grenzen
+ersetzen keine historischen Limits. Sechs feste Housing-Witnessslots binden
+aktuelle und historische Dienste; echte219-Grundfläche gilt auch bei
+Mindestfahrzeiten. elite_only=false und gezielter Dispatch bleiben ausdrücklich
+authored, solange die originalen Sessionproduzenten nicht vollständig belegt
+sind. Keine Grants oder Wartefrage vor einem manuellen Test.
+
+Quellenbefund noch vor Runtime-Anschluss: Confucian219 benötigt im Original
+zusätzlich tatsächlich gelieferten positiven Materialbestand WORD+0x40.
+Die bereits beschlossene bezahlte Walkerintegration bleibt vorläufig explizit
+staffing-only authored und erhält keinen Materialgrant. Die Materialzulieferung
+ist eine offene Folgeanforderung der Produktions-/Objektintegration, keine
+behauptete Originalfunktion. Details im Religionsvertrag.
+
+Die anschließende Initialisierungsprüfung belegt zusätzlich das Confucian-
+Elite-Gate im normalen ursprünglichen Managerzustand als true (andere drei
+Religionenfalse). Das jetzige false bleibt ausdrücklich authored und ist beim
+späteren Elite-/Objektanschluss zusammen mit dem Materialgate aufzulösen.
+Vollständige Session-Lifecycle-Permanenz wird daraus nicht abgeleitet.
+
+
+### OE-22: technische Abnahme und Fortsetzung
+
+Die begrenzte bezahlte215/217/219-Integration besteht3×50 aktuelle CTests,
+3×74 unveränderte numerische Beobachtungen,30 separate20k-Replays und strikte
+Save-/Raw-/Legacyprüfungen. Ein alter46/26-Kapazitätstest wurde nach seinem
+echten dreifachen FAIL auf zusätzliche reale Käufe bis52/32 erweitert; die
+atomare Negativprüfung bleibt strikt. Source-/UI-/Originalgrenzen bleiben
+explizit: Confucian-Material/Elite folgt später, Originalsprites29 und Human
+werden nicht vorweggenommen. Nach eigenem Commit startet OE-23 unmittelbar.

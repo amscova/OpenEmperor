@@ -58,6 +58,15 @@ struct FunctionalModelCandidate {
     case Object::OriginalMilletField:
         return {ModelBuilding::MilletField, EvidenceStatus::AuthoredFallback,
                 EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalDaoistShrine215:
+        return {ModelBuilding::DaoistShrine, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalBuddhistShrine217:
+        return {ModelBuilding::BuddhistShrine, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalConfucianAcademy219:
+        return {ModelBuilding::ConfucianAcademy, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
     case Object::OriginalWaterWell72:
         return {ModelBuilding::Well, EvidenceStatus::AuthoredFallback,
                 EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};

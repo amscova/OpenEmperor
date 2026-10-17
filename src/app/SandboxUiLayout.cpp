@@ -60,9 +60,9 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
     if (original_production) tools[7]=Action::OriginalAncestorShrine;
     if (fire_watch) tools.push_back(original_production ? Action::OriginalWaterWell:Action::FireWatch);
     if (desirability) tools.push_back(Action::Desirability);
-    if (water) { tools.push_back(Action::Well); tools.push_back(Action::Water); }
-    if (health) { tools.push_back(Action::HealthPost); tools.push_back(Action::Health); }
-    if (service) tools.push_back(Action::ServiceOverlay);
+    if (water) { tools.push_back(Action::Well); tools.push_back(original_production ? Action::OriginalDaoistShrine:Action::Water); }
+    if (health) { tools.push_back(Action::HealthPost); tools.push_back(original_production ? Action::OriginalBuddhistShrine:Action::Health); }
+    if (service) tools.push_back(original_production ? Action::OriginalConfucianAcademy:Action::ServiceOverlay);
     if (bridges) tools.push_back(Action::Bridge);
     if (ramps) tools.push_back(Action::Ramp);
     if (original_production) {

@@ -90,7 +90,7 @@ void paid_arrival_expiry_revisit_and_replay() {
     const auto home=*world.building_owner_at({0,2});
     const auto shrine=buy(world,sim::CommandType::PlaceOriginalAncestorShrine,{21,5});
     const auto id=actor(world,shrine);
-    check(world.original_production_state()->development_revision==21,"Ancestor fixture requires active revision21");
+    check(world.original_production_state()->development_revision==sim::kOriginalProductionDevelopmentRevision,"Ancestor fixture requires current development revision");
     check(world.total_population()==0&&
           world.construction_spent_total()==568&&world.treasury()==11432,
           "Ancestor purchase did not pay24Roads/sixHouses/model40 without population grants");
@@ -233,19 +233,34 @@ void full_paid_collection_preserves_road_and_refuses_new_shrine_atomically() {
     }
     check(world.buildings().size()==46&&world.couriers().size()==26&&world.total_population()==0&&
           world.treasury()<12000&&world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
-          "Paid full collection did not reach exactly46 bodies/26 actors with conserved funds");
+          "Paid base collection did not reach exactly46 bodies/26 actors with conserved funds");
+    const sim::Command shrine{sim::CommandType::PlaceOriginalAncestorShrine,{48,28}};
+    const auto base=world.snapshot();
+    check(world.validate(shrine).accepted&&world.snapshot()==base,
+          "Paid46/26 collection incorrectly exhausted the expanded active capacity");
+    const auto source_spending=world.construction_spent_total();
+    for (int i=0;i<2;++i) {
+        (void)buy(world,sim::CommandType::PlaceOriginalDaoistShrine,{2+4*i,32});
+        (void)buy(world,sim::CommandType::PlaceOriginalBuddhistShrine,{10+4*i,32});
+        (void)buy(world,sim::CommandType::PlaceOriginalConfucianAcademy,{20+5*i,32});
+    }
+    check(world.buildings().size()==52&&world.couriers().size()==32&&world.total_population()==0&&
+          world.construction_spent_total()-source_spending==340&&
+          world.construction_spent_total()==static_cast<std::uint64_t>(12000-world.treasury()),
+          "Six paid religion sources did not fill exactly52 bodies/32 actors for340 conserved Funds");
     auto restored=sim::World::restore_original_production_development(world.snapshot(),policy,fixture.model);
     check(restored.snapshot()==world.snapshot(),"Legal full paid collection did not restore exactly");
     const auto funds=world.treasury();
     f::buy(world,{sim::CommandType::PlaceRoad,{0,0}});
     f::buy(world,{sim::CommandType::RemoveRoad,{0,0}});
     f::buy(world,{sim::CommandType::PlaceRoad,{0,0}});
-    check(world.treasury()==funds-4&&world.buildings().size()==46&&world.couriers().size()==26&&
+    check(world.treasury()==funds-4&&world.buildings().size()==52&&world.couriers().size()==32&&
           world.object_at({0,0})==sim::Object::Road,"Full body/actor capacity blocked ordinary paid road placement or repair");
     const auto before=world.snapshot();const auto cache_count=world.original_influence_cache_build_count();
-    const sim::Command shrine{sim::CommandType::PlaceOriginalAncestorShrine,{48,28}};
-    const auto validation=world.validate(shrine);
-    check(!validation.accepted&&!world.execute(shrine).accepted&&world.snapshot()==before&&
+    const auto validation=world.validate(shrine);const auto refused=world.execute(shrine);
+    check(!validation.accepted&&!refused.accepted&&
+          validation.reason=="Original production building capacity reached"&&refused.reason==validation.reason&&
+          world.snapshot()==before&&
           world.original_influence_cache_build_count()==cache_count,
           "Shrine beyond global capacity changed IDs, funds, providers, actors or any other authority");
     check(world.population_valid()&&world.production_balance_valid()&&world.city_economy_valid()&&world.navigation_valid(),

@@ -27,8 +27,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-18 | PASS | `144eec6` | `.local/original-economy/oe18/implementation/`, `oe18/production-fixtures/final-53/`, OE-00/`oe18-final-verification/` | Revision18: bezahlte FoodFarm193/Felder195,196; tatsächliche Qualität20/35/80,159 volle Konfigurations-CTests plus3 nach reinem Formatfix, acht20k-Prozessreplays; Legacy exakt. Gate C TODO |
 | OE-19 | PASS | `ba116b4c97defdf134434c1b0398292fb3727d0e` | `.local/original-economy/oe19/gate-c/final-3/`, `oe19/implementation/`, OE-00/`oe19-final-verification/` | Revision19: bezahlte207/208-Ankünfte und getrennte96er-Timer; drei volle202er-Suiten, zwölf20k-Prozessfortsetzungen, strikter Restore, Legacy exakt. Gate C PASS; Originalgrafik/native/human offen |
 | OE-20 | PASS | 825fd2c65d90c9139e283f2bf3e191bb5feb4e39 | `.local/original-economy/oe20/implementation/runs/final3/`, `oe20/production-fixtures/final/`, OE-00/`oe20-final-verification/` | Revision20: bezahlter Ancestor214, echter40er-Besuch/Verfall/Wiederbesuch,369 relevante Konfigurations-CTests,18 separate20k-Fortsetzungen und Legacy exakt. Gate D bleibt TODO; Originalgrafik/native/human offen |
-| OE-21 | PASS | — | `.local/original-economy/oe21/implementation/runs/final4/`, `oe21/production-fixtures/final4/` | Revision21: bezahltes Wasser, echter Hut→Plain-Aufstieg, zehnte negative Auswertung/Rückentwicklung,141 Konfigurations-CTests und24 separate20k-Prozesse; Gate D bleibt TODO |
-| OE-22 | TODO | — | — | — |
+| OE-21 | PASS | d0dae2830a7025c12b32ce783fa6de416e131b44 | `.local/original-economy/oe21/implementation/runs/final4/`, `oe21/production-fixtures/final4/` | Revision21: bezahltes Wasser, echter Hut→Plain-Aufstieg, zehnte negative Auswertung/Rückentwicklung,141 Konfigurations-CTests und24 separate20k-Prozesse; Gate D bleibt TODO |
+| OE-22 | PASS | — | `.local/original-economy/oe22/validation2/`, `oe22/production-fixtures/final2/` | Revision22: bezahlte215/217/219, getrennte40er-Timer/OR, echte3×3-Ankunft;150 Konfigurations-CTests und30 separate20k-Fortsetzungen. Confucian-Elite/Material ausdrücklich authored/offen; Gate D TODO |
 | OE-23 | TODO | — | — | — |
 | OE-24 | TODO | — | — | — |
 | OE-25 | TODO | — | — | — |
@@ -2636,3 +2636,93 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
 - Kein Wartepunkt für manuelle Tests. Nach eigenem OE-21-Commit folgt OE-22;
   Originalobjektgrafiken/Actors folgen weiterhin den Aufgaben26/29, voller
   Cleanbuild-/Corpus-Gate D erst nach27.
+
+
+### OE-22 – 2026-10-17, Basis d0dae283
+
+- Vor Beginn sauberer Feature-Branch/HEAD und tatsächliche Remote-Refs geprüft:
+  main41091b66e960b4c82c378d5ae3b83088325f5a61,
+  origin-feature887dda562622d59487a92b8966b62b218cb59ce3. OE-21-SHA oben
+  nachgetragen. Vor Runtime-Anschluss festgelegter
+  [Religionsvertrag](../original-economy/religion-runtime.md).
+- Read-only-Quellenprüfung: Originalmodell/EXE und sieben gebundene Quellen
+  unverändert.129 enge Assertions/29 Disassemblyfenster/1326Instruktionen/
+  3979Byte tatsächlich PASS. Bericht `oe22/research/religion-source-facts.json`,
+  SHA c87f2f43dcd34931ff70447b5fb170eeda12448cbdde5235b3fa63b0fe074fba.
+  [Neue Reverse-Dokumentation](../reverse/original-religion-source-contract.md)
+  belegt215/21745/4/2×2 und21980/12/3×3, getrennte40er-Timer sowie zusätzlich
+  originales initiales Confucian-Elite-Gate und echten Wood/Paper-Input.
+  Der frühe Adapter bleibt an beiden219-Grenzen ausdrücklich authored; keine
+  Gratisressource und keine volle Original-Lifecycle-Paritätsbehauptung.
+- Aktive Revision22,52Körper/32Courier,12Provider/12Trips/120Witnesses.
+  Historische46/26 unverändert. Sechs feste Housing-Witnessslots0/1/5/6/7/8;
+  echte3×3-Grundfläche auch für historische Mindestfahrzeit und Begun-edge-
+  Plausibilität. Neue U/K/V-Werkzeuge ersetzen inaktive Overlays; Q/Y bleiben
+  Wasser/Ancestor. Spielstart `sh tools/play_original_economy.sh` nutzt eigenes
+  `rule10-revision22.json`. Keine alten Save- oder Regelversionen umgedeutet.
+- Frühe Debug-World-/Model- und Housing-/SDL-Prüfungen bestanden. Ein neuer
+  Testfall hatte sein Food-Feld innerhalb der3×3-Farm platziert; exakt auf
+  angrenzendes x+3 korrigiert, anschließender SaveTest PASS. Erste Hilfe-
+  Arraygröße15 statt16 und ein Build vor CMake-Regeneration korrigiert;
+  ursprüngliche Logs bleiben `oe22/early-*.log` erhalten.
+- Früher echter C++-Create-PID7253 PASS; separater Pythonreader fand seine
+  falsche Annahme43Worker nach bewusstem Pausieren. Korrigiert auf echte
+  midroute43/visited23 und separate tatsächliche Water/Food20/Ancestor-
+  Voraussetzungen bei Kategorie-Negativen. Frischer PID7482/27.268s und
+  separater Reader beide PASS: sechs Checkpoints/18 Saves/18 Projektionen.
+  `oe22/world/early-religion{1,2}-*.json`; ursprünglicher FAIL bleibt erhalten.
+- Erste vollständige Auswahl: Debug/Release/Sanitizer jeweils49/50 PASS,
+  jeweils nur `original-ancestor-world` FAIL. Der alte Test erwartete bei46/26
+  einen Baustopp, obwohl Revision22 ausdrücklich52/32 erlaubt. Er behält nun
+  46/26 als positiven bezahlten Zwischenstand, kauft sechs reale neue Quellen
+  für340 nach und verlangt bei53.Körper exakte Kapazitätsbegründung plus
+  unveränderten vollständigen Snapshot/Cache. Keine Runtimeänderung dafür.
+  Alle drei originalen FAIL-JUnits stehen `oe22/implementation/runs/final/`.
+- Finaler Sourcefreeze531Dateien:93a3b5d965a8aa8ece6810a12a8f4f9e469f62852f9553b60334728b36092e1a;
+  `oe22/validation2/source-freeze.json`, SHA
+  c24f7dc754b9b8342fe3c08ffe19336c85eed0aee865947690bf4b072dd811c2.
+  Gegen vorigen Stand ist ausschließlich der genannte Kapazitätstest anders.
+  **Drei warnungsfreie inkrementelle Werror-Builds und3×50 tatsächliche CTests
+  PASS**,0Fail/Skip. Keine Cleanbuild- oder vorgezogene Gate-D-Behauptung.
+  Tatsächliche Befehle/JUnits/Zeiten/Inventare unter
+  `oe22/validation2/runs/final2/{debug,release,sanitizer}/{build,test}/`.
+  Unabhängiger JUnit-/124Livebinary-/39Archive-Abgleich PASS.
+- Frische3×74 Paritätsfälle,24 Archivebindungen,25 strenge Sanitizer-Prozesse
+  mit leeren Fehlerstreams und28 Python-Postexporttests PASS. Alle alten
+  numerischen Beobachtungen/Klassifikationen exakt. Elf von16 Originaldateien
+  bytegleich; fünf exakt additive aktive Model-/Namens-/Mappingerweiterungen,
+  sechs geprüfte ABI-Pins. Portable `core-parity.json` SHA
+  bcb3ca58e90e88b0581d16a74292fbfdcb76f53a344bce9420db28d2a702c98f.
+- Tatsächlicher finaler Prozessworkflow: **44 unterschiedliche C++-PIDs**,
+  sieben aktive Creates,30 aktive separate20k-Fortsetzungen, drei historische
+  Creates/vier historische Resumes. Keine25/34/44-Verwechslung als aktive
+  Replayzahl. Source/Originalinventar/Workspace/Binaries vor/nach unverändert.
+  Acht Häuser/24Roads/sieben Quellen bezahlen1003; drei neue Quellen allein170
+  und20Worker. Alle Quellen gemeinsam43Worker; nach drei Pausen tatsächlich23.
+  Sichere Roadreparatur kostet weitere2. Dao-only/Budd-only/neither/noConf
+  verwenden exakt nur zwei geänderte Plain-Bedarfsfelder in Modellkopien;
+  die Wege und Ankünfte bleiben real. Authorisierte Wasserbarriere bleibt
+  tatsächlicher unveränderlicher MapPermissions-Blocker, kein Originalmap-PASS.
+- Unabhängiger Rawreader PASS:1.894.137Checks,60 vollständige Save-/Reportpaare
+  byte-/JSONgleich,155Schema26-Dokumente/150 Rohprojektionen; alte7/8/9 mit17
+  Save- und16Report-Literalpaaren exakt.410Dateien/28.087.645Byte gebunden.
+  Privat kopierter Run-ID-Reader hatte irrtümlich auch einen Rohdatenkey und
+  historischen Referenzpfad umbenannt; genau diese Literale zurückgesetzt,
+  ursprünglicher Reader-FAIL und Code archiviert. Kein Produktionsartefakt
+  und kein Source verändert. Bericht `oe22/validation2/final2-runner-review.json`.
+- Sechs tatsächliche C++-/Python-CLI-Refusals für äußeren Pfad, Symlink und
+  alten21er-Ausgabebereich PASS, keinerlei Original-/Zieländerung.
+  Finale Software-SDL-Aufnahme tatsächlich geöffnet:2992Ticks, synthetisches
+  Modell, Typ5,37 regulär zugelassene Bewohner, sechs getrennte Timer,
+  Water1/raw94, Food3/8/Quality65 und Foodmisses5 gemeinsam sichtbar.
+  Echte Tastatur-/Mauskäufe, Mid-Walker-F5/F9 und100Idleframes ohne
+  World-/Datei-/BFS-/Assetarbeit bestehen. Unveränderte UI-Code-/Binarybytes
+  binden diese Aufnahme auch an final2; nur Kapazitätstest änderte sich.
+  `oe22/implementation/view-final/` und
+  `oe22/validation2/presentation-capture-binding.json`.
+- Root-Abschlussprüfung `oe22/validation2/final-validation.json` PASS,
+  SHA2904bfad9ff033574be2d3ce921dfefd2a52a65c7af0391be57f57ead54e210d.
+  Gate D bleibt bis27 offen, Originalsprites bis29 und Native/Human getrennt.
+  Voller167er-Corpus wurde hier nicht erneut als neu ausgeführt ausgegeben;
+  aktueller begrenzter Legacybeleg ist obige Auswahl plus Literalprozesspaare.
+  Eigenständiger22er-Commit, danach unmittelbar23 ohne manuellen Testhalt.

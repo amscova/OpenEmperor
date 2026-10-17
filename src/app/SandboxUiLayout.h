@@ -19,7 +19,8 @@ enum class Action {
     Market, Pause, Step, Speed1, Speed2, Speed4, Reset, Save, Load, TogglePanel, ToggleHelp,
     FireWatch, Desirability, Well, Water, HealthPost, Health, ToggleIncome, ServiceOverlay, Bridge, Ramp,
     OriginalHempFarm, OriginalHempField, OriginalFoodFarm, OriginalWheatField, OriginalMilletField,
-    OriginalAncestorShrine, OriginalWaterWell
+    OriginalAncestorShrine, OriginalWaterWell,
+    OriginalDaoistShrine, OriginalBuddhistShrine, OriginalConfucianAcademy
 };
 
 struct Button { Action action; Rect rect; bool enabled=true; };

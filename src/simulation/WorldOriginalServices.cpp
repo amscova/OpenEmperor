@@ -10,17 +10,22 @@ namespace openemperor::simulation {
 namespace {
 [[noreturn]] void invalid(const char* reason) {throw std::invalid_argument(reason);}
 bool service_role(CourierRole role) {
-    return role==CourierRole::Service || role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor;
+    return role==CourierRole::Service || role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor ||
+        role==CourierRole::OriginalDaoist || role==CourierRole::OriginalBuddhist || role==CourierRole::OriginalConfucian;
 }
 bool supported_role(original::ServiceRole role) {
     return role==original::ServiceRole::Herbalist || role==original::ServiceRole::Acupuncture ||
-        role==original::ServiceRole::Ancestor;
+        role==original::ServiceRole::Ancestor || role==original::ServiceRole::Confucian ||
+        role==original::ServiceRole::Daoist || role==original::ServiceRole::Buddhist;
 }
 original::ServiceRole role_for(OriginalServiceProviderType type) {
     switch (type) {
     case OriginalServiceProviderType::Herbalist207:return original::ServiceRole::Herbalist;
     case OriginalServiceProviderType::Acupuncture208:return original::ServiceRole::Acupuncture;
     case OriginalServiceProviderType::Ancestor214:return original::ServiceRole::Ancestor;
+    case OriginalServiceProviderType::Daoist215:return original::ServiceRole::Daoist;
+    case OriginalServiceProviderType::Buddhist217:return original::ServiceRole::Buddhist;
+    case OriginalServiceProviderType::Confucian219:return original::ServiceRole::Confucian;
     }
     invalid("unsupported original service Provider identity");
 }
@@ -29,6 +34,9 @@ Object kind_for(OriginalServiceProviderType type) {
     case OriginalServiceProviderType::Herbalist207:return Object::HealthPost;
     case OriginalServiceProviderType::Acupuncture208:return Object::ServicePost;
     case OriginalServiceProviderType::Ancestor214:return Object::OriginalAncestorShrine214;
+    case OriginalServiceProviderType::Daoist215:return Object::OriginalDaoistShrine215;
+    case OriginalServiceProviderType::Buddhist217:return Object::OriginalBuddhistShrine217;
+    case OriginalServiceProviderType::Confucian219:return Object::OriginalConfucianAcademy219;
     }
     invalid("unsupported original service Provider body");
 }
@@ -37,16 +45,21 @@ CourierRole courier_role_for(OriginalServiceProviderType type) {
     case OriginalServiceProviderType::Herbalist207:return CourierRole::HealthWorker;
     case OriginalServiceProviderType::Acupuncture208:return CourierRole::Service;
     case OriginalServiceProviderType::Ancestor214:return CourierRole::OriginalAncestor;
+    case OriginalServiceProviderType::Daoist215:return CourierRole::OriginalDaoist;
+    case OriginalServiceProviderType::Buddhist217:return CourierRole::OriginalBuddhist;
+    case OriginalServiceProviderType::Confucian219:return CourierRole::OriginalConfucian;
     }
     invalid("unsupported original service Provider actor");
 }
 original::ServiceVisit visit_for(OriginalServiceProviderType type) {
-    if (type==OriginalServiceProviderType::Ancestor214)
-        // Fixed authored session capability, not an inference about the
-        // unknown original producers of Source+0x174.
-        return {original::VisitPath::DirectReligion,original::VisitAction::Ancestor,false};
-    return {original::VisitPath::DirectService,role_for(type)==original::ServiceRole::Herbalist ?
-        original::VisitAction::Herbalist:original::VisitAction::Acupuncture,false};
+    const auto role=role_for(type);
+    // Fixed authored session capability: the original global constructor
+    // initializes Confucian's Source+0x174 elite-only gate totrue, whereas this
+    // adapter deliberately permits occupied common Houses. Confucian219 is
+    // staffing-only: its original WORD+0x40 incoming-resource/consumption gate
+    // is not reconstructed and no resource stock or original parity is claimed.
+    return {role>=original::ServiceRole::Ancestor ? original::VisitPath::DirectReligion:
+        original::VisitPath::DirectService,static_cast<original::VisitAction>(role),false};
 }
 template<class Rows> decltype(auto) building_row(Rows& rows,BuildingId id) {
     const auto found=std::lower_bound(rows.begin(),rows.end(),id,[](const auto& row,BuildingId key){return row.id<key;});
@@ -73,16 +86,18 @@ const OriginalServiceWitness* witness_for(const OriginalServicesState& state,Bui
 std::uint64_t countdowns(std::uint64_t through) {return through<36 ? 0:1+(through-36)/51;}
 original::ServiceHouseContext context(const OriginalHouseState& house) {return {house.original_status,house.access_enabled};}
 template<class Building> std::uint64_t minimum_travel_ticks(const Building& source,const Building& target) {
-    // All currently supported provider bodies and Houses are2x2. The shared navigator
+    // Use both real paid footprints, including Confucian219's3x3 body. The shared navigator
     // requires a source-body edge, at least one road cell and a target-body
     // edge. Manhattan distance is only a necessary lower bound; saved routes
     // may have waited or replanned and are not a retained travel chronicle.
-    const auto gap=[](int a,int b) {
-        const auto delta=static_cast<std::int64_t>(a)-static_cast<std::int64_t>(b);
-        return std::max<std::int64_t>(0,(delta<0 ? -delta:delta)-1);
+    const auto from=building_footprint(RulesProfile::CityV16,kOriginalProductionRuleVersion,source.kind);
+    const auto to=building_footprint(RulesProfile::CityV16,kOriginalProductionRuleVersion,target.kind);
+    const auto gap=[](int a,int a_size,int b,int b_size) {
+        const auto first=static_cast<std::int64_t>(a),second=static_cast<std::int64_t>(b);
+        return std::max({std::int64_t{0},first-(second+b_size-1),second-(first+a_size-1)});
     };
     const auto edges=static_cast<std::uint64_t>(std::max<std::int64_t>(2,
-        gap(source.cell.x,target.cell.x)+gap(source.cell.y,target.cell.y)));
+        gap(source.cell.x,from.width,target.cell.x,to.width)+gap(source.cell.y,from.height,target.cell.y,to.height)));
     return edges*static_cast<std::uint64_t>(
         profile_rules(RulesProfile::CityV16,kOriginalProductionRuleVersion).courier_edge_ticks);
 }
@@ -91,11 +106,12 @@ template<class Building,class Courier> std::uint64_t minimum_movement_ticks(cons
     if (actor.path_vertex>=actor.path.size() || actor.edge_progress<0 || actor.edge_progress>=edge_ticks)
         invalid("original service movement has no valid current physical vertex/progress");
     const auto current=actor.path[actor.path_vertex];
-    const auto gap=[](int origin,int coordinate) {
+    const auto footprint=building_footprint(RulesProfile::CityV16,kOriginalProductionRuleVersion,start.kind);
+    const auto gap=[](int origin,int size,int coordinate) {
         const auto delta=static_cast<std::int64_t>(coordinate)-static_cast<std::int64_t>(origin);
-        return delta<0 ? -delta:std::max<std::int64_t>(0,delta-1);
+        return delta<0 ? -delta:std::max<std::int64_t>(0,delta-size+1);
     };
-    const auto edges=static_cast<std::uint64_t>(gap(start.cell.x,current.x)+gap(start.cell.y,current.y));
+    const auto edges=static_cast<std::uint64_t>(gap(start.cell.x,footprint.width,current.x)+gap(start.cell.y,footprint.height,current.y));
     // A replan may shorten the saved path prefix, never the physical distance
     // already covered or progress on the current begun edge. No historical
     // route is reconstructed from current road topology/path_vertex.
@@ -108,10 +124,11 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
     if (state.providers.size()>original_service_provider_limit || state.trips.size()>original_service_trip_limit ||
         state.witnesses.size()>original_service_witness_limit || decayed_through>tick)
         invalid("original service bounded authority exceeded");
-    std::array<std::size_t,3> counts{};
+    std::array<std::size_t,6> counts{};
     std::size_t source_count=0,actor_count=0;
     for (const auto& b:buildings) source_count+=b.kind==Object::HealthPost || b.kind==Object::ServicePost ||
-        b.kind==Object::OriginalAncestorShrine214;
+        b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalDaoistShrine215 ||
+        b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219;
     for (const auto& c:couriers) actor_count+=service_role(c.role);
     if (source_count!=state.providers.size() || actor_count!=source_count) invalid("paid original service Provider/Courier authority is incomplete");
     for (std::size_t i=0;i<state.providers.size();++i) {
@@ -200,7 +217,8 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
             invalid("original service Witness discarded a newer retained successful visit");
     }
     for (const auto& h:houses) {
-        for (const auto role:{original::ServiceRole::Herbalist,original::ServiceRole::Acupuncture,original::ServiceRole::Ancestor}) {
+        for (const auto role:{original::ServiceRole::Herbalist,original::ServiceRole::Acupuncture,original::ServiceRole::Ancestor,
+            original::ServiceRole::Confucian,original::ServiceRole::Daoist,original::ServiceRole::Buddhist}) {
             const auto* witness=witness_for(state,h.building_id,role);std::uint8_t expected=0;
             if (witness) {
                 const auto before=countdowns(witness->arrival_tick-1),after=countdowns(decayed_through);
@@ -210,8 +228,7 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
             }
             if (original::service_timer(h.house,role)!=expected) invalid("sole original House timer disagrees with actual arrival and phase35 countdowns");
         }
-        for (const auto role:{original::ServiceRole::Music,original::ServiceRole::Acrobat,original::ServiceRole::Drama,
-            original::ServiceRole::Confucian,original::ServiceRole::Daoist,original::ServiceRole::Buddhist})
+        for (const auto role:{original::ServiceRole::Music,original::ServiceRole::Acrobat,original::ServiceRole::Drama})
             if (original::service_timer(h.house,role)) invalid("unsupported original service category acquired a timer");
     }
 }
@@ -220,7 +237,8 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
 void World::validate_original_services_model() const {
     if (!original_rules_model_) invalid("original service Providers require a bound prepared model");
     for (const auto kind:{original::ModelBuilding::HerbalistsStall,original::ModelBuilding::AcupuncturistsClinic,
-        original::ModelBuilding::AncestralShrine}) {
+        original::ModelBuilding::AncestralShrine,original::ModelBuilding::DaoistShrine,
+        original::ModelBuilding::BuddhistShrine,original::ModelBuilding::ConfucianAcademy}) {
         if (!original_rules_model_->supports_building(kind) || original_rules_model_->building_value(kind,original::BuildingField::Cost)<=0)
             invalid("original service Provider requires positive prepared model price/capability");
         const auto employees=original_rules_model_->building_value(kind,original::BuildingField::Employees);

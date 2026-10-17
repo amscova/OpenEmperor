@@ -948,6 +948,23 @@ if(BUILD_TESTING)
     add_test(NAME original-ancestor-save COMMAND openemperor-original-ancestor-save-tests)
     set_tests_properties(original-ancestor-save PROPERTIES TIMEOUT 180)
 
+    add_executable(openemperor-original-religion-world-tests tests/OriginalReligionWorldTests.cpp)
+    target_link_libraries(openemperor-original-religion-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-religion-world-tests)
+    add_test(NAME original-religion-world COMMAND openemperor-original-religion-world-tests)
+    if(OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT)
+        add_test(NAME original-religion-world-real COMMAND openemperor-original-religion-world-tests
+            --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+        set_tests_properties(original-religion-world-real PROPERTIES TIMEOUT 300)
+    endif()
+    set_tests_properties(original-religion-world PROPERTIES TIMEOUT 300)
+
+    add_executable(openemperor-original-religion-save-tests tests/OriginalReligionSaveTests.cpp)
+    target_link_libraries(openemperor-original-religion-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-religion-save-tests)
+    add_test(NAME original-religion-save COMMAND openemperor-original-religion-save-tests)
+    set_tests_properties(original-religion-save PROPERTIES TIMEOUT 180)
+
     add_executable(openemperor-original-water-world-tests tests/OriginalWaterWorldTests.cpp)
     target_link_libraries(openemperor-original-water-world-tests PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-original-water-world-tests)

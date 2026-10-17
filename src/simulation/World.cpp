@@ -46,12 +46,16 @@ bool food_role(CourierRole role) {
 }
 bool service_role(CourierRole role) {
     return role==CourierRole::Service || role==CourierRole::FireInspector ||
-        role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor || role==CourierRole::OriginalWater;
+        role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor || role==CourierRole::OriginalWater ||
+        role==CourierRole::OriginalDaoist || role==CourierRole::OriginalBuddhist || role==CourierRole::OriginalConfucian;
 }
 Object courier_target_kind(CourierRole role) {
     switch (role) {
     case CourierRole::OriginalFoodToMarket: return Object::Market;
     case CourierRole::OriginalFoodToHouse: return Object::Household;
+    case CourierRole::OriginalDaoist:
+    case CourierRole::OriginalBuddhist:
+    case CourierRole::OriginalConfucian:
     case CourierRole::OriginalAncestor:
     case CourierRole::OriginalWater: return Object::Household;
     case CourierRole::OriginalHempToWarehouse: return Object::Warehouse;
@@ -80,6 +84,9 @@ std::size_t building_limit(RulesProfile profile,Object kind) {
     case Object::OriginalFoodFarm:
     case Object::OriginalWheatField:
     case Object::OriginalMilletField: return 2;
+    case Object::OriginalDaoistShrine215:
+    case Object::OriginalBuddhistShrine217:
+    case Object::OriginalConfucianAcademy219:
     case Object::OriginalAncestorShrine214:
     case Object::OriginalWaterWell72: return 2;
     case Object::OriginalHempFarm:
@@ -151,6 +158,10 @@ std::optional<Object> placed_object(CommandType type) {
     case CommandType::PlaceOriginalMilletField: return Object::OriginalMilletField;
     case CommandType::PlaceOriginalAncestorShrine: return Object::OriginalAncestorShrine214;
     case CommandType::PlaceOriginalWaterWell: return Object::OriginalWaterWell72;
+    case CommandType::PlaceOriginalDaoistShrine: return Object::OriginalDaoistShrine215;
+    case CommandType::PlaceOriginalBuddhistShrine: return Object::OriginalBuddhistShrine217;
+    case CommandType::PlaceOriginalConfucianAcademy: return Object::OriginalConfucianAcademy219;
+
     default: return std::nullopt;
     }
 }
@@ -160,6 +171,10 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 }
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
+    if (original_production_enabled(profile,rule_version)) {
+        if (kind==Object::OriginalConfucianAcademy219) return {3,3};
+        if (kind==Object::OriginalDaoistShrine215 || kind==Object::OriginalBuddhistShrine217) return {2,2};
+    }
     if (kind==Object::OriginalWaterWell72 && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::OriginalAncestorShrine214 && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::ServicePost && original_production_enabled(profile,rule_version)) return {2,2};
@@ -599,6 +614,15 @@ CourierState& World::mutable_courier(CourierId id) {
 std::int64_t World::construction_cost(CommandType type) const {
     if (!city_profile(profile_)) return 0;
     switch (type) {
+    case CommandType::PlaceOriginalDaoistShrine:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::DaoistShrine,original::BuildingField::Cost):0;
+    case CommandType::PlaceOriginalBuddhistShrine:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::BuddhistShrine,original::BuildingField::Cost):0;
+    case CommandType::PlaceOriginalConfucianAcademy:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::ConfucianAcademy,original::BuildingField::Cost):0;
     case CommandType::PlaceOriginalWaterWell:
         return original_production_enabled() ? original_rules_model_->building_value(
             original::ModelBuilding::Well,original::BuildingField::Cost):0;
@@ -657,6 +681,12 @@ int World::workforce_required(BuildingId id) const {
     const auto& value=building(id);
     if (!value.placed) return 0;
     switch (value.kind) {
+    case Object::OriginalDaoistShrine215: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::DaoistShrine,original::BuildingField::Employees):0;
+    case Object::OriginalBuddhistShrine217: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::BuddhistShrine,original::BuildingField::Employees):0;
+    case Object::OriginalConfucianAcademy219: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::ConfucianAcademy,original::BuildingField::Employees):0;
     case Object::OriginalWaterWell72: return original_production_enabled() ? original_rules_model_->building_value(
         original::ModelBuilding::Well,original::BuildingField::Employees):0;
     case Object::OriginalAncestorShrine214: return original_production_enabled() ? original_rules_model_->building_value(
@@ -681,7 +711,8 @@ int World::workforce_required(BuildingId id) const {
 }
 
 bool World::operation_controllable(Object kind) {
-    return kind==Object::OriginalWaterWell72 || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
+    return kind==Object::OriginalDaoistShrine215 || kind==Object::OriginalBuddhistShrine217 ||
+        kind==Object::OriginalConfucianAcademy219 || kind==Object::OriginalWaterWell72 || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Farm || kind==Object::ServicePost || kind==Object::Market || kind==Object::FireWatch || kind==Object::HealthPost;
 }
 
@@ -1139,6 +1170,9 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if ((command.type==CommandType::PlaceOriginalDaoistShrine || command.type==CommandType::PlaceOriginalBuddhistShrine ||
+         command.type==CommandType::PlaceOriginalConfucianAcademy) && !original_production_enabled())
+        return {false,false,"Religious providers require explicit original production rules",command_sequence_,ticks_};
     if (command.type==CommandType::PlaceOriginalWaterWell && !original_production_enabled())
         return {false,false,"Water Well requires explicit original production rules",command_sequence_,ticks_};
     if (command.type==CommandType::PlaceOriginalAncestorShrine && !original_production_enabled())
@@ -1164,6 +1198,8 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceOriginalFoodFarm && command.type!=CommandType::PlaceOriginalWheatField &&
         command.type!=CommandType::PlaceOriginalMilletField &&
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceServicePost &&
+        command.type!=CommandType::PlaceOriginalDaoistShrine && command.type!=CommandType::PlaceOriginalBuddhistShrine &&
+        command.type!=CommandType::PlaceOriginalConfucianAcademy &&
         command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell &&
         command.type!=CommandType::SetBuildingOperation &&
         command.type!=CommandType::SetBuildingWorkforcePriority)
@@ -1231,6 +1267,8 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceOriginalHempFarm &&
         command.type!=CommandType::PlaceOriginalHempField && command.type!=CommandType::PlaceOriginalFoodFarm &&
         command.type!=CommandType::PlaceOriginalWheatField && command.type!=CommandType::PlaceOriginalMilletField &&
+        command.type!=CommandType::PlaceOriginalDaoistShrine && command.type!=CommandType::PlaceOriginalBuddhistShrine &&
+        command.type!=CommandType::PlaceOriginalConfucianAcademy &&
         command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell) {
         result.reason="Unknown placement command"; return result;
     }
@@ -1378,6 +1416,13 @@ CommandResult World::validate(Command command) const {
         })>=static_cast<std::ptrdiff_t>(Rules::health_post_limit)) {
         result.reason="Health Post limit reached"; return result;
     }
+    if (command.type==CommandType::PlaceOriginalDaoistShrine || command.type==CommandType::PlaceOriginalBuddhistShrine ||
+        command.type==CommandType::PlaceOriginalConfucianAcademy) {
+        const auto kind=*placed_object(command.type);
+        if (std::count_if(buildings_.begin(),buildings_.end(),[&](const BuildingState& b){return b.kind==kind;})>=2) {
+            result.reason="Religious provider type limit reached";return result;
+        }
+    }
     if (command.type==CommandType::PlaceOriginalWaterWell &&
         std::count_if(buildings_.begin(),buildings_.end(),[](const BuildingState& b) {return b.kind==Object::OriginalWaterWell72;})>=2) {
         result.reason="Water Well limit reached";return result;
@@ -1406,13 +1451,15 @@ CommandResult World::validate(Command command) const {
         command.type==CommandType::PlaceFarm || command.type==CommandType::PlaceServicePost ||
         command.type==CommandType::PlaceMarket || command.type==CommandType::PlaceFireWatch ||
         command.type==CommandType::PlaceHealthPost || command.type==CommandType::PlaceOriginalHempFarm ||
-        command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalAncestorShrine || command.type==CommandType::PlaceOriginalWaterWell;
+        command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalAncestorShrine || command.type==CommandType::PlaceOriginalWaterWell ||
+        command.type==CommandType::PlaceOriginalDaoistShrine || command.type==CommandType::PlaceOriginalBuddhistShrine ||
+        command.type==CommandType::PlaceOriginalConfucianAcademy;
     if (original_production_enabled()) {
-        if (command.type!=CommandType::PlaceRoad && buildings_.size()>=building_collection_limit(profile_)) {
+        if (command.type!=CommandType::PlaceRoad && buildings_.size()>=Rules::original_production_building_limit) {
             result.reason="Original production building capacity reached";return result;
         }
         const std::size_t needed=command.type==CommandType::PlaceMarket ? 2U:creates_courier ? 1U:0U;
-        const auto capacity=courier_collection_limit(profile_);
+        const auto capacity=Rules::original_production_courier_limit;
         if (needed>capacity || couriers_.size()>capacity-needed) {
             result.reason="Original production courier capacity reached";return result;
         }
@@ -1643,6 +1690,21 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         couriers_.push_back(std::move(courier));
     };
     switch (command.type) {
+    case CommandType::PlaceOriginalDaoistShrine: {
+        auto& source=add_v10_building(Object::OriginalDaoistShrine215);source.placed_tick=ticks_;
+        original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Daoist215});
+        add_v10_courier(source.id,CourierRole::OriginalDaoist,Good::Goods);break;
+    }
+    case CommandType::PlaceOriginalBuddhistShrine: {
+        auto& source=add_v10_building(Object::OriginalBuddhistShrine217);source.placed_tick=ticks_;
+        original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Buddhist217});
+        add_v10_courier(source.id,CourierRole::OriginalBuddhist,Good::Goods);break;
+    }
+    case CommandType::PlaceOriginalConfucianAcademy: {
+        auto& source=add_v10_building(Object::OriginalConfucianAcademy219);source.placed_tick=ticks_;
+        original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Confucian219});
+        add_v10_courier(source.id,CourierRole::OriginalConfucian,Good::Goods);break;
+    }
     case CommandType::PlaceOriginalWaterWell: {
         auto& well=add_v10_building(Object::OriginalWaterWell72);well.placed_tick=ticks_;
         original_production_->water.providers.push_back({well.id});
@@ -2623,6 +2685,9 @@ void World::dispatch_v2(CourierState& courier) {
     case CourierRole::Service:
     case CourierRole::FireInspector:
     case CourierRole::HealthWorker:
+    case CourierRole::OriginalDaoist:
+    case CourierRole::OriginalBuddhist:
+    case CourierRole::OriginalConfucian:
     case CourierRole::OriginalAncestor:
     case CourierRole::OriginalWater:
         throw std::logic_error("Cargo-free visit reached goods path");
@@ -2981,8 +3046,8 @@ bool World::production_balance_valid() const {
 bool World::industry_balance_valid() const {
     if (scalable(profile_)) {
         const auto& rules=active_rules();
-        const auto building_cap=building_collection_limit(profile_);
-        const auto courier_cap=courier_collection_limit(profile_);
+        const auto building_cap=original_production_enabled() ? Rules::original_production_building_limit:building_collection_limit(profile_);
+        const auto courier_cap=original_production_enabled() ? Rules::original_production_courier_limit:courier_collection_limit(profile_);
         if (buildings_.size()>building_cap || couriers_.size()>courier_cap || next_building_id_==0 ||
             next_courier_id_==0 || (!buildings_.empty() &&
              next_building_id_<=static_cast<std::uint32_t>(buildings_.back().id)) ||
@@ -3057,6 +3122,9 @@ bool World::industry_balance_valid() const {
             case Object::OriginalFoodFarm:
             case Object::OriginalWheatField:
             case Object::OriginalMilletField:
+            case Object::OriginalDaoistShrine215:
+            case Object::OriginalBuddhistShrine217:
+            case Object::OriginalConfucianAcademy219:
             case Object::OriginalAncestorShrine214:
             case Object::OriginalWaterWell72:
                 if (!original_production_enabled()) return false;
@@ -3118,6 +3186,9 @@ bool World::industry_balance_valid() const {
                 c.role==CourierRole::OriginalFoodToHouse ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse ? Object::OriginalHempFarm:
                 c.role==CourierRole::OriginalWater ? Object::OriginalWaterWell72:
+                c.role==CourierRole::OriginalDaoist ? Object::OriginalDaoistShrine215:
+                c.role==CourierRole::OriginalBuddhist ? Object::OriginalBuddhistShrine217:
+                c.role==CourierRole::OriginalConfucian ? Object::OriginalConfucianAcademy219:
                 c.role==CourierRole::OriginalAncestor ? Object::OriginalAncestorShrine214:
                 c.role==CourierRole::Clay ? Object::ClaySource:
                 c.role==CourierRole::Pottery ? Object::Pottery:
@@ -3151,7 +3222,8 @@ bool World::industry_balance_valid() const {
                 ++market_food_outbound; food+=static_cast<std::uint64_t>(c.cargo);
             }
             else if ((!original_food_courier(c.role) && c.role!=CourierRole::OriginalHempToWarehouse &&
-                      c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater) || !original_production_enabled()) return false;
+                      c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater &&
+                      c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian) || !original_production_enabled()) return false;
             if (c.phase==CourierPhase::ToWarehouse && !service_role(c.role)) {
                 auto& reservations=food_role(c.role) ? food_reservations:pottery_reservations;
                 const auto found=std::lower_bound(reservations.begin(),reservations.end(),c.target,
@@ -3189,6 +3261,9 @@ bool World::industry_balance_valid() const {
                 (b.kind==Object::ServicePost && owned(CourierRole::Service)!=1) ||
                 (b.kind==Object::FireWatch && owned(CourierRole::FireInspector)!=1) ||
                 (b.kind==Object::HealthPost && owned(CourierRole::HealthWorker)!=1) ||
+                (b.kind==Object::OriginalDaoistShrine215 && owned(CourierRole::OriginalDaoist)!=1) ||
+                (b.kind==Object::OriginalBuddhistShrine217 && owned(CourierRole::OriginalBuddhist)!=1) ||
+                (b.kind==Object::OriginalConfucianAcademy219 && owned(CourierRole::OriginalConfucian)!=1) ||
                 (b.kind==Object::OriginalAncestorShrine214 && owned(CourierRole::OriginalAncestor)!=1) ||
                 (b.kind==Object::OriginalWaterWell72 && owned(CourierRole::OriginalWater)!=1) ||
                 (b.kind==Object::Market &&
@@ -3946,8 +4021,8 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         }
     };
     if (scalable(s.profile)) {
-        const auto building_cap=building_collection_limit(s.profile);
-        const auto courier_cap=courier_collection_limit(s.profile);
+        const auto building_cap=w.original_production_enabled() ? Rules::original_production_building_limit:building_collection_limit(s.profile);
+        const auto courier_cap=w.original_production_enabled() ? Rules::original_production_courier_limit:courier_collection_limit(s.profile);
         if (s.buildings.size()>building_cap || s.couriers.size()>courier_cap || s.next_building_id==0 ||
             s.next_courier_id==0) fail("invalid City-v10 entity counts or next IDs");
         for (std::size_t i=0;i<s.buildings.size();++i) {
@@ -3957,7 +4032,8 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                 b.kind==Object::Workshop ||
                 ((b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
                   b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
-                  (b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72)) && !w.original_production_enabled()) ||
+                  (b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 ||
+                   b.kind==Object::OriginalConfucianAcademy219 || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72)) && !w.original_production_enabled()) ||
                 (b.kind==Object::OriginalInfluenceSource && !w.original_influence_enabled()) || (b.kind==Object::Market && !market_profile(s.profile)) ||
                 (b.kind==Object::FireWatch && !fire_profile(s.profile)) ||
                 (b.kind==Object::Well && !water_profile(s.profile)) ||
@@ -4011,6 +4087,9 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                 c.role==CourierRole::OriginalFoodToHouse && w.original_production_enabled() ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse && w.original_production_enabled() ? Object::OriginalHempFarm:
                 c.role==CourierRole::OriginalWater && w.original_production_enabled() ? Object::OriginalWaterWell72:
+                c.role==CourierRole::OriginalDaoist && w.original_production_enabled() ? Object::OriginalDaoistShrine215:
+                c.role==CourierRole::OriginalBuddhist && w.original_production_enabled() ? Object::OriginalBuddhistShrine217:
+                c.role==CourierRole::OriginalConfucian && w.original_production_enabled() ? Object::OriginalConfucianAcademy219:
                 c.role==CourierRole::OriginalAncestor && w.original_production_enabled() ? Object::OriginalAncestorShrine214:
                 c.role==CourierRole::Clay ? Object::ClaySource:
                 c.role==CourierRole::Pottery ? Object::Pottery:

@@ -15,7 +15,11 @@ Ankünfte, einschließlich des unveränderten Phase35-Countdownkerns.
 Revision20 ergänzt den [eigenen bezahlten Ancestor-Schrein214](ancestor-runtime.md)
 und ausschließlich durch tatsächliche DirectReligion-Ankunft gesetzten40er-Timer.
 Revision21 verbindet [Wasser und echte frühe Hausentwicklung](housing-runtime.md).
-Aktueller Entwicklerstand ist Revision21.
+Revision22 ergänzt [drei weitere religiöse Dienste](religion-runtime.md) mit
+bezahlten215/217/219-Quellen, echten Walkern und getrennten40er-Timern.
+Aktueller Entwicklerstand ist Revision22. Die frühe Confucian-Integration
+bleibt ausdrücklich authored: initiales originales Elite-Gate und Material-
+Zulieferung sind als Folgeanforderungen dokumentiert.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.

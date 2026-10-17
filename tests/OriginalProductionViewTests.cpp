@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <iostream>
+#include <tuple>
 
 namespace {
 namespace oe=openemperor;
@@ -51,7 +52,9 @@ int main(int argc,char** argv) {
         for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField,
                 oe::sandbox_ui::Action::OriginalFoodFarm,oe::sandbox_ui::Action::OriginalWheatField,oe::sandbox_ui::Action::OriginalMilletField,
                 oe::sandbox_ui::Action::HealthPost,oe::sandbox_ui::Action::ServicePost,
-                oe::sandbox_ui::Action::OriginalAncestorShrine,oe::sandbox_ui::Action::OriginalWaterWell}) {
+                oe::sandbox_ui::Action::OriginalAncestorShrine,oe::sandbox_ui::Action::OriginalWaterWell,
+                oe::sandbox_ui::Action::OriginalDaoistShrine,oe::sandbox_ui::Action::OriginalBuddhistShrine,
+                oe::sandbox_ui::Action::OriginalConfucianAcademy}) {
             const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
             check(button!=buttons.end() && view->layout().button_at(button->rect.x+2,button->rect.y+2)==action &&
                 !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
@@ -264,6 +267,41 @@ int main(int argc,char** argv) {
                     h.house.food_quality>=20 && h.house.hemp>0 && h.house.ceramics>0 && h.house.herbalist>0 && h.house.acupuncture>0;
         }
         check(plain,"Actual UI city never reached paid Water/Food/Ancestor-backed Plain Cottage");
+        const auto religion_funds=view->world().treasury();
+        for(int x=104;x<=120;++x)buy(sim::CommandType::PlaceRoad,{x,100});
+        for(int y:{101,102})buy(sim::CommandType::PlaceRoad,{104,y});
+        for(const auto [code,tool,origin,kind,price]:std::array{
+                std::tuple{SDLK_U,23,sim::Cell{106,98},sim::Object::OriginalDaoistShrine215,45},
+                std::tuple{SDLK_K,24,sim::Cell{110,98},sim::Object::OriginalBuddhistShrine217,45},
+                std::tuple{SDLK_V,25,sim::Cell{114,97},sim::Object::OriginalConfucianAcademy219,80}}) {
+            const auto old=view->tool();key(*view,SDLK_H);key(*view,code);
+            check(view->tool()==old,"Religion key escaped Help modal");key(*view,SDLK_H);
+            key(*view,code);check(view->tool()==tool,"Paid religion keyboard tool unavailable");
+            const auto funds=view->world().treasury();click(*view,origin);
+            const auto side=kind==sim::Object::OriginalConfucianAcademy219 ? 3:2;
+            check(view->world().object_at({origin.x+side-1,origin.y+side-1})==kind &&
+                view->world().treasury()==funds-price,"Religion UI purchase lost actual footprint or model price");
+        }
+        check(view->world().treasury()==religion_funds-208,"Religion sources and access roads were not separately paid");
+        bool religion_trip=false;
+        for(int i=0;i<1200 && !religion_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers()) religion_trip|=c.role==sim::CourierRole::OriginalConfucian &&
+                c.phase==sim::CourierPhase::ToWarehouse && c.edge_progress>0;
+        }
+        check(religion_trip,"Paid Confucian3x3 source never dispatched through shared movement");
+        const auto religion_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<80;++i)view->tick_once();key(*view,SDLK_F9);
+        check(view->world().snapshot()==religion_saved,"Religion midtrip F5/F9 changed actual trip/clock authority");
+        bool all_religions=false;
+        for(int i=0;i<6000 && !all_religions;++i) {
+            view->tick_once();
+            for(const auto& h:view->world().original_economy_state()->houses)
+                all_religions|=h.house.type==orig::HouseType::PlainCottage && h.house.confucian>0 &&
+                    h.house.daoist>0 && h.house.buddhist>0 && h.house.ancestor>0 && h.house.water &&
+                    h.house.herbalist>0 && h.house.acupuncture>0 && h.house.hemp>0 && h.house.ceramics>0 && h.house.food_quality>0;
+        }
+        check(all_religions,"No actual House simultaneously received six independent service categories and water/goods");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -276,7 +314,8 @@ int main(int argc,char** argv) {
         std::optional<sim::Cell> supplied;
         for(const auto& house:view->world().original_economy_state()->houses)
             if(house.house.type==orig::HouseType::PlainCottage && house.house.water && house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
-                house.house.herbalist>0 && house.house.acupuncture>0 && house.house.ancestor>0) {supplied=view->world().building(house.building_id).cell;break;}
+                house.house.herbalist>0 && house.house.acupuncture>0 && house.house.ancestor>0 &&
+                house.house.confucian>0 && house.house.daoist>0 && house.house.buddhist>0) {supplied=view->world().building(house.building_id).cell;break;}
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
         const auto details=view->inspection_lines();
@@ -310,6 +349,8 @@ int main(int argc,char** argv) {
                 {"selected_house_hemp",h->house.hemp},{"selected_house_ceramics",h->house.ceramics},
                 {"selected_house_herbalist",h->house.herbalist},{"selected_house_acupuncture",h->house.acupuncture},
                 {"selected_house_ancestor",h->house.ancestor},{"selected_house_water",h->house.water},
+                {"selected_house_confucian",h->house.confucian},{"selected_house_daoist",h->house.daoist},
+                {"selected_house_buddhist",h->house.buddhist},
                 {"selected_house_type",static_cast<unsigned>(h->house.type)},
                 {"selected_house_devolve_counter",h->house.devolve_counter},
                 {"model_sha256",view->world().original_rules_model()->provenance().sha256},

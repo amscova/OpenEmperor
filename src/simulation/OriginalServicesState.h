@@ -11,10 +11,10 @@
 namespace openemperor::simulation {
 
 // Explicit Rule10 purchase bindings; old generic Posts acquire no identity.
-enum class OriginalServiceProviderType : std::uint8_t { Herbalist207=0, Acupuncture208=1, Ancestor214=2 };
-inline constexpr std::size_t original_service_provider_limit=6;
-inline constexpr std::size_t original_service_trip_limit=6;
-inline constexpr std::size_t original_service_witness_limit=60;
+enum class OriginalServiceProviderType : std::uint8_t { Herbalist207=0, Acupuncture208=1, Ancestor214=2, Daoist215=3, Buddhist217=4, Confucian219=5 };
+inline constexpr std::size_t original_service_provider_limit=12;
+inline constexpr std::size_t original_service_trip_limit=12;
+inline constexpr std::size_t original_service_witness_limit=120;
 struct OriginalServiceProvider {
     BuildingId building_id=static_cast<BuildingId>(0);
     OriginalServiceProviderType type=OriginalServiceProviderType::Herbalist207;

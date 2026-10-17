@@ -16,7 +16,8 @@ constexpr std::array legacy{orig::ModelBuilding::ClayPit,orig::ModelBuilding::Ki
     orig::ModelBuilding::Well,orig::ModelBuilding::Farmhouse,orig::ModelBuilding::HerbalistsStall};
 constexpr std::array extra{orig::ModelBuilding::HempFarm,orig::ModelBuilding::HempField,
     orig::ModelBuilding::WheatField,orig::ModelBuilding::MilletField,orig::ModelBuilding::AcupuncturistsClinic,
-    orig::ModelBuilding::AncestralShrine};
+    orig::ModelBuilding::AncestralShrine,orig::ModelBuilding::DaoistShrine,
+    orig::ModelBuilding::BuddhistShrine,orig::ModelBuilding::ConfucianAcademy};
 template<class F> void refuses(F action) {
     bool denied=false;try {action();} catch (const std::exception&) {denied=true;}
     check(denied,"Active model admitted an absent/invalid explicit production capability");
@@ -49,6 +50,9 @@ void synthetic() {
             std::pair{f::sim::Object::OriginalWheatField,orig::ModelBuilding::WheatField},
             std::pair{f::sim::Object::OriginalMilletField,orig::ModelBuilding::MilletField},
             std::pair{f::sim::Object::OriginalAncestorShrine214,orig::ModelBuilding::AncestralShrine},
+            std::pair{f::sim::Object::OriginalDaoistShrine215,orig::ModelBuilding::DaoistShrine},
+            std::pair{f::sim::Object::OriginalBuddhistShrine217,orig::ModelBuilding::BuddhistShrine},
+            std::pair{f::sim::Object::OriginalConfucianAcademy219,orig::ModelBuilding::ConfucianAcademy},
             std::pair{f::sim::Object::OriginalWaterWell72,orig::ModelBuilding::Well}}) {
         const auto mapped=orig::functional_model_candidate(object);
         check(mapped.candidate==model && mapped.functional==orig::EvidenceStatus::AuthoredFallback &&
@@ -75,7 +79,13 @@ void synthetic() {
         active->building_value(extra[4],orig::BuildingField::Cost)==50 &&
         active->building_value(extra[4],orig::BuildingField::Employees)==8 &&
         active->building_value(extra[5],orig::BuildingField::Cost)==40 &&
-        active->building_value(extra[5],orig::BuildingField::Employees)==4,
+        active->building_value(extra[5],orig::BuildingField::Employees)==4 &&
+        active->building_value(extra[6],orig::BuildingField::Cost)==45 &&
+        active->building_value(extra[6],orig::BuildingField::Employees)==4 &&
+        active->building_value(extra[7],orig::BuildingField::Cost)==45 &&
+        active->building_value(extra[7],orig::BuildingField::Employees)==4 &&
+        active->building_value(extra[8],orig::BuildingField::Cost)==80 &&
+        active->building_value(extra[8],orig::BuildingField::Employees)==12,
         "Authored named production values were not prepared");
     check(!active->supports_building(static_cast<orig::ModelBuilding>(4096)),"Undefined production model ID admitted");
     refuses([&]{(void)active->building_value(extra[0],static_cast<orig::BuildingField>(13));});
@@ -85,6 +95,12 @@ void synthetic() {
         const auto at=malformed.find(label);check(at!=std::string::npos,"Named authored production row missing");
         malformed.replace(at,label.size(),"Wrong producer");f::write_text(path,malformed);
         // Additional edited rows must not add dependencies to old sessions.
+        equivalent_legacy(*old,*prepared(root.data,false));
+        refuses([&]{(void)prepared(root.data,true);});
+        auto missing=pristine;
+        const auto begin=missing.rfind('\n',at),end=missing.find('\n',at);
+        check(begin!=std::string::npos && end!=std::string::npos,"Explicit production row boundaries missing");
+        missing.erase(begin+1,end-begin);f::write_text(path,missing);
         equivalent_legacy(*old,*prepared(root.data,false));
         refuses([&]{(void)prepared(root.data,true);});
     }
@@ -148,15 +164,25 @@ int real(const std::filesystem::path& data) {
         for (const auto [command,kind,cell]:std::array{
             std::tuple{f::sim::CommandType::PlaceHealthPost,orig::ModelBuilding::HerbalistsStall,f::sim::Cell{18,9}},
             std::tuple{f::sim::CommandType::PlaceServicePost,orig::ModelBuilding::AcupuncturistsClinic,f::sim::Cell{21,9}},
-            std::tuple{f::sim::CommandType::PlaceOriginalAncestorShrine,orig::ModelBuilding::AncestralShrine,f::sim::Cell{18,13}}}) {
+            std::tuple{f::sim::CommandType::PlaceOriginalAncestorShrine,orig::ModelBuilding::AncestralShrine,f::sim::Cell{18,13}},
+            std::tuple{f::sim::CommandType::PlaceOriginalDaoistShrine,orig::ModelBuilding::DaoistShrine,f::sim::Cell{0,15}},
+            std::tuple{f::sim::CommandType::PlaceOriginalBuddhistShrine,orig::ModelBuilding::BuddhistShrine,f::sim::Cell{3,15}},
+            std::tuple{f::sim::CommandType::PlaceOriginalConfucianAcademy,orig::ModelBuilding::ConfucianAcademy,f::sim::Cell{6,15}}}) {
             const auto cost=orig::building_value(*loaded.model,kind,orig::BuildingField::Cost,difficulty);
-            check(world.construction_cost(command)==cost,"Medical command ignored prepared model price");
+            check(world.construction_cost(command)==cost,"Service/religion command ignored prepared model price");
             f::buy(world,{command,cell});medicine_paid+=cost;
             check(world.workforce_required(*world.building_owner_at(cell))==orig::building_value(*loaded.model,kind,
-                orig::BuildingField::Employees,difficulty),"Medical source ignored prepared Employees");
+                orig::BuildingField::Employees,difficulty),"Service/religion source ignored prepared Employees");
+        }
+        for (const auto [kind,side]:std::array{
+            std::pair{f::sim::Object::OriginalDaoistShrine215,2},
+            std::pair{f::sim::Object::OriginalBuddhistShrine217,2},
+            std::pair{f::sim::Object::OriginalConfucianAcademy219,3}}) {
+            const auto footprint=f::sim::building_footprint(world.profile(),world.rule_version(),kind);
+            check(footprint.width==side && footprint.height==side,"Religion source lost its separately evidenced paid footprint");
         }
         check(world.construction_spent_total()==static_cast<std::uint64_t>(farm_cost+field_cost+food_paid+medicine_paid) &&
-            world.treasury()==12000-farm_cost-field_cost-food_paid-medicine_paid,"Actual medical model prices were not paid");
+            world.treasury()==12000-farm_cost-field_cost-food_paid-medicine_paid,"Actual service/religion model prices were not paid");
         const auto saved=world.snapshot();
         check(f::sim::World::restore_original_production_development(saved,permissions,active).snapshot()==saved,
             "Real difficulty-adjusted Farm/Field finance did not restore exactly");

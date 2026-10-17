@@ -23,6 +23,9 @@ namespace {
 using json=nlohmann::json;
 namespace fs=std::filesystem;
 constexpr std::uintmax_t max_save_bytes=8U*1024U*1024U;
+// Only the local Rule10 projection may use the active entity bounds while
+// reusing frozen infrastructure syntax. No persisted field selects this mode.
+enum class SnapshotSyntax { Frozen, OriginalProduction };
 
 void require(bool yes,const char* why) { if (!yes) throw std::runtime_error(why); }
 const json& field(const json& j,const char* name) {
@@ -250,7 +253,7 @@ json snapshot_json(const simulation::WorldSnapshot& s) {
     return result;
 }
 simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
-                                         simulation::RulesProfile profile) {
+                                         simulation::RulesProfile profile,SnapshotSyntax syntax) {
     using namespace simulation;
     WorldSnapshot s;
     s.profile=profile;
@@ -303,8 +306,10 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
     require(schema==22 || (!j.contains("ramps") && !j.contains("next_ramp_id")),"ramp authority requires schema22");
     if (schema>=10 && schema<=22) {
         const bool v11=schema>=11;
-        require(bs.is_array() && bs.size()<=building_collection_limit(profile) &&
-                cs.is_array() && cs.size()<=courier_collection_limit(profile),
+        const auto building_limit=syntax==SnapshotSyntax::OriginalProduction ? Rules::original_production_building_limit:building_collection_limit(profile);
+        const auto courier_limit=syntax==SnapshotSyntax::OriginalProduction ? Rules::original_production_courier_limit:courier_collection_limit(profile);
+        require(bs.is_array() && bs.size()<=building_limit &&
+                cs.is_array() && cs.size()<=courier_limit,
                 "invalid scalable City entity array length");
         std::uint32_t previous=0;
         s.buildings.reserve(bs.size());
@@ -615,7 +620,7 @@ simulation::WorldSnapshot parse_snapshot(const json& j,std::uint64_t schema,
     return s;
 }
 json document_json(const SaveDocument& d);
-SaveDocument parse_document(const json& j);
+SaveDocument parse_document(const json& j,SnapshotSyntax syntax=SnapshotSyntax::Frozen);
 
 json original_house_json(const original::HouseState& h) {
     return {{"type",static_cast<unsigned>(h.type)},{"desirability",int(h.desirability)},
@@ -1129,7 +1134,7 @@ simulation::OriginalServicesState parse_production_services(const json& j) {
         simulation::OriginalServiceProvider provider;provider.building_id=id(field(value,"building_id"));
         require(services.providers.empty() || services.providers.back().building_id<provider.building_id,
                 "schema26 medical providers require sorted unique IDs");
-        provider.type=static_cast<simulation::OriginalServiceProviderType>(number(field(value,"type"),2));
+        provider.type=static_cast<simulation::OriginalServiceProviderType>(number(field(value,"type"),5));
         services.providers.push_back(provider);
     }
     const auto& trips=field(j,"trips");
@@ -1147,8 +1152,8 @@ simulation::OriginalServicesState parse_production_services(const json& j) {
     require(witnesses.is_array() && witnesses.size()<=simulation::original_service_witness_limit,"schema26 service witness collection exceeds bound");
     for (const auto& value:witnesses) {
         simulation::OriginalServiceWitness witness;witness.building_id=id(field(value,"building_id"));
-        const auto role=number(field(value,"role"),5);
-        require(role==0 || role==1 || role==5,"schema26 supports only medical or Ancestor witness categories");
+        const auto role=number(field(value,"role"),8);
+        require(role==0 || role==1 || role==5 || role==6 || role==7 || role==8,"schema26 service witness category unsupported");
         witness.role=static_cast<original::ServiceRole>(role);
         if (!services.witnesses.empty()) {
             const auto& previous=services.witnesses.back();
@@ -1248,8 +1253,8 @@ json production_housing_service_json(const simulation::OriginalServiceWitness& w
 }
 simulation::OriginalServiceWitness parse_production_housing_service(const json& j) {
     simulation::OriginalServiceWitness result;result.building_id=production_id(field(j,"building_id"));
-    const auto role=number(field(j,"role"),5);
-    require(role==0 || role==1 || role==5,"schema26 historical service category unsupported");
+    const auto role=number(field(j,"role"),8);
+    require(role==0 || role==1 || role==5 || role==6 || role==7 || role==8,"schema26 historical service category unsupported");
     result.role=static_cast<original::ServiceRole>(role);result.provider_id=production_id(field(j,"provider_id"));
     result.transfer=parse_production_transfer(field(j,"transfer"));result.arrival_tick=number(field(j,"arrival_tick"));
     return result;
@@ -1278,7 +1283,7 @@ json production_housing_evaluation_json(const simulation::OriginalHousingEvaluat
 simulation::OriginalHousingEvaluation parse_production_housing_evaluation(const json& j) {
     simulation::OriginalHousingEvaluation result;result.tick=number(field(j,"tick"));
     result.input=parse_original_house(field(j,"input"));const auto& services=field(j,"service_witnesses");
-    require(services.is_array() && services.size()==result.service_witnesses.size(),"schema26 historical services require exactly three categories");
+    require(services.is_array() && services.size()==result.service_witnesses.size(),"schema26 historical services require exactly six categories");
     for (std::size_t i=0;i<result.service_witnesses.size();++i)
         if (!services[i].is_null()) result.service_witnesses[i]=parse_production_housing_service(services[i]);
     const auto& water=field(j,"water_evaluation_witness");if (!water.is_null()) result.water_evaluation_witness=parse_production_water_witness(water);
@@ -1358,9 +1363,11 @@ json production_document_json(const SaveDocument& d) {
         else if (building.kind==simulation::Object::OriginalFoodFarm) building.kind=simulation::Object::Farm;
         else if (building.kind==simulation::Object::OriginalWheatField || building.kind==simulation::Object::OriginalMilletField)
             building.kind=simulation::Object::Well;
-        else if (building.kind==simulation::Object::OriginalAncestorShrine214)
-            building.kind=simulation::Object::ServicePost;
-        else if (building.kind==simulation::Object::OriginalWaterWell72)
+        else if (building.kind==simulation::Object::OriginalAncestorShrine214 ||
+                 building.kind==simulation::Object::OriginalWaterWell72 ||
+                 building.kind==simulation::Object::OriginalDaoistShrine215 ||
+                 building.kind==simulation::Object::OriginalBuddhistShrine217 ||
+                 building.kind==simulation::Object::OriginalConfucianAcademy219)
             building.kind=simulation::Object::ServicePost;
     }
     for (auto& courier:projected.world.couriers) {
@@ -1370,9 +1377,11 @@ json production_document_json(const SaveDocument& d) {
             courier.role=simulation::CourierRole::MarketFoodInbound;
         else if (courier.role==simulation::CourierRole::OriginalFoodToHouse)
             courier.role=simulation::CourierRole::MarketFoodDistribution;
-        else if (courier.role==simulation::CourierRole::OriginalAncestor)
-            courier.role=simulation::CourierRole::Service;
-        else if (courier.role==simulation::CourierRole::OriginalWater)
+        else if (courier.role==simulation::CourierRole::OriginalAncestor ||
+                 courier.role==simulation::CourierRole::OriginalWater ||
+                 courier.role==simulation::CourierRole::OriginalDaoist ||
+                 courier.role==simulation::CourierRole::OriginalBuddhist ||
+                 courier.role==simulation::CourierRole::OriginalConfucian)
             courier.role=simulation::CourierRole::Service;
     }
     auto result=document_json(projected);
@@ -1452,10 +1461,10 @@ SaveDocument parse_production_document(const json& j) {
     for (const char* key:{"original_economy","original_influence","original_goods","original_production"})
         projected["world"].erase(key);
     auto& buildings=projected["world"]["buildings"];
-    require(buildings.is_array() && buildings.size()<=simulation::building_collection_limit(simulation::RulesProfile::CityV16),
+    require(buildings.is_array() && buildings.size()<=simulation::Rules::original_production_building_limit,
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalWaterWell72));
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalConfucianAcademy219));
         if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalHempFarm))
@@ -1467,28 +1476,32 @@ SaveDocument parse_production_document(const json& j) {
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalWheatField) ||
                  kind==static_cast<unsigned>(simulation::Object::OriginalMilletField))
             building["kind"]=static_cast<int>(simulation::Object::Well);
-        else if (kind==static_cast<unsigned>(simulation::Object::OriginalAncestorShrine214))
-            building["kind"]=static_cast<int>(simulation::Object::ServicePost);
-        else if (kind==static_cast<unsigned>(simulation::Object::OriginalWaterWell72))
+        else if (kind==static_cast<unsigned>(simulation::Object::OriginalAncestorShrine214) ||
+                 kind==static_cast<unsigned>(simulation::Object::OriginalWaterWell72) ||
+                 kind==static_cast<unsigned>(simulation::Object::OriginalDaoistShrine215) ||
+                 kind==static_cast<unsigned>(simulation::Object::OriginalBuddhistShrine217) ||
+                 kind==static_cast<unsigned>(simulation::Object::OriginalConfucianAcademy219))
             building["kind"]=static_cast<int>(simulation::Object::ServicePost);
     }
     auto& couriers=projected["world"]["couriers"];
-    require(couriers.is_array() && couriers.size()<=simulation::courier_collection_limit(simulation::RulesProfile::CityV16),
+    require(couriers.is_array() && couriers.size()<=simulation::Rules::original_production_courier_limit,
             "schema26 courier collection exceeds bound");
     for (auto& courier:couriers) {
-        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalWater));
+        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalConfucian));
         if (role==static_cast<unsigned>(simulation::CourierRole::OriginalHempToWarehouse))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketPotteryInbound);
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalFoodToMarket))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketFoodInbound);
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalFoodToHouse))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketFoodDistribution);
-        else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalAncestor))
-            courier["role"]=static_cast<int>(simulation::CourierRole::Service);
-        else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalWater))
+        else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalAncestor) ||
+                 role==static_cast<unsigned>(simulation::CourierRole::OriginalWater) ||
+                 role==static_cast<unsigned>(simulation::CourierRole::OriginalDaoist) ||
+                 role==static_cast<unsigned>(simulation::CourierRole::OriginalBuddhist) ||
+                 role==static_cast<unsigned>(simulation::CourierRole::OriginalConfucian))
             courier["role"]=static_cast<int>(simulation::CourierRole::Service);
     }
-    auto d=parse_document(projected);
+    auto d=parse_document(projected,SnapshotSyntax::OriginalProduction);
     d.source_schema_version=26;d.world.rule_version=simulation::kOriginalProductionRuleVersion;
     for (std::size_t i=0;i<d.world.buildings.size();++i)
         d.world.buildings[i].kind=static_cast<simulation::Object>(number(field(field(world,"buildings")[i],"kind")));
@@ -1562,9 +1575,10 @@ json document_json(const SaveDocument& d) {
                                              {"sha256",d.map_permissions_sha256}};
     return out;
 }
-SaveDocument parse_document(const json& j) {
+SaveDocument parse_document(const json& j,SnapshotSyntax syntax) {
     require(str(field(j,"format"))=="openemperor-sandbox-save","unknown save format");
     const auto schema=number(field(j,"schema_version"));
+    require(syntax==SnapshotSyntax::Frozen || schema==22,"active syntax is restricted to the local schema22 projection");
     if (schema==26) return parse_production_document(j);
     if (schema==25) return parse_goods_document(j);
     if (schema==24) return parse_influence_document(j);
@@ -1673,7 +1687,9 @@ SaveDocument parse_document(const json& j) {
             d.world.rule_version==5),"schema 21 requires City-v16 rule 5");
     require(schema!=22 || (d.world.profile==simulation::RulesProfile::CityV16 &&
             d.world.rule_version==6),"schema22 requires City-v16 rule6");
-    auto parsed=parse_snapshot(field(j,"world"),schema,d.world.profile);
+    require(syntax==SnapshotSyntax::Frozen || (d.world.profile==simulation::RulesProfile::CityV16 && d.world.rule_version==6),
+            "active syntax is restricted to the local City-v16 rule6 projection");
+    auto parsed=parse_snapshot(field(j,"world"),schema,d.world.profile,syntax);
     parsed.profile=d.world.profile; parsed.rule_version=d.world.rule_version;
     if (schema==1 && parsed.profile==simulation::RulesProfile::ProductionV2) {
         parsed.rule_version=2;
