@@ -1004,18 +1004,32 @@ json production_document_json(const SaveDocument& d) {
     projected.world.rule_version=6;
     projected.world.original_economy.reset();projected.world.original_influence.reset();
     projected.world.original_goods.reset();projected.world.original_production.reset();
-    for (auto& building:projected.world.buildings)
+    for (auto& building:projected.world.buildings) {
         if (building.kind==simulation::Object::OriginalInfluenceSource) building.kind=simulation::Object::Well;
+        else if (building.kind==simulation::Object::OriginalHempFarm) building.kind=simulation::Object::Pottery;
+        else if (building.kind==simulation::Object::OriginalHempField) building.kind=simulation::Object::Well;
+    }
+    for (auto& courier:projected.world.couriers)
+        if (courier.role==simulation::CourierRole::OriginalHempToWarehouse)
+            courier.role=simulation::CourierRole::MarketPotteryInbound;
     auto result=document_json(projected);
     result["schema_version"]=26;result["rules"]["version"]=d.world.rule_version;
     for (std::size_t i=0;i<d.world.buildings.size();++i)
         result["world"]["buildings"][i]["kind"]=static_cast<int>(d.world.buildings[i].kind);
+    for (std::size_t i=0;i<d.world.couriers.size();++i)
+        result["world"]["couriers"][i]["role"]=static_cast<int>(d.world.couriers[i].role);
     result["world"]["original_economy"]=original_economy_json(*d.world.original_economy);
     result["world"]["original_influence"]=original_influence_json(*d.world.original_influence);
     result["world"]["original_goods"]=production_goods_json(*d.world.original_goods);
     const auto& production=*d.world.original_production;
+    json farms=json::array();
+    for (const auto& farm:production.hemp_farms)
+        farms.push_back({{"farm_id",static_cast<std::uint32_t>(farm.farm_id)},
+            {"field_id",farm.field_id ? json(static_cast<std::uint32_t>(*farm.field_id)):json(nullptr)},
+            {"harvested",farm.harvested}});
     result["world"]["original_production"]={{"development_revision",production.development_revision},
-        {"residents_admitted",production.residents_admitted},{"pottery_handed_off",production.pottery_handed_off}};
+        {"residents_admitted",production.residents_admitted},{"pottery_handed_off",production.pottery_handed_off},
+        {"hemp_farms",std::move(farms)}};
     return result;
 }
 SaveDocument parse_production_document(const json& j) {
@@ -1029,6 +1043,22 @@ SaveDocument parse_production_document(const json& j) {
             "schema26 development revision differs from this executable");
     state.residents_admitted=number(field(production,"residents_admitted"));
     state.pottery_handed_off=number(field(production,"pottery_handed_off"));
+    const auto& farms=field(production,"hemp_farms");
+    require(farms.is_array() && farms.size()<=2,"schema26 Hemp farm collection exceeds bound");
+    std::uint32_t previous_farm=0;
+    for (const auto& value:farms) {
+        simulation::OriginalHempFarmState farm;
+        const auto id=static_cast<std::uint32_t>(number(field(value,"farm_id"),UINT32_MAX));
+        require(id>previous_farm,"schema26 Hemp farm IDs must be positive, unique and sorted");
+        previous_farm=id;farm.farm_id=static_cast<simulation::BuildingId>(id);
+        const auto& field_id=field(value,"field_id");
+        if (!field_id.is_null()) {
+            const auto child=static_cast<std::uint32_t>(number(field_id,UINT32_MAX));
+            require(child>0,"schema26 Hemp field identity must be positive or null");
+            farm.field_id=static_cast<simulation::BuildingId>(child);
+        }
+        farm.harvested=number(field(value,"harvested"));state.hemp_farms.push_back(farm);
+    }
     auto projected=j;
     projected["schema_version"]=22;projected["rules"]["version"]=6;
     for (const char* key:{"original_economy","original_influence","original_goods","original_production"})
@@ -1037,14 +1067,28 @@ SaveDocument parse_production_document(const json& j) {
     require(buildings.is_array() && buildings.size()<=simulation::building_collection_limit(simulation::RulesProfile::CityV16),
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalInfluenceSource));
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalHempField));
         if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);
+        else if (kind==static_cast<unsigned>(simulation::Object::OriginalHempFarm))
+            building["kind"]=static_cast<int>(simulation::Object::Pottery);
+        else if (kind==static_cast<unsigned>(simulation::Object::OriginalHempField))
+            building["kind"]=static_cast<int>(simulation::Object::Well);
+    }
+    auto& couriers=projected["world"]["couriers"];
+    require(couriers.is_array() && couriers.size()<=simulation::courier_collection_limit(simulation::RulesProfile::CityV16),
+            "schema26 courier collection exceeds bound");
+    for (auto& courier:couriers) {
+        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalHempToWarehouse));
+        if (role==static_cast<unsigned>(simulation::CourierRole::OriginalHempToWarehouse))
+            courier["role"]=static_cast<int>(simulation::CourierRole::MarketPotteryInbound);
     }
     auto d=parse_document(projected);
     d.source_schema_version=26;d.world.rule_version=simulation::kOriginalProductionRuleVersion;
     for (std::size_t i=0;i<d.world.buildings.size();++i)
         d.world.buildings[i].kind=static_cast<simulation::Object>(number(field(field(world,"buildings")[i],"kind")));
+    for (std::size_t i=0;i<d.world.couriers.size();++i)
+        d.world.couriers[i].role=static_cast<simulation::CourierRole>(number(field(field(world,"couriers")[i],"role")));
     d.world.original_economy=parse_original_economy(field(world,"original_economy"));
     d.world.original_influence=parse_original_influence(field(world,"original_influence"));
     d.world.original_goods=parse_production_goods(field(world,"original_goods"));
@@ -1357,6 +1401,14 @@ std::shared_ptr<const original::OriginalRulesModel> prepare_original_rules_model
         (loaded.error ? loaded.error->reason:std::string("model source unavailable")));
     return original::OriginalRulesModel::prepare(std::move(*loaded.model),difficulty);
 }
+std::shared_ptr<const original::OriginalRulesModel> prepare_original_production_rules_model(
+        const fs::path& root,original::Difficulty difficulty) {
+    require(static_cast<std::size_t>(difficulty)<original::difficulty_count,"invalid original production model difficulty");
+    auto loaded=original::load_model_data(root);
+    if (!loaded) throw std::runtime_error("original production model preparation failed: "+
+        (loaded.error ? loaded.error->reason:std::string("model source unavailable")));
+    return original::OriginalRulesModel::prepare_production(std::move(*loaded.model),difficulty);
+}
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& source) {
     require(source.world.profile==simulation::RulesProfile::CityV11 &&
             source.world.rule_version==2,
@@ -1550,7 +1602,7 @@ simulation::World restore_original_production_development(const SaveDocument& d,
             "schema26 requires an original model source identity");
     (void)production_document_json(d);
     const auto& source=*d.world.original_economy->model_source;
-    if (!model) model=prepare_original_rules_model(root,source.difficulty);
+    if (!model) model=prepare_original_production_rules_model(root,source.difficulty);
     const auto& provenance=model->provenance();
     require(source.format_version==provenance.format_version && source.sha256==provenance.sha256 &&
             source.byte_count==provenance.byte_count && source.difficulty==model->difficulty(),

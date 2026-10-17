@@ -461,11 +461,11 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-15: Rule10's reviewed production revision adds typed Market transport;
+    # OE-16: Rule10 adds paid Hemp objects and explicit production-model rows;
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "d8a4c98bfcb26e2ae69f0db4cfe5dd859500692b":
+    if world_blob != "f5bbd2d09dcc74d431509a8b53f42fe86faa138f":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -481,10 +481,19 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     production_dto = ROOT / "src/simulation/OriginalProductionState.h"
     production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
-    if production_blob != "609645d88c000b89c2a7b33dcf233af2c13599cf":
+    if production_blob != "0ad3f1b185e3073dbc42bdab65c306e09299445e":
         raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
+    model_header_blobs = {}
+    for name, expected in (("ModelSchema.h", "b5acdf9a5ee209a41589298cbe0b796c07600d3d"),
+                           ("OriginalRulesModel.h", "23ea997b48edadf87c1f8317df44794ef2ebdf8d")):
+        header = ROOT / "src/simulation/original" / name
+        actual = hashlib.sha1(b"blob " + str(header.stat().st_size).encode() + b"\0" + header.read_bytes()).hexdigest()
+        if actual != expected:
+            raise ValueError("Production-model API drift: fourth-module adapter needs a reviewed compatibility contract")
+        model_header_blobs[name] = actual
     library_hashes = {str(path.resolve()):sha256(path) for path in libraries}
     report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob,"original_production_state_git_blob":production_blob}
+    report["build_provenance"]["production_model_header_git_blobs"] = model_header_blobs
     authored = cases()
     validate_cases(authored)
     binaries = compile_probes(fork,output,args.compiler,args.configuration,library)

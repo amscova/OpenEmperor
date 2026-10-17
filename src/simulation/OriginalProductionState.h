@@ -1,16 +1,26 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace openemperor::simulation {
 
 // Explicit authored working-generation revision. A later stage must opt into
 // its own revision; a saved earlier development state is never reinterpreted.
-inline constexpr std::uint32_t kOriginalProductionDevelopmentRevision=15;
+enum class BuildingId : std::uint32_t;
+inline constexpr std::uint32_t kOriginalProductionDevelopmentRevision=16;
+struct OriginalHempFarmState {
+    BuildingId farm_id=static_cast<BuildingId>(0);
+    std::optional<BuildingId> field_id;
+    std::uint64_t harvested=0;
+    bool operator==(const OriginalHempFarmState&) const = default;
+};
 struct OriginalProductionState {
     std::uint32_t development_revision=kOriginalProductionDevelopmentRevision;
     std::uint64_t residents_admitted=0;
     std::uint64_t pottery_handed_off=0;
+    std::vector<OriginalHempFarmState> hemp_farms;
     bool operator==(const OriginalProductionState&) const = default;
 };
 

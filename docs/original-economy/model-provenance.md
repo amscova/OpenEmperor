@@ -1,5 +1,15 @@
 # Model provenance register v1 (OE-02)
 
+OE-16 additionally names `ModelBuilding::HempFarm = 192` and
+`ModelBuilding::HempField = 194`: M1 lines276/278 identify `Hemp Farm` and
+`Hemp Field`. Their raw Cost/Employees pairs are40/18 and4/0. These are
+`RAW MODEL FACT` inputs to the existing checked difficulty arithmetic.
+The explicit active preparation validates both named rows; historical
+seven-row preparation remains unchanged. Funds conversion, field ownership,
+production timing and stock bins are separately documented authored rules in
+the [Hemp runtime contract](hemp-runtime.md). Resource0 does not prove a
+commodity code, recipe or production period.
+
 This register identifies file columns and ordered rows. It does not make those
 identifiers World object identities, activate Rule7, or establish original-game
 runtime parity. The reader remains independent of World, navigation and saves.

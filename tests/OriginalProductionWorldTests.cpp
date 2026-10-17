@@ -1,4 +1,5 @@
 #include "OriginalInfluenceFixture.h"
+#include "OriginalProductionFixture.h"
 #include "simulation/original/OriginalRulesModel.h"
 
 #include <algorithm>
@@ -18,13 +19,8 @@ struct Fixture {
     std::shared_ptr<const sim::MapPermissions> policy=f::permissions();
     std::shared_ptr<const orig::OriginalRulesModel> model;
     explicit Fixture(int capacity=6) {
-        auto text=f::authored_model_text();std::string old="1: Shelter,{,",replacement=old;
-        for (int i=0;i<17;++i) {old+="0,";replacement+="0,";}
-        old+="0,";replacement+=std::to_string(capacity)+",";
-        const auto at=text.find(old);check(at!=std::string::npos,"Authored Shelter capacity row missing");
-        text.replace(at,old.size(),replacement);
-        f::write_text(root.data/"Model/EmperorBuildingModels.txt",text);
-        model=f::save::prepare_original_rules_model(root.data);
+        oe_production_fixture::write_model(root.data,capacity);
+        model=f::save::prepare_original_production_rules_model(root.data);
     }
     sim::World world() const {return sim::World::create_original_production_development(policy,model);}
 };
@@ -44,7 +40,7 @@ void conserved(const sim::World& world) {
     const auto balances=world.original_goods_balances();
     for (std::size_t i=0;i<balances.size();++i) {
         const auto& b=balances[i];check(b.conserved,"Original goods conservation failed");
-        check(b.supported==(i==static_cast<std::size_t>(orig::Goods::Ceramics)),"Revision14 granted an unsupported good");
+        check(b.supported==(i==0 || i==static_cast<std::size_t>(orig::Goods::Ceramics)),"Revision14 granted an unsupported good");
         check(b.totals.imported==0 && b.totals.consumed==0 && b.totals.demolished==0 && b.cargo==0,
             "Revision14 granted import, consumption or typed Courier authority");
     }

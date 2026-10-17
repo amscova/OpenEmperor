@@ -3,7 +3,8 @@
 Der [Gesamtauftrag](completion-contract.md) verwendet einen ausdrücklich
 gewählten City-v16-Rule10-/Schema26-Entwicklerstand bei unveränderter policy3.
 Entwicklungsrevision14 integrierte den tatsächlichen bezahlten Ceramics-Ursprung;
-Revision15 ergänzt den physischen Markettransport bis zum Haus.
+Revision15 ergänzte den physischen Markettransport bis zum Haus; Revision16
+ergänzt die [bezahlte Hemp-Kette](hemp-runtime.md) mit Farm192 und Feld194.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
@@ -41,14 +42,23 @@ Warehouse-Pottery-Slot bleibt null; es gibt keinen gespiegelten Vorrat.
   Clay-Cargo + zweimal abgeschlossene Rezepte.
 - Abgeschlossene Pottery = unkonvertierter Output/Cargo + gespeicherte
   tatsächliche Warehouse-Übergaben.
-- Typisierte Ceramics: produced + imported = consumed + demolished + stock
+- Typisierte Waren je Kategorie: produced + imported = consumed + demolished + stock
   + cargo. Reservierungen zählen nicht zusätzlich als Masse.
+- Tatsächlich geernteter Hemp = gesamte typisierte Hemp-Produktion.
 
-Revision15 erlaubt Ceramics über Warehouse, Market und tatsächliche
-Hausankunft. Andere Originalwaren, Food, Konsum, Services und Steuern folgen
+Revision16 erlaubt Ceramics und Hemp über Warehouse, Market und tatsächliche
+Hausankunft. Weitere Originalwaren, Food, Konsum, Services und Steuern folgen
 ihren Aufgaben. Die frühen originalen Hausbedarfe bleiben unverändert0;
 ein ausdrücklich authored physischer Hauspuffer8 ermöglicht Provisionierung
 vor Evolution und Verbrauch.
+
+Hemp entsteht nur in einer bezahlten und vollständig besetzten Farm mit separat
+gekauftem angrenzendem Feld. Vorbereitete Modellwerte bestimmen Cost und
+Employees;80 produktive Ticks pro Einheit, Feldanschluss und Funds-Umrechnung
+sind benannte authored Regeln. Die Farm hält8 Hemp, Warehouse und Market
+getrennte Bins32/16, das Haus8. Der neue Farm-Courier verwendet denselben
+Navigator; Warehouse und Market rotieren beide Waren. Food-/Pottery-Mengen
+sind keine Hemp-Authority.
 
 ## Market, Reservierungen und Rückkehr
 
@@ -58,7 +68,7 @@ die wirkliche Ankunft erhöht den Zielbestand. Typisiertes Cargo lebt allein
 im Warenledger. Die älteren Mengenfelder der Bewegungsactoren bleiben0;
 Anzeige und geladene Walker lesen die tatsächliche Ledger-Menge.
 
-Jeder der höchstens sechs typisierten Actoren behält genau seine letzte
+Jeder der höchstens acht typisierten Actoren behält genau seine letzte
 Transferzeile als Sequenz-Highwater. Neue Fahrten ersetzen terminale Zeilen
 erst nach erfolgreicher Reservierung; veraltete und doppelte Arrival-Handles
 werden verweigert. Ausgehendes Cargo hält physische Rückkehrkapazität am
@@ -69,26 +79,31 @@ Pausieren eines Owners bricht seine beladene Ausfahrt ab. Eine bereits
 begonnene Kante wird beendet, danach führt derselbe Navigator zurück.
 Disconnect verhindert eine Lieferung; bezahlte Reparatur ermöglicht ihre
 Fortsetzung. Häuser, Lager und Märkte mit gebundener Authority bleiben vor
-unsicherem Abriss geschützt. Der laufende Stand konsumiert keine Ceramics.
+unsicherem Abriss geschützt. Der laufende Stand konsumiert keine Waren.
 
 ## Persistenz und technische Prüfung
 
 Schema26 speichert die strikte Entwicklungsrevision, Bewohner- und
-Übergabehistorie, genau eine typisierte Stockzeile je Warehouse/Market und die
+Übergabehistorie, Farm-/Feld-/Erntezuordnung, genau eine typisierte Stockzeile
+je Farm/Warehouse/Market und die
 vorhandene vollständige Infrastruktur-/Actor-/Hausauthority. Kapazitäten,
 Readiness und vorbereitete Modelltabellen werden nicht gespeichert. Aktive
 Payloads werden nicht durch eingefrorene Neutralzustandsvalidatoren früherer
 Versionen restauriert. Eigene Modell-/Map-/Masken-/Policybindung und vollständige
 Conservation-/Finanz-/Referenz-/Routeprüfungen gehen der Veröffentlichung voran.
+Kompaktierte Trips liefern notwendige Ankunftsplausibilität; sie bilden keine
+vollständige Besuchschronik ab. Insbesondere können frühere Ceramics-Fahrten
+nicht die erste Hemp-Ankunft ersetzen, und jede Farm braucht ihre eigene
+tatsächliche Ernte als Ursprung für Stock und Cargo.
 
 Der automatisierte [Prozessrunner](../../tools/test_original_production.py)
 verwendet eine hashidentische private Kopie des echten Modells und authored
-24×20-Geographie. Vier bezahlte Häuser ziehen dort28 Bewohner an. Revision15
-bezahlt zusätzlich den Market:958 Funds Bauausgaben,11042 Rest. Bei Tick706
-transportiert sein Courier tatsächlich eine typisierte Einheit; bei Tick815
-besitzt ein Haus nach der Ankunft seine erste Ceramics-Einheit. Ein separater
-Pausenstand erhält dasselbe beladene Cargo als Rücktransport ohne Hausgutschrift.
-Mid-Market- und positiver Hausstand werden jeweils in einem neuen OS-Prozess
+24×20-Geographie. Sechs bezahlte Häuser ziehen dort42 Bewohner an;34 Worker
+besetzen Clay, Kiln, Warehouse, Market und Hemp Farm.1162 Funds werden regulär
+ausgegeben,10838 bleiben. Bei Tick3650 hat Haus5 nach tatsächlichen Ankünften
+Hemp8 und Ceramics4. Ein separater Pausenstand erhält beladenen Hemp als
+Rücktransport ohne vorzeitige Gutschrift. Mid-Hemp- und positiver Zweigüter-
+Hausstand werden jeweils in einem neuen OS-Prozess
 über10000 Ticks, einen bezahlten Straßenbau und weitere10000 Ticks fortgesetzt;
 vollständige SaveDocuments, rohe Bytes und Bilanzen müssen übereinstimmen.
 Kein Snapshot und kein Bestand wird zum Herstellen des Erfolgs injiziert.
@@ -104,9 +119,10 @@ sh tools/play_original_economy.sh
 ```
 
 Er beginnt pausiert und verwendet ausschließlich den eigenen Rule10-Savepfad.
-Straßen, vier angeschlossene Häuser, Clay, Pottery, Warehouse und Market kaufen und
-dann laufen lassen; F5/F9 speichert/lädt denselben Entwicklungsstand. Die
-Defaultsave ist `rule10-revision15.json`; frühere Entwicklungsrevisionen
+Straßen, sechs angeschlossene Häuser, Clay, Pottery, Warehouse und Market kaufen.
+Mit N eine Hemp Farm bauen; die Farm auswählen und mit M ein angrenzendes Feld
+separat bezahlen. Danach laufen lassen; F5/F9 speichert/lädt denselben Stand.
+Defaultsave ist `rule10-revision16.json`; frühere Entwicklungsrevisionen
 werden atomar verweigert. Die Originalgrafik-/Objektkomposition ist Bestandteil der folgenden
 Präsentationsaufgaben und wird durch diesen Produktionsnachweis nicht als
 bereits abgeschlossen ausgegeben.

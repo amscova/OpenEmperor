@@ -1,5 +1,6 @@
 #include "EconomyStartViewFixture.h"
 #include "OriginalInfluenceFixture.h"
+#include "OriginalProductionFixture.h"
 #include "core/PerformanceDiagnostics.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -38,10 +39,7 @@ int main(int argc,char** argv) {
         check(SDL_CreateWindowAndRenderer("Original production",1100,700,SDL_WINDOW_HIDDEN,
             &window,&renderer),"Production SDL window");
         oe::testing::economy::Temp temp;const auto root=fs::canonical(temp.root),data=root/"data";
-        auto model=f::authored_model_text();std::string prefix="1: Shelter,{,";
-        for(int i=0;i<17;++i)prefix+="0,";
-        const auto at=model.find(prefix+"0,");check(at!=std::string::npos,"Authored capacity field missing");
-        model.replace(at,prefix.size()+2,prefix+"37,");
+        const auto model=oe_production_fixture::authored_model_text(37);
         fs::create_directories(data/"Model");f::write_text(data/"Model/EmperorBuildingModels.txt",model);
         const auto session=[&]{return oe::maps::load_stored_map_session(data,"Cities/A.map",
             oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8);};
@@ -49,6 +47,12 @@ int main(int argc,char** argv) {
         auto view=oe::SandboxView::create_original_production_save_fixture(session());
         view->configure_save(data,"Cities/A.map",target);view->initialize(window,renderer);
         check(view->world().rule_version()==10 && view->world().treasury()==12000 && view->paused(),"Production identity");
+        const auto& buttons=view->layout().buttons;
+        for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField}) {
+            const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
+            check(button!=buttons.end() && view->layout().button_at(button->rect.x+2,button->rect.y+2)==action &&
+                !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
+        }
         check(std::string(SDL_GetWindowTitle(window)).find("save schema 26")!=std::string::npos,"Production title");
         check(!view->recovery_safe_point(),"Development production exposed recovery");
         const auto buy=[&](sim::CommandType type,sim::Cell cell) {
@@ -102,6 +106,41 @@ int main(int argc,char** argv) {
             for(const auto& house:view->world().original_economy_state()->houses) delivered|=house.house.ceramics>0;
         }
         check(delivered,"Actual Market arrival never updated the authoritative House stock");
+        const auto funds_before=view->world().treasury();
+        for(const sim::Cell road:std::array{sim::Cell{120,104},sim::Cell{120,105},sim::Cell{120,106},
+                sim::Cell{119,106},sim::Cell{118,106}}) buy(sim::CommandType::PlaceRoad,road);
+        key(*view,SDLK_N);check(view->tool()==16,"Hemp Farm keyboard tool unavailable");
+        click(*view,{118,107});
+        check(view->world().object_at({118,107})==sim::Object::OriginalHempFarm,"Paid Hemp Farm mouse placement failed");
+        const auto farm=view->world().building_owner_at({118,107});
+        check(farm && view->selected_building()==farm,"Farm purchase did not retain explicit selection for paid Field");
+        for(int i=0;i<100;++i)view->tick_once();
+        check(view->world().original_goods_balance(orig::Goods::Hemp).totals.produced==0,
+            "Farm without a separately paid Field produced free Hemp");
+        key(*view,SDLK_M);check(view->tool()==17,"Hemp Field keyboard tool unavailable");
+        click(*view,{120,107});
+        check(view->world().object_at({120,107})==sim::Object::OriginalHempField &&
+            view->world().treasury()==funds_before-54,"Field and Farm were not separately paid through normal UI commands");
+        bool hemp_trip=false;
+        for(int i=0;i<5000 && !hemp_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers()) if(c.role==sim::CourierRole::OriginalHempToWarehouse &&
+                view->world().original_courier_cargo(c.id)>0 && c.edge_progress>0) {
+                check(view->world().original_courier_good(c.id)==orig::Goods::Hemp,"Actual Farm cargo lost its Hemp identity");
+                hemp_trip=true;break;
+            }
+        }
+        check(hemp_trip,"Paid staffed Farm never dispatched physical Hemp");
+        const auto hemp_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<100;++i)view->tick_once();
+        key(*view,SDLK_F9);check(view->world().snapshot()==hemp_saved,"Typed Hemp midcourier F5/F9 diverged");
+        bool both_goods=false;
+        for(int i=0;i<8000 && !both_goods;++i) {
+            view->tick_once();
+            for(const auto& house:view->world().original_economy_state()->houses)
+                both_goods|=house.house.hemp>0 && house.house.ceramics>0;
+        }
+        check(both_goods,"No authoritative House received two independently transported original goods");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -111,7 +150,11 @@ int main(int argc,char** argv) {
         check(view->world().snapshot()==before && view->world().original_rules_model()==model_before,
             "Bad development revision published through F9");
         f::write_text(target,current);key(*view,SDLK_F9);
-        view->set_tool(5);click(*view,{106,101});
+        std::optional<sim::Cell> supplied;
+        for(const auto& house:view->world().original_economy_state()->houses)
+            if(house.house.hemp>0 && house.house.ceramics>0) {supplied=view->world().building(house.building_id).cell;break;}
+        check(supplied.has_value(),"No actual two-goods House available for inspection");
+        view->set_tool(5);click(*view,*supplied);
         oe::performance::set_enabled(true);oe::performance::reset();
         for(int i=0;i<100;++i){view->update(0);check(view->render(),"Production idle frame");}
         check(view->world().snapshot()==before,"Production frame changed World");
@@ -124,7 +167,7 @@ int main(int argc,char** argv) {
             const bool okay=SDL_SavePNG(frame,argv[1]);SDL_DestroySurface(frame);check(okay,"Capture output");}
         view->shutdown();view.reset();
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
-        std::cout<<"Original production SDL paid Market arrival/typed midcourier F5/F9/100 idle frames PASS\n";return 0;
+        std::cout<<"Original production SDL paid Hemp Farm/Field, two-goods House arrivals, typed midcourier F5/F9/100 idle frames PASS\n";return 0;
     }catch(const std::exception& error){
         std::cerr<<error.what()<<'\n';SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 1;
     }

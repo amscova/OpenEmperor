@@ -347,6 +347,7 @@ private:
     void update_window_title();
     void resize_camera();
     void place_demo();
+    simulation::Command placement_command(simulation::Cell cell) const;
     bool draw_diamond(scene::Point world, std::uint8_t r, std::uint8_t g, std::uint8_t b, bool fill, float alpha=0.65F);
     bool draw_world(const scene::Camera2D& render_camera);
     bool draw_walker_diagnostic();

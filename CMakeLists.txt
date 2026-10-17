@@ -253,6 +253,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalGoods.cpp
     src/simulation/WorldOriginalProduction.cpp
     src/simulation/WorldOriginalMarket.cpp
+    src/simulation/WorldOriginalHemp.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
@@ -368,6 +369,15 @@ if(BUILD_TESTING)
         --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
     set_tests_properties(original-rules-model-synthetic original-rules-model-real PROPERTIES TIMEOUT 60)
     set_tests_properties(original-rules-model-real PROPERTIES SKIP_RETURN_CODE 77)
+
+    add_executable(openemperor-original-production-model-tests tests/OriginalProductionModelTests.cpp)
+    target_link_libraries(openemperor-original-production-model-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-production-model-tests)
+    add_test(NAME original-production-model-synthetic COMMAND openemperor-original-production-model-tests)
+    add_test(NAME original-production-model-real COMMAND openemperor-original-production-model-tests
+        --real "${CMAKE_SOURCE_DIR}/.local/gog-extracted/app")
+    set_tests_properties(original-production-model-synthetic original-production-model-real PROPERTIES TIMEOUT 60)
+    set_tests_properties(original-production-model-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-original-desirability-tests tests/OriginalDesirabilityTests.cpp)
     target_link_libraries(openemperor-original-desirability-tests PRIVATE
         openemperor-original-desirability OpenSSL::Crypto)
@@ -873,6 +883,18 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-market-save-tests)
     add_test(NAME original-market-save COMMAND openemperor-original-market-save-tests)
     set_tests_properties(original-market-save PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-hemp-world-tests tests/OriginalHempWorldTests.cpp)
+    target_link_libraries(openemperor-original-hemp-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-hemp-world-tests)
+    add_test(NAME original-hemp-world COMMAND openemperor-original-hemp-world-tests)
+    set_tests_properties(original-hemp-world PROPERTIES TIMEOUT 60)
+
+    add_executable(openemperor-original-hemp-save-tests tests/OriginalHempSaveTests.cpp)
+    target_link_libraries(openemperor-original-hemp-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-hemp-save-tests)
+    add_test(NAME original-hemp-save COMMAND openemperor-original-hemp-save-tests)
+    set_tests_properties(original-hemp-save PROPERTIES TIMEOUT 60)
 
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)

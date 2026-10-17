@@ -1,4 +1,5 @@
 #include "OriginalInfluenceFixture.h"
+#include "OriginalProductionFixture.h"
 #include "simulation/OriginalGoodsLedger.h"
 #include "simulation/original/OriginalRulesModel.h"
 
@@ -18,10 +19,7 @@ struct Fixture {
         policy=std::make_shared<const sim::MapPermissions>(width,height,3,
             std::vector<sim::MapCellPermission>(static_cast<std::size_t>(width*height),
                 {true,true,false,0,sim::BuildBlocker::None,sim::BuildBlocker::None}),std::vector<sim::FixedGatePassage>{});
-        auto text=f::authored_model_text();std::string old="1: Shelter,{,",replacement=old;
-        for(int i=0;i<17;++i){old+="0,";replacement+="0,";}old+="0,";replacement+="6,";
-        const auto at=text.find(old);check(at!=std::string::npos,"Authored Shelter row missing");text.replace(at,old.size(),replacement);
-        f::write_text(root.data/"Model/EmperorBuildingModels.txt",text);model=f::save::prepare_original_rules_model(root.data);
+        oe_production_fixture::write_model(root.data,6);model=f::save::prepare_original_production_rules_model(root.data);
     }
     sim::World world() const {return sim::World::create_original_production_development(policy,model);}
 };
@@ -135,7 +133,8 @@ void longplay_and_stale() {
     std::vector<sim::OriginalGoodsOwner> owners;std::vector<sim::CourierId> couriers;
     for(const auto& b:world.buildings())if(b.kind==sim::Object::Household || b.kind==sim::Object::Warehouse || b.kind==sim::Object::Market){
         sim::OriginalGoodsOwner owner;owner.building_id=b.id;owner.household=b.kind==sim::Object::Household;
-        owner.capacity[1]=owner.household?sim::Rules::household_capacity:b.kind==sim::Object::Market?sim::Rules::market_pottery_capacity:sim::Rules::warehouse_capacity;owners.push_back(owner);
+        owner.capacity[1]=owner.household?sim::Rules::household_capacity:b.kind==sim::Object::Market?sim::Rules::market_pottery_capacity:sim::Rules::warehouse_capacity;
+        owner.capacity[0]=owner.capacity[1];owners.push_back(owner);
     }
     for(const auto& c:world.couriers())if(typed(c.role))couriers.push_back(c.id);
     const sim::OriginalGoodsLedgerView view{*world.original_goods_state(),world.original_economy_state()->houses,owners,couriers};

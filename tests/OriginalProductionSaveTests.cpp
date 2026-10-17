@@ -1,4 +1,4 @@
-#include "OriginalInfluenceFixture.h"
+#include "OriginalProductionFixture.h"
 #include "persistence/RecoveryStore.h"
 #include <nlohmann/json.hpp>
 #include <array>
@@ -30,8 +30,8 @@ struct Fixture {
     std::shared_ptr<const original::OriginalRulesModel> model=[&] {
         // Independently authored capacity37 supports genuine timed migration;
         // original model data and existing historical fixtures remain untouched.
-        write_text(root.data/"Model/EmperorBuildingModels.txt",oe_save_fixture::authored_model_text(1));
-        return save::prepare_original_rules_model(root.data);
+        oe_production_fixture::write_model(root.data,37);
+        return save::prepare_original_production_rules_model(root.data);
     }();
     sim::World world=sim::World::create_original_production_development(policy,model);
     fs::path target=root.path/"protected-schema26.json";
@@ -64,7 +64,7 @@ struct Fixture {
         const auto before=world.snapshot();const auto d=document();write(d);
         const auto bytes=read_text(target);const auto j=json::parse(bytes);
         check(j.at("schema_version")==26 && j.at("rules").at("version")==10 &&
-              j.at("world").at("original_production").at("development_revision")==15,
+              j.at("world").at("original_production").at("development_revision")==16,
               "Rule10 did not use its own strict working generation");
         const auto parsed=save::read_save(target);fixture::same_document(d,parsed);
         check(parsed.source_schema_version==26 && !parsed.prepared_permissions && !parsed.prepared_original_rules_model,
@@ -138,7 +138,8 @@ void strict_json(Fixture& f) {
             {"/world/taxes_collected_total",1},{"/world/maintenance_spent_total",1},
             {"/world/original_production/development_revision",13},
             {"/world/original_production/development_revision",14},
-            {"/world/original_production/development_revision",16},
+            {"/world/original_production/development_revision",15},
+            {"/world/original_production/development_revision",17},
             {"/world/original_production/residents_admitted",UINT64_MAX},
             {"/world/original_production/pottery_handed_off",UINT64_MAX},
             {"/world/original_economy/model_source/difficulty",5},
@@ -238,7 +239,7 @@ void atomicity_and_provenance(Fixture& f) {
         refuses([&] { f.write(bad); });refuses([&] { (void)f.restore(bad,f.model); });
         check(read_text(f.target)==pristine,"Rejected authority overwrote protected target");
     }
-    const auto hard=save::prepare_original_rules_model(f.root.data,original::Difficulty::Hard);
+    const auto hard=save::prepare_original_production_rules_model(f.root.data,original::Difficulty::Hard);
     refuses([&] { (void)f.restore(d,hard); });
     auto mask=f.policy->building_mask();mask.back()=0;
     refuses([&] { (void)save::restore_original_production_development(d,f.root.data,mask,f.policy,f.model); });
@@ -257,7 +258,8 @@ void atomicity_and_provenance(Fixture& f) {
 }
 void older_generations(Fixture& f) {
     const auto active=f.document();
-    const auto old_world=sim::World::create_original_goods_development(f.policy,f.model);
+    const auto old_model=save::prepare_original_rules_model(f.root.data);
+    const auto old_world=sim::World::create_original_goods_development(f.policy,old_model);
     const auto old=f.document(old_world);f.write(old);const auto before=read_text(f.target);
     const auto parsed=save::read_save(f.target);
     check(parsed.source_schema_version==25 && parsed.world.rule_version==9 && !parsed.world.original_production,

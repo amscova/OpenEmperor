@@ -21,8 +21,8 @@ bool below(const f::fs::path& path,const f::fs::path& root) {
 }
 void validate_output(const f::fs::path& output,const f::fs::path& data) {
     const auto repo=f::fs::canonical(f::fs::path(__FILE__).parent_path().parent_path());
-    const auto root=repo/".local/original-economy/oe15/production-fixtures";
-    check(output!=root && below(output,root),"Fixture output must be a new private OE15 subdirectory");
+    const auto root=repo/".local/original-economy/oe16/production-fixtures";
+    check(output!=root && below(output,root),"Fixture output must be a new private OE16 subdirectory");
     check(!below(output,data) && !below(data,output),"Fixture output overlaps source data");
     f::fs::path current=output.root_path();
     for (const auto& part:output.relative_path()) {
@@ -43,10 +43,10 @@ json inspect(const sim::World& world) {
     for (std::size_t i=0;i<all.size();++i) {
         const auto& b=all[i];
         check(b==world.original_goods_balance(static_cast<original::Goods>(i)) && b.conserved &&
-              b.supported==(i==1) && !b.totals.imported && !b.totals.consumed && !b.totals.demolished,
+              b.supported==(i<2) && !b.totals.imported && !b.totals.consumed && !b.totals.demolished,
               "Unexpected typed goods capability or mass");
-        if (i!=1) check(!b.stock && !b.totals.produced && !b.cargo && !b.source_reserved && !b.incoming_reserved,
-                      "Revision15 generated an unsupported good");
+        if (i>=2) check(!b.stock && !b.totals.produced && !b.cargo && !b.source_reserved && !b.incoming_reserved,
+                       "Revision16 generated an unsupported good");
         check(b.stock+b.cargo==b.totals.produced,"Physical stock and actual cargo disagree with produced mass");
         balances.push_back({{"good",i},{"supported",b.supported},{"conserved",b.conserved},
             {"produced",b.totals.produced},{"imported",b.totals.imported},{"consumed",b.totals.consumed},
@@ -54,12 +54,14 @@ json inspect(const sim::World& world) {
             {"source_reserved",b.source_reserved},{"incoming_reserved",b.incoming_reserved}});
     }
     for (const auto& h:world.original_economy_state()->houses) {
-        for (std::size_t i=0;i<original::goods_count;++i) if (i!=1)
+        for (std::size_t i=0;i<original::goods_count;++i) if (i>=2)
             check(original::goods_stock(h.house,static_cast<original::Goods>(i))==0,"House acquired a premature delivery");
-        check(h.house.ceramics>=0 && h.house.ceramics<=sim::Rules::household_capacity,
+        check(h.house.hemp>=0 && h.house.hemp<=sim::Rules::household_capacity &&
+              h.house.ceramics>=0 && h.house.ceramics<=sim::Rules::household_capacity,
               "House exceeded its actual delivery buffer");
         houses.push_back({{"id",static_cast<unsigned>(h.building_id)},{"type",static_cast<unsigned>(h.house.type)},
-            {"occupants",h.house.occupants},{"ceramics",h.house.ceramics},{"status",h.original_status},{"access_enabled",h.access_enabled},
+            {"occupants",h.house.occupants},{"hemp",h.house.hemp},{"ceramics",h.house.ceramics},
+            {"status",h.original_status},{"access_enabled",h.access_enabled},
             {"desirability",world.original_influence_provenance(h.building_id).value}});
     }
     for (const auto& b:world.buildings()) {
@@ -69,16 +71,28 @@ json inspect(const sim::World& world) {
             {"workers",world.workers_assigned(b.id)},{"input_clay",b.input_clay},{"output",b.output},
             {"progress",b.progress},{"recipes_completed",b.recipes_completed},{"clay_extracted",b.clay_extracted}});
     }
-    for (const auto& c:world.couriers())
+    for (const auto& c:world.couriers()) {
+        json cargo_good=nullptr;
+        for (const auto& row:world.original_goods_state()->cargo)
+            if (row.transfer.courier_id==c.id) cargo_good=static_cast<unsigned>(row.good);
         couriers.push_back({{"id",static_cast<unsigned>(c.id)},{"role",static_cast<unsigned>(c.role)},
             {"owner",static_cast<unsigned>(c.owner)},{"target",static_cast<unsigned>(c.target)},
             {"phase",static_cast<unsigned>(c.phase)},{"cargo",c.cargo},{"reserved",c.reserved},
-            {"typed_cargo",world.original_courier_cargo(c.id)},
+            {"typed_cargo",world.original_courier_cargo(c.id)},{"typed_cargo_good",cargo_good},
             {"path_vertex",c.path_vertex},{"edge_progress",c.edge_progress}});
+    }
     for (const auto& row:world.original_goods_state()->stocks)
         stocks.push_back({{"id",static_cast<unsigned>(row.building_id)},
             {"kind",static_cast<unsigned>(world.building(row.building_id).kind)},{"amounts",row.amounts}});
     const auto snapshot=world.snapshot();
+    json farms=json::array();std::uint64_t harvested=0;
+    for (const auto& farm:snapshot.original_production->hemp_farms) {
+        harvested+=farm.harvested;
+        farms.push_back({{"farm_id",static_cast<unsigned>(farm.farm_id)},
+            {"field_id",farm.field_id ? json(static_cast<unsigned>(*farm.field_id)):json(nullptr)},
+            {"harvested",farm.harvested}});
+    }
+    check(all[0].totals.produced==harvested,"Hemp mass lacks actual harvest history");
     return {{"tick",world.ticks()},{"funds",world.treasury()},{"construction_spent",world.construction_spent_total()},
         {"command_sequence",world.command_sequence()},{"road_revision",snapshot.road_revision},
         {"road_count",snapshot.roads.size()},{"house_count",houses.size()},{"building_count",buildings.size()},
@@ -87,6 +101,7 @@ json inspect(const sim::World& world) {
         {"workforce_used",world.workforce_used()},{"residents_admitted",snapshot.original_production->residents_admitted},
         {"clay_extracted",world.clay_extracted_total()},{"pottery_completed",world.pottery_completed_total()},
         {"pottery_handed_off",snapshot.original_production->pottery_handed_off},
+        {"hemp_harvested",harvested},{"hemp_farms",farms},
         {"rule_version",world.rule_version()},{"development_revision",snapshot.original_production->development_revision},
         {"model_sha256",world.original_rules_model()->provenance().sha256},
         {"difficulty",static_cast<unsigned>(world.original_rules_model()->difficulty())},
@@ -127,73 +142,80 @@ json checkpoint(const f::fs::path& data,const f::fs::path& output,const char* ta
 }
 void create(const f::fs::path& data,const f::fs::path& output) {
     const auto policy=f::permissions();
-    auto world=sim::World::create_original_production_development(policy,save::prepare_original_rules_model(data));
+    auto world=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(data));
     check(world.total_population()==0 && world.workforce_supply()==0 && world.treasury()==12000,
           "Production fixture did not start without residents, workers or inventory");
     for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,8}});
-    for (int x=0;x<12;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,{x,6}});
+    for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,{x,6}});
     f::buy(world,{sim::CommandType::PlaceClaySource,{0,9}});
     f::buy(world,{sim::CommandType::PlacePottery,{8,9}});
     f::buy(world,{sim::CommandType::PlaceWarehouse,{16,9}});
     f::buy(world,{sim::CommandType::PlaceMarket,{21,9}});
+    f::buy(world,{sim::CommandType::PlaceOriginalHempFarm,{4,9}});
     const auto clay=*world.building_owner_at({0,9}),pottery=*world.building_owner_at({8,9});
-    const auto market=*world.building_owner_at({21,9});
-    check(world.construction_spent_total()==958 && world.treasury()==11042 && world.couriers().size()==4,
-          "All actual scene purchases and the sole Market distributor were not charged");
+    const auto farm=*world.building_owner_at({4,9});
+    sim::Command field{sim::CommandType::PlaceOriginalHempField,{6,9}};field.building_id=farm;f::buy(world,field);
+    check(world.construction_spent_total()==1162 && world.treasury()==10838 && world.couriers().size()==5,
+          "All actual scene purchases, explicit Field and typed actors were not charged");
     const auto initial=inspect(world);
-    f::buy(world,sim::set_building_operation(clay,false));ticks(world,400);
-    check(world.total_population()>0 && world.workforce_supply()>=12 && world.clay_extracted_total()==0 &&
-          world.pottery_completed_total()==0 && world.original_goods_balance(original::Goods::Ceramics).stock==0,
+    f::buy(world,sim::set_building_operation(clay,false));f::buy(world,sim::set_building_operation(farm,false));ticks(world,400);
+    check(world.total_population()>0 && world.workforce_supply()>=34 && world.clay_extracted_total()==0 &&
+          world.pottery_completed_total()==0 && world.original_goods_balance(original::Goods::Ceramics).stock==0 &&
+          world.original_goods_balance(original::Goods::Hemp).totals.produced==0,
           "Stopped producer fabricated output or residents failed genuine migration");
     const auto stopped=inspect(world);f::buy(world,sim::set_building_operation(clay,true));
+    f::buy(world,sim::set_building_operation(farm,true));
     bool midroute=false;
     for (int i=0;i<10000 && !midroute;++i) {
         world.tick();for (const auto& c:world.couriers())
-            if (c.role==sim::CourierRole::MarketPotteryDistribution && c.phase==sim::CourierPhase::ToWarehouse &&
+            if (c.role==sim::CourierRole::OriginalHempToWarehouse && c.phase==sim::CourierPhase::ToWarehouse &&
                     world.original_courier_cargo(c.id)>0 && c.edge_progress>0) {midroute=true;break;}
     }
-    check(midroute,"No actual typed Market cargo reached the mid-route checkpoint");
-    json checkpoints=json::array();checkpoints.push_back(checkpoint(data,output,"mid-market-courier",world));
+    check(midroute,"No actual typed Hemp cargo reached the mid-route checkpoint");
+    json checkpoints=json::array();checkpoints.push_back(checkpoint(data,output,"mid-hemp-courier",world));
     auto returning=sim::World::restore_original_production_development(world.snapshot(),policy,world.original_rules_model());
-    f::buy(returning,sim::set_building_operation(market,false));
+    f::buy(returning,sim::set_building_operation(farm,false));
     const auto has_return=[&] {
         for (const auto& row:returning.original_goods_state()->reservations)
-            if (row.source==market && row.phase==sim::OriginalGoodsTransferPhase::Returning) return true;
+            if (row.source==farm && row.phase==sim::OriginalGoodsTransferPhase::Returning) return true;
         return false;
     };
     for (int i=0;i<1000 && !has_return();++i) returning.tick();
-    check(has_return(),"Paused Market did not retain its loaded trip as a real return");
-    const auto return_save=output/"paused-market-return.json";save_world(data,return_save,returning);
+    check(has_return(),"Paused Hemp Farm did not retain its loaded trip as a real return");
+    const auto return_save=output/"paused-hemp-return.json";save_world(data,return_save,returning);
     auto return_replay=save::restore_original_production_development(save::read_save(return_save),data,policy->building_mask(),policy);
     for (int i=0;i<1000;++i) {returning.tick();return_replay.tick();}
     check(returning.snapshot()==return_replay.snapshot(),"Paused typed return changed across persistence");
     bool returned=false;
     for (const auto& row:returning.original_goods_state()->reservations)
-        returned=returned || (row.source==market && row.phase==sim::OriginalGoodsTransferPhase::Returned && row.returned>0);
+        returned=returned || (row.source==farm && row.phase==sim::OriginalGoodsTransferPhase::Returned && row.returned>0);
     check(returned,"Paused typed cargo failed to return to protected source space");
     const auto delivered=[&] {
-        for (const auto& house:world.original_economy_state()->houses) if (house.house.ceramics>0) return true;
+        for (const auto& house:world.original_economy_state()->houses)
+            if (house.house.hemp>0 && house.house.ceramics>0) return true;
         return false;
     };
     for (int i=0;i<10000 && !delivered();++i) world.tick();
-    check(delivered(),"Actual Market arrival did not reach the HouseState Ceramics account");
-    checkpoints.push_back(checkpoint(data,output,"house-ceramics",world));
+    check(delivered(),"Actual Market arrivals did not reach two separate goods in one HouseState");
+    checkpoints.push_back(checkpoint(data,output,"house-two-goods",world));
     // Test the ordinary incident clock on a separately restored real checkpoint;
     // no event, state, worker or material authority is injected.
     auto fire=sim::World::restore_original_production_development(world.snapshot(),policy,world.original_rules_model());
     f::buy(fire,sim::set_building_operation(clay,false));f::buy(fire,sim::set_building_operation(pottery,false));
-    while (fire.ticks()<2000) fire.tick();
+    f::buy(fire,sim::set_building_operation(farm,false));
+    for (int i=0;i<20000 && !(fire.building_on_fire(clay) && fire.building_on_fire(pottery));++i) fire.tick();
     check(fire.building_on_fire(clay) && fire.building_on_fire(pottery),"Natural placement-relative Fire did not start");
     f::buy(fire,sim::set_building_operation(clay,true));f::buy(fire,sim::set_building_operation(pottery,true));
     const auto extracted=fire.clay_extracted_total(),completed=fire.pottery_completed_total();ticks(fire,200);
     check(fire.clay_extracted_total()==extracted && fire.pottery_completed_total()==completed,
           "Burning sources ignored real Fire gates");
     f::write_text(output/"fixture.json",json{{"status","PASS"},{"authored_geography",true},
-        {"snapshot_injection",false},{"positive_runtime_goods",true},{"paid_house_count",4},
+        {"snapshot_injection",false},{"positive_runtime_goods",true},{"paid_house_count",6},
         {"paid_road_count",24},{"paid_clay_count",1},{"paid_pottery_count",1},{"paid_warehouse_count",1},{"paid_market_count",1},
+        {"paid_hemp_farm_count",1},{"paid_hemp_field_count",1},
         {"initial",initial},{"stopped",stopped},{"final",inspect(world)},
         {"stop_controls_verified",true},{"natural_fire_verified",true},{"fire",inspect(fire)},
-        {"paused_market_return_verified",true},{"paused_return",inspect(returning)},{"actual_house_arrival",true},
+        {"paused_hemp_return_verified",true},{"paused_return",inspect(returning)},{"actual_two_good_house_arrival",true},
         {"checkpoints",checkpoints}}.dump(2)+"\n");
 }
 void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path& input) {

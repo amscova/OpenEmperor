@@ -5,7 +5,7 @@
 namespace openemperor::simulation {
 
 bool fire_eligible(Object kind) {
-    return kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
+    return kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Household || kind==Object::Farm || kind==Object::ServicePost ||
         kind==Object::Market || kind==Object::HealthPost;
 }

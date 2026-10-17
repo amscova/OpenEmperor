@@ -21,8 +21,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-12 | PASS | `ec3a2d60c7541f8a11338c80d5398ce54e51f3a8` | `.local/original-economy/oe12/implementation/`, OE-00/`oe12-final-verification/` | Rule8/Schema24: bezahlte Well72-Quellen,20 Häuser, Abriss/Wiederkauf/Prozessreplay;181 unterschiedliche CTests je Konfiguration belegt;72 Legacy-Saves/Snapshots und1485 Policyfälle exakt;Gate B PASS |
 | OE-13 | PASS | `887dda562622d59487a92b8966b62b218cb59ce3` | `.local/original-economy/oe13/implementation/`, `oe13/goods-fixtures/run-d4mm76cf/`, OE-00/`oe13-final-verification/` | Rule9/Schema25-Buchhaltungsfundament;117 relevante Konfigurations-CTests, echte F5/F9-/40k-Prozessfortsetzungen;72 Legacy-Saves/Snapshots und1485 Policyfälle sowie eingefrorene7/23-/8/24-Bytes exakt; reale Waren0/unsupported, Gate C offen |
 | OE-14 | PASS | `2bd6878f0ab06af0764d84120f8bf9cb6c2dd726` | `.local/original-economy/oe14/`, OE-00/`oe14-final-verification/` | Aktive Rule10/Schema26/Revision14; bezahlter Zuzug/Worker, echter Clay→Pottery→Warehouse→Ceramics-Ursprung,129 relevante CTests und separate20k-Prozessreplays; alte1–9/1–25-Verträge erhalten; Gate C offen |
-| OE-15 | PASS | — | `.local/original-economy/oe15/implementation/`, `oe15/production-fixtures/final-source-5f09/`, OE-00/`oe15-final-verification/` | Aktive Revision15: reale bezahlte Market→House-Lieferung, sichere Rückgabe, begrenzte Transferhistorie;135 relevante Konfigurations-CTests/3×74 Forkvergleiche/separate20k-Prozessreplays; alte1–9-Verträge exakt, Gate C offen |
-| OE-16 | TODO | — | — | — |
+| OE-15 | PASS | `390c87481b2259a0e95559e0c975e974a7b627af` | `.local/original-economy/oe15/implementation/`, `oe15/production-fixtures/final-source-5f09/`, OE-00/`oe15-final-verification/` | Aktive Revision15: reale bezahlte Market→House-Lieferung, sichere Rückgabe, begrenzte Transferhistorie;135 relevante Konfigurations-CTests/3×74 Forkvergleiche/separate20k-Prozessreplays; alte1–9-Verträge exakt, Gate C offen |
+| OE-16 | PASS | — | `.local/original-economy/oe16/implementation/`, `oe16/production-fixtures/final-source-55c8/`, OE-00/`oe16-final-verification/` | Revision16: bezahlte HempFarm192/Feld194, echte Zweigüterankunft/separate Prozessreplays;147 relevante Konfigurations-CTests/3×74 Vergleiche,72 Legacy-Saves/Snapshots und1485 Policyfälle exakt. Gate C TODO |
 | OE-17 | TODO | — | — | — |
 | OE-18 | TODO | — | — | — |
 | OE-19 | TODO | — | — | — |
@@ -1950,3 +1950,147 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   `implementation/final-validation.json` bindet die tatsächlichen Binaries,
   Archive, JUnitdaten, Savebytes, Warenbilanzen, Quellen und Dokumentationslinks.
   OE-15 PASS, OE-16 folgt direkt; Gate C bis OE-19 TODO, native/human NOT_RUN.
+
+### OE-16 – Umsetzung, 2026-10-17, Basis390c874
+
+- **Vertrag und tatsächliche Authority:**
+  [Hemp-Laufzeitvertrag](../original-economy/hemp-runtime.md), explizite
+  Rule10/Schema26/policy3 mit Entwicklungsrevision16. Separat bezahlte Hemp
+  Farm192 und Hemp Field194, eindeutige Feldbindung und2×2-/1×1-Flächen.
+  Modell-Cost→Funds, Feldnachbarschaft und80 produktive Ticks je Einheit sind
+  ausdrücklich authored. Modellgebundene Employees erhalten ihre Worker aus
+  echten zugezogenen Bewohnern. Höchstens zwei Farms mit je einem gekauften
+  Feld; eigene Farm-Couriers und vorhandene Warehouse-/Marketrollen bewegen
+  Hemp und Ceramics über denselben Navigator. Die sechs HouseState-Bestände
+  bleiben alleinige Hausauthority. Keine Gratisfelder, Vorräte oder Worker.
+- **Modell und eingefrorene Vorgänger:** Der neue ausdrückliche
+  `prepare_production()`-Pfad bereitet zusätzlich die beiden benannten Zeilen
+  vor. Der alte Sieben-Zeilen-Pfad verlangt und validiert sie nicht; auch
+  semantisch unpassende zusätzliche Zeilen ändern seine bisherigen Werte nicht.
+  Neue synthetische und echte Modellprüfungen vergleichen alle Felder über
+  fünf Difficulties sowie die bisherigen sieben Building- und15 Housezeilen.
+  Neue Object-/Command-/Courier-IDs sind append-only. Die neuen funktionalen
+  Zuordnungen sind authored und behaupten keine Originalmechanik oder fertige
+  Originalgrafik. Regeln1–9/Schemas1–25 bleiben eingefroren; frühere
+  Schema26-Entwicklungsrevisionen werden atomar verweigert.
+- **Unabhängige Reviews und Härtungen:** Feldnachbarschaft promoviert alle
+  Koordinaten vor Addition/Subtraktion in int64; extreme Feldcommands werden
+  atomar verweigert. Ein zusätzlicher bestätigter Farm-INT_MAX-Restoreüberlauf
+  in der späteren2×2-Footprintaddition führte zu einer vorgelagerten vollständigen
+  Geometrieprüfung per Subtraktion, bevor irgendein Offset addiert wird.
+  Ergänzt sind14 Grenzlagen über drei getrennte Verweigerungspfade (World,
+  Writer, Reader/Restore),42 neue Negativfälle beziehungsweise939 Hemp-Save-
+  Verweigerungen sowie vier legale Farm-/Feld-Eckroundtrips. Alle drei finalen
+  Konfigurationen bestätigen diese Fälle. Eigener Farmstock, ausgehendes Cargo und letzte
+  Transferhistorie können die eigene tatsächliche
+  Ernte nicht überschreiten; eine zweite Farm ohne Feld kann keine fremde
+  Ernte übernehmen. Koordinierte Stockverschiebungen nach Market/Haus trotz
+  unveränderter Gesamtmasse werden ohne mögliche tatsächliche Ankunft
+  verweigert. Alte Ceramicsfahrten ersetzen nicht die erste Hemp-Farmankunft.
+  Diese begrenzten Herkunftsprüfungen rekonstruieren keine vollständige
+  Besuchshistorie: spätere Sequenzen dürfen ältere kompaktierte Ziele/Waren
+  enthalten. Ownerpause, begonnene Kanten, physischer Rückkehrplatz, sichere
+  Abrissverweigerung und stale/doppelte Ankünfte bleiben gebunden; höchstens
+  acht letzte typisierte Transferzeilen. Reiner Ledgerkern unverändert.
+- **Finale Builds und relevante Tests:**39 Targets in Debug, Release und
+  ASan+UBSan gebaut;196 Tests je Konfiguration tatsächlich registriert.
+  Finale Auswahl jeweils **49/49 PASS**, insgesamt147 CTests, keine Fehler
+  oder Skips. Exakte CTest-Zeiten Debug117.442s, Release11.807s,
+  Sanitizer46.241s. Vollständige Commands/Exitcodes, Inventare, Logs und JUnit
+  unter `implementation/{debug,release,sanitizer}-targeted-result.json`,
+  `*-targeted-*.log` und `*-targeted.xml`. Save-Negativfälle je Konfiguration:
+  Hemp939, bestehende Produktion800, Market677 und eingefrorene Rule9-Goods575.
+  Dies ist die relevante49er-Auswahl, keine vorgezogene vollständige196er-
+  Phasen-Gate-Suite.
+- **Echtes Modell und separate OS-Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/market-walkers-finish/debug-build --output .local/original-economy/oe16/production-fixtures/final-source-55c8`:
+  **PASS**, Bericht-SHA
+  `55623e8de8f89ac0560765c5cdfa6f73f4339c4a241cd29cdb2db6c3061c5de9`,
+  tatsächliches Fixturebinary
+  `9d025cc5e34ea617743d5c42ae1ac5f36593c76246be1d9c40e4317005baa27a`.
+  24 Straßen, sechs Häuser, Clay Pit, Kiln, Warehouse, Market und eine separat
+  bezahlte Farm samt Feld kosten1162 Funds;10838 verbleiben. Bei400t bestehen
+  42 echte Bewohner, aber durch gestoppte Quellen noch null Waren. Bei480t
+  bewegt der Farm-Courier die erste Hemp-Einheit mit null Legacy-Cargo;34
+  Worker sind regulär zugewiesen. Bei3650t hat Haus-ID5 tatsächlich
+  gelieferte Hemp8/Ceramics4; die gemeinsame Bilanz lautet Hemp33=31 Stock+2
+  Cargo und Ceramics35=35 Stock. Alle vier weiteren Waren bleiben unsupported0.
+  Beladene Ownerpause/Rückgabe und natürliches Feuer separat geprüft.
+  Zwei neue OS-Prozesse setzen Mid-Hemp-Courier und Zweigüter-Hausstand jeweils
+  mit10000 Ticks, einem bezahlten Straßenbau und weiteren10000 Ticks fort.
+  Vollständige SaveDocuments, kanonische Bytes, Provenance und Bilanzen stimmen
+  exakt überein. Eingabesaves samt Metadaten, hashidentische private Modellkopie
+  und Originalinventar1464 Dateien/819711091 Bytes bleiben unverändert.
+  Rule7/Schema23, sechs Rule8/Schema24- und zehn Rule9/Schema25-Saves bleiben
+  unabhängig bytegleich; diese Nachweise ergänzen die frische vollständige
+  OE-00-Baseline unten. Keine Snapshot-/Stock-/Workerinjektion.
+  Sechs tatsächliche Python-/C++-CLI-Outputguards gegen das aktuelle Binary
+  verweigern Ausgaben außerhalb des privaten OE-16-Roots, Symlinkpfade und
+  den alten OE-15-Root; Zielpfade bleiben abwesend. Symlinkvorbedingungen wurden
+  frisch geprüft; frühere Ausgaben ohne wiederhergestellten Testsymlink bleiben
+  als abweichendes Setup erhalten. Beleg `oe16/persistence/actual-output-guards.json`.
+- **SDL-Nachweis und Präsentationsgrenze:** Explizite Farmtaste N und Feldtaste M mit
+  tatsächlichen bezahlten Mausklicks, Farm ohne kostenloses Feld, bewegtes
+  Hemp-Cargo, echte F5/F9-Handler und zwei Waren im selben HouseState geprüft.
+  Der SDL-/Sanitizernachweis wurde zum finalen Quellenstand55c8 wiederholt.
+  Die tatsächlich geöffnete Softwareaufnahme
+  `implementation/production-view-final.png` zeigt Revision16, Tick1636,
+  Funds11002 und House2 mit Hemp2/Ceramics4. Die vier authored Testhäuser mit
+  je37 Bewohnern sind synthetisch; der echte Modellprozess oben hat42 Bewohner
+  in sechs Häusern.100 Idleframes verursachen keine Worldkopien, Commands,
+  BFS-, Datei-, Decode- oder Uploadarbeit. Native/human **NOT_RUN**; die
+  endgültige Originalsprite-/Objektkomposition bleibt ein späterer Auftrag.
+  Ausgeschlossener Entwicklerstart: `sh tools/play_original_economy.sh`.
+- **Frische Forkvergleiche zum Quellenstand55c8:** Debug, Release und ASan+UBSan jeweils
+  **74/74 PASS**, unverändert46 parity/18 corrected_bug/6 unverified/4 unsupported.
+  Alle18 Housingbeobachtungen und der1800-Werte-Originalmodelldigest bleiben
+  exakt.21 Archive, fünf World-/DTO- und zwei zusätzliche Modellheader geprüft;
+  die fünf geprüften additiven Modelländerungen sind einzeln gepinnt, die
+  übrigen numerischen Module und historischen Nicht-current-Belege unverändert.
+  25 zusätzliche Sanitizerprozesse mit leerem stderr und28 Pythonverträge
+  bestanden. Alle drei vorherigen Paritätsverzeichnisse bleiben unter
+  `parity-*-before-bounds` erhalten; neue Läufe stehen in
+  `parity-*-run-after-bounds.log`. Portable
+  `core-parity.json` SHA
+  `e71ec3fec3d0a60f36ecbce9447a2260d1ebf7278f5fa9ee960ef51891ec8718`;
+  `implementation/parity-validation-summary.json` SHA
+  `3fb26f0a56f0e2c0ca24ff529201fc5592076c68bbb565be83d3e6f378b32f9f`.
+- **Vollständiger Legacyabschluss:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe16-final-verification`:
+  **PASS**, Quelle55c8 und Originalinputs während des gesamten Laufs unverändert.
+  Alle72 vollständigen Saves,72 Snapshots und der Vertrag anschließend
+  unabhängig wörtlich bytegleich nachverglichen.167 vollständige Maps,
+  165 vorbereitet/zwei bestehende Konflikte,1485 Policyfälle sowie elf Rampen-
+  und zehn Bridge-Restartpaare exakt. Kanonischer Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  raw `contract.json` SHA
+  `1407fdf01945e85e62e92b231d84e0224f0804cc7a9a2d914d4e344e89d6da03`;
+  `run.json` SHA
+  `9acab3800c5dec0aa735c182d840aabc6a26a0cdb58390e0e7bf1711be38f82f`;
+  `implementation/legacy-literal-proof.json` SHA
+  `b318f1ff1d4b796cc00d03c1606bcb16af560a0508c3a2ed86cd378ad61d9fae`.
+- **Quellenabschluss und Grenzen:** Source-/Test-/Toolhash
+  `55c8d195d45e7b2d3a22a9fb37c69fef29e2fc7520c4c363d9aa1ec798513287`,
+  35 eingefrorene Sourcepfade/42 gesamte Taskpfade. Der vorangegangene Stand
+  `6967cba3fad26b862164e63c7fc495b8fe46d741dd792e41e5a5c555120953c8`
+  unterscheidet sich gegenüber Prozessstand
+  `675a5b46cd87d0569f8e2d6810c30694112b7f9544a0d0ccf46c4982a2371007`
+  ausschließlich durch den ungültigen Test-Sentinel von
+  `OriginalInfluenceSource+1` auf `OriginalHempField+1`: Objects14/15 sind nun
+  gültig,16 und255 ungültig. Zwischen diesen beiden Ständen bleiben die
+  Runtimebinaries unverändert. Der anschließend bestätigte Farmfootprint-
+  Restorebefund ist im neuen55c8-Quellenfreeze behoben; alle drei neuen Builds,
+  der aktuelle echte Prozesslauf, SDL-Nachweis und die drei neu ausgeführten
+  Paritätsvergleiche sind **PASS**. Die fünf Szenenberichte initial/stopped/
+  paused_return/final/fire sind gegenüber675a vollständig identisch, nicht
+  lediglich auf dieselben Eckwerte gekürzt.
+  6967 bleibt ausdrücklich ein **Zwischenstand**. Frühere
+  vollständige Auswahlversuche mit diesem veralteten Sentinel bleiben als
+  `*-before-sentinel`-Belege erhalten. Finale49 relevante CTests je Debug/
+  Release/Sanitizer und der frische vollständige Legacyvertrag sind **PASS**.
+  Alle21 Archivhashes und35 Sourcepfade passen nach den Fullbuilds weiterhin
+  exakt; `implementation/parity-post-fullbuild-archive-check.json`.
+  **OE-16 technisch PASS**, OE-17 TODO, Gate C TODO und native/human NOT_RUN.
+  Kein Verbrauch, keine Hausentwicklung oder vollständige Originalspiel- bzw.
+  Originalsprite-Parität behauptet. Eigener Task-Commit nach Abschlussprüfung;
+  danach OE-17 gemäß Gesamtauftrag ohne Wartepunkt für manuelle Playtests.

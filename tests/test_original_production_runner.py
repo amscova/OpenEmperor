@@ -42,6 +42,7 @@ class ProductionRunnerTests(unittest.TestCase):
         for output in (self.outside / "run", self.repo / "report", self.original / "run", self.build / "run",
                        self.private, self.private / ".." / "escape",
                        self.repo / ".local/original-economy/oe14/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe15/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -126,10 +127,11 @@ class ProductionRunnerTests(unittest.TestCase):
 
     @staticmethod
     def scene():
-        return {"balances": [{"good": index, "supported": index == 1, "conserved": True,
+        return {"balances": [{"good": index, "supported": index < 2, "conserved": True,
                     "produced": 0, "imported": 0, "consumed": 0, "demolished": 0,
                     "stock": 0, "cargo": 0, "source_reserved": 0, "incoming_reserved": 0}
                 for index in range(6)], "pottery_handed_off": 0, "pottery_completed": 0,
+                "hemp_harvested": 0, "hemp_farms": [],
                 "residents_admitted": 0, "population": 0, "workforce_supply": 0,
                 "houses": [], "stocks": [], "couriers": []}
 
@@ -139,8 +141,11 @@ class ProductionRunnerTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             runner.check_balances(scene, positive=True)
         scene["balances"][1]["produced"] = scene["balances"][1]["stock"] = 2
-        scene.update(pottery_handed_off=2, pottery_completed=2, residents_admitted=14,
-                     population=14, workforce_supply=14, houses=[{"occupants": 14, "ceramics": 2}])
+        scene["balances"][0]["produced"] = scene["balances"][0]["stock"] = 2
+        scene.update(pottery_handed_off=2, pottery_completed=2, hemp_harvested=2, hemp_farms=[{"harvested": 2}],
+                     residents_admitted=42, population=42, workforce_supply=42,
+                     houses=[{"occupants": 7, "hemp": 2 if index == 0 else 0,
+                              "ceramics": 2 if index == 0 else 0} for index in range(6)])
         runner.check_balances(scene, positive=True)
         for field in ("imported", "consumed", "demolished", "cargo"):
             bad = copy.deepcopy(scene)
@@ -150,24 +155,24 @@ class ProductionRunnerTests(unittest.TestCase):
         carrying = copy.deepcopy(scene)
         carrying["balances"][1].update(stock=0, cargo=2, source_reserved=0, incoming_reserved=2)
         carrying["houses"][0]["ceramics"] = 0
-        carrying["couriers"] = [{"role": 8, "cargo": 0, "reserved": 0, "typed_cargo": 2}]
+        carrying["couriers"] = [{"role": 8, "cargo": 0, "reserved": 0, "typed_cargo": 2, "typed_cargo_good": 1}]
         runner.check_balances(carrying, positive=False)
         mirrored = copy.deepcopy(carrying)
         mirrored["couriers"][0]["cargo"] = 2
         with self.assertRaises(AssertionError):
             runner.check_balances(mirrored)
         unsupported_stock = copy.deepcopy(scene)
-        unsupported_stock["stocks"] = [{"kind": 3, "amounts": [1, 0, 0, 0, 0, 0]}]
+        unsupported_stock["stocks"] = [{"kind": 3, "amounts": [0, 0, 1, 0, 0, 0]}]
         with self.assertRaises(AssertionError):
             runner.check_balances(unsupported_stock)
-        for key in ("pottery_completed", "pottery_handed_off", "residents_admitted", "population"):
+        for key in ("pottery_completed", "pottery_handed_off", "hemp_harvested", "residents_admitted", "population"):
             bad = copy.deepcopy(scene)
             bad[key] = 0
             with self.subTest(key=key), self.assertRaises(AssertionError):
                 runner.check_balances(bad)
 
     def test_balanced_unsupported_forgery_wrong_identity_flags_and_domains_fail(self):
-        for good in (0, 2, 3, 4, 5):
+        for good in (2, 3, 4, 5):
             bad = self.scene()
             bad["balances"][good]["produced"] = bad["balances"][good]["stock"] = 1
             with self.subTest(good=good), self.assertRaises(AssertionError):

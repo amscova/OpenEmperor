@@ -43,6 +43,12 @@ struct FunctionalModelCandidate {
     case Object::HealthPost:
         return {ModelBuilding::HerbalistsStall, EvidenceStatus::Inferred,
                 EvidenceStatus::Unknown, EvidenceStatus::ReverseEngineered};
+    case Object::OriginalHempFarm:
+        return {ModelBuilding::HempFarm, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
+    case Object::OriginalHempField:
+        return {ModelBuilding::HempField, EvidenceStatus::AuthoredFallback,
+                EvidenceStatus::AuthoredFallback, EvidenceStatus::Unknown};
     case Object::Empty:
     case Object::Road:
     case Object::Workshop:

@@ -8,7 +8,7 @@ if [ "$#" -gt 4 ]; then
 fi
 data=${1:-.local/gog-extracted/app}
 map=${2:-Cities/Xia.map}
-save=${3:-.local/original-economy/player/rule10-revision15.json}
+save=${3:-.local/original-economy/player/rule10-revision16.json}
 build=.local/original-economy/completion/play-build
 cmake -S . -B "$build" -DCMAKE_BUILD_TYPE=Release -DOPENEMPEROR_USE_SYSTEM_SDL3=ON
 cmake --build "$build" --parallel 2 --target openemperor-original-production-play

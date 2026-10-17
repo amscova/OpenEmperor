@@ -44,6 +44,11 @@ simulation::OriginalModelSource original_model_source(
 std::shared_ptr<const original::OriginalRulesModel> prepare_original_rules_model(
     const std::filesystem::path& data_root,
     original::Difficulty difficulty=original::Difficulty::Normal);
+// Active Rule10 preparation additionally requires the named paid-production
+// model categories. Frozen Rule7/8/9 preparation remains the seven-row path.
+std::shared_ptr<const original::OriginalRulesModel> prepare_original_production_rules_model(
+    const std::filesystem::path& data_root,
+    original::Difficulty difficulty=original::Difficulty::Normal);
 // Schema 23 remains an explicit development boundary while normal Rule-7
 // sessions, ticking and restore_save are unavailable.
 simulation::World restore_original_economy_development(

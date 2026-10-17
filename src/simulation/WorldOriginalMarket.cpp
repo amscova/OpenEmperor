@@ -9,21 +9,22 @@
 namespace openemperor::simulation {
 namespace {
 constexpr auto ceramics=static_cast<std::size_t>(original::Goods::Ceramics);
-bool typed(CourierRole role) {return role==CourierRole::MarketPotteryInbound || role==CourierRole::MarketPotteryDistribution;}
+bool typed(CourierRole role) {return role==CourierRole::MarketPotteryInbound || role==CourierRole::MarketPotteryDistribution || role==CourierRole::OriginalHempToWarehouse;}
 [[noreturn]] void invalid(const char* message) {throw std::invalid_argument(message);}
-int capacity(Object kind) {
+int capacity(Object kind,original::Goods good=original::Goods::Ceramics) {
+    if (kind==Object::OriginalHempFarm) return good==original::Goods::Hemp ? 8:0;
     return kind==Object::Warehouse ? Rules::warehouse_capacity:
         kind==Object::Market ? Rules::market_pottery_capacity:Rules::household_capacity;
 }
 struct Context {
     std::array<OriginalGoodsOwner,original_goods_owner_limit> owners{};
-    std::array<CourierId,6> couriers{};
+    std::array<CourierId,8> couriers{};
     std::size_t count=0,actors=0;
     template<class Buildings,class Couriers> Context(const Buildings& buildings,const Couriers& moving) {
-        for (const auto& b:buildings) if (b.kind==Object::Household || b.kind==Object::Warehouse || b.kind==Object::Market) {
+        for (const auto& b:buildings) if (b.kind==Object::Household || b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm) {
             if (count==owners.size()) invalid("typed market owner bound exceeded");
             auto& owner=owners[count++];owner.building_id=b.id;owner.household=b.kind==Object::Household;
-            owner.capacity[ceramics]=capacity(b.kind);
+            owner.capacity[ceramics]=capacity(b.kind);owner.capacity[0]=capacity(b.kind,original::Goods::Hemp);
         }
         for (const auto& c:moving) if (typed(c.role)) {
             if (actors==couriers.size()) invalid("typed market courier bound exceeded");
@@ -44,16 +45,16 @@ int cargo(const OriginalGoodsState& state,CourierId id) {
         [](const auto& c,CourierId key){return c.transfer.courier_id<key;});
     return found==state.cargo.end() || found->transfer.courier_id!=id ? 0:found->amount;
 }
-int incoming(const OriginalGoodsState& goods,BuildingId target) {
+int incoming(const OriginalGoodsState& goods,BuildingId target,original::Goods good) {
     std::int64_t total=0;
-    for (const auto& r:goods.reservations) if (r.target==target) {
+    for (const auto& r:goods.reservations) if (r.target==target && r.good==good) {
         if (r.phase==OriginalGoodsTransferPhase::Reserved) total+=r.reserved;
         else if (r.phase==OriginalGoodsTransferPhase::Loaded) total+=r.loaded-r.delivered-r.returned;
     }
     if (total>INT32_MAX) invalid("typed incoming reservations overflow");return static_cast<int>(total);
 }
-int returning_room(const OriginalGoodsState& goods,BuildingId source) {
-    std::int64_t total=0;for (const auto& c:goods.cargo) if (c.source==source) total+=c.amount;
+int returning_room(const OriginalGoodsState& goods,BuildingId source,original::Goods good) {
+    std::int64_t total=0;for (const auto& c:goods.cargo) if (c.source==source && c.good==good) total+=c.amount;
     if (total>INT32_MAX) invalid("typed source return-room overflow");return static_cast<int>(total);
 }
 template<class Buildings,class Couriers> void validate_market_bindings(const Buildings& buildings,const Couriers& couriers,
@@ -62,18 +63,18 @@ template<class Buildings,class Couriers> void validate_market_bindings(const Bui
     for (std::size_t i=0;i<goods.reservations.size();++i) {
         const auto& r=goods.reservations[i];
         if ((i && goods.reservations[i-1].transfer.courier_id==r.transfer.courier_id) ||
-            r.good!=original::Goods::Ceramics || r.phase==OriginalGoodsTransferPhase::Reserved ||
+            (r.good!=original::Goods::Ceramics && r.good!=original::Goods::Hemp) || r.phase==OriginalGoodsTransferPhase::Reserved ||
             r.phase==OriginalGoodsTransferPhase::Cancelled || r.reserved>Rules::courier_capacity ||
             r.reserved!=r.loaded ||
             (r.phase!=OriginalGoodsTransferPhase::Completed && r.delivered!=0))
             invalid("typed market must retain exactly the latest real loaded trip per courier");
         const auto c=std::find_if(couriers.begin(),couriers.end(),[&](const auto& value){return value.id==r.transfer.courier_id;});
         if (c==couriers.end() || !typed(c->role) || c->owner!=r.source || c->target!=r.target ||
-            c->last_dispatched_target!=r.target)
+            c->last_dispatched_target!=r.target || (c->role==CourierRole::OriginalHempToWarehouse && r.good!=original::Goods::Hemp))
             invalid("typed transfer is not owned by its actual courier and destination");
     }
     for (const auto& c:couriers) if (typed(c.role)) {
-        if (c.cargo || c.reserved || c.good!=Good::Pottery) invalid("typed cargo is mirrored into legacy fields");
+        if (c.cargo || c.reserved || c.good!=(c.role==CourierRole::OriginalHempToWarehouse ? Good::Goods:Good::Pottery)) invalid("typed cargo is mirrored into legacy fields");
         const auto* r=row(goods,c.id);const auto amount=cargo(goods,c.id);
         if (!r) {
             if (c.phase!=CourierPhase::IdleAtWorkshop || c.last_dispatched_target || c.target!=c.owner)
@@ -88,11 +89,59 @@ template<class Buildings,class Couriers> void validate_market_bindings(const Bui
         } else if (amount || (r->phase!=OriginalGoodsTransferPhase::Completed && r->phase!=OriginalGoodsTransferPhase::Returned))
             invalid("idle typed courier has unfinished goods");
     }
+    // Necessary arrival provenance from bounded retained history. The first
+    // trip has no pruned predecessors; a later sequence can have delivered a
+    // different good/target before its old terminal row was compacted.
+    const auto possible_arrival=[&](BuildingId target,original::Goods good,CourierRole role) {
+        for (const auto& c:couriers) if (c.role==role) {
+            const auto* latest=row(goods,c.id);if (!latest) continue;
+            if (latest->transfer.sequence>1 || (latest->phase==OriginalGoodsTransferPhase::Completed &&
+                latest->target==target && latest->good==good)) return true;
+        }
+        return false;
+    };
+    bool hemp_outside_farm=false,possible_farm_delivery=false;
+    for (const auto& home:homes) if (home.house.hemp>0) hemp_outside_farm=true;
     for (const auto& b:buildings) if (b.kind==Object::Warehouse || b.kind==Object::Market) {
+        for (const auto& stock:goods.stocks)
+            if (stock.building_id==b.id && stock.amounts[static_cast<std::size_t>(original::Goods::Hemp)]>0)
+                hemp_outside_farm=true;
+        for (const auto& item:goods.cargo)
+            if (item.source==b.id && item.good==original::Goods::Hemp && item.amount>0) hemp_outside_farm=true;
+    }
+    for (const auto& c:couriers) if (c.role==CourierRole::OriginalHempToWarehouse) {
+        const auto* latest=row(goods,c.id);
+        if (latest && (latest->transfer.sequence>1 || latest->phase==OriginalGoodsTransferPhase::Completed))
+            possible_farm_delivery=true;
+    }
+    // Historical Ceramics rotations cannot stand in for the first Hemp source
+    // delivery. Later compacted Farm trips remain deliberately possible.
+    if (hemp_outside_farm && !possible_farm_delivery)
+        invalid("Hemp outside its Farm has no possible actual Farm arrival");
+    for (const auto& home:homes) for (const auto good:{original::Goods::Hemp,original::Goods::Ceramics})
+        if (original::goods_stock(home.house,good)>0 &&
+            !possible_arrival(home.building_id,good,CourierRole::MarketPotteryDistribution))
+            invalid("positive House goods have no possible actual Distributor arrival");
+    for (const auto& b:buildings) if (b.kind==Object::Warehouse || b.kind==Object::Market) {
+        for (const auto good:{original::Goods::Hemp,original::Goods::Ceramics}) {
+            if (b.kind==Object::Warehouse && good==original::Goods::Ceramics) continue;
+            bool held=false;
+            for (const auto& stock:goods.stocks) if (stock.building_id==b.id && stock.amounts[static_cast<std::size_t>(good)]>0) held=true;
+            for (const auto& trip:goods.reservations) if (trip.source==b.id && trip.good==good && trip.loaded>0) held=true;
+            if (held && !possible_arrival(b.id,good,b.kind==Object::Warehouse ?
+                CourierRole::OriginalHempToWarehouse:CourierRole::MarketPotteryInbound))
+                invalid("typed distribution stock or cargo has no possible actual supplier arrival");
+        }
+    }
+    for (const auto& b:buildings) if (b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm) {
         const auto stock=std::find_if(goods.stocks.begin(),goods.stocks.end(),[&](const auto& s){return s.building_id==b.id;});
-        if (stock==goods.stocks.end() || std::int64_t(stock->amounts[ceramics])+returning_room(goods,b.id)+
-            incoming(goods,b.id)+b.reserved_incoming>capacity(b.kind))
-            invalid("typed source stock, return-room and incoming commitments exceed physical capacity");
+        if (stock==goods.stocks.end()) invalid("typed physical owner has no stock");
+        for (const auto good:{original::Goods::Hemp,original::Goods::Ceramics}) {
+            const auto g=static_cast<std::size_t>(good);
+            if (std::int64_t(stock->amounts[g])+returning_room(goods,b.id,good)+incoming(goods,b.id,good)+
+                (good==original::Goods::Ceramics ? b.reserved_incoming:0)>capacity(b.kind,good))
+                invalid("typed source stock, return-room and incoming commitments exceed physical capacity");
+        }
     }
 }
 }
@@ -102,10 +151,15 @@ int World::original_courier_cargo(CourierId id) const {
     if (!original_production_enabled()) return 0;
     (void)courier(id);return cargo(*original_goods_,id);
 }
-int World::original_market_headroom(BuildingId owner) const {
+std::optional<original::Goods> World::original_courier_good(CourierId id) const {
+    if (!original_production_enabled()) return std::nullopt;
+    (void)courier(id);for (const auto& c:original_goods_->cargo) if (c.transfer.courier_id==id) return c.good;
+    return std::nullopt;
+}
+int World::original_market_headroom(BuildingId owner,original::Goods good) const {
     const auto& b=building(owner);
-    return capacity(b.kind)-original_ceramics_stock(owner)-returning_room(*original_goods_,owner)-
-        incoming(*original_goods_,owner)-b.reserved_incoming;
+    return capacity(b.kind,good)-original_typed_stock(owner,good)-returning_room(*original_goods_,owner,good)-
+        incoming(*original_goods_,owner,good)-(good==original::Goods::Ceramics ? b.reserved_incoming:0);
 }
 void World::validate_original_market_snapshot(const WorldSnapshot& s) {
     for (const auto& r:s.original_goods->reservations)
@@ -119,7 +173,8 @@ void World::validate_original_market_state() const {
 }
 
 CourierDispatchDecision World::original_market_dispatch_status(const CourierState& c) const {
-    if (original_ceramics_stock(c.owner)<=0) return {CourierDispatchStatus::NoStock,{}};
+    if (original_typed_stock(c.owner,original::Goods::Hemp)<=0 && original_typed_stock(c.owner,original::Goods::Ceramics)<=0)
+        return {CourierDispatchStatus::NoStock,{}};
     std::array<const BuildingState*,Rules::city_v10_household_limit> targets{};std::size_t count=0;
     for (const auto& b:buildings_) if (courier_can_target(c.role,b)) {
         if (b.kind==Object::Household) {
@@ -135,13 +190,23 @@ CourierDispatchDecision World::original_market_dispatch_status(const CourierStat
     for (std::size_t i=0;i<count;++i) if (c.last_dispatched_target==targets[i]->id) start=(i+1)%count;
     bool room=false;
     for (std::size_t step=0;step<count;++step) {
-        const auto& b=*targets[(start+step)%count];if (original_market_headroom(b.id)<=0) continue;room=true;
+        const auto& b=*targets[(start+step)%count];if (!original_market_dispatch_good(c,b.id)) continue;room=true;
         const auto found=std::lower_bound(c.dynamic_target_routes.begin(),c.dynamic_target_routes.end(),b.id,
             [](const auto& entry,BuildingId id){return entry.first<id;});
         if (found!=c.dynamic_target_routes.end() && found->first==b.id && found->second)
             return {CourierDispatchStatus::Ready,b.id};
     }
     return {room ? CourierDispatchStatus::NoRoad:CourierDispatchStatus::TargetFull,{}};
+}
+
+std::optional<original::Goods> World::original_market_dispatch_good(const CourierState& c,BuildingId target) const {
+    const auto* previous=row(*original_goods_,c.id);
+    const auto first=previous && previous->good==original::Goods::Hemp ? original::Goods::Ceramics:original::Goods::Hemp;
+    for (const auto good:{first,first==original::Goods::Hemp ? original::Goods::Ceramics:original::Goods::Hemp}) {
+        if (c.role==CourierRole::OriginalHempToWarehouse && good!=original::Goods::Hemp) continue;
+        if (original_typed_stock(c.owner,good)>0 && original_market_headroom(target,good)>0) return good;
+    }
+    return std::nullopt;
 }
 
 void World::dispatch_original_market(CourierState& c) {
@@ -151,16 +216,17 @@ void World::dispatch_original_market(CourierState& c) {
     const auto route=std::lower_bound(c.dynamic_target_routes.begin(),c.dynamic_target_routes.end(),target,
         [](const auto& entry,BuildingId id){return entry.first<id;});
     if (route==c.dynamic_target_routes.end() || !route->second) throw std::logic_error("typed dispatch lost cached route");
-    const auto amount=std::min({Rules::courier_capacity,original_ceramics_stock(c.owner),original_market_headroom(target)});
+    const auto selected=original_market_dispatch_good(c,target);if (!selected) return;const auto good=*selected;
+    const auto amount=std::min({Rules::courier_capacity,original_typed_stock(c.owner,good),original_market_headroom(target,good)});
     const auto* previous=row(*original_goods_,c.id);
     if (previous && previous->transfer.sequence==UINT64_MAX) return;
     const OriginalGoodsTransferKey key{c.id,previous ? previous->transfer.sequence+1:1};
     const Context context(buildings_,couriers_);
-    // Six real typed actors retain six latest rows; reserve's temporary seventh
+    // Eight real typed actors retain eight latest rows; reserve's temporary ninth
     // row fits the unchanged pure ledger. The old highwater is replaced only
     // after its successor exists, and stale handles can never name that trip.
     auto candidate=original_goods_reserve(context.view(*original_goods_,original_economy_->houses),key,
-        c.owner,target,original::Goods::Ceramics,amount);
+        c.owner,target,good,amount);
     std::erase_if(candidate.goods.reservations,[&](const auto& r){return r.transfer.courier_id==c.id && r.transfer!=key;});
     candidate=original_goods_load(context.view(candidate.goods,candidate.houses),key,amount);
     auto path=*route->second; // Allocate before authoritative publication.

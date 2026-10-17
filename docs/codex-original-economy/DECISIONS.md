@@ -19,6 +19,76 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
 
+### OE-16: bezahlte Hemp Farm192 plus Hemp Field194
+
+- **Vor Implementierung:** [Hemp-Laufzeitvertrag](../original-economy/hemp-runtime.md),
+  Rule10/Schema26/Revision16, unveränderte policy3. Belegte Modellidentitäten,
+  vorbereitete Cost-/Employees-Werte und2×2-/1×1-Objektflächen; separates Feld
+  wird bezahlt und ausdrücklich an die Farm gebunden. Keine Gratis-Cropzone.
+- **Authored:** Modell-Cost→Funds, Feldnachbarschaft,80 produktive Ticks pro
+  Einheit,8 Farmstock sowie separate Hemp-Bins32/16/8 für Warehouse/Market/Haus.
+  Kein behauptetes originales Rezept allein aus Resource0. Ware entsteht nur
+  mit tatsächlich regulär zugewiesenen modellgebundenen Workern, laufender
+  Farm und bezahltem Feld. Ein eigener Farm-Courier und bestehende WH-/Market-
+  Actoren bewegen die tatsächliche Ware über denselben Navigator.
+- **Kompatibilität:** Neuer ausdrücklicher aktiver Modellvorbereitungspfad;
+  alter Sieben-Zeilen-Pfad verlangt keine neuen Zeilen. Typisierte IDs werden
+  append-only erweitert. Farm-/Feld-/Ernteauthority strikt gespeichert,
+  alte Entwicklungsrevision atomar verweigert. Nach technischem Abschluss
+  unmittelbar OE-17; Originalgrafiken bleiben verbindlicher späterer Auftrag.
+- **Modellvorbereitung und Evidenz:** Nur `prepare_production()` verlangt und
+  prüft die beiden zusätzlichen benannten Zeilen. `prepare()` bleibt der
+  eingefrorene Sieben-Zeilen-Pfad und ignoriert deren semantischen Inhalt.
+  Neue synthetische und echte Fünf-Difficulty-Prüfungen erhalten alle alten
+  Building-/Housewerte. Die neuen World-Objects14/15 erhalten ausdrücklich
+  authored funktionale/mechanische Zuordnungen zu192/194; Präsentationsidentität
+  bleibt Unknown. Die sieben bisherigen funktionalen Kandidaten werden nicht
+  nachträglich als Originalidentität hochgestuft.
+- **Physische Buchhaltung:** Farmstock8 und Hemp-Bins32/16/8 sind getrennte
+  authored Kapazitäten. Hemp-Erntehistorie je Farm ist eigene Ursprungsauthority;
+  ihre Summe entspricht `GoodsTotals.Hemp.produced`. Stock, tatsächliches
+  Cargo und HouseState.hemp zählen jede Einheit einmal. Derselbe vorhandene
+  Warehouse-/Market-Courier rotiert deterministisch zwischen beiden Waren;
+  die letzte Transferware dient als begrenzter Cursor, keine Placeholderactoren.
+  Höchstens acht letzte Transferzeilen behalten die Sequenz-Highwater.
+- **Review und notwendige Herkunft:** Feldnachbarschaft promoviert vor der
+  Arithmetik in int64, extreme Feldcommands werden atomar verweigert. Der
+  anschließend bestätigte Farm-INT_MAX-Restoreüberlauf in der späteren
+  Footprintgenerierung wird durch eine vorgelagerte vollständige Geometrieprüfung
+  per Subtraktion vor jeder Offsetaddition geschlossen.42 zusätzliche
+  Verweigerungen über World/Writer/Reader und vier legale Eckroundtrips sind
+  ergänzt und in allen drei finalen Konfigurationen bestanden.
+  Farmstock/eigenes Cargo und letzte Auslieferung
+  müssen zur eigenen Ernte passen; ein feldloser zweiter Owner darf keine
+  fremde Ernte erhalten. Positive nachgelagerte Bestände brauchen mögliche
+  tatsächliche Ankünfte; reine koordinierte Stockverschiebungen trotz globaler
+  Conservation reichen nicht. Alte Ceramicsrotationen belegen insbesondere
+  keine erste Farm-Hempankunft. Die begrenzte Historie bleibt eine notwendige
+  Plausibilitätsprüfung: bei späteren Sequenzen können frühere Ziel-/Warenzeilen
+  kompaktierte Vorgänger sein. Keine vollständige Besuchshistorie oder
+  Rekonstruktion unbekannter früherer Ziele wird behauptet.
+- **Abnahmestand:** Reales bezahltes Farm→Warehouse→Market→Haus mit Hemp und
+  Ceramics im selben Haus, zwei separate20k-Prozessfortsetzungen und drei
+  tatsächliche74-Fall-Forkvergleiche bestanden; genaue Quellen/Binaries im
+  [Fortschritt](PROGRESS.md). Neuer Quellenfreeze
+  `55c8d195d45e7b2d3a22a9fb37c69fef29e2fc7520c4c363d9aa1ec798513287`
+  enthält den Footprintfix. Der vorangegangene Zwischenstand6967 unterscheidet
+  sich vom Prozessstand675a ausschließlich durch den ungültigen
+  Test-Sentinel hinter den neuen Objects14/15; zwischen diesen Ständen keine
+  Runtimeänderung. Alle drei neuen Builds, der frische reale Prozessnachweis,
+  der wiederholte SDL-Nachweis und drei neu ausgeführte74-Fall-Vergleiche für55c8
+  sind **PASS**;6967 bleibt als Zwischenstand erhalten.
+  Finale Auswahl je49/49 CTests in Debug/Release/ASan+UBSan bestanden,147
+  insgesamt ohne Skip;939 Hemp-,800 Produktions-,677 Market- und575 eingefrorene
+  Rule9-Saveverweigerungen je Konfiguration belegt. Sechs tatsächliche CLI-
+  Outputguards gegen das aktuelle Binary bestanden. Der frische vollständige
+  Legacyabschluss zum Quellenstand55c8 ist ebenfalls **PASS**:72 vollständige
+  Saves,72 Snapshots und Vertrag unabhängig wörtlich bytegleich;167/165/zwei
+  bestehende Konflikte,1485 Policyfälle und elf Rampen-/zehn Bridge-Restartpaare
+  unverändert. **OE-16 technisch PASS**, OE-17 TODO/Gate C TODO,
+  native/human NOT_RUN; weder Verbrauch noch Evolution oder Originalart
+  werden durch diese Zwischenbilanz freigegeben oder als implementiert geführt.
+
 ### OE-15: physischer Markettransport, Entwicklungsrevision15
 
 - **Authority:** Rule10/Schema26/policy3, Revision15. Bezahlte Warehouses und
