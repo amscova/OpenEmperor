@@ -6,7 +6,7 @@
 
 namespace oe_production_fixture {
 inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,int ceramics_need=0,int food_need=0,
-                                       int herbalist_need=0,int acupuncture_need=0) {
+                                       int herbalist_need=0,int acupuncture_need=0,int ancestor_need=0) {
     auto text=oe_influence_fixture::authored_model_text();
     std::string before="1: Shelter,{,",after=before;
     for (int i=0;i<17;++i) {
@@ -15,6 +15,9 @@ inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,i
                              i==8 ? food_need:i==9 ? hemp_need:i==10 ? ceramics_need:0)+',';
     }
     before+="0,";after+=std::to_string(shelter_capacity)+',';
+    for (int i=18;i<24;++i) {
+        before+="0,";after+=std::to_string(i==21 ? ancestor_need:0)+',';
+    }
     const auto capacity=text.find(before);
     oe_influence_fixture::check(capacity!=std::string::npos,"Authored production Shelter row missing");
     text.replace(capacity,before.size(),after);
@@ -33,13 +36,14 @@ inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,i
         "194,Hemp Field,{,4,0,0,0,0,0,0,0,0,0,0,0,0,},,,\n"
         "195,Wheat Field,{,4,0,0,0,0,0,0,0,0,0,0,0,0,},,,\n"
         "196,Millet Field,{,4,0,0,0,0,0,0,0,0,0,0,0,0,},,,\n"
-        "208,Acupuncturist's Clinic,{,50,0,0,0,0,8,0,0,0,0,0,0,0,},,,\n");
+        "208,Acupuncturist's Clinic,{,50,0,0,0,0,8,0,0,0,0,0,0,0,},,,\n"
+        "214,Ancestral Shrine,{,40,0,0,0,0,4,0,0,0,0,0,0,0,},,,\n");
     return text;
 }
 inline void write_model(const std::filesystem::path& root,int shelter_capacity=37,int hemp_need=0,int ceramics_need=0,int food_need=0,
-                        int herbalist_need=0,int acupuncture_need=0) {
+                        int herbalist_need=0,int acupuncture_need=0,int ancestor_need=0) {
     std::filesystem::create_directories(root/"Model");
     oe_influence_fixture::write_text(root/"Model/EmperorBuildingModels.txt",
-        authored_model_text(shelter_capacity,hemp_need,ceramics_need,food_need,herbalist_need,acupuncture_need));
+        authored_model_text(shelter_capacity,hemp_need,ceramics_need,food_need,herbalist_need,acupuncture_need,ancestor_need));
 }
 } // namespace oe_production_fixture

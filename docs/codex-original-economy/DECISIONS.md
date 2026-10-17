@@ -1175,3 +1175,29 @@ historische Metadaten-/Symlinkaufnahmen werden nicht erfunden. Der separate
 historische Legacybuild behält seine ursprüngliche Warnungsbehandlung und
 genau eine bekannte Warnung des unveränderten gesperrten Playthrough-Fixtures;
 die drei aktuellen Cleanbuilds sind davon getrennt warnungsfrei.
+
+### OE-20: Ancestor-Vertrag vor Implementierung
+
+Nach OE-19 `ba116b4c97defdf134434c1b0398292fb3727d0e` gilt der
+[Ancestor-Vertrag](../original-economy/ancestor-runtime.md). Revision20 ergänzt
+einen eigenen bezahlten2×2-Schrein214 samt eigenem cargo-freiem Courier und
+tatsächlicher DirectReligion-Ankunft40. Sourcecondition elite_only=false ist
+ausdrücklich authored, da deren originale Sessionproduzenten offen sind.
+Provider-/Trip-/Witness-Bounds werden ausdrücklich6/6/60; alte medizinische
+96er-Kategorien, frühere Regeln und Saves bleiben getrennt erhalten. Keine
+originale Worldtick-Spawnfrequenz, kein Visit beim Bau und keine vorgezogene
+Originalgrafik-Abnahme. Es folgt keine Wartefrage für einen manuellen Test.
+
+
+### OE-20: technische Abnahme und unmittelbare Fortsetzung
+
+Der vorher festgelegte Ancestor-Vertrag besteht drei warnungsfreie Werror-
+Builds und3×123 relevante CTests,3×74 Paritätsfälle, tatsächliche bezahlte
+Ankünfte/Verfall/Wiederbesuche,18 separate20k-Fortsetzungen, F5/F9 und den
+vollen unveränderten Legacyvertrag. Das ist die begrenzte technische Abnahme
+von Revision20, kein vorgezogenes Gate D oder Originalgrafik/native/human-PASS.
+Eine tatsächlich geöffnete Aufnahme führte vor Abschluss zur Korrektur des
+Medizinzeilenumbruchs samt sichtbarer Food-Fehlversuche. Die einzige Änderung
+am privaten Prozessnachweis betrifft seinen falschen Resume-Zählfilter;
+ursprüngliches FAIL und echte unveränderte Prozessartefakte bleiben getrennt
+gebunden. Nach eigenem Commit folgt OE-21 ohne manuellen Testhalt.

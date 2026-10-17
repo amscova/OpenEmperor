@@ -91,7 +91,7 @@ Scene scene(sim::World& world,bool connected=true,int house_count=6) {
 }
 void paid_arrivals_pause_expiry_revisit_and_needs() {
     Fixture fixture(1,1);auto world=fixture.world();const auto s=scene(world);
-    check(world.original_production_state()->development_revision==19&&world.total_population()==0&&
+    check(world.original_production_state()->development_revision==20&&world.total_population()==0&&
           world.construction_spent_total()==608&&world.treasury()==11392,
           "Medical construction did not pay exact24Roads/sixHouses/30+50 model costs");
     check(world.original_production_state()->services.providers.size()==2&&world.couriers().size()==2&&

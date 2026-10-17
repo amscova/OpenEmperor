@@ -13,7 +13,7 @@ _SPEC = importlib.util.spec_from_file_location(
 legacy = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(legacy)
 MODEL_SHA = legacy.MODEL_SHA
-PRIVATE_OUTPUT = Path(".local/original-economy/oe19/production-fixtures")
+PRIVATE_OUTPUT = Path(".local/original-economy/oe20/production-fixtures")
 RULE9_REFERENCE = Path(".local/original-economy/oe13/goods-fixtures/run-d4mm76cf")
 RULE9_REPORT_SHA = "1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2"
 RULE9_REVIEW_SHA = "c5534befba97a9ad1469bec05131d21f17fe509db101c0f4bd1e0351e742a017"
@@ -100,7 +100,7 @@ def check_balances(scene, positive=False):
         assert balances[good]["cargo"] == sum(courier["typed_cargo"] for courier in scene["couriers"]
                                               if courier["typed_cargo_good"] == good)
     for courier in scene["couriers"]:
-        if courier["role"] in (5, 6, 8, 11, 12, 13, 14):
+        if courier["role"] in (5, 6, 8, 11, 12, 13, 14, 15):
             assert courier["cargo"] == courier["reserved"] == 0
         else:
             assert courier["typed_cargo"] == 0
@@ -124,24 +124,24 @@ def service_countdowns(tick):
     return 0 if tick < 36 else 1 + (tick - 36) // 51
 
 
-def check_services(scene, positive=False):
+def check_services(scene, positive=False, ancestor=False):
     """Independently bind sole House timers to paid providers and actual trips."""
     state = scene["services"]
     tick = scene["tick"]
     assert state["countdowns"] == service_countdowns(tick)
-    assert len(state["providers"]) <= 4 and len(state["trips"]) <= 4 and len(state["witnesses"]) <= 40
+    assert len(state["providers"]) <= 6 and len(state["trips"]) <= 6 and len(state["witnesses"]) <= 60
     integer = lambda n, low=0, high=2**64 - 1: type(n) is int and low <= n <= high
     houses = {h["id"]: h for h in scene["houses"]}
     buildings = {b["id"]: b for b in scene["buildings"]}
     couriers = {c["id"]: c for c in scene["couriers"]}
     providers = {p["id"]: p for p in state["providers"]}
     assert len(providers) == len(state["providers"])
-    assert set(providers) == {b["id"] for b in scene["buildings"] if b["kind"] in (8, 12)}
-    actors = {c["id"] for c in scene["couriers"] if c["role"] in (5, 11)}
+    assert set(providers) == {b["id"] for b in scene["buildings"] if b["kind"] in (8, 12, 19)}
+    actors = {c["id"] for c in scene["couriers"] if c["role"] in (5, 11, 15)}
     assert len(actors) == len(providers)
     for p in providers.values():
-        assert integer(p["id"], 1, 2**32 - 1) and integer(p["type"], 0, 1)
-        role, kind, model, cost, workers = (11, 12, 207, 30, 7) if p["type"] == 0 else (5, 8, 208, 50, 8)
+        assert integer(p["id"], 1, 2**32 - 1) and integer(p["type"], 0, 2)
+        role, kind, model, cost, workers = ((11, 12, 207, 30, 7), (5, 8, 208, 50, 8), (15, 19, 214, 40, 4))[p["type"]]
         assert p["model_type"] == model and p["cost"] == cost and p["workers_required"] == workers
         assert buildings[p["id"]]["kind"] == kind
         matching = [c for c in couriers.values() if c["owner"] == p["id"] and c["role"] == role]
@@ -149,7 +149,7 @@ def check_services(scene, positive=False):
         c = matching[0]
         assert c["cargo"] == c["reserved"] == c["typed_cargo"] == c["food_cargo"] == 0
         assert c["typed_cargo_good"] is None
-    for category in (0, 1):
+    for category in (0, 1, 2):
         assert sum(p["type"] == category for p in providers.values()) <= 2
     trips = {t["courier_id"]: t for t in state["trips"]}
     assert len(trips) == len(state["trips"])
@@ -173,9 +173,9 @@ def check_services(scene, positive=False):
     witnesses = {(w["house_id"], w["role"]): w for w in state["witnesses"]}
     assert len(witnesses) == len(state["witnesses"])
     for (identity, role), w in witnesses.items():
-        assert identity in houses and integer(role, 0, 1) and w["provider_id"] in providers
+        assert identity in houses and type(role) is int and role in (0, 1, 5) and w["provider_id"] in providers
         p = providers[w["provider_id"]]
-        assert p["type"] == role and w["courier_id"] in actors
+        assert (0, 1, 5)[p["type"]] == role and w["courier_id"] in actors
         c = couriers[w["courier_id"]]
         assert c["owner"] == p["id"] and w["courier_id"] in trips
         t = trips[w["courier_id"]]
@@ -189,7 +189,7 @@ def check_services(scene, positive=False):
             assert w["arrival_tick"] < t["dispatched_tick"]
     for t in trips.values():
         if t["visit_applied"]:
-            role = providers[couriers[t["courier_id"]]["owner"]]["type"]
+            role = (0, 1, 5)[providers[couriers[t["courier_id"]]["owner"]]["type"]]
             assert (t["target"], role) in witnesses
             w = witnesses[(t["target"], role)]
             assert (w["arrival_tick"], w["courier_id"]) >= (t["arrival_tick"], t["courier_id"])
@@ -198,11 +198,15 @@ def check_services(scene, positive=False):
         assert all(integer(timer, 0, 96) for timer in h["service_timers"])
         for role, timer in enumerate(h["service_timers"]):
             w = witnesses.get((identity, role))
-            expected = max(96 - (service_countdowns(tick) - service_countdowns(w["arrival_tick"] - 1)), 0) if w else 0
+            duration = 40 if role == 5 else 96
+            expected = max(duration - (service_countdowns(tick) - service_countdowns(w["arrival_tick"] - 1)), 0) if w else 0
             assert timer == expected
         if any(h["service_timers"]):
             assert h["occupants"] > 0 and h["status"] in (1, 3) and h["access_enabled"] is True
-    if positive:
+    if ancestor:
+        assert any(w["role"] == 5 for w in witnesses.values())
+        assert any(h["service_timers"][5] > 0 for h in houses.values())
+    elif positive:
         assert {w["role"] for w in witnesses.values()} == {0, 1}
         assert any(h["service_timers"][0] > 0 and h["service_timers"][1] > 0 for h in houses.values())
 
@@ -221,6 +225,61 @@ def check_service_expiry(fixture):
     new = next(h for h in after["houses"] if h["id"] == w["house_id"])
     assert old["service_timers"][0] == 1 and new["service_timers"][0] == 0
     assert all(not b["operating"] for b in before["buildings"] if b["kind"] in (8, 12))
+
+
+def check_ancestor_expiry(fixture):
+    visited, before, after = (fixture[key] for key in ("visited", "before_expiry", "expired"))
+    check_services(visited, ancestor=True)
+    check_services(before)
+    check_services(after)
+    witnesses = [w for w in before["services"]["witnesses"] if w["role"] == 5]
+    assert len(witnesses) == 1
+    w = witnesses[0]
+    expiry = 36 + (service_countdowns(w["arrival_tick"] - 1) + 39) * 51
+    assert fixture["expiry_tick"] == expiry and before["tick"] == expiry - 1 and after["tick"] == expiry
+    assert before["services"]["witnesses"] == after["services"]["witnesses"] == visited["services"]["witnesses"]
+    assert before["services"]["trips"] == after["services"]["trips"]
+    old = next(h for h in before["houses"] if h["id"] == w["house_id"])
+    new = next(h for h in after["houses"] if h["id"] == w["house_id"])
+    assert old["service_timers"][5] == 1 and new["service_timers"][5] == 0
+    assert all(not b["operating"] for b in before["buildings"] if b["kind"] in (8, 12, 19))
+
+
+def check_ancestor_fixture(fixture):
+    assert fixture["status"] == "PASS" and fixture["snapshot_injection"] is False
+    assert fixture["authored_geography"] is fixture["real_model_ancestor"] is True
+    assert all(fixture[key] is True for key in ("actual_ancestor_arrival", "actual_ancestor_revisit",
+                                               "paid_road_repair", "paused_outbound_tour_finished"))
+    assert fixture["paid_house_count"] == 12 and fixture["paid_road_count"] == 77
+    assert fixture["paid_food_farm_count"] == fixture["paid_food_field_count"] == 2
+    assert all(fixture[key] == 1 for key in ("paid_market_count", "paid_herbalist_count",
+                                           "paid_acupuncture_count", "paid_ancestor_count"))
+    initial, stopped, moving = (fixture[key] for key in ("initial", "stopped", "midroute"))
+    assert initial["funds"] == 10517 and initial["construction_spent"] == 1483
+    assert initial["population"] == initial["workforce_supply"] == 0
+    assert initial["courier_count"] == 7
+    assert not initial["services"]["trips"] and not initial["services"]["witnesses"]
+    assert stopped["population"] == stopped["workforce_supply"] == 84 and not stopped["services"]["witnesses"]
+    assert moving["workforce_used"] == 67
+    for key in ("initial", "stopped", "midroute", "disconnected", "repaired", "visited", "before_expiry", "expired", "revisited"):
+        check_balances(fixture[key])
+        assert fixture[key]["model_sha256"] == MODEL_SHA and fixture[key]["development_revision"] == 20
+    moving_ancestor = next(c for c in moving["couriers"] if c["role"] == 15)
+    assert moving_ancestor["phase"] == 1 and moving_ancestor["edge_progress"] > 0
+    assert all(h["service_timers"][5] == 0 for h in moving["houses"])
+    disconnected, repaired = fixture["disconnected"], fixture["repaired"]
+    t = next(t for t in disconnected["services"]["trips"] if t["courier_id"] == moving_ancestor["id"])
+    assert t["arrival_tick"] is None and not t["visit_applied"]
+    assert all(h["service_timers"][5] == 0 for h in disconnected["houses"])
+    assert repaired["funds"] == disconnected["funds"] - 2
+    assert repaired["construction_spent"] == disconnected["construction_spent"] + 2
+    assert repaired["command_sequence"] == disconnected["command_sequence"] + 1
+    assert repaired["road_count"] == disconnected["road_count"] + 1
+    check_ancestor_expiry(fixture)
+    check_services(fixture["revisited"], ancestor=True)
+    first = next(w for w in fixture["visited"]["services"]["witnesses"] if w["role"] == 5)
+    again = next(w for w in fixture["revisited"]["services"]["witnesses"] if w["role"] == 5 and w["house_id"] == first["house_id"])
+    assert again["sequence"] > first["sequence"] and again["arrival_tick"] > fixture["expiry_tick"]
 
 
 def food_batch_quality(amounts):
@@ -533,6 +592,9 @@ def main():
         assert services_fixture[key]["model_sha256"] == MODEL_SHA
     assert not services_fixture["initial"]["services"]["trips"] and not services_fixture["stopped"]["services"]["witnesses"]
     check_service_expiry(services_fixture)
+    legacy.run(binary, ["--create-ancestor", stage, output / "ancestor"], output / "ancestor.log")
+    ancestor_fixture = json.loads((output / "ancestor/fixture.json").read_text())
+    check_ancestor_fixture(ancestor_fixture)
     restarts = []
     assert [entry["tag"] for entry in fixture["checkpoints"]] == ["mid-hemp-courier", "house-two-goods"]
     assert [entry["tag"] for entry in consumption["checkpoints"]] == ["step-0-before", "step-7-before"]
@@ -540,11 +602,15 @@ def main():
         "mid-food-courier", "food-return", "mixed-food-courier", "house-food-quality"]
     assert [entry["tag"] for entry in services_fixture["checkpoints"]] == [
         "mid-services-couriers", "house-medical-visits", "service-before-expiry", "service-expired"]
-    checkpoint_inputs = [(entry, stage, MODEL_SHA, False, False, False) for entry in fixture["checkpoints"]]
-    checkpoint_inputs += [(entry, authored_stage, authored_sha, True, False, False) for entry in consumption["checkpoints"]]
-    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, True, False) for entry in food_fixture["checkpoints"]]
-    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, True) for entry in services_fixture["checkpoints"]]
-    for checkpoint, replay_data, model_sha, authored_needs, food_scenario, services_scenario in checkpoint_inputs:
+    assert [entry["tag"] for entry in ancestor_fixture["checkpoints"]] == [
+        "mid-ancestor-courier", "ancestor-road-disconnected", "house-ancestor-visit",
+        "ancestor-before-expiry", "ancestor-expired", "ancestor-revisited"]
+    checkpoint_inputs = [(entry, stage, MODEL_SHA, False, False, False, False) for entry in fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, authored_stage, authored_sha, True, False, False, False) for entry in consumption["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, True, False, False) for entry in food_fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, True, False) for entry in services_fixture["checkpoints"]]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, True, True) for entry in ancestor_fixture["checkpoints"]]
+    for checkpoint, replay_data, model_sha, authored_needs, food_scenario, services_scenario, ancestor_scenario in checkpoint_inputs:
         source = checked_path(repo, output, checkpoint["save"])
         source_identity = file_identity(source)
         source_report = json.loads(checked_path(repo, output, checkpoint["report"]).read_text())
@@ -566,7 +632,7 @@ def main():
                 assert any(trip["phase"] == 2 and sum(trip["cargo"]) > 0 for trip in source_report["food"]["trips"])
             else:
                 assert any(row["quality"] == 80 and row["quality_witness"] for row in source_report["food"]["stocks"])
-        if services_scenario:
+        if services_scenario and not ancestor_scenario:
             if checkpoint["tag"] == "mid-services-couriers":
                 assert len(source_report["services"]["trips"]) == 2 and not source_report["services"]["witnesses"]
                 assert sum(c["role"] in (5, 11) and c["phase"] == 1 and c["edge_progress"] > 0
@@ -577,6 +643,16 @@ def main():
                 assert any(h["service_timers"][0] == 1 for h in source_report["houses"])
             else:
                 assert all(h["service_timers"][0] == 0 for h in source_report["houses"])
+        if ancestor_scenario:
+            if checkpoint["tag"] in ("mid-ancestor-courier", "ancestor-road-disconnected"):
+                assert all(h["service_timers"][5] == 0 for h in source_report["houses"])
+                assert any(c["role"] == 15 and c["phase"] == 1 for c in source_report["couriers"])
+            elif checkpoint["tag"] in ("house-ancestor-visit", "ancestor-revisited"):
+                check_services(source_report, ancestor=True)
+            elif checkpoint["tag"] == "ancestor-before-expiry":
+                assert any(h["service_timers"][5] == 1 for h in source_report["houses"])
+            else:
+                assert all(h["service_timers"][5] == 0 for h in source_report["houses"])
         folder = output / ("resume-" + checkpoint["tag"])
         legacy.run(binary, ["--resume", replay_data, folder, source], output / (checkpoint["tag"] + "-resume.log"))
         actual_reports = []
@@ -599,7 +675,7 @@ def main():
                 assert all(balance["consumed"] == 0 for balance in report["balances"])
             saved = json.loads(actual.read_text())
             assert saved["schema_version"] == 26 and saved["rules"]["version"] == 10
-            assert saved["world"]["original_production"]["development_revision"] == 19
+            assert saved["world"]["original_production"]["development_revision"] == 20
             actual_reports.append(report)
         midpoint, final = actual_reports
         assert midpoint["tick"] == source_report["tick"] + 10000
@@ -610,7 +686,8 @@ def main():
         assert final["road_count"] == midpoint["road_count"] + 1
         assert file_identity(source) == source_identity, "Process changed its source save or metadata"
         restarts.append({"checkpoint": checkpoint["tag"], "separate_os_process": True,
-            "authored_model_needs": authored_needs, "food_scenario": food_scenario, "services_scenario": services_scenario, "model_sha256": model_sha,
+            "authored_model_needs": authored_needs, "food_scenario": food_scenario, "services_scenario": services_scenario,
+            "ancestor_scenario": ancestor_scenario, "model_sha256": model_sha,
             "ticks_advanced": 20000, "periods": [10000, 10000], "actual_paid_road_continuation": True,
             "full_savedocument_equal": True, "canonical_bytes_equal": True, "provenance_equal": True,
             "balances_equal": True, "midpoint_equal": True, "source_save_and_metadata_unchanged": True})
@@ -623,7 +700,8 @@ def main():
     assert authored_before == inventory(authored_stage), "Private explicitly authored model or map changed during simulation"
     legacy.frozen_baseline(repo)
     frozen_rule9(repo)
-    report = {"status": "PASS", "evidence": "Paid actual207/208 medical visits and exact phase35 expiry; paid Food/Ceramics/Hemp arrivals; original-model positive Food sink and zero six-Goods Shelter consumption; separate authored needs",
+    assert len(restarts) == 18 and sum(row["ancestor_scenario"] for row in restarts) == 6
+    report = {"status": "PASS", "evidence": "Paid actual214 Ancestor40/expiry/revisit and road repair; preserved207/208 visits, Food/Ceramics/Hemp arrivals and all twelve previous process cases; separate authored consumption needs",
         "original_data": str(original), "original_inventory_before": before, "original_inventory_after": after,
         "original_unchanged": True, "private_source_inventory_unchanged": True,
         "original_model_sha256": MODEL_SHA, "model_copy_byte_identical": True,
@@ -633,11 +711,14 @@ def main():
         "authored_model_sha256": authored_sha, "authored_model_changes": {"row": "Shelter", "fields": [9, 10], "before": [0, 0], "after": [1, 1], "changed_bytes": 2},
         "authored_private_inventory_unchanged": True,
         "fixture": fixture, "consumption_fixture": consumption, "food_fixture": food_fixture,
-        "services_fixture": services_fixture, "positive_runtime_services": True, "restarts": restarts, "legacy": old,
+        "services_fixture": services_fixture, "positive_runtime_services": True,
+        "ancestor_fixture": ancestor_fixture, "positive_runtime_ancestor": True,
+        "restarts": restarts, "legacy": old,
         "frozen_baseline_capture_sha256": digest(baseline / "capture.json"),
         "frozen_baseline_head": capture["head_before_implementation"],
         "limits": ["Actual paid Food/Hemp/Ceramics delivery; original Shelter six-Goods needs0 consume0; Food sink is separate authored rule",
-            "Unsupported luxury goods and house evolution remain inactive in revision19",
+            "Unsupported luxury goods and house evolution remain inactive in revision20",
+            "Ancestor elite_only=false and targeted ordinary tours are explicit authored integration, no original spawn cadence or random-walk parity claim",
             "Migration, funding, Food crop scores20/80 and recipe timing are authored; no original production parity claim",
             "Authored geography; separate SDL/native/human acceptance"]}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")

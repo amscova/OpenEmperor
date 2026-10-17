@@ -25,8 +25,8 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-16 | PASS | `86cde0c54577a9889632e45432fe7fe18acd7fac` | `.local/original-economy/oe16/implementation/`, `oe16/production-fixtures/final-source-55c8/`, OE-00/`oe16-final-verification/` | Revision16: bezahlte HempFarm192/Feld194, echte Zweigüterankunft/separate Prozessreplays;147 relevante Konfigurations-CTests/3×74 Vergleiche,72 Legacy-Saves/Snapshots und1485 Policyfälle exakt. Gate C TODO |
 | OE-17 | PASS | `b30718f` | `.local/original-economy/oe17/implementation/`, `oe17/production-fixtures/debug-first/`, OE-00/`oe17-final-verification/` | Revision17: tatsächlicher Konsum an0/7 mit strikter House-Historie;153 relevante Konfigurations-CTests, zwei Modellpfade/vier20k-Prozessreplays,25 Saves unabhängig rekonstruiert; Legacy exakt, Gate C TODO |
 | OE-18 | PASS | `144eec6` | `.local/original-economy/oe18/implementation/`, `oe18/production-fixtures/final-53/`, OE-00/`oe18-final-verification/` | Revision18: bezahlte FoodFarm193/Felder195,196; tatsächliche Qualität20/35/80,159 volle Konfigurations-CTests plus3 nach reinem Formatfix, acht20k-Prozessreplays; Legacy exakt. Gate C TODO |
-| OE-19 | PASS | — | `.local/original-economy/oe19/gate-c/final-3/`, `oe19/implementation/`, OE-00/`oe19-final-verification/` | Revision19: bezahlte207/208-Ankünfte und getrennte96er-Timer; drei volle202er-Suiten, zwölf20k-Prozessfortsetzungen, strikter Restore, Legacy exakt. Gate C PASS; Originalgrafik/native/human offen |
-| OE-20 | TODO | — | — | — |
+| OE-19 | PASS | `ba116b4c97defdf134434c1b0398292fb3727d0e` | `.local/original-economy/oe19/gate-c/final-3/`, `oe19/implementation/`, OE-00/`oe19-final-verification/` | Revision19: bezahlte207/208-Ankünfte und getrennte96er-Timer; drei volle202er-Suiten, zwölf20k-Prozessfortsetzungen, strikter Restore, Legacy exakt. Gate C PASS; Originalgrafik/native/human offen |
+| OE-20 | PASS | — | `.local/original-economy/oe20/implementation/runs/final3/`, `oe20/production-fixtures/final/`, OE-00/`oe20-final-verification/` | Revision20: bezahlter Ancestor214, echter40er-Besuch/Verfall/Wiederbesuch,369 relevante Konfigurations-CTests,18 separate20k-Fortsetzungen und Legacy exakt. Gate D bleibt TODO; Originalgrafik/native/human offen |
 | OE-21 | TODO | — | — | — |
 | OE-22 | TODO | — | — | — |
 | OE-23 | TODO | — | — | — |
@@ -2497,3 +2497,71 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Objektkomposition bleiben OE-29; native/human **NOT_RUN**.
 - OE-19 und Gate C technisch PASS. Eigener Commit folgt nach der finalen
   Status-/Diffprüfung; danach direkt OE-20 ohne manuellen Testhalt.
+
+
+### OE-20 – tatsächlicher Abschluss am2026-10-17
+
+- Eigener bezahlter2×2-Schrein214, Modellpreis/-Workers Normal40/4 und genau
+  ein eigener cargo-freier Courier. Erst tatsächliche DirectReligion-Ankunft
+  setzt Ancestor40; Phase35 kann im selben Tick39 daraus machen. Kein Visit
+  durch Kauf, Disposition, Return, Idle oder Rendering.6/6/60 bleibt geschlossen;
+  Quelle/Pause/Brand, Zielbrand, Disconnect/Wait/Repair und vollständiger
+  Verfall/Wiederbesuch sind tatsächlich geprüft. Ein voller bezahlter46-Körper-/
+  26-Actor-Zustand erlaubt weiter normale Straßenreparatur und verweigert
+  zusätzliche Quellen atomar. Strikte Revision20 verweigert19/future21.
+- **Drei inkrementelle Werror-Builds** und danach dieselben **123/123 CTests je
+  Debug/Release/ASan+UBSan PASS**, insgesamt369 Ausführungen ohne Skip/Fehler.
+  Frisches Inventar204, explizite123er-Auswahl; keine vollständige Gate-D-Suite.
+  Testzeiten235.99/33.94/118.66s. Exakte Configure-/Build-/CTestkommandos,
+  JUnit, Source-/Original-/Binary-/Archivbindungen stehen unter
+  `.local/original-economy/oe20/implementation/runs/final3/`.
+- **3×74 Kernvergleiche PASS**,24 tatsächliche Archivbindungen,25 einmalig
+  ausgeführte strikte Sanitizer-Proben ohne stderr und28 Pythonverträge PASS.
+  Nach dem exakten Export wurden die25 Proben nur noch read-only gebunden.
+  Der portable Bericht hat SHA
+  `16c96b2b932280b6644d61f9c1921121a8e89956f90c2a0b059eb5090e9390da`.
+  Elf bisherige Numerikdateien bleiben bytegleich; Modell-/Mappingänderungen
+  beschränken sich auf die aktive214-Erweiterung.
+- **18 tatsächliche20k-Prozessfortsetzungen** mit den bisherigen zwölf und
+  sechs neuen Ancestor-Checkpoints, darunter Midroute, Straßenbruch, Visit,
+  vor/nach Ablauf und Wiederbesuch.30 echte C++-Kinder mit Exit0 umfassen
+ 18 Produktions- und vier zusätzliche Legacy-Restarts. Unabhängiger Review
+  prüft36 ganze Save-/Reportpaare und262 Dateien. Der zusätzliche Raw-Audit
+  rekonstruiert95 Schema26-Dokumente und90 Berichte mit723601 Prüfungen;
+ 262 Inputdateien/9711020 Bytes bleiben exakt. Anfang1483/10517 und bezahlte
+  Reparatur1485/10515 sind ohne Waren-/Worker-/Timerinjektion erhalten.
+  ProzessreportSHA `6da17d642ee2b0cc351235c9379283f7f0546594e955445eb732ea2873e9843f`;
+  RawSHA `fee5109fb95cab5d294acb641f0b7af0d57ef88f05302eb8a1915ee33eab58bc`.
+- **Tatsächlich geöffnete SDL-Aufnahme:** Tick2774, Funds10682,148 Bewohner
+  im ausdrücklich synthetischen37er-Kapazitätsmodell. Dasselbe Haus zeigt
+  Ceramics5/Hemp1/Food[1,3]/Qualität65/Herbalist96/Acupuncture95/Ancestor39.
+  Alle Werte und Food-Fehlversuche5 bleiben im Standardinspector sichtbar.
+  Echte Y-/Mauskäufe, Helpmodal, Midroute-F5/F9 und100 ruhende Frames ohne
+  Worldänderung oder Datei-/Asset-/BFS-Arbeit PASS. Aufnahme und Manifest:
+  `oe20/implementation/{view-final/,production-view-final.json}`.
+  Das ist Software-SDL/diagnostische Darstellung, keine Originalsprite- oder
+  native/human-Abnahme. Die Originalkörper/Walker bleiben OE-29 zugeordnet.
+- **Frischer Legacyvollvergleich PASS:**72 vollständige Savebytes und72
+  Snapshots,167/165/2 Karten,1485 vollständige Policies sowie11 Rampen- und
+ 10 Bridge-Restartpaare. Alle1464 Originaldateien/819711091 Bytes einschließlich
+  Mode/mtime unverändert. LiteralvertragSHA
+  `1407fdf01945e85e62e92b231d84e0224f0804cc7a9a2d914d4e344e89d6da03`.
+  Der getrennte historische Releasebaum behält WerrorOFF und genau eine
+  bekannte Switchwarnung im unveränderten gesperrten Playthrough-Fixture;
+  kein Warnungsfreiheitsclaim dafür. Die drei aktuellen Produktbuilds sind
+  dagegen mit Werror warnungsfrei. Sechs frische Ausgabe-/Symlink-/Altroot-
+  Schutzprüfungen PASS ohne Output oder Originaländerung.
+- Erhaltene negative Versuche: erster Build scheitert am signed/unsigned-
+  Vergleich des neuen Kapazitätstests; der explizite Cast ändert keine Assertion.
+  Die erste geöffnete Aufnahme zeigt umgebrochene Medizinwerte und verdrängte
+  Food-Fehlversuche; kompakte Namen und echter Inspectorregressionstest beheben
+  dies. Ein privater Workflowwrapper zählt zuerst alle22 Resumes statt der18
+  Produktionsresumes. Sein FAIL/Exit1 bleibt bytegenau erhalten; ein separater
+  unabhängiger Korrekturaudit bindet die18 Produktions- plus vier Legacy-
+  Resumes an dieselben30 tatsächlichen PIDs/Logs. Keine Spielergebnisse oder
+  fehlgeschlagenen Berichte wurden umgeschrieben.
+- Finale Quelle `da8cdc585c6e72ff25fb0a52c21f50aab88d4333335734a87532391e73bba7c1`,
+  FreezeSHA `86dbffb866a5af80554104a8b341c40eafadd3b4a20455d56a39b2596418946c`.
+  Tatsächliche unabhängige Vorprüfung **8/8 PASS** vor Statusänderung.
+  OE-20 erhält seinen eigenen Commit; danach folgt OE-21 direkt. Gate D bleibt
+  bis OE-27 offen, menschliche Abnahme bleibt NOT_RUN.

@@ -50,7 +50,8 @@ int main(int argc,char** argv) {
         const auto& buttons=view->layout().buttons;
         for(const auto action:{oe::sandbox_ui::Action::OriginalHempFarm,oe::sandbox_ui::Action::OriginalHempField,
                 oe::sandbox_ui::Action::OriginalFoodFarm,oe::sandbox_ui::Action::OriginalWheatField,oe::sandbox_ui::Action::OriginalMilletField,
-                oe::sandbox_ui::Action::HealthPost,oe::sandbox_ui::Action::ServicePost}) {
+                oe::sandbox_ui::Action::HealthPost,oe::sandbox_ui::Action::ServicePost,
+                oe::sandbox_ui::Action::OriginalAncestorShrine}) {
             const auto button=std::find_if(buttons.begin(),buttons.end(),[&](const auto& value){return value.action==action;});
             check(button!=buttons.end() && view->layout().button_at(button->rect.x+2,button->rect.y+2)==action &&
                 !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
@@ -208,6 +209,36 @@ int main(int argc,char** argv) {
                     house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0;
         }
         check(medical_visits,"Actual same House never received both paid medical visits and physical goods/Food");
+        const auto ancestor_funds=view->world().treasury();
+        const auto previous_tool=view->tool();key(*view,SDLK_H);key(*view,SDLK_Y);
+        check(view->tool()==previous_tool,"Ancestor keyboard tool escaped the help modal");
+        key(*view,SDLK_H);
+        key(*view,SDLK_Y);check(view->tool()==21,"Ancestor keyboard tool unavailable");
+        click(*view,{116,104});
+        check(view->world().object_at({117,105})==sim::Object::OriginalAncestorShrine214 &&
+            view->world().treasury()==ancestor_funds-40,"Ancestor UI purchase lost2x2 ownership or prepared price");
+        const auto shrine=*view->world().building_owner_at({116,104});
+        check(view->world().workforce_required(shrine)==4,"Ancestor UI source lost its prepared worker requirement");
+        for(const auto& h:view->world().original_economy_state()->houses)
+            check(h.house.ancestor==0,"Ancestor purchase granted free access");
+        bool ancestor_trip=false;
+        for(int i=0;i<1000 && !ancestor_trip;++i) {
+            view->tick_once();
+            for(const auto& c:view->world().couriers()) if(c.role==sim::CourierRole::OriginalAncestor &&
+                c.phase==sim::CourierPhase::ToWarehouse && c.edge_progress>0) ancestor_trip=true;
+        }
+        check(ancestor_trip,"Paid Ancestor source never dispatched an actual visitor");
+        const auto ancestor_saved=view->world().snapshot();key(*view,SDLK_F5);
+        for(int i=0;i<80;++i)view->tick_once();
+        key(*view,SDLK_F9);check(view->world().snapshot()==ancestor_saved,"Ancestor midtrip F5/F9 changed its sole visit authority");
+        bool ancestor_visit=false;
+        for(int i=0;i<4000 && !ancestor_visit;++i) {
+            view->tick_once();
+            for(const auto& h:view->world().original_economy_state()->houses)
+                ancestor_visit|=h.house.ancestor>0 && h.house.herbalist>0 && h.house.acupuncture>0 &&
+                    h.house.hemp>0 && h.house.ceramics>0 && h.house.food_quality>0;
+        }
+        check(ancestor_visit,"No actual House received Ancestor plus medical visits and physical goods/Food");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -220,9 +251,18 @@ int main(int argc,char** argv) {
         std::optional<sim::Cell> supplied;
         for(const auto& house:view->world().original_economy_state()->houses)
             if(house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
-                house.house.herbalist>0 && house.house.acupuncture>0) {supplied=view->world().building(house.building_id).cell;break;}
+                house.house.herbalist>0 && house.house.acupuncture>0 && house.house.ancestor>0) {supplied=view->world().building(house.building_id).cell;break;}
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
+        const auto details=view->inspection_lines();
+        check(std::count_if(details.begin(),details.end(),[](const auto& line) {
+            return line.find("Herbalist")!=std::string::npos && line.find("Acupuncture")!=std::string::npos;
+        })==1,"Medical values wrapped and displaced the default House inspector");
+        const auto misses=std::find_if(details.begin(),details.end(),[](const auto& line) {
+            return line.find("Food demand misses:")!=std::string::npos;
+        });
+        check(misses!=details.end() && std::distance(details.begin(),misses)<=10,
+              "Ancestor display displaced Food demand misses from the visible default inspector");
         oe::performance::set_enabled(true);oe::performance::reset();
         for(int i=0;i<100;++i){view->update(0);check(view->render(),"Production idle frame");}
         check(view->world().snapshot()==before,"Production frame changed World");
@@ -244,6 +284,7 @@ int main(int argc,char** argv) {
                 {"selected_house_food_quality",h->house.food_quality},
                 {"selected_house_hemp",h->house.hemp},{"selected_house_ceramics",h->house.ceramics},
                 {"selected_house_herbalist",h->house.herbalist},{"selected_house_acupuncture",h->house.acupuncture},
+                {"selected_house_ancestor",h->house.ancestor},
                 {"model_sha256",view->world().original_rules_model()->provenance().sha256},
                 {"synthetic_model",true},{"idle_frames",100},{"idle_world_unchanged",true}};
             for(const auto& row:view->world().original_production_state()->food.stocks) if(row.building_id==id)

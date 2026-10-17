@@ -18,7 +18,8 @@ enum class Action {
     Select, Road, Clay, Pottery, Warehouse, RemoveRoad, Household, Farm, ServicePost,
     Market, Pause, Step, Speed1, Speed2, Speed4, Reset, Save, Load, TogglePanel, ToggleHelp,
     FireWatch, Desirability, Well, Water, HealthPost, Health, ToggleIncome, ServiceOverlay, Bridge, Ramp,
-    OriginalHempFarm, OriginalHempField, OriginalFoodFarm, OriginalWheatField, OriginalMilletField
+    OriginalHempFarm, OriginalHempField, OriginalFoodFarm, OriginalWheatField, OriginalMilletField,
+    OriginalAncestorShrine
 };
 
 struct Button { Action action; Rect rect; bool enabled=true; };

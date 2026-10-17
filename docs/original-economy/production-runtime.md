@@ -12,7 +12,9 @@ Millet196, tatsächliche Market-/Hausankunft, originale Qualitätsmischung und
 ein ausdrücklich authored Food-Sink. Revision19 bindet [getrennte medizinische
 Besuche](services-runtime.md) an bezahlte207-/208-Provider und echte Walker-
 Ankünfte, einschließlich des unveränderten Phase35-Countdownkerns.
-Aktueller Entwicklerstand ist Revision19.
+Revision20 ergänzt den [eigenen bezahlten Ancestor-Schrein214](ancestor-runtime.md)
+und ausschließlich durch tatsächliche DirectReligion-Ankunft gesetzten40er-Timer.
+Aktueller Entwicklerstand ist Revision20.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.

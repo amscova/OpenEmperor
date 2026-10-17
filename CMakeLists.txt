@@ -935,6 +935,18 @@ if(BUILD_TESTING)
     add_test(NAME original-services-save COMMAND openemperor-original-services-save-tests)
     set_tests_properties(original-services-save PROPERTIES TIMEOUT 180)
 
+    add_executable(openemperor-original-ancestor-world-tests tests/OriginalAncestorWorldTests.cpp)
+    target_link_libraries(openemperor-original-ancestor-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-ancestor-world-tests)
+    add_test(NAME original-ancestor-world COMMAND openemperor-original-ancestor-world-tests)
+    set_tests_properties(original-ancestor-world PROPERTIES TIMEOUT 180)
+
+    add_executable(openemperor-original-ancestor-save-tests tests/OriginalAncestorSaveTests.cpp)
+    target_link_libraries(openemperor-original-ancestor-save-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-ancestor-save-tests)
+    add_test(NAME original-ancestor-save COMMAND openemperor-original-ancestor-save-tests)
+    set_tests_properties(original-ancestor-save PROPERTIES TIMEOUT 180)
+
     add_executable(openemperor-original-economy-rule-gate-tests
         tests/OriginalEconomyRuleGateTests.cpp)
     target_link_libraries(openemperor-original-economy-rule-gate-tests PRIVATE openemperor-persistence)

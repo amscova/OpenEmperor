@@ -47,6 +47,7 @@ std::uint64_t paid_cost(Object kind) {
     case Object::OriginalWheatField:
     case Object::OriginalMilletField:
     case Object::HealthPost:
+    case Object::OriginalAncestorShrine214:
     case Object::ServicePost:return 0;
     case Object::OriginalInfluenceSource:return original_influence_source_cost;
     default:invalid("unsupported original production building kind");
@@ -56,7 +57,7 @@ template<class Buildings,class Bridges> std::uint64_t spending(const Buildings& 
     const Bridges& bridges,std::size_t ramps,std::uint64_t roads,std::size_t removed,
     std::uint64_t farm_cost=0,std::uint64_t field_cost=0,std::uint64_t food_farm_cost=0,
     std::uint64_t wheat_cost=0,std::uint64_t millet_cost=0,
-    std::uint64_t herbalist_cost=0,std::uint64_t acupuncture_cost=0) {
+    std::uint64_t herbalist_cost=0,std::uint64_t acupuncture_cost=0,std::uint64_t ancestor_cost=0) {
     const auto budget=static_cast<std::uint64_t>(original_production_starting_treasury);
     std::uint64_t result=0;
     const auto add=[&](std::uint64_t count,std::uint64_t cost) {
@@ -68,7 +69,8 @@ template<class Buildings,class Bridges> std::uint64_t spending(const Buildings& 
         const auto cost=b.kind==Object::OriginalHempFarm ? farm_cost:b.kind==Object::OriginalHempField ? field_cost:
             b.kind==Object::OriginalFoodFarm ? food_farm_cost:b.kind==Object::OriginalWheatField ? wheat_cost:
             b.kind==Object::OriginalMilletField ? millet_cost:b.kind==Object::HealthPost ? herbalist_cost:
-            b.kind==Object::ServicePost ? acupuncture_cost:paid_cost(b.kind);
+            b.kind==Object::ServicePost ? acupuncture_cost:
+            b.kind==Object::OriginalAncestorShrine214 ? ancestor_cost:paid_cost(b.kind);
         if (cost) add(1,cost);
     }
     for (const auto& bridge:bridges) {
@@ -208,11 +210,12 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         if (b.cell.x<0 || b.cell.y<0 || b.cell.x>s.width-footprint.width || b.cell.y>s.height-footprint.height)
             invalid("original production building footprint outside saved grid");
         if (b.kind==Object::ClaySource || b.kind==Object::Pottery || b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalFoodFarm ||
-            b.kind==Object::HealthPost || b.kind==Object::ServicePost) {
+            b.kind==Object::HealthPost || b.kind==Object::ServicePost || b.kind==Object::OriginalAncestorShrine214) {
             if (courier_index>=s.couriers.size()) invalid("missing purchased original production courier");
             const auto& c=s.couriers[courier_index];
             const auto role=b.kind==Object::HealthPost ? CourierRole::HealthWorker:
                 b.kind==Object::ServicePost ? CourierRole::Service:
+                b.kind==Object::OriginalAncestorShrine214 ? CourierRole::OriginalAncestor:
                 b.kind==Object::OriginalFoodFarm ? CourierRole::OriginalFoodToMarket:
                 b.kind==Object::OriginalHempFarm ? CourierRole::OriginalHempToWarehouse:
                 b.kind==Object::ClaySource ? CourierRole::Clay:
@@ -244,6 +247,7 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
                 expected.house.food_quality=h.house.food_quality;
                 expected.house.herbalist=h.house.herbalist;
                 expected.house.acupuncture=h.house.acupuncture;
+                expected.house.ancestor=h.house.ancestor;
                 expected.original_status=3;expected.access_enabled=true;
             }
             if (h!=expected) invalid("unsupported original production house needs, goods or evolution");
@@ -279,7 +283,7 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
     const auto model_priced=std::count_if(s.buildings.begin(),s.buildings.end(),[](const auto& b){
         return b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
             b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
-            b.kind==Object::HealthPost || b.kind==Object::ServicePost;});
+            b.kind==Object::HealthPost || b.kind==Object::ServicePost || b.kind==Object::OriginalAncestorShrine214;});
     if (s.construction_spent_total<spent+static_cast<std::uint64_t>(model_priced) ||
         s.construction_spent_total>static_cast<std::uint64_t>(original_production_starting_treasury) ||
         (!model_priced && spent!=s.construction_spent_total) ||
@@ -310,7 +314,7 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
     for (const auto& c:s.couriers) if (c.role!=CourierRole::Clay && c.role!=CourierRole::Pottery &&
         c.role!=CourierRole::MarketPotteryInbound && c.role!=CourierRole::MarketPotteryDistribution &&
         c.role!=CourierRole::OriginalHempToWarehouse && c.role!=CourierRole::OriginalFoodToMarket && c.role!=CourierRole::OriginalFoodToHouse &&
-        c.role!=CourierRole::HealthWorker && c.role!=CourierRole::Service)
+        c.role!=CourierRole::HealthWorker && c.role!=CourierRole::Service && c.role!=CourierRole::OriginalAncestor)
         invalid("unsupported original production courier role");
 }
 
@@ -325,7 +329,8 @@ bool World::original_production_finance_valid() const {
             static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::WheatField,original::BuildingField::Cost)),
             static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::MilletField,original::BuildingField::Cost)),
             static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::HerbalistsStall,original::BuildingField::Cost)),
-            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::AcupuncturistsClinic,original::BuildingField::Cost)));
+            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::AcupuncturistsClinic,original::BuildingField::Cost)),
+            static_cast<std::uint64_t>(original_rules_model_->building_value(original::ModelBuilding::AncestralShrine,original::BuildingField::Cost)));
         return construction_spent_total_==spent && treasury_==original_production_starting_treasury-static_cast<std::int64_t>(spent);
     } catch (const std::invalid_argument&) {return false;}
 }

@@ -266,7 +266,7 @@ constexpr std::int64_t starting_treasury_for(RulesProfile profile,std::uint32_t 
 enum class Object : std::uint8_t {
     Empty, Road, Workshop, Warehouse, ClaySource, Pottery, Household, Farm, ServicePost, Market,
     FireWatch, Well, HealthPost, OriginalInfluenceSource, OriginalHempFarm, OriginalHempField,
-    OriginalFoodFarm, OriginalWheatField, OriginalMilletField
+    OriginalFoodFarm, OriginalWheatField, OriginalMilletField, OriginalAncestorShrine214
 };
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
@@ -330,7 +330,7 @@ enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySour
                          SetBuildingOperation, SetBuildingWorkforcePriority, DemolishBuilding,
                          PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge, PlaceRamp, RemoveRamp,
                          PlaceOriginalInfluenceSource, PlaceOriginalHempFarm, PlaceOriginalHempField,
-                         PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField };
+                         PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField, PlaceOriginalAncestorShrine };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 struct Command {
@@ -379,7 +379,7 @@ enum class CourierRole : std::uint8_t {
     None=0, Clay=1, Pottery=2, Household=3, Food=4, Service=5,
     MarketPotteryInbound=6, MarketFoodInbound=7,
     MarketPotteryDistribution=8, MarketFoodDistribution=9, FireInspector=10, HealthWorker=11,
-    OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14
+    OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14, OriginalAncestor=15
 };
 enum class CourierDispatchStatus : std::uint8_t {
     Ready,

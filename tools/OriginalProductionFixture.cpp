@@ -4,8 +4,10 @@
 #include "simulation/original/ServiceRules.h"
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <utility>
 
 namespace {
 namespace f=oe_influence_fixture;
@@ -23,8 +25,8 @@ bool below(const f::fs::path& path,const f::fs::path& root) {
 }
 void validate_output(const f::fs::path& output,const f::fs::path& data) {
     const auto repo=f::fs::canonical(f::fs::path(__FILE__).parent_path().parent_path());
-    const auto root=repo/".local/original-economy/oe19/production-fixtures";
-    check(output!=root && below(output,root),"Fixture output must be a new private OE19 subdirectory");
+    const auto root=repo/".local/original-economy/oe20/production-fixtures";
+    check(output!=root && below(output,root),"Fixture output must be a new private OE20 subdirectory");
     check(!below(output,data) && !below(data,output),"Fixture output overlaps source data");
     f::fs::path current=output.root_path();
     for (const auto& part:output.relative_path()) {
@@ -82,8 +84,13 @@ json inspect_services(const sim::World& world) {
     const auto& state=world.original_production_state()->services;
     json providers=json::array(),trips=json::array(),witnesses=json::array();
     for (const auto& p:state.providers) {
-        const auto model_type=p.type==sim::OriginalServiceProviderType::Herbalist207 ?
-            original::ModelBuilding::HerbalistsStall:original::ModelBuilding::AcupuncturistsClinic;
+        original::ModelBuilding model_type;
+        switch (p.type) {
+        case sim::OriginalServiceProviderType::Herbalist207: model_type=original::ModelBuilding::HerbalistsStall;break;
+        case sim::OriginalServiceProviderType::Acupuncture208: model_type=original::ModelBuilding::AcupuncturistsClinic;break;
+        case sim::OriginalServiceProviderType::Ancestor214: model_type=original::ModelBuilding::AncestralShrine;break;
+        default: throw std::runtime_error("Unknown paid original service provider");
+        }
         providers.push_back({{"id",static_cast<unsigned>(p.building_id)},{"type",static_cast<unsigned>(p.type)},
             {"model_type",static_cast<unsigned>(model_type)},
             {"cost",world.original_rules_model()->building_value(model_type,original::BuildingField::Cost)},
@@ -111,7 +118,7 @@ json inspect(const sim::World& world) {
               b.supported==(i<2) && !b.totals.imported && !b.totals.demolished,
               "Unexpected typed goods capability or mass");
         if (i>=2) check(!b.stock && !b.totals.produced && !b.totals.consumed && !b.cargo && !b.source_reserved && !b.incoming_reserved,
-                       "Revision19 generated an unsupported luxury good");
+                       "Revision20 generated an unsupported luxury good");
         check(b.stock+b.cargo+b.totals.consumed==b.totals.produced,"Physical stock, actual cargo and consumption disagree with produced mass");
         balances.push_back({{"good",i},{"supported",b.supported},{"conserved",b.conserved},
             {"produced",b.totals.produced},{"imported",b.totals.imported},{"consumed",b.totals.consumed},
@@ -532,6 +539,104 @@ void create_services(const f::fs::path& data,const f::fs::path& output) {
         {"initial",initial},{"stopped",stopped},{"visited",visited},{"before_expiry",before_expiry},{"expired",expired},
         {"expiry_tick",expiry},{"checkpoints",checkpoints}}.dump(2)+"\n");
 }
+void create_ancestor(const f::fs::path& data,const f::fs::path& output) {
+    const auto policy=f::permissions();
+    auto world=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(data));
+    for (const int y:{5,8,12}) for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,y}});
+    for (const int y:{6,7,9,10,11}) f::buy(world,{sim::CommandType::PlaceRoad,{23,y}});
+    for (const int y:{3,6}) for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,{x,y}});
+    f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{0,13}});
+    f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{5,13}});
+    const auto wheat=*world.building_owner_at({0,13}),millet=*world.building_owner_at({5,13});
+    sim::Command field{sim::CommandType::PlaceOriginalWheatField,{3,13}};field.building_id=wheat;f::buy(world,field);
+    field={sim::CommandType::PlaceOriginalMilletField,{8,13}};field.building_id=millet;f::buy(world,field);
+    f::buy(world,{sim::CommandType::PlaceMarket,{12,13}});
+    const std::array<std::pair<sim::CommandType,sim::Cell>,3> sources{{
+        {sim::CommandType::PlaceHealthPost,{16,13}},
+        {sim::CommandType::PlaceServicePost,{19,13}},
+        {sim::CommandType::PlaceOriginalAncestorShrine,{22,13}}}};
+    std::array<sim::BuildingId,3> providers{};
+    for (std::size_t i=0;i<sources.size();++i) {
+        f::buy(world,{sources[i].first,sources[i].second});providers[i]=*world.building_owner_at(sources[i].second);
+    }
+    const auto shrine=providers[2];const auto home=*world.building_owner_at({0,3});
+    const auto found=std::find_if(world.couriers().begin(),world.couriers().end(),[&](const auto& c){return c.owner==shrine;});
+    check(found!=world.couriers().end()&&found->role==sim::CourierRole::OriginalAncestor,"Paid214 has no own actual Ancestor Courier");
+    const auto visitor=found->id;
+    const auto initial=inspect(world);
+    check(world.total_population()==0&&world.couriers().size()==7&&world.construction_spent_total()==1483&&world.treasury()==10517,
+          "Real Ancestor scene must pay12Houses/77Roads/twoFarms/twoFields/Market/207/208/214");
+    for (const auto source:providers) f::buy(world,sim::set_building_operation(source,false));
+    ticks(world,400);const auto stopped=inspect(world);
+    check(world.total_population()==84&&world.workforce_supply()==84&&world.workforce_required(shrine)==4&&
+          world.original_production_state()->services.trips.empty()&&world.original_production_state()->services.witnesses.empty(),
+          "Paid Ancestor scene lacks real immigration or paused sources granted visits");
+    const auto wait=[&](auto done,const char* failure,int limit=30000) {
+        for (int i=0;i<limit&&!done();++i) world.tick();
+        check(done(),failure);
+    };
+    const auto latest=[&]() -> const sim::OriginalServiceTrip& {
+        for (const auto& row:world.original_production_state()->services.trips)
+            if (row.transfer.courier_id==visitor) return row;
+        throw std::runtime_error("Ancestor scene lost its real latest trip");
+    };
+    const auto witness=[&]() -> const sim::OriginalServiceWitness& {
+        for (const auto& row:world.original_production_state()->services.witnesses)
+            if (row.building_id==home&&row.role==original::ServiceRole::Ancestor) return row;
+        throw std::runtime_error("Ancestor scene lost the actual first-House visit");
+    };
+    const auto timer=[&]() {
+        for (const auto& row:world.original_economy_state()->houses) if (row.building_id==home) return row.house.ancestor;
+        throw std::runtime_error("Ancestor scene lost its actual first House");
+    };
+    for (const auto source:providers) f::buy(world,sim::set_building_operation(source,true));
+    wait([&]{return world.courier(visitor).phase==sim::CourierPhase::ToWarehouse&&world.courier(visitor).edge_progress>0;},
+         "Real Ancestor visitor never reached its outbound begun edge");
+    check(!latest().arrival_tick&&!timer()&&world.workforce_used()==67,
+          "Ancestor dispatch granted religion or combined paid scene lacks67 actual workers");
+    const auto midroute=inspect(world);json checkpoints=json::array();
+    checkpoints.push_back(checkpoint(data,output,"mid-ancestor-courier",world));
+    for (const auto source:providers) f::buy(world,sim::set_building_operation(source,false));
+    const sim::Command cut{sim::CommandType::RemoveRoad,{23,10}};
+    wait([&]{return world.validate(cut).accepted;},"Ancestor route cut never became safe");f::buy(world,cut);
+    ticks(world,250);
+    check(!latest().arrival_tick&&!timer(),"Ancestor visitor crossed a disconnected trunk or supplied on Return");
+    const auto disconnected=inspect(world);
+    checkpoints.push_back(checkpoint(data,output,"ancestor-road-disconnected",world));
+    const auto before_repair=world.snapshot();f::buy(world,{sim::CommandType::PlaceRoad,{23,10}});
+    check(world.treasury()==before_repair.treasury-2&&world.construction_spent_total()==before_repair.construction_spent_total+2,
+          "Ancestor road repair did not pay the actual road cost");
+    const auto repaired=inspect(world);
+    wait([&]{return world.courier(visitor).phase==sim::CourierPhase::IdleAtWorkshop&&latest().visit_applied;},
+         "Paused disconnected Ancestor tour did not finish after actual paid road repair");
+    check(witness().transfer==latest().transfer&&latest().target==home&&timer()>0,
+          "Ancestor arrival lost its exact first House/provider/actor witness");
+    const auto visited=inspect(world);const auto first=witness();
+    checkpoints.push_back(checkpoint(data,output,"house-ancestor-visit",world));
+    const auto expiry=36+(countdowns(first.arrival_tick-1)+39)*51;
+    check(expiry>world.ticks(),"Ancestor fixture missed its40th actual countdown");
+    while (world.ticks()+1<expiry) world.tick();
+    check(timer()==1,"Ancestor timer did not reach exactly1 before expiry");
+    const auto before_expiry=inspect(world);
+    checkpoints.push_back(checkpoint(data,output,"ancestor-before-expiry",world));
+    world.tick();check(!timer()&&witness()==first,"Ancestor40th countdown changed witness or retained religion");
+    const auto expired=inspect(world);
+    checkpoints.push_back(checkpoint(data,output,"ancestor-expired",world));
+    f::buy(world,sim::set_building_operation(shrine,true));
+    wait([&]{return timer()>0&&witness().transfer.sequence>first.transfer.sequence;},
+         "Real Ancestor target rotation never revisited the expired first House");
+    f::buy(world,sim::set_building_operation(shrine,false));
+    const auto revisited=inspect(world);
+    checkpoints.push_back(checkpoint(data,output,"ancestor-revisited",world));
+    f::write_text(output/"fixture.json",json{{"status","PASS"},{"snapshot_injection",false},{"authored_geography",true},
+        {"real_model_ancestor",true},{"actual_ancestor_arrival",true},{"actual_ancestor_revisit",true},
+        {"paid_road_repair",true},{"paused_outbound_tour_finished",true},
+        {"paid_house_count",12},{"paid_road_count",77},{"paid_food_farm_count",2},{"paid_food_field_count",2},
+        {"paid_market_count",1},{"paid_herbalist_count",1},{"paid_acupuncture_count",1},{"paid_ancestor_count",1},
+        {"initial",initial},{"stopped",stopped},{"midroute",midroute},{"disconnected",disconnected},{"repaired",repaired},
+        {"visited",visited},{"before_expiry",before_expiry},{"expired",expired},{"revisited",revisited},
+        {"expiry_tick",expiry},{"checkpoints",checkpoints}}.dump(2)+"\n");
+}
 void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path& input) {
     const auto before=f::read_text(input);const auto document=save::read_save(input);const auto policy=f::permissions();
     auto world=save::restore_original_production_development(document,data,policy->building_mask(),policy);
@@ -542,14 +647,15 @@ void resume(const f::fs::path& data,const f::fs::path& output,const f::fs::path&
 int main(int argc,char** argv) {
     try {
         const std::string mode=argc>1 ? argv[1]:"";
-        check((argc==4 && (mode=="--create" || mode=="--create-consumption" || mode=="--create-food" || mode=="--create-services")) || (argc==5 && mode=="--resume"),
-              "Usage: production-fixture --create DATA OUT | --create-consumption AUTHORED_DATA OUT | --create-food DATA OUT | --create-services DATA OUT | --resume DATA OUT SAVE");
+        check((argc==4 && (mode=="--create" || mode=="--create-consumption" || mode=="--create-food" || mode=="--create-services" || mode=="--create-ancestor")) || (argc==5 && mode=="--resume"),
+              "Usage: production-fixture --create DATA OUT | --create-consumption AUTHORED_DATA OUT | --create-food DATA OUT | --create-services DATA OUT | --create-ancestor DATA OUT | --resume DATA OUT SAVE");
         const auto data=f::fs::canonical(argv[2]);const auto output=f::fs::absolute(argv[3]);
         validate_output(output,data);f::fs::create_directories(output);
         if (mode=="--create") create(data,output);
         else if (mode=="--create-consumption") create_consumption(data,output);
         else if (mode=="--create-food") create_food(data,output);
         else if (mode=="--create-services") create_services(data,output);
+        else if (mode=="--create-ancestor") create_ancestor(data,output);
         else resume(data,output,f::fs::canonical(argv[4]));
         std::cout<<"Original paid production fixture PASS\n";return 0;
     } catch (const std::exception& error) {std::cerr<<"Original production fixture FAIL: "<<error.what()<<'\n';return 1;}

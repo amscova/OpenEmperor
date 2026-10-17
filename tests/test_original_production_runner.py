@@ -46,6 +46,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe16/production-fixtures/run",
                        self.repo / ".local/original-economy/oe17/production-fixtures/run",
                        self.repo / ".local/original-economy/oe18/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe19/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -431,6 +432,87 @@ class ProductionRunnerTests(unittest.TestCase):
         for tick in (-1, True, 1.0, 2**64):
             with self.subTest(tick=tick), self.assertRaises(AssertionError):
                 runner.service_countdowns(tick)
+
+    @staticmethod
+    def ancestor_scene():
+        scene = ProductionRunnerTests.services_scene()
+        scene["buildings"].append({"id": 4, "kind": 19, "placed_tick": 0, "operating": False})
+        scene["couriers"].append({"id": 3, "role": 15, "owner": 4, "target": 1,
+            "last_dispatched_target": 1, "phase": 2, "cargo": 0, "reserved": 0,
+            "typed_cargo": 0, "typed_cargo_good": None, "food_cargo": 0})
+        scene["services"]["providers"].append({"id": 4, "type": 2, "model_type": 214, "cost": 40, "workers_required": 4})
+        scene["services"]["trips"].append({"courier_id": 3, "sequence": 1, "target": 1,
+            "dispatched_tick": 200, "arrival_tick": 270, "visit_applied": True})
+        scene["services"]["witnesses"].append({"house_id": 1, "role": 5, "provider_id": 4,
+            "courier_id": 3, "sequence": 1, "arrival_tick": 270})
+        scene["houses"][0]["service_timers"][5] = 39
+        return scene
+
+    def test_ancestor_requires214_four_workers_own_actor_and_exact40_origin(self):
+        scene = self.ancestor_scene()
+        runner.check_services(scene, ancestor=True)
+        mutations = (
+            lambda row: row["houses"][0]["service_timers"].__setitem__(5, 40),
+            lambda row: row["houses"][0]["service_timers"].__setitem__(5, 95),
+            lambda row: row["houses"][0]["service_timers"].__setitem__(6, 1),
+            lambda row: row["services"]["providers"][2].update(type=1),
+            lambda row: row["services"]["providers"][2].update(model_type=207),
+            lambda row: row["services"]["providers"][2].update(cost=0),
+            lambda row: row["services"]["providers"][2].update(workers_required=3),
+            lambda row: row["services"]["witnesses"][2].update(role=2),
+            lambda row: row["services"]["witnesses"][2].update(provider_id=2),
+            lambda row: row["services"]["trips"][2].update(visit_applied=False),
+            lambda row: row["services"]["trips"][2].update(arrival_tick=None),
+            lambda row: row["couriers"][2].update(role=5),
+            lambda row: row["couriers"][2].update(cargo=1),
+            lambda row: row["couriers"][2].update(food_cargo=1),
+            lambda row: row["services"]["witnesses"].pop(),
+        )
+        for index, mutation in enumerate(mutations):
+            bad = copy.deepcopy(scene)
+            mutation(bad)
+            with self.subTest(mutation=index), self.assertRaises(AssertionError):
+                runner.check_services(bad)
+
+    def test_ancestor_same_tick40_to39_and_noncountdown40_in_all16_steps(self):
+        for step in range(16):
+            for offset, expected in ((0, 39), (1, 40)):
+                scene = self.ancestor_scene()
+                at = 816 + step * 51 + 36 + offset
+                scene["tick"] = at
+                scene["services"]["countdowns"] = runner.service_countdowns(at)
+                # This is a synthetic report-parser test. Real paid boundary
+                # arrivals are separately exercised by OriginalAncestorWorldTests.
+                scene["services"]["trips"][2].update(dispatched_tick=at - 50, arrival_tick=at)
+                scene["services"]["witnesses"][2]["arrival_tick"] = at
+                for w in scene["services"]["witnesses"]:
+                    duration = 40 if w["role"] == 5 else 96
+                    scene["houses"][0]["service_timers"][w["role"]] = max(
+                        duration - (runner.service_countdowns(at) - runner.service_countdowns(w["arrival_tick"] - 1)), 0)
+                with self.subTest(step=step, offset=offset):
+                    self.assertEqual(scene["houses"][0]["service_timers"][5], expected)
+                    runner.check_services(scene, ancestor=True)
+
+    def test_ancestor_exact40th_countdown_expiry_keeps_real_visit(self):
+        visited = self.ancestor_scene()
+        before, after = copy.deepcopy(visited), copy.deepcopy(visited)
+        expiry = 36 + (runner.service_countdowns(269) + 39) * 51
+        before["tick"], after["tick"] = expiry - 1, expiry
+        for scene in (before, after):
+            scene["services"]["countdowns"] = runner.service_countdowns(scene["tick"])
+            for w in scene["services"]["witnesses"]:
+                duration = 40 if w["role"] == 5 else 96
+                scene["houses"][0]["service_timers"][w["role"]] = max(
+                    duration - (runner.service_countdowns(scene["tick"]) - runner.service_countdowns(w["arrival_tick"] - 1)), 0)
+        fixture = {"visited": visited, "before_expiry": before, "expired": after, "expiry_tick": expiry}
+        runner.check_ancestor_expiry(fixture)
+        for mutation in (lambda row: row.update(expiry_tick=expiry + 1),
+                         lambda row: row["expired"]["houses"][0]["service_timers"].__setitem__(5, 1),
+                         lambda row: row["before_expiry"]["buildings"][3].update(operating=True)):
+            bad = copy.deepcopy(fixture)
+            mutation(bad)
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                runner.check_ancestor_expiry(bad)
 
 
 if __name__ == "__main__":

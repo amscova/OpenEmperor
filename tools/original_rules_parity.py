@@ -462,13 +462,13 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-19: Rule10 adds paid medical providers, bounded trip/witness authority
-    # and an active-only208 model row. The unchanged ServiceRules archive is
-    # now an ordinary simulation dependency; numerical fork cases stay exact.
+    # OE-20: Rule10 appends paid Ancestor214 and its bounded service authority.
+    # The active-only214 model row and appended DTO/enums require matching ABI
+    # pins; unchanged ServiceRules and all numerical fork cases stay exact.
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "32c79d557d78d32f6a25664de813b8f3592e3fd3":
+    if world_blob != "809d5ae43a13ea3715c6d01ad5d8e464be58d904":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -484,7 +484,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     production_dto = ROOT / "src/simulation/OriginalProductionState.h"
     production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
-    if production_blob != "f1bad1a8eadc5dfd4ce51e681478089f1419713b":
+    if production_blob != "3dac98fc636a97f9dc5e17dfccbbb7951bef071d":
         raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
     food_dto = ROOT / "src/simulation/OriginalFoodState.h"
     food_blob = hashlib.sha1(b"blob " + str(food_dto.stat().st_size).encode() + b"\0" + food_dto.read_bytes()).hexdigest()
@@ -492,11 +492,11 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-food API drift: fourth-module adapter needs a reviewed compatibility contract")
     services_dto = ROOT / "src/simulation/OriginalServicesState.h"
     services_blob = hashlib.sha1(b"blob " + str(services_dto.stat().st_size).encode() + b"\0" + services_dto.read_bytes()).hexdigest()
-    if services_blob != "1a6f84d4b42466da0409441ecfc43ec04a5d06ef":
+    if services_blob != "0bdb8e7bbdbd8438a738a60fdbb15d77bc2fe360":
         raise ValueError("Original-services API drift: fourth-module adapter needs a reviewed compatibility contract")
     model_header_blobs = {}
-    for name, expected in (("ModelSchema.h", "0ceab327d7fc880bbf4be0a00dbc4255d20a4060"),
-                           ("OriginalRulesModel.h", "7029150923506fa4fe84721ab6342c13126f32dd")):
+    for name, expected in (("ModelSchema.h", "c9253f5eddb8cd7166dcc15bb6f8825ea33e35bd"),
+                           ("OriginalRulesModel.h", "a391919d746d40b662e160ef7548a3b410b18d3e")):
         header = ROOT / "src/simulation/original" / name
         actual = hashlib.sha1(b"blob " + str(header.stat().st_size).encode() + b"\0" + header.read_bytes()).hexdigest()
         if actual != expected:

@@ -37,7 +37,7 @@ private:
     const HouseEvolutionRules house_rules_;
     const std::array<BuildingRow,7> building_rows_;
     const bool production_prepared_;
-    const std::array<BuildingRow,5> production_rows_;
+    const std::array<BuildingRow,6> production_rows_;
 };
 
 } // namespace openemperor::original

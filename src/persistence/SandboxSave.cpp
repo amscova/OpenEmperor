@@ -1085,7 +1085,9 @@ simulation::OriginalFoodState parse_production_food(const json& j) {
     return food;
 }
 json production_services_json(const simulation::OriginalServicesState& services) {
-    require(services.providers.size()<=4 && services.trips.size()<=4 && services.witnesses.size()<=40,
+    require(services.providers.size()<=simulation::original_service_provider_limit &&
+            services.trips.size()<=simulation::original_service_trip_limit &&
+            services.witnesses.size()<=simulation::original_service_witness_limit,
             "schema26 medical service collection exceeds bounded context");
     const auto transfer=[](simulation::OriginalGoodsTransferKey key) {
         return json{{"courier_id",static_cast<std::uint32_t>(key.courier_id)},{"sequence",key.sequence}};
@@ -1122,16 +1124,16 @@ simulation::OriginalServicesState parse_production_services(const json& j) {
         return key;
     };
     const auto& providers=field(j,"providers");
-    require(providers.is_array() && providers.size()<=4,"schema26 medical provider collection exceeds bound");
+    require(providers.is_array() && providers.size()<=simulation::original_service_provider_limit,"schema26 service provider collection exceeds bound");
     for (const auto& value:providers) {
         simulation::OriginalServiceProvider provider;provider.building_id=id(field(value,"building_id"));
         require(services.providers.empty() || services.providers.back().building_id<provider.building_id,
                 "schema26 medical providers require sorted unique IDs");
-        provider.type=static_cast<simulation::OriginalServiceProviderType>(number(field(value,"type"),1));
+        provider.type=static_cast<simulation::OriginalServiceProviderType>(number(field(value,"type"),2));
         services.providers.push_back(provider);
     }
     const auto& trips=field(j,"trips");
-    require(trips.is_array() && trips.size()<=4,"schema26 medical trip collection exceeds bound");
+    require(trips.is_array() && trips.size()<=simulation::original_service_trip_limit,"schema26 service trip collection exceeds bound");
     for (const auto& value:trips) {
         simulation::OriginalServiceTrip trip;trip.transfer=transfer(field(value,"transfer"));
         require(services.trips.empty() || services.trips.back().transfer.courier_id<trip.transfer.courier_id,
@@ -1142,10 +1144,12 @@ simulation::OriginalServicesState parse_production_services(const json& j) {
         trip.visit_applied=boolean(field(value,"visit_applied"));services.trips.push_back(trip);
     }
     const auto& witnesses=field(j,"witnesses");
-    require(witnesses.is_array() && witnesses.size()<=40,"schema26 medical witness collection exceeds bound");
+    require(witnesses.is_array() && witnesses.size()<=simulation::original_service_witness_limit,"schema26 service witness collection exceeds bound");
     for (const auto& value:witnesses) {
         simulation::OriginalServiceWitness witness;witness.building_id=id(field(value,"building_id"));
-        witness.role=static_cast<original::ServiceRole>(number(field(value,"role"),1));
+        const auto role=number(field(value,"role"),5);
+        require(role==0 || role==1 || role==5,"schema26 supports only medical or Ancestor witness categories");
+        witness.role=static_cast<original::ServiceRole>(role);
         if (!services.witnesses.empty()) {
             const auto& previous=services.witnesses.back();
             require(previous.building_id<witness.building_id ||
@@ -1182,6 +1186,8 @@ json production_document_json(const SaveDocument& d) {
         else if (building.kind==simulation::Object::OriginalFoodFarm) building.kind=simulation::Object::Farm;
         else if (building.kind==simulation::Object::OriginalWheatField || building.kind==simulation::Object::OriginalMilletField)
             building.kind=simulation::Object::Well;
+        else if (building.kind==simulation::Object::OriginalAncestorShrine214)
+            building.kind=simulation::Object::ServicePost;
     }
     for (auto& courier:projected.world.couriers) {
         if (courier.role==simulation::CourierRole::OriginalHempToWarehouse)
@@ -1190,6 +1196,8 @@ json production_document_json(const SaveDocument& d) {
             courier.role=simulation::CourierRole::MarketFoodInbound;
         else if (courier.role==simulation::CourierRole::OriginalFoodToHouse)
             courier.role=simulation::CourierRole::MarketFoodDistribution;
+        else if (courier.role==simulation::CourierRole::OriginalAncestor)
+            courier.role=simulation::CourierRole::Service;
     }
     auto result=document_json(projected);
     result["schema_version"]=26;result["rules"]["version"]=d.world.rule_version;
@@ -1268,7 +1276,7 @@ SaveDocument parse_production_document(const json& j) {
     require(buildings.is_array() && buildings.size()<=simulation::building_collection_limit(simulation::RulesProfile::CityV16),
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalMilletField));
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalAncestorShrine214));
         if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalHempFarm))
@@ -1280,18 +1288,22 @@ SaveDocument parse_production_document(const json& j) {
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalWheatField) ||
                  kind==static_cast<unsigned>(simulation::Object::OriginalMilletField))
             building["kind"]=static_cast<int>(simulation::Object::Well);
+        else if (kind==static_cast<unsigned>(simulation::Object::OriginalAncestorShrine214))
+            building["kind"]=static_cast<int>(simulation::Object::ServicePost);
     }
     auto& couriers=projected["world"]["couriers"];
     require(couriers.is_array() && couriers.size()<=simulation::courier_collection_limit(simulation::RulesProfile::CityV16),
             "schema26 courier collection exceeds bound");
     for (auto& courier:couriers) {
-        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalFoodToHouse));
+        const auto role=number(field(courier,"role"),static_cast<unsigned>(simulation::CourierRole::OriginalAncestor));
         if (role==static_cast<unsigned>(simulation::CourierRole::OriginalHempToWarehouse))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketPotteryInbound);
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalFoodToMarket))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketFoodInbound);
         else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalFoodToHouse))
             courier["role"]=static_cast<int>(simulation::CourierRole::MarketFoodDistribution);
+        else if (role==static_cast<unsigned>(simulation::CourierRole::OriginalAncestor))
+            courier["role"]=static_cast<int>(simulation::CourierRole::Service);
     }
     auto d=parse_document(projected);
     d.source_schema_version=26;d.world.rule_version=simulation::kOriginalProductionRuleVersion;

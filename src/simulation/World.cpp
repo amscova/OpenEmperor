@@ -46,12 +46,13 @@ bool food_role(CourierRole role) {
 }
 bool service_role(CourierRole role) {
     return role==CourierRole::Service || role==CourierRole::FireInspector ||
-        role==CourierRole::HealthWorker;
+        role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor;
 }
 Object courier_target_kind(CourierRole role) {
     switch (role) {
     case CourierRole::OriginalFoodToMarket: return Object::Market;
     case CourierRole::OriginalFoodToHouse: return Object::Household;
+    case CourierRole::OriginalAncestor: return Object::Household;
     case CourierRole::OriginalHempToWarehouse: return Object::Warehouse;
     case CourierRole::Clay: return Object::Pottery;
     case CourierRole::Pottery: return Object::Warehouse;
@@ -78,6 +79,7 @@ std::size_t building_limit(RulesProfile profile,Object kind) {
     case Object::OriginalFoodFarm:
     case Object::OriginalWheatField:
     case Object::OriginalMilletField: return 2;
+    case Object::OriginalAncestorShrine214: return 2;
     case Object::OriginalHempFarm:
     case Object::OriginalHempField: return 2;
     case Object::Household: return Rules::city_v10_household_limit;
@@ -145,6 +147,7 @@ std::optional<Object> placed_object(CommandType type) {
     case CommandType::PlaceOriginalFoodFarm: return Object::OriginalFoodFarm;
     case CommandType::PlaceOriginalWheatField: return Object::OriginalWheatField;
     case CommandType::PlaceOriginalMilletField: return Object::OriginalMilletField;
+    case CommandType::PlaceOriginalAncestorShrine: return Object::OriginalAncestorShrine214;
     default: return std::nullopt;
     }
 }
@@ -154,6 +157,7 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 }
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
+    if (kind==Object::OriginalAncestorShrine214 && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::ServicePost && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::OriginalHempFarm && original_production_enabled(profile,rule_version)) return {2,2};
     if (kind==Object::OriginalFoodFarm && original_production_enabled(profile,rule_version)) return {3,3};
@@ -591,6 +595,9 @@ CourierState& World::mutable_courier(CourierId id) {
 std::int64_t World::construction_cost(CommandType type) const {
     if (!city_profile(profile_)) return 0;
     switch (type) {
+    case CommandType::PlaceOriginalAncestorShrine:
+        return original_production_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::AncestralShrine,original::BuildingField::Cost):0;
     case CommandType::PlaceRamp:return ramps_supported()?ramp_cost:0;
     case CommandType::RemoveRamp:
     case CommandType::PlaceBridge: // Variable span price lives only in validate_bridge().span.paid_cost.
@@ -643,6 +650,8 @@ int World::workforce_required(BuildingId id) const {
     const auto& value=building(id);
     if (!value.placed) return 0;
     switch (value.kind) {
+    case Object::OriginalAncestorShrine214: return original_production_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::AncestralShrine,original::BuildingField::Employees):0;
     case Object::OriginalFoodFarm: return original_production_enabled() ? original_rules_model_->building_value(
         original::ModelBuilding::Farmhouse,original::BuildingField::Employees):0;
     case Object::OriginalHempFarm: return original_production_enabled() ? original_rules_model_->building_value(
@@ -663,7 +672,7 @@ int World::workforce_required(BuildingId id) const {
 }
 
 bool World::operation_controllable(Object kind) {
-    return kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
+    return kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Farm || kind==Object::ServicePost || kind==Object::Market || kind==Object::FireWatch || kind==Object::HealthPost;
 }
 
@@ -1105,6 +1114,8 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if (command.type==CommandType::PlaceOriginalAncestorShrine && !original_production_enabled())
+        return {false,false,"Ancestor shrine requires explicit original production rules",command_sequence_,ticks_};
     if (command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalWheatField ||
         command.type==CommandType::PlaceOriginalMilletField) {
         const auto checked=validate_original_food_command(command);if (!checked.accepted) return checked;
@@ -1126,6 +1137,7 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceOriginalFoodFarm && command.type!=CommandType::PlaceOriginalWheatField &&
         command.type!=CommandType::PlaceOriginalMilletField &&
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceServicePost &&
+        command.type!=CommandType::PlaceOriginalAncestorShrine &&
         command.type!=CommandType::SetBuildingOperation &&
         command.type!=CommandType::SetBuildingWorkforcePriority)
         return {false,false,"Original production permits only its explicitly implemented paid chains",command_sequence_,ticks_};
@@ -1191,7 +1203,8 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceFireWatch && command.type!=CommandType::PlaceWell &&
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceOriginalHempFarm &&
         command.type!=CommandType::PlaceOriginalHempField && command.type!=CommandType::PlaceOriginalFoodFarm &&
-        command.type!=CommandType::PlaceOriginalWheatField && command.type!=CommandType::PlaceOriginalMilletField) {
+        command.type!=CommandType::PlaceOriginalWheatField && command.type!=CommandType::PlaceOriginalMilletField &&
+        command.type!=CommandType::PlaceOriginalAncestorShrine) {
         result.reason="Unknown placement command"; return result;
     }
     if ((profile_==RulesProfile::LogisticsV1 &&
@@ -1338,6 +1351,12 @@ CommandResult World::validate(Command command) const {
         })>=static_cast<std::ptrdiff_t>(Rules::health_post_limit)) {
         result.reason="Health Post limit reached"; return result;
     }
+    if (command.type==CommandType::PlaceOriginalAncestorShrine &&
+        std::count_if(buildings_.begin(),buildings_.end(),[](const BuildingState& b) {
+            return b.kind==Object::OriginalAncestorShrine214;
+        })>=2) {
+        result.reason="Ancestor shrine limit reached";return result;
+    }
     if (road_revision_==UINT64_MAX ||
         (command.type==CommandType::PlaceRoad && roads_placed_total_==UINT64_MAX)) {
         result.reason="Road counter exhausted";result.diagnostic={BuildBlocker::CounterExhausted,command.cell,{}};return result;
@@ -1356,7 +1375,17 @@ CommandResult World::validate(Command command) const {
         command.type==CommandType::PlaceFarm || command.type==CommandType::PlaceServicePost ||
         command.type==CommandType::PlaceMarket || command.type==CommandType::PlaceFireWatch ||
         command.type==CommandType::PlaceHealthPost || command.type==CommandType::PlaceOriginalHempFarm ||
-        command.type==CommandType::PlaceOriginalFoodFarm;
+        command.type==CommandType::PlaceOriginalFoodFarm || command.type==CommandType::PlaceOriginalAncestorShrine;
+    if (original_production_enabled()) {
+        if (command.type!=CommandType::PlaceRoad && buildings_.size()>=building_collection_limit(profile_)) {
+            result.reason="Original production building capacity reached";return result;
+        }
+        const std::size_t needed=command.type==CommandType::PlaceMarket ? 2U:creates_courier ? 1U:0U;
+        const auto capacity=courier_collection_limit(profile_);
+        if (needed>capacity || couriers_.size()>capacity-needed) {
+            result.reason="Original production courier capacity reached";return result;
+        }
+    }
     if (scalable(profile_) && creates_courier &&
         (next_courier_id_==0 || next_courier_id_==UINT32_MAX ||
          (command.type==CommandType::PlaceMarket && next_courier_id_==UINT32_MAX-1))) {
@@ -1583,6 +1612,11 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         couriers_.push_back(std::move(courier));
     };
     switch (command.type) {
+    case CommandType::PlaceOriginalAncestorShrine: {
+        auto& shrine=add_v10_building(Object::OriginalAncestorShrine214);shrine.placed_tick=ticks_;
+        original_production_->services.providers.push_back({shrine.id,OriginalServiceProviderType::Ancestor214});
+        add_v10_courier(shrine.id,CourierRole::OriginalAncestor,Good::Goods);break;
+    }
     case CommandType::PlaceOriginalFoodFarm: {
         auto& farm=add_v10_building(Object::OriginalFoodFarm);farm.placed_tick=ticks_;
         original_production_->food.farms.push_back({farm.id,std::nullopt,OriginalFoodCrop::Wheat,0});
@@ -2548,6 +2582,7 @@ void World::dispatch_v2(CourierState& courier) {
     case CourierRole::Service:
     case CourierRole::FireInspector:
     case CourierRole::HealthWorker:
+    case CourierRole::OriginalAncestor:
         throw std::logic_error("Cargo-free visit reached goods path");
     default: throw std::logic_error("unknown courier delivery relation");
     }
@@ -2979,6 +3014,7 @@ bool World::industry_balance_valid() const {
             case Object::OriginalFoodFarm:
             case Object::OriginalWheatField:
             case Object::OriginalMilletField:
+            case Object::OriginalAncestorShrine214:
                 if (!original_production_enabled()) return false;
                 break;
             case Object::OriginalInfluenceSource:
@@ -3037,6 +3073,7 @@ bool World::industry_balance_valid() const {
             const Object owner_kind=c.role==CourierRole::OriginalFoodToMarket ? Object::OriginalFoodFarm:
                 c.role==CourierRole::OriginalFoodToHouse ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse ? Object::OriginalHempFarm:
+                c.role==CourierRole::OriginalAncestor ? Object::OriginalAncestorShrine214:
                 c.role==CourierRole::Clay ? Object::ClaySource:
                 c.role==CourierRole::Pottery ? Object::Pottery:
                 c.role==CourierRole::Household || c.role==CourierRole::MarketPotteryInbound ?
@@ -3068,7 +3105,8 @@ bool World::industry_balance_valid() const {
             } else if (c.role==CourierRole::MarketFoodDistribution) {
                 ++market_food_outbound; food+=static_cast<std::uint64_t>(c.cargo);
             }
-            else if ((!original_food_courier(c.role) && c.role!=CourierRole::OriginalHempToWarehouse) || !original_production_enabled()) return false;
+            else if ((!original_food_courier(c.role) && c.role!=CourierRole::OriginalHempToWarehouse &&
+                      c.role!=CourierRole::OriginalAncestor) || !original_production_enabled()) return false;
             if (c.phase==CourierPhase::ToWarehouse && !service_role(c.role)) {
                 auto& reservations=food_role(c.role) ? food_reservations:pottery_reservations;
                 const auto found=std::lower_bound(reservations.begin(),reservations.end(),c.target,
@@ -3106,6 +3144,7 @@ bool World::industry_balance_valid() const {
                 (b.kind==Object::ServicePost && owned(CourierRole::Service)!=1) ||
                 (b.kind==Object::FireWatch && owned(CourierRole::FireInspector)!=1) ||
                 (b.kind==Object::HealthPost && owned(CourierRole::HealthWorker)!=1) ||
+                (b.kind==Object::OriginalAncestorShrine214 && owned(CourierRole::OriginalAncestor)!=1) ||
                 (b.kind==Object::Market &&
                     (owned(CourierRole::MarketPotteryDistribution)!=1 ||
                      owned(CourierRole::OriginalFoodToHouse)!=(original_production_enabled() ? 1:0) ||
@@ -3871,7 +3910,8 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                 !b.placed || b.kind==Object::Empty || b.kind==Object::Road ||
                 b.kind==Object::Workshop ||
                 ((b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
-                  b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField) && !w.original_production_enabled()) ||
+                  b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
+                  b.kind==Object::OriginalAncestorShrine214) && !w.original_production_enabled()) ||
                 (b.kind==Object::OriginalInfluenceSource && !w.original_influence_enabled()) || (b.kind==Object::Market && !market_profile(s.profile)) ||
                 (b.kind==Object::FireWatch && !fire_profile(s.profile)) ||
                 (b.kind==Object::Well && !water_profile(s.profile)) ||
@@ -3924,6 +3964,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             const Object expected_owner=c.role==CourierRole::OriginalFoodToMarket && w.original_production_enabled() ? Object::OriginalFoodFarm:
                 c.role==CourierRole::OriginalFoodToHouse && w.original_production_enabled() ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse && w.original_production_enabled() ? Object::OriginalHempFarm:
+                c.role==CourierRole::OriginalAncestor && w.original_production_enabled() ? Object::OriginalAncestorShrine214:
                 c.role==CourierRole::Clay ? Object::ClaySource:
                 c.role==CourierRole::Pottery ? Object::Pottery:
                 c.role==CourierRole::Household || c.role==CourierRole::MarketPotteryInbound ?

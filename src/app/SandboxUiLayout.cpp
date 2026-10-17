@@ -57,6 +57,7 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
     std::vector<Action> tools={Action::Select,Action::Road,Action::Clay,
         Action::Pottery,Action::Warehouse,Action::RemoveRoad,Action::Household,Action::Farm,
         Action::ServicePost,Action::Market};
+    if (original_production) tools[7]=Action::OriginalAncestorShrine;
     if (fire_watch) tools.push_back(Action::FireWatch);
     if (desirability) tools.push_back(Action::Desirability);
     if (water) { tools.push_back(Action::Well); tools.push_back(Action::Water); }
