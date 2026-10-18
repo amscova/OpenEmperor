@@ -17,7 +17,230 @@ Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten I
 
 ## Neue Entscheidungen
 
+### OE-17: tatsächlicher Verbrauch in gespeicherter Zyklusphase
+
+- **Vertrag vor Implementierung:**
+  [Verbrauchsvertrag](../original-economy/consumption-runtime.md), nach OE-16-
+  Commit `86cde0c54577a9889632e45432fe7fe18acd7fac`. Ausschließlich die aktive
+  Rule10/Schema26/policy3 wechselt auf Entwicklungsrevision17; frühere
+  Entwicklungsrevisionen werden verweigert. Regeln1–9/Schemas1–25 bleiben
+  unverändert, der normale Spielstart wird nicht freigegeben.
+- **`exe` und `authored` Zeitintegration:** Der unveränderte pure Kern verwendet
+  die aktuelle kanonische Housezeile, unabhängig von Footprint oder
+  Bewohnerzahl. Null Bewohner überspringt den Konsum; jede Ware bucht
+  `min(stock,max(need,0))`. Bronze und Lack sind unabhängig, bleiben hier aber
+  mangels echter Quellen0. Der gespeicherte Scheduler bleibt die einzige
+  Clock: Phase39/Selector0 oder7, sichtbar abgeschlossene Ticks40/397/856/1213.
+  Die authored Reihenfolge verarbeitet tatsächliche Bewegung, Fire und Zuzug
+  vor dem Konsum; eine reale Ankunft derselben Tickgrenze darf verbraucht
+  werden. Keine alte400-Tick-Nachfrage, zusätzliche Phase oder Besuchsgutschrift.
+- **Modelltreue und positiver Beleg:** Der gebundene originale Shelterbedarf
+  Hemp0/Ceramics0 bleibt in allen fünf Difficulties0. Der reale Modellpfad
+  konsumiert deshalb korrekt nichts. Der getrennte positive Prozesspfad ändert
+  ausschließlich zwei Bedarfsbytes einer privaten Modellkopie auf1/1; Preise,
+  Kapazität7, Employees und sämtliche anderen Bytes bleiben gleich. Sechs
+  normal bezahlte Häuser liefern42 regulär zugezogene Bewohner/Worker; Farm,
+  Feld, Clay, Pottery, Warehouse und Market produzieren und liefern tatsächlich.
+  Positive Tests sind authored Bedarfsintegration, keine originale
+  Shelterverbrauchs- oder vorgezogene Evolutionsbehauptung.
+- **Gespeicherte Senke und Restore:** `house_consumption` enthält exakt eine
+  sortierte Zeile je gekauftem House mit sechs uint64-Zählern. HouseState
+  bleibt der einzige Hausbestand; die Spaltensummen entsprechen exakt
+  `GoodsTotals.consumed`. Bounded Ledger-/Housekandidaten werden vor ihrer
+  Veröffentlichung vollständig geprüft, ohne Worldkopie oder doppelte Abbuchung.
+  Alter und tatsächlich erreichbare Konsumereignisse begrenzen die Historie;
+  die vorbereitete aktuelle Shelterzeile verschärft das strukturelle Maximum8
+  je Ereignis. Der isolierte Need1-Test erhält tatsächlichen Empfang und Masse,
+  besteht bewusst die Strukturprüfung und scheitert erst beim gebundenen
+  Restore/Writer. Nullbedarf und koordinierte Überläufe bleiben negativ geprüft.
+- **Herkunft und Rotation:** Auch vollständig konsumierte Waren brauchen eine
+  mögliche tatsächliche Farm-/Distributorankunft. Passende retained Completed-
+  Lieferzeilen dürfen den kumulativen Houseempfang aus Stock plus Verbrauch
+  nicht überschreiten. Die begrenzte letzte Transferhistorie ist weiterhin
+  notwendige Provenienz, kein vollständiges Besuchsjournal. Die gemeinsame
+  Waren-/Zielrotation verhindert die im neuen Verbrauchspfad beobachtbare
+  dauerhafte Ein-Waren-Zielbindung; finite6-/20-House-Läufe belegen beide
+  tatsächlichen Waren je Haus, keine universelle Starvation-Freiheit.
+- **Tests, Fehler und Quellenbindung:** Der erste ASan-Lauf fand einen echten
+  Use-after-free im neuen Test: Commands ersetzten die World während über
+  ihre Buildingreferenzen iteriert wurde. Der Test sammelt jetzt IDs vor den
+  Commands. Ein erster Debug-Worldtest überschritt180s; eine gemeinsame
+  Sechs-Waren-Abfrage ersetzt sechs wiederholte vollständige Abfragen bei
+  unveränderten Assertions und vollständigem20k-Snapshotvergleich. Beide
+  Erstläufe bleiben als FAIL archiviert. Der finale Quellenfreeze
+  `df7851d80fd8b2d35fcf3777e7047522afe80dd4d8bf3af536a3ad80eb1e28e7`
+  unterscheidet sich von5ed0 ausschließlich in genau diesen zwei Testdateien;
+  der vollständige frühere Hash wird mit den zwei gepinnten Overrides
+  rekonstruiert. Runtime-, Fixture- und Legacyquellen sowie das tatsächliche
+  Prozessbinary bleiben bytegleich; `test-only-fix-binding.json` bindet die
+  früheren Laufbelege ausdrücklich an den finalen Stand.
+- **Abnahmestand:** Finale Debug-/Release-/ASan+UBSan-Auswahl je51/51 PASS,
+  insgesamt153 Konfigurations-CTests ohne Skip oder Fehler. Vier separate20k-Prozessreplays,
+  unabhängiger Raw-Audit von25 Saves/20 Reports, drei74-Fall-Forkvergleiche und
+  wörtlich identische72 Legacy-Saves/72 Snapshots sind bestanden; vollständige
+  Zahlen, Commands und Grenzen im [Fortschritt](PROGRESS.md). **OE-17 technisch
+  PASS**; eigener Task-Commit nach Abschlussprüfung. Gate C und OE-18 TODO;
+  native/human NOT_RUN. Der geöffnete SDL-Nachweis zeigt reale Zweigüterankunft
+  bei synthetischer Kapazität37 und Nullbedarf, keine Konsumgrafik- oder
+  Originalsprite-Abnahme. Echte Originalgrafiken bleiben späterer Pflichtauftrag.
+
 Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `exe`, `model` oder `authored`), begründete Alternative, Konsequenz für Save/Tests, Review-Status.
+
+### OE-16: bezahlte Hemp Farm192 plus Hemp Field194
+
+- **Vor Implementierung:** [Hemp-Laufzeitvertrag](../original-economy/hemp-runtime.md),
+  Rule10/Schema26/Revision16, unveränderte policy3. Belegte Modellidentitäten,
+  vorbereitete Cost-/Employees-Werte und2×2-/1×1-Objektflächen; separates Feld
+  wird bezahlt und ausdrücklich an die Farm gebunden. Keine Gratis-Cropzone.
+- **Authored:** Modell-Cost→Funds, Feldnachbarschaft,80 produktive Ticks pro
+  Einheit,8 Farmstock sowie separate Hemp-Bins32/16/8 für Warehouse/Market/Haus.
+  Kein behauptetes originales Rezept allein aus Resource0. Ware entsteht nur
+  mit tatsächlich regulär zugewiesenen modellgebundenen Workern, laufender
+  Farm und bezahltem Feld. Ein eigener Farm-Courier und bestehende WH-/Market-
+  Actoren bewegen die tatsächliche Ware über denselben Navigator.
+- **Kompatibilität:** Neuer ausdrücklicher aktiver Modellvorbereitungspfad;
+  alter Sieben-Zeilen-Pfad verlangt keine neuen Zeilen. Typisierte IDs werden
+  append-only erweitert. Farm-/Feld-/Ernteauthority strikt gespeichert,
+  alte Entwicklungsrevision atomar verweigert. Nach technischem Abschluss
+  unmittelbar OE-17; Originalgrafiken bleiben verbindlicher späterer Auftrag.
+- **Modellvorbereitung und Evidenz:** Nur `prepare_production()` verlangt und
+  prüft die beiden zusätzlichen benannten Zeilen. `prepare()` bleibt der
+  eingefrorene Sieben-Zeilen-Pfad und ignoriert deren semantischen Inhalt.
+  Neue synthetische und echte Fünf-Difficulty-Prüfungen erhalten alle alten
+  Building-/Housewerte. Die neuen World-Objects14/15 erhalten ausdrücklich
+  authored funktionale/mechanische Zuordnungen zu192/194; Präsentationsidentität
+  bleibt Unknown. Die sieben bisherigen funktionalen Kandidaten werden nicht
+  nachträglich als Originalidentität hochgestuft.
+- **Physische Buchhaltung:** Farmstock8 und Hemp-Bins32/16/8 sind getrennte
+  authored Kapazitäten. Hemp-Erntehistorie je Farm ist eigene Ursprungsauthority;
+  ihre Summe entspricht `GoodsTotals.Hemp.produced`. Stock, tatsächliches
+  Cargo und HouseState.hemp zählen jede Einheit einmal. Derselbe vorhandene
+  Warehouse-/Market-Courier rotiert deterministisch zwischen beiden Waren;
+  die letzte Transferware dient als begrenzter Cursor, keine Placeholderactoren.
+  Höchstens acht letzte Transferzeilen behalten die Sequenz-Highwater.
+- **Review und notwendige Herkunft:** Feldnachbarschaft promoviert vor der
+  Arithmetik in int64, extreme Feldcommands werden atomar verweigert. Der
+  anschließend bestätigte Farm-INT_MAX-Restoreüberlauf in der späteren
+  Footprintgenerierung wird durch eine vorgelagerte vollständige Geometrieprüfung
+  per Subtraktion vor jeder Offsetaddition geschlossen.42 zusätzliche
+  Verweigerungen über World/Writer/Reader und vier legale Eckroundtrips sind
+  ergänzt und in allen drei finalen Konfigurationen bestanden.
+  Farmstock/eigenes Cargo und letzte Auslieferung
+  müssen zur eigenen Ernte passen; ein feldloser zweiter Owner darf keine
+  fremde Ernte erhalten. Positive nachgelagerte Bestände brauchen mögliche
+  tatsächliche Ankünfte; reine koordinierte Stockverschiebungen trotz globaler
+  Conservation reichen nicht. Alte Ceramicsrotationen belegen insbesondere
+  keine erste Farm-Hempankunft. Die begrenzte Historie bleibt eine notwendige
+  Plausibilitätsprüfung: bei späteren Sequenzen können frühere Ziel-/Warenzeilen
+  kompaktierte Vorgänger sein. Keine vollständige Besuchshistorie oder
+  Rekonstruktion unbekannter früherer Ziele wird behauptet.
+- **Abnahmestand:** Reales bezahltes Farm→Warehouse→Market→Haus mit Hemp und
+  Ceramics im selben Haus, zwei separate20k-Prozessfortsetzungen und drei
+  tatsächliche74-Fall-Forkvergleiche bestanden; genaue Quellen/Binaries im
+  [Fortschritt](PROGRESS.md). Neuer Quellenfreeze
+  `55c8d195d45e7b2d3a22a9fb37c69fef29e2fc7520c4c363d9aa1ec798513287`
+  enthält den Footprintfix. Der vorangegangene Zwischenstand6967 unterscheidet
+  sich vom Prozessstand675a ausschließlich durch den ungültigen
+  Test-Sentinel hinter den neuen Objects14/15; zwischen diesen Ständen keine
+  Runtimeänderung. Alle drei neuen Builds, der frische reale Prozessnachweis,
+  der wiederholte SDL-Nachweis und drei neu ausgeführte74-Fall-Vergleiche für55c8
+  sind **PASS**;6967 bleibt als Zwischenstand erhalten.
+  Finale Auswahl je49/49 CTests in Debug/Release/ASan+UBSan bestanden,147
+  insgesamt ohne Skip;939 Hemp-,800 Produktions-,677 Market- und575 eingefrorene
+  Rule9-Saveverweigerungen je Konfiguration belegt. Sechs tatsächliche CLI-
+  Outputguards gegen das aktuelle Binary bestanden. Der frische vollständige
+  Legacyabschluss zum Quellenstand55c8 ist ebenfalls **PASS**:72 vollständige
+  Saves,72 Snapshots und Vertrag unabhängig wörtlich bytegleich;167/165/zwei
+  bestehende Konflikte,1485 Policyfälle und elf Rampen-/zehn Bridge-Restartpaare
+  unverändert. **OE-16 technisch PASS**, OE-17 TODO/Gate C TODO,
+  native/human NOT_RUN. Verbrauch, Evolution und Originalart werden nicht als
+  bereits implementiert geführt; ihre weiteren Aufgaben folgen separat.
+
+### OE-15: physischer Markettransport, Entwicklungsrevision15
+
+- **Authority:** Rule10/Schema26/policy3, Revision15. Bezahlte Warehouses und
+  Markets verwenden die vorhandenen Rollen und denselben Navigator für
+  Warehouse→Market→House. Nur die aktuell benötigte Pottery-Distribution wird
+  angelegt. Typisiertes Ledger-Cargo ist die einzige Mengenauthority;
+  `CourierState.cargo/reserved` bleiben für diese Actoren0. Anzeige und
+  Walkerzustand lesen die tatsächliche typisierte Menge.
+- **Authored Provisionierung:** Die frühen originalen Hausmodellzeilen haben
+  keinen Ceramicsbedarf. Unveränderte Originalbedarfe bleiben0. Belegte
+  bewohnte, lieferberechtigte Häuser erhalten einen ausdrücklich authored
+  physischen Vorratspuffer von8 Einheiten, um den bezahlten Lieferweg vor
+  Evolution und Verbrauch zu integrieren. Das ist keine Behauptung eines
+  originalen Shelterverbrauchs; Verbrauch folgt OE-17.
+- **Begrenzung und Sicherheit:** Je typisiertem Courier bleibt genau die letzte
+  Transferzeile als Sequenz-Highwater erhalten, einschließlich terminalem
+  Zustand. Der Nachfolger entsteht vor dem Entfernen der alten Zeile.
+  Stock plus ausgehendes Cargo als Rückkehrplatz plus eingehende Reservierungen
+  bleibt innerhalb der physischen Kapazität. Masse zählt Cargo nur einmal.
+  Reguläres Pausieren bricht beladene Ausfahrten ab und erhält begonnene Kanten
+  bis zum nächsten Vertex; Rückkehr bucht tatsächliche Ware am Owner.
+- **Abnahme:** Echte Teilbeladung (etwa1 von4 Einheiten) und vollständige
+  Ankünfte werden geprüft. Die reservierte Zielkapazität verhindert in diesem
+  Entwicklungsstand eine schrumpfende Teilankunft; diese wird nicht durch
+  Testinjektion hergestellt. Der unveränderte reine Transaktionskern prüft
+  Teilankünfte separat. Strikte Restorebindung umfasst Owner, Actor, Ziel,
+  Phase, echte Route, Menge und Sequenz. Der unabhängige Review schließt drei
+  unerreichbare World-Restores: abweichende reservierte/beladene Menge,
+  Teilgutschrift vor Ankunft und gelöschte Sequenzhistorie eines benutzten Actors.
+  Je45 Konfigurationstests, echte bezahlte Hausankunft, zwei separate20k-
+  Prozessreplays und drei74-Fall-Forkvergleiche bestanden; vollständige Belege
+  im [Fortschritt](PROGRESS.md). Eigener Defaultsave `rule10-revision15.json`;
+  Entwicklungsrevision14 wird atomar verweigert.
+- **Abschluss:** Technischer OE-15-PASS mit unabhängig identischen72 alten
+  Saves/72 Snapshots und1485 Policyfällen. Originaldateien unverändert,
+  Gate C bis OE-19 offen; native/human NOT_RUN. Unmittelbar weiter mit OE-16.
+
+### OE-14–33: zusammenhängende autonome Umsetzung beauftragt
+
+- **Nutzerauftrag vom 2026-10-17:** alle offenen Aufgaben der Reihe nach
+  bearbeiten, ohne auf seine Playtests zu warten; am Ende echte Sprites und
+  echte Objekte integriert. Dies autorisiert die aktiven Gameplaypfade in
+  einem neuen Nachfolger, einschließlich eines regulären bezahlten Bewohner-/
+  Worker-Bootstraps. Alte1–9/1–25-Verträge und Provenance bleiben erhalten.
+- **Entscheidung vor Implementierung:**
+  [Ausführungsvertrag](../original-economy/completion-contract.md), Rule10/
+  Schema26/policy3 mit strikt gespeicherter Entwicklungsrevision, zuerst14.
+  Neue authored Startfinanzierung12000; Waren/Bewohner anfangs0, tatsächlicher
+  Straßen-Zuzug, modellgebundene Shelterkapazität und Worker aus Bewohnern.
+  Einmalige Pottery→Ceramics-Umwandlung bei tatsächlicher Warehouse-Ankunft,
+  getrennte überprüfte Vor-/Nachübergabebilanz, kein doppelter Stock.
+- **Sequenz und Git:** ein getesteter Task-Commit je OE-Aufgabe, danach direkt
+  die nächste offene Aufgabe. Der neue Stand bleibt während der Entwicklung
+  auf dem Feature-Branch; gemeinsamer geprüfter PR/regulärer Merge am Ende.
+  Keine Tags/Releases. Human Acceptance bleibt ohne menschlichen Test NOT_RUN
+  und verhindert keine automatisierte technische Abnahme.
+- **Abschluss:** Echte lokale Originalassets und belegte Objektidentitäten
+  gehören zum Gesamtziel. Deklarierte Fallbacks bleiben ehrliche Diagnosen,
+  erfüllen die vollständige Originalsprite-Abschlussforderung aber nicht.
+  Status und echte Tests werden nach jedem einzelnen Schritt ergänzt.
+
+### OE-14: bezahlter Ceramics-Ursprung technisch abgenommen
+
+- **Authority:** Ausschließlich Rule10/Schema26/Revision14; die vorhandenen
+  Clay-/Pottery-Rezepte laufen über die gemeinsame unverändert herausgezogene
+  Implementierung, reguläres Staffing und dieselbe echte Courierbewegung.
+  Vier bezahlte, straßenverbundene Häuser liefern durch laufenden authored
+  Zuzug echte OriginalHouseState-Bewohner/Worker; Legacy-Population bleibt0.
+- **Masse:** Am tatsächlichen Warehouse-Arrival wird Pottery einmalig in
+  typisierte Ceramics konvertiert. Neues Ledger besitzt ausschließlich den
+  konvertierten Vorrat, älterer Warehouse-Slot bleibt0. Übergabehistorie und
+  ursprüngliche Clay-/Pottery-Bilanz werden gemeinsam validiert. Keine
+  House-Goodslieferung, Services, Food, Konsum oder Taxes vor ihren Aufgaben.
+- **Tests/Review:** Je43 relevante CTests in Debug/Release/ASan+UBSan,
+  795 neue strikte Saveverweigerungen, echter Mid-courier-F5/F9, zwei separate
+  20k-Tick-Prozessfortsetzungen und drei74-Fall-Forkvergleiche bestanden.
+  Ein vom unabhängigen Review gefundener unerreichbarer ungerader
+  Bewohnerzwischenstand ist geschlossen; legitime ungerade Modellendkapazität
+  bleibt positiv geprüft. Der vollständige Legacyvergleich bleibt exakt;
+  Originaldateien unverändert. Befehle, Hashes und Aussagegrenzen stehen
+  im [Fortschritt](PROGRESS.md#oe-14-umsetzung--2026-10-17-basis41091b66).
+- **Abschlussgrenze:** OE-14 PASS für tatsächlichen bezahlten Ursprung;
+  Gate C bis OE-19 offen. Originalgrafikkomposition bleibt explizites späteres
+  Gesamtziel, keine vorgezogene Artparität. Native/human NOT_RUN. Nach Commit
+  unmittelbar OE-15, ohne Wartepunkt für Nutzerplaytests.
 
 ### OE-13: Warenvertrag V1 ausdrücklich zur Umsetzung beauftragt
 
@@ -877,3 +1100,320 @@ Zu jeder Entscheidung bitte ergänzen: Task-ID, Commit, Originalbeleg (`raw`, `e
 - **Review:** Unabhängiger Quellen-, API-/Test- und Dokumentationsreview ohne
   blockierenden Befund. Belegtests und Commit werden im Fortschritt/Abschluss
   festgehalten; keine Rule-/Save-/World-Verhaltensänderung durch OE-02.
+
+
+### OE-18: Food-Vertrag vor Implementierung
+
+Der Gesamtauftrag vom2026-10-17 setzt die bezahlte Food-Kette nach OE-17
+`b30718f` fort. Der [Food-Vertrag](../original-economy/food-runtime.md) trennt
+belegte Originalmischung und Objektidentitäten von authored Mengen, Zeitskala,
+Wheat20/Millet80 und einem separaten Food-Sink. Keine siebte Originalware,
+keine freie Versorgung, keine alten Saveänderungen und keine stillschweigende
+Vervollständigung der unbekannten Source-/Diversitätslogik. Revision18 wird
+strict gespeichert; Qualität ausschließlich aus tatsächlicher Ankunft.
+
+
+### OE-18: technischer Abschluss und Grenzen
+
+Der [Food-Vertrag](../original-economy/food-runtime.md) ist in Revision18
+umgesetzt. Die bezahlten Farmhouse193-/Wheat195-/Millet196-Objekte liefern
+über reale Wege, eigene Cargo und tatsächliche Ankünfte. Nur die belegte
+Originalformel ist Originalmischung;20/80-Quellklassen, Mengen, Zeitskala und
+Food-Sink sind authored. Aktuelle Qualität wird durch einen mengenabhängigen
+Arrival-Witness getragen und nach vollständiger Leerung zurückgesetzt.
+
+Die159 vollständigen Konfigurationstests, acht tatsächlichen20k-Prozessreplays,
+Rohdaten-Audits und der frische72/72-Legacyvertrag liefen auf Quelle b53edf2.
+Danach ändern genau zwei Dateien ausschließlich Whitespace zur Beseitigung von
+Einrückungswarnungen. Ein unabhängiger Clang-Token-/Literal-/Kommentar- und
+Präprozessorvergleich plus Rekonstruktion aller516 Sourceinventar-Dateien
+belegt die Bindung an die finale c3cfaf8-Quelle. Drei vollständige43-Target-
+Builds sind warnungsfrei, drei neue FoodWorld-Läufe bestanden. Der tatsächliche
+Release-Prozessfixture bleibt bytegleich. Alte Berichte behalten ausdrücklich
+ihre Originalquelle; keine stille Umetikettierung und keine geschwächten Tests.
+
+Gate C bleibt bis OE-19 offen. Die tatsächliche Softwareaufnahme ist kein
+native-/human-/Originalart-PASS. Die noch fehlende Originalsprite- und gesamte
+Objektkomposition bleiben Teil des ausdrücklichen Gesamtauftrags; deklarierte
+Fallbacks ersetzen diese spätere Abnahme nicht.
+
+
+### OE-19: gezielte Quellen vor Implementierung
+
+Nach OE-18 `144eec6` gilt der [Service-Vertrag](../original-economy/services-runtime.md).
+Nur der ausdrücklich gewählte Rule10-/Schema26-Stand19 bindet HealthPost an
+Herbalist207 und ServicePost als authored Adapter an Acupuncture208, mit
+echten2×2-Körpern, Modellpreisen/-Workers und je einem realen Courier. Es gibt
+keine neue Originalidentität historischer Posts, keine allgemeine Servicefreigabe
+und keinen Timer aus alten Schutzbits. Bereits entsandte cargo-freie Besucher
+kehren nach normalem Besuch auch bei später geschlossener Quelle zurück.
+Phase35-Verfall folgt Ankünften; die gleichzeitige96→95-Reihenfolge ist authored.
+
+Der Restore prüft zusätzlich eine notwendige physische Mindestfahrzeit aus
+2×2-Manhattanabstand, mindestens zwei Kanten über die gewöhnliche Straße und
+dem unveränderten Rule10-Profilwert5Ticks/Kante. Der erste Move liegt im
+Dispositionstick. Dieselbe sichere Zeitgrenze gilt nach Kauf/Zuzug für
+kompaktierte Witnesses; sie ersetzt keine vollständige historische Route.
+Koordinierte Änderungen von Trip, Witness und passend berechnetem Timer werden
+negativ geprüft. Technische Gate-Abnahme bleibt von Originalart/native/human
+getrennt; keine Warteschleife auf manuelle Nutzerprüfung.
+
+### OE-19: technische Gate-C-Abnahme
+
+Die finale Revision19 besteht drei vollständige202er-Suiten nach frischen
+warnungsfreien Cleanbuilds, tatsächliche Prozessneustarts, unabhängige
+Timer-/Warenbilanzen und den vollständigen unveränderten Legacyvertrag.
+Gate C ist damit technisch abgenommen. Native/human und Originalsprite-
+Komposition sind nicht daraus abgeleitet; OE-20 folgt unmittelbar.
+
+Zwei private Abschlussprüferannahmen wurden nach erhaltenen FAIL-Berichten
+eng korrigiert: rekursiver520-Dateien-Pin gegenüber517 tatsächlich erfassten
+Code-/Datendateien plus drei ignorierten Finderdateien, sowie der ausdrücklich
+konfigurierte externe Pythoninterpreter gegenüber Buildroot-Binaries. Alle
+aufgezeichneten Codebytes und Binaryhashes bleiben strikt geprüft. Fehlende
+historische Metadaten-/Symlinkaufnahmen werden nicht erfunden. Der separate
+historische Legacybuild behält seine ursprüngliche Warnungsbehandlung und
+genau eine bekannte Warnung des unveränderten gesperrten Playthrough-Fixtures;
+die drei aktuellen Cleanbuilds sind davon getrennt warnungsfrei.
+
+### OE-20: Ancestor-Vertrag vor Implementierung
+
+Nach OE-19 `ba116b4c97defdf134434c1b0398292fb3727d0e` gilt der
+[Ancestor-Vertrag](../original-economy/ancestor-runtime.md). Revision20 ergänzt
+einen eigenen bezahlten2×2-Schrein214 samt eigenem cargo-freiem Courier und
+tatsächlicher DirectReligion-Ankunft40. Sourcecondition elite_only=false ist
+ausdrücklich authored, da deren originale Sessionproduzenten offen sind.
+Provider-/Trip-/Witness-Bounds werden ausdrücklich6/6/60; alte medizinische
+96er-Kategorien, frühere Regeln und Saves bleiben getrennt erhalten. Keine
+originale Worldtick-Spawnfrequenz, kein Visit beim Bau und keine vorgezogene
+Originalgrafik-Abnahme. Es folgt keine Wartefrage für einen manuellen Test.
+
+
+### OE-20: technische Abnahme und unmittelbare Fortsetzung
+
+Der vorher festgelegte Ancestor-Vertrag besteht drei warnungsfreie Werror-
+Builds und3×123 relevante CTests,3×74 Paritätsfälle, tatsächliche bezahlte
+Ankünfte/Verfall/Wiederbesuche,18 separate20k-Fortsetzungen, F5/F9 und den
+vollen unveränderten Legacyvertrag. Das ist die begrenzte technische Abnahme
+von Revision20, kein vorgezogenes Gate D oder Originalgrafik/native/human-PASS.
+Eine tatsächlich geöffnete Aufnahme führte vor Abschluss zur Korrektur des
+Medizinzeilenumbruchs samt sichtbarer Food-Fehlversuche. Die einzige Änderung
+am privaten Prozessnachweis betrifft seinen falschen Resume-Zählfilter;
+ursprüngliches FAIL und echte unveränderte Prozessartefakte bleiben getrennt
+gebunden. Nach eigenem Commit folgt OE-21 ohne manuellen Testhalt.
+
+
+### OE-21: Wasser- und Housing-Vertrag vor Implementierung
+
+Nach OE-20 `825fd2c65d90c9139e283f2bf3e191bb5feb4e39` gilt der
+[Housing-Vertrag](../original-economy/housing-runtime.md). Revision21 ersetzt
+keine früheren Saveverträge. Eine neue bezahlte Well72 mit eigenem realem
+Walker liefert normalen Wasser-Timer96; Phase28 materialisiert Wasser,
+Phase35 zählt herunter, Phase39 führt den unveränderten Evolutionskern aus.
+Die alte neutrale60er-Quelle bleibt ohne Wasser. Echte Plain Cottage braucht
+laut Originalmodell Water/FoodQuality20/Ancestor, kein Hemp/Ceramics; deren
+Negativkontrolle wird deshalb ausdrücklich synthetisch modelliert. Zwei
+permanente erste Aufstiegsbelege verhindern bloß injizierte höhere Typen.
+Keine unbelegte sofortige Eviction: zugelassene Bewohner bleiben bei
+Rückentwicklung; weiterer Zuzug respektiert die aktuelle Aufnahmekapazität.
+Globale neutrale Quellenursprünge bleiben nach bezahltem Entfernen erhalten.
+Keine neue Original-Randomwalk-/Immigrations-/Grafik-Paritätsbehauptung.
+
+
+### OE-21: technische Abnahme und sichere Fortschreibung
+
+Der bezahlte Wasser-/Housing-Vertrag ist mit dem echten Originalmodell und
+normalen Commands/Zuzug bis Plain Cottage nachgewiesen.141 relevante
+Konfigurations-CTests,24 separate20k-Production-Fortsetzungen, vollständige
+Save-/Report-Gleichheit und unabhängige Herkunftsprüfungen bestehen. Die
+frühe authored Plain-Grenze und die unverifizierte Originalwander-/
+Immigrationsroutine bleiben ausdrücklich begrenzt; native/human und originale
+Sprites sind keine daraus abgeleiteten PASS.
+
+Die breitere Prüfung fand einen echten Restorefehler: Eine reine Shelter6-
+Population durfte fälschlich von4 auf3 manipuliert werden. Ohne Abgänge kann
+ungerade Bevölkerung nur aus erreichter früherer ungerader Aufnahmegrenze
+entstehen. Diese notwendige historische Grenze gilt für aktuelle Population
+und sämtliche Evolutionsinputs; frühere höhere Kapazitäten bleiben nach
+Rückentwicklung erhalten. Falsche Revisions-/Verbrauchsannahmen der alten
+Harnesses wurden eng korrigiert, volle Zustands-/Bilanzvergleiche bleiben.
+Alle ursprünglichen FAIL-Belege bleiben sichtbar. Eigenständiger Taskcommit,
+danach unmittelbare Fortsetzung OE-22 ohne manuellen Testhalt.
+
+
+### OE-22: Religionsvertrag vor Implementierung
+
+Nach OE-21 gilt der [Religionsvertrag](../original-economy/religion-runtime.md):
+bezahlte215/2172×2 und2193×3, eigene Walker, getrennte40er-Timer und das
+unveränderte Daoist/Buddhist-OR-Prädikat. Aktive52/32- und12/12/120-Grenzen
+ersetzen keine historischen Limits. Sechs feste Housing-Witnessslots binden
+aktuelle und historische Dienste; echte219-Grundfläche gilt auch bei
+Mindestfahrzeiten. elite_only=false und gezielter Dispatch bleiben ausdrücklich
+authored, solange die originalen Sessionproduzenten nicht vollständig belegt
+sind. Keine Grants oder Wartefrage vor einem manuellen Test.
+
+Quellenbefund noch vor Runtime-Anschluss: Confucian219 benötigt im Original
+zusätzlich tatsächlich gelieferten positiven Materialbestand WORD+0x40.
+Die bereits beschlossene bezahlte Walkerintegration bleibt vorläufig explizit
+staffing-only authored und erhält keinen Materialgrant. Die Materialzulieferung
+ist eine offene Folgeanforderung der Produktions-/Objektintegration, keine
+behauptete Originalfunktion. Details im Religionsvertrag.
+
+Die anschließende Initialisierungsprüfung belegt zusätzlich das Confucian-
+Elite-Gate im normalen ursprünglichen Managerzustand als true (andere drei
+Religionenfalse). Das jetzige false bleibt ausdrücklich authored und ist beim
+späteren Elite-/Objektanschluss zusammen mit dem Materialgate aufzulösen.
+Vollständige Session-Lifecycle-Permanenz wird daraus nicht abgeleitet.
+
+
+### OE-22: technische Abnahme und Fortsetzung
+
+Die begrenzte bezahlte215/217/219-Integration besteht3×50 aktuelle CTests,
+3×74 unveränderte numerische Beobachtungen,30 separate20k-Replays und strikte
+Save-/Raw-/Legacyprüfungen. Ein alter46/26-Kapazitätstest wurde nach seinem
+echten dreifachen FAIL auf zusätzliche reale Käufe bis52/32 erweitert; die
+atomare Negativprüfung bleibt strikt. Source-/UI-/Originalgrenzen bleiben
+explizit: Confucian-Material/Elite folgt später, Originalsprites29 und Human
+werden nicht vorweggenommen. Nach eigenem Commit startet OE-23 unmittelbar.
+
+
+### OE-23: Kultur- und Diagnosevertrag vor Implementierung
+
+Nach OE-22 gilt der [Kulturvertrag](../original-economy/culture-runtime.md):
+bezahlte2112×2/2123×3/2133×3 mit eigenem echten96er-DirectService-Visit.
+Gezielter School→House-Dispatch ist experimentell authored; originale Venues,
+32er-Performerzeiten und Actor36 werden nicht gratis erfunden. Neue reine
+Verfügbarkeitsdiagnose ist ausdrücklich keine Ankunft oder Zukunftszusage.
+Aktive58/38 und18/18/180 ersetzen keine historischen Limits; neun feste
+Housing-Slots bewahren0/1/5/6/7/8 und hängen2/3/4 an. Nach eigenem geprüften
+Taskcommit folgt24 ohne menschlichen Testhalt.
+
+### OE-23: Brandregistrierung der aktiven Dienstquellen
+
+Der Implementierungsreview fand einen fehlenden `fire_eligible`-Anschluss: die
+neuen Kulturkörper und die drei in Revision22 hinzugefügten Religionskörper
+wurden vom vorhandenen Brandrisikopfad übersprungen. Revision23 registriert alle
+sechs ausschließlich aktiven Objecttypen; die bestehenden Firezeiten und Gates
+bleiben unverändert. Echte Brandereignisse müssen sowohl neuen Dispatch sperren
+als auch bereits laufende Touren nach den normalen Regeln behandeln. Das ist
+eine Korrektur der aktiven Integration, kein rückwirkender OE-22-Brandnachweis;
+veröffentlichte Regeln und alte Körper erhalten keine andere Brandsemantik.
+
+
+### OE-23: technische Abnahme
+
+Die getrennten Kulturquellen und reine Diagnose bestehen159 Konfigurations-
+CTests,36 separate20k-Replays, strikte Raw-/Legacy- und Paritätsprüfungen.
+Ein positiver Aufstiegsnachweis bindet die Bedarfe vor dem Verbrauch desselben
+Ticks; negative fehlende/abgelaufene Kultur wird bei tatsächlich vorhandenen
+übrigen Bedarfen geprüft. Alle neun Timer bleiben allein in HouseState.
+Der tatsächliche Release-Screenshot wurde geöffnet; experimentelle gezielte
+Besucher, originale Venue-/Training-Lücke und spätere Originalsprite-Abnahme
+bleiben getrennt. Nach eigenem Commit folgt OE-24 ohne Human-Testwartepunkt.
+
+
+### OE-24: Produktions- und Materialvertrag vor Implementierung
+
+Der [Luxuryvertrag](../original-economy/luxury-runtime.md) setzt die im Auftrag
+explizit erlaubten versionierten Rezeptannahmen um: echte Modellobjekte,
+bezahlte Pflanzen/Arbeiter, feste80er-Managed-Ernten und atomare Mehrfachinputs,
+fünf getrennte Auxmaterialien, native Raw-Clay-Zustellung und Hemp→Paper→Academy.
+Aktiv82/58, Aux20/12; pure Goods46/26 und alle alten Versionen unverändert.
+Neuer produktiver Abriss bleibt atomar verweigert, bestehender Neutralabriss
+wird bei tatsächlicher Warenproduktion geprüft. OR-Bedarf und unabhängiger
+Verbrauch beider vorhandenen Bronze-/Lacquerstocks sind original belegt;
+kein vermeintlicher Forkbug rechtfertigt einen Patch am eingefrorenen Kern.
+Papierpflicht1jeDispatch ist authored; initiales Confucian-Elitegate folgt25.
+Originalbilder29 und menschliche Abnahme werden nicht vorweggenommen.
+
+
+### OE-24: technische Abnahme und Nutzerpause
+
+Die vier bezahlten Luxusketten, fünf getrennten Auxmaterialien und tatsächliche
+Hemp→Paper→Academy-Zulieferung bestehen168 relevante Konfigurations-CTests,
+43 separate20k-Fortsetzungen und unabhängige Save-/Bilanz-/Legacyprüfungen.
+Echte Need1-Kopien prüfen positiven Aufstieg und fehlende Waren, ohne frühe
+Originalbedarfe0 oder höhere Hausstufen vor25 zu ändern. Die neue flache
+Target×Good-Rotation verwendet bestehende letzte Trips; kein zusätzlicher
+gespeicherter Cursor und keine universelle Starvationfreiheitsbehauptung.
+Produktiver Abriss bleibt atomar verweigert, bisher erlaubter Neutralabriss
+wird mit tatsächlichen Warenbilanzen geprüft.
+
+Beide tatsächlichen finalen Software-SDL-Ansichten wurden geöffnet. Original-
+modelltypen/Kosten sind belegt; Ernte-/Rezeptzeiten, Managed Ore, PaperOnly
+und direkte Schulbesuche bleiben ausdrücklich authored. Initiales Confucian-
+Elitegate, Originalsprites, vollständiger Gate D sowie native/human Abnahme
+werden durch diesen begrenzten technischen PASS nicht vorweggenommen.
+
+Der Nutzer verlangt ausdrücklich: „lass uns nach oe-24 eine pause einlegen“.
+Nach dem eigenen geprüften OE-24-Commit endet die automatische Fortsetzung.
+OE-25 bleibt TODO; erst ein neuer Fortsetzungsauftrag hebt diese Pause auf.
+Kein Push, PR, Merge, Tag oder Release während dieser Pause.
+
+
+### OE-25: Fortsetzung und vorab festgelegter Hausstufenvertrag
+
+Am2026-10-18 setzt der Nutzer ausdrücklich mit OE25 fort. Die Pause nach24
+ist damit aufgehoben. Auf Basis7360f84 gilt vor Implementierung der
+[Hausstufenvertrag25](../original-economy/housing-stages-runtime.md):
+Common und Elite bleiben getrennte Familien, reine numerische Kerne exakt;
+aktiver Stand Rule10/Schema26/Revision25, alte Versionen ohne Migration.
+
+Ein separat bezahlter80er Eliteplot verwendet in25 ausdrücklich vorläufige
+authored2×2-Geometrie. Zwei ursprüngliche Arrivalpfade belegen Erstbezug nach
+Typ13, nicht12;120/40/+2 und Preis bleiben authored. Typ12 entsteht durch
+echte50er-Rückentwicklung. Die belegten originalen Seiten2/Common und4/Elite
+erfordern für26 eine eigene sichere Materialisierung vor dessen Erstbezug,
+keine stillschweigende Uminterpretation der25er Saves. Der bestehende
+All-residents-Workeradapter bleibt ausdrücklich authored auch für Elite.
+
+Neun bereits bezahlte Provider erhalten eng begrenzte eigene Modell-DES-
+Quellen. Confucian ist künftig tatsächlich elite-only mit realem Paper;
+die gezielten World-Besuche bleiben ausdrücklich auf bewohnte Häuser begrenzt.
+Alle15 Konsum-/Diagnosezeilen und historische Übergangsinputs werden streng
+an tatsächliche Ankünfte, Bedarfe, Typen, Kapazitäten und Zeitpunkte gebunden.
+Keine Type-/Stock-/Timer-/Workergrants, keine automatische Hochstufung für Tests.
+Hohe Stufen brauchen eigenen Paid-Beleg oder einen konkreten Szenenblocker;
+Originalsprites, große Geometrie und vollständiger Gate D bleiben getrennt.
+
+
+OE25-Abschluss: Die tatsächliche bezahlte Normal-Szene belegt Common6 sowie
+Elite11→13→12→13; höhere Grenzen werden aus gespeicherten DES-/Bedarfswerten
+benannt, kein Heavenly-PASS. Ein modellabhängiger Typ12-Counterguard sperrt
+nur bei stets erfüllter aktueller Abandonedzeile unmögliche positive Inputs;
+authored Need1-Modelle behalten ihre tatsächlichen12er-Fehlerereignisse.
+Der neu angehängte deaktivierte Elitebefehl wird auch im alten Logisticsprofil
+vor Sequenz-/Zustandsänderungen abgefangen; alte Befehle behalten ihren Vertrag.
+Die gemeinsame Paper-/Food-/Versorgungswartebedingung betrifft ausschließlich
+die bezahlte Prüfszene, keine geänderte Produktions-/Zuzugs-/Versorgungsregel.
+Der explizit unmapped Elitefall in OriginalModelMapping erfindet keine
+Originalgebäude-/Spriteidentität. Abschluss25 gibt keine26er-Geometrie oder
+29er-Originalgrafik als bereits erledigt aus.
+
+Ausdrückliche Nutzerentscheidung am2026-10-18 während der finalen25er-Prüfung:
+Nach Abschluss und eigenem geprüftem OE25-Commit wird erneut pausiert.
+OE26 bleibt TODO/unbegonnen. Kein Push, PR, Merge, Tag oder Release; erst
+ein neuer Fortsetzungsauftrag hebt diese Pause auf.
+
+### Zwischenmerge bis OE-25 – ausdrückliche Nutzerfreigabe am2026-10-18
+
+Nach dem geprüften lokalen OE-25-Commit fragt der Nutzer ausdrücklich:
+„so können wir jetzt alles mal mergen und commiten?“ Dies beauftragt Commit,
+Push, Pull Request nach `main` und regulären Merge des geprüften Standes
+OE-14–25. Der vorherige Push-/PR-/Merge-Ausschluss während der Pause ist
+für diesen Zwischenmerge aufgehoben. Die Implementierungspause vor OE-26
+bleibt bestehen; keine Freigabe von OE-26–33 oder Gate D–F folgt daraus.
+
+Basis ist `origin/main` `41091b66e960b4c82c378d5ae3b83088325f5a61`, geprüfter
+Code-Head `9bac35b5626834b42d35d52c23b11eb039b14f21`. Alle zwölf Taskcommits
+bleiben erhalten, ergänzt um diesen Dokumentations-Handoff. Erwarteten PR-Head,
+Mergefähigkeit und tatsächliche Checks vor dem regulären Merge prüfen;
+anschließend nur Fast-forward-Synchronisierung, kein Squash, Branchlöschen,
+Tag oder Release. Die bisherige gemeinsame Endabnahme bleibt ein späterer
+Meilenstein; dieser Zwischenmerge behauptet keine vollständige Originalparität.
+
+Die vorhandenen relevanten OE-25-Prüfungen gelten für den unveränderten Code:
+177 CTests in Debug/Release/ASan+UBSan,50 getrennte20k-Fortsetzungen und vier
+tatsächlich geöffnete Softwareansichten. Große Elite-Footprints26,
+Original-Haussprites29, vollständiger Gate D und native/human Abnahme bleiben
+offen. Die Handoff-Änderungen betreffen ausschließlich Dokumentation.

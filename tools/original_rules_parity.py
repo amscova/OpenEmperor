@@ -24,6 +24,7 @@ HOUSING_EXPECTED = [35,43,54,59,193,72,207,1,0,3,3,4,4,1,1,3,4,1]
 HOUSING_FORK_MODULES = ("ModelData", "Desirability", "HouseEvolution", "OriginalHousingView")
 HOUSING_SIMULATION_DEPENDENCIES = ("original-rules-model", "original-desirability",
                                    "original-goods-ledger", "original-goods-rules",
+                                   "original-service-rules",
                                    "original-house-evolution", "original-model")
 # OE-00's independently retrieved, pinned file identities. A mutable local
 # manifest is not trusted as the source of the expected hashes.
@@ -431,7 +432,7 @@ def public_report(report: dict[str, Any]) -> dict[str, Any]:
 def current_source_hashes() -> dict[str,str]:
     module = ROOT / "src/simulation/original"
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
-    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h"]
+    sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h", ROOT / "src/simulation/OriginalProductionState.h", ROOT / "src/simulation/OriginalFoodState.h", ROOT / "src/simulation/OriginalServicesState.h", ROOT / "src/simulation/OriginalWaterState.h", ROOT / "src/simulation/OriginalHousingState.h", ROOT / "src/simulation/OriginalIndustryState.h"]
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
 
 
@@ -461,11 +462,13 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-13: Rule9 appends separate accounting state with zero live capability;
-    # the probe keeps its original HouseholdV3/CityV7 calls and observations.
+    # OE-25: Rule10 adds separate House families and fifteen-row paid evolution history.
+    # Additive model rows/DTOs require matching ABI pins; every pure numerical kernel
+    # and the legacy HouseholdV3/CityV7 probe behavior remain unchanged.
+    # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "9d0d6fef04d52fb8e8a84cbb5988ad9db41cd169":
+    if world_blob != "af7bfff86751abd67c2bc36d95b1f4494a98cdba":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -473,14 +476,57 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-state API drift: fourth-module adapter needs a reviewed compatibility contract")
     influence_dto = ROOT / "src/simulation/OriginalInfluenceState.h"
     influence_blob = hashlib.sha1(b"blob " + str(influence_dto.stat().st_size).encode() + b"\0" + influence_dto.read_bytes()).hexdigest()
-    if influence_blob != "ee4947358cbf3c221650970a9071e39b30f2b5ae":
+    if influence_blob != "5f93ab4b1fb587f98dcda62b16b0cdc814fb2467":
         raise ValueError("Original-influence API drift: fourth-module adapter needs a reviewed compatibility contract")
     goods_dto = ROOT / "src/simulation/OriginalGoodsState.h"
     goods_blob = hashlib.sha1(b"blob " + str(goods_dto.stat().st_size).encode() + b"\0" + goods_dto.read_bytes()).hexdigest()
     if goods_blob != "2bdcb4b1e9bc0e0932c8cb64bcf9044d62d1d9e3":
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
+    production_dto = ROOT / "src/simulation/OriginalProductionState.h"
+    production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
+    if production_blob != "71862a25e02336f9e803577edd194ea875a88d4a":
+        raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
+    food_dto = ROOT / "src/simulation/OriginalFoodState.h"
+    food_blob = hashlib.sha1(b"blob " + str(food_dto.stat().st_size).encode() + b"\0" + food_dto.read_bytes()).hexdigest()
+    if food_blob != "24e0aa32ecf9293e038a6c7f465e644d6d96b1dc":
+        raise ValueError("Original-food API drift: fourth-module adapter needs a reviewed compatibility contract")
+    services_dto = ROOT / "src/simulation/OriginalServicesState.h"
+    services_blob = hashlib.sha1(b"blob " + str(services_dto.stat().st_size).encode() + b"\0" + services_dto.read_bytes()).hexdigest()
+    if services_blob != "5cf40486c26d26e02c1259a35f757aa82c0c0d0f":
+        raise ValueError("Original-services API drift: fourth-module adapter needs a reviewed compatibility contract")
+    added_header_blobs = {}
+    added_header = ROOT / "src/simulation/OriginalWaterState.h"
+    added_bytes = added_header.read_bytes()
+    added_blob = hashlib.sha1(b"blob " + str(len(added_bytes)).encode() + b"\0" + added_bytes).hexdigest()
+    if added_blob != "3eed36af08a859e318198bbee150966137cca0dc":
+        raise ValueError("Water/Housing ABI drift requires reviewed compatibility contract")
+    added_header_blobs["OriginalWaterState.h"] = added_blob
+    added_header = ROOT / "src/simulation/OriginalHousingState.h"
+    added_bytes = added_header.read_bytes()
+    added_blob = hashlib.sha1(b"blob " + str(len(added_bytes)).encode() + b"\0" + added_bytes).hexdigest()
+    if added_blob != "4265e759e568fb39cb69ad3958a421468cd4a8f2":
+        raise ValueError("Water/Housing ABI drift requires reviewed compatibility contract")
+    added_header_blobs["OriginalHousingState.h"] = added_blob
+    industry_dto = ROOT / "src/simulation/OriginalIndustryState.h"
+    industry_bytes = industry_dto.read_bytes()
+    industry_blob = hashlib.sha1(b"blob " + str(len(industry_bytes)).encode() + b"\0" + industry_bytes).hexdigest()
+    if industry_blob != "3420978efeaf0ef3ba97c3caeba06890b77ced34":
+        raise ValueError("Original-industry ABI drift requires reviewed compatibility contract")
+    model_header_blobs = {}
+    for name, expected in (("ModelSchema.h", "3b84d23fd86abf6dc50f55dc74709e50862df8e0"),
+                           ("OriginalRulesModel.h", "f6f7bc5a5fdab539409aab69946166b3b64844af")):
+        header = ROOT / "src/simulation/original" / name
+        actual = hashlib.sha1(b"blob " + str(header.stat().st_size).encode() + b"\0" + header.read_bytes()).hexdigest()
+        if actual != expected:
+            raise ValueError("Production-model API drift: fourth-module adapter needs a reviewed compatibility contract")
+        model_header_blobs[name] = actual
     library_hashes = {str(path.resolve()):sha256(path) for path in libraries}
-    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob}
+    report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob,"original_production_state_git_blob":production_blob}
+    report["build_provenance"]["water_housing_header_git_blobs"] = added_header_blobs
+    report["build_provenance"]["production_model_header_git_blobs"] = model_header_blobs
+    report["build_provenance"]["original_food_state_git_blob"] = food_blob
+    report["build_provenance"]["original_services_state_git_blob"] = services_blob
+    report["build_provenance"]["original_industry_state_git_blob"] = industry_blob
     authored = cases()
     validate_cases(authored)
     binaries = compile_probes(fork,output,args.compiler,args.configuration,library)

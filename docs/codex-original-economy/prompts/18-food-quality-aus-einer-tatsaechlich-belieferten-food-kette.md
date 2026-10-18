@@ -5,6 +5,13 @@
 **Geplante Änderungspfade (prüfe echte Dateinamen):** `src/simulation/World.cpp; src/simulation/original/; tests/`  
 **Vorgeschlagene Commit-Message:** `feat(original): [18] food-quality-aus-einer-tatsaechlich-belieferten-food-kette`
 
+Der Gesamtauftrag vom2026-10-17 führt diese Funktion ausdrücklich im
+Rule10-/Schema26-Nachfolger mit Entwicklungsrevision18 aus. Maßgeblich sind
+der vor Implementierung erstellte [Food-Vertrag](../../original-economy/food-runtime.md)
+und die tatsächlichen Belege im [Fortschritt](../PROGRESS.md). Regeln1–9 und
+Schemas1–25 bleiben eingefroren; authored Crop-Scores sind keine Behauptung
+originaler Source-/Diversitätslogik.
+
 ## Auftrag an Codex
 
 Arbeite am tatsächlichen HEAD von `oliverjessner/OpenEmperor`. Lies zuerst `docs/codex-original-economy/README.md`, `IMPLEMENTATION_ORDER.md`, `QUALITY_GATES.md`, `PROGRESS.md`, `DECISIONS.md`, `AGENTS.md` sowie alle für OE-18 relevanten vorhandenen Source-/Testdateien. Behalte die Code- und Test-Konventionen bei.
@@ -19,13 +26,13 @@ Arbeite am tatsächlichen HEAD von `oliverjessner/OpenEmperor`. Lies zuerst `doc
 
 ### Fertige Ergebnisse / Abnahme
 
-- [ ] Physisch begründete Food Quality statt hypothetischer OriginalHousingView-Nullwerte
-- [ ] Hausentwicklung kann Food-Qualität real prüfen
+- [x] Physisch begründete Food Quality statt hypothetischer OriginalHousingView-Nullwerte
+- [x] Hausentwicklung kann Food-Qualität real prüfen
 
 ### Pflichtprüfungen
 
-- [ ] Volumen-mit-Qualität Conservation, Rundung, Teilmengen und Reload
-- [ ] Originale Food-Qualitätsformel gegen unabhängige Testvektoren
+- [x] Volumen-mit-Qualität Conservation, Rundung, Teilmengen und Reload
+- [x] Originale Food-Qualitätsformel gegen unabhängige Testvektoren
 
 ## Stop-Bedingung und Fehlerbehandlung
 

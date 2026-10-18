@@ -11,6 +11,12 @@ constexpr std::array<ModelBuilding,7> buildings{
     ModelBuilding::ClayPit,ModelBuilding::Kiln,ModelBuilding::Warehouse,
     ModelBuilding::CommonMarketSquare,ModelBuilding::Well,ModelBuilding::Farmhouse,
     ModelBuilding::HerbalistsStall};
+constexpr std::array<ModelBuilding,24> production_buildings{
+    ModelBuilding::HempFarm,ModelBuilding::HempField,ModelBuilding::WheatField,ModelBuilding::MilletField,
+    ModelBuilding::AcupuncturistsClinic,ModelBuilding::AncestralShrine,
+    ModelBuilding::DaoistShrine,ModelBuilding::BuddhistShrine,ModelBuilding::ConfucianAcademy,
+    ModelBuilding::MusicSchool,ModelBuilding::AcrobatSchool,ModelBuilding::DramaSchool,
+    ModelBuilding::LoggingShed, ModelBuilding::BronzeSmelter, ModelBuilding::BronzewareMaker, ModelBuilding::LacquerwareMaker, ModelBuilding::PaperMaker, ModelBuilding::Weaver, ModelBuilding::TeaCuringShed, ModelBuilding::LacquerRefinery, ModelBuilding::SilkwormShed, ModelBuilding::TeaBush, ModelBuilding::LacquerTree, ModelBuilding::MulberryTree};
 
 ModelProvenance checked_provenance(const ModelData& model,Difficulty difficulty) {
     if (static_cast<std::size_t>(difficulty)>=difficulty_count)
@@ -44,19 +50,52 @@ std::size_t building_index(ModelBuilding building) {
     return static_cast<std::size_t>(found-buildings.begin());
 }
 
+std::array<BuildingRow,production_buildings.size()> prepare_production_buildings(
+        const ModelData& model,Difficulty difficulty,bool enabled) {
+    std::array<BuildingRow,production_buildings.size()> rows{};
+    if (!enabled) return rows;
+    for (std::size_t row=0;row<production_buildings.size();++row) {
+        const auto building=production_buildings[row];
+        if (!model.has_building(model_id(building)))
+            throw std::invalid_argument("active original model is missing named building: "+
+                std::string(model_label(building)));
+        for (std::size_t field=0;field<building_field_count;++field)
+            rows[row][field]=original::building_value(model,building,
+                static_cast<BuildingField>(field),difficulty);
+    }
+    return rows;
+}
+
 } // namespace
 
-OriginalRulesModel::OriginalRulesModel(const ModelData& model,Difficulty difficulty)
+OriginalRulesModel::OriginalRulesModel(const ModelData& model,Difficulty difficulty,bool production)
     : provenance_(checked_provenance(model,difficulty)),difficulty_(difficulty),
-      house_rules_(model,difficulty),building_rows_(prepare_buildings(model,difficulty)) {}
+      house_rules_(model,difficulty),building_rows_(prepare_buildings(model,difficulty)),
+      production_prepared_(production),
+      production_rows_(prepare_production_buildings(model,difficulty,production)) {}
 
 std::shared_ptr<const OriginalRulesModel> OriginalRulesModel::prepare(ModelData model,Difficulty difficulty) {
-    return std::shared_ptr<const OriginalRulesModel>(new OriginalRulesModel(model,difficulty));
+    return std::shared_ptr<const OriginalRulesModel>(new OriginalRulesModel(model,difficulty,false));
+}
+
+std::shared_ptr<const OriginalRulesModel> OriginalRulesModel::prepare_production(ModelData model,Difficulty difficulty) {
+    return std::shared_ptr<const OriginalRulesModel>(new OriginalRulesModel(model,difficulty,true));
+}
+
+bool OriginalRulesModel::supports_building(ModelBuilding building) const noexcept {
+    if (std::find(buildings.begin(),buildings.end(),building)!=buildings.end()) return true;
+    return production_prepared_ &&
+        std::find(production_buildings.begin(),production_buildings.end(),building)!=production_buildings.end();
 }
 
 std::int32_t OriginalRulesModel::building_value(ModelBuilding building,BuildingField field) const {
     const auto column=static_cast<std::size_t>(field);
     if (column>=building_field_count) throw std::out_of_range("invalid prepared original building field");
+    const auto extra=std::find(production_buildings.begin(),production_buildings.end(),building);
+    if (extra!=production_buildings.end()) {
+        if (!production_prepared_) throw std::out_of_range("active production model was not explicitly prepared");
+        return production_rows_.at(static_cast<std::size_t>(extra-production_buildings.begin())).at(column);
+    }
     return building_rows_.at(building_index(building)).at(column);
 }
 

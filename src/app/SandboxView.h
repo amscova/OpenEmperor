@@ -63,12 +63,14 @@ public:
                          simulation::RulesProfile rules=simulation::RulesProfile::LogisticsV1,
                          std::uint32_t rule_version=0);
 #if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
-    // Explicit scheduler-only development fixture; no shipped application entry point.
+    // Explicit development fixtures; no shipped application entry point.
     static std::unique_ptr<SandboxView> create_original_economy_save_fixture(
         maps::StoredMapSession session);
     static std::unique_ptr<SandboxView> create_original_influence_save_fixture(
         maps::StoredMapSession session);
     static std::unique_ptr<SandboxView> create_original_goods_save_fixture(
+        maps::StoredMapSession session);
+    static std::unique_ptr<SandboxView> create_original_production_save_fixture(
         maps::StoredMapSession session);
 #endif
     ~SandboxView();
@@ -118,6 +120,8 @@ public:
     simulation::CommandResult preview(simulation::Cell cell) const;
     void set_tool(int tool);
     int tool() const { return tool_; }
+    bool industry_page() const { return industry_page_; }
+    bool industry_inspector_selected() const;
     const std::string& last_message() const { return last_message_; }
     std::optional<simulation::Cell> demo_origin() const { return demo_origin_; }
     scene::Camera2D camera() const { return camera_; }
@@ -345,6 +349,7 @@ private:
     void update_window_title();
     void resize_camera();
     void place_demo();
+    simulation::Command placement_command(simulation::Cell cell) const;
     bool draw_diamond(scene::Point world, std::uint8_t r, std::uint8_t g, std::uint8_t b, bool fill, float alpha=0.65F);
     bool draw_world(const scene::Camera2D& render_camera);
     bool draw_walker_diagnostic();
@@ -477,6 +482,7 @@ private:
     std::string recovery_status_;
     bool demo_=false;
     int tool_=4;
+    bool industry_page_=false; // View-local page choice, never World/save authority.
     simulation::RulesProfile rules_;
     std::uint32_t requested_rule_version_=0;
     bool original_influence_fixture() const {
@@ -484,6 +490,9 @@ private:
     }
     bool original_goods_fixture() const {
         return original_save_fixture_ && simulation::original_goods_enabled(rules_,requested_rule_version_);
+    }
+    bool original_production_fixture() const {
+        return original_save_fixture_ && simulation::original_production_enabled(rules_,requested_rule_version_);
     }
     bool original_save_fixture_=false; // Explicit developer adapter only; never World/save authority.
     // Retained only through initialization, when immutable map permissions are

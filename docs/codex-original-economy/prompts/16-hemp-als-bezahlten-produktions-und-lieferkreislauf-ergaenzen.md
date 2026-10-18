@@ -19,13 +19,13 @@ Arbeite am tatsächlichen HEAD von `oliverjessner/OpenEmperor`. Lies zuerst `doc
 
 ### Fertige Ergebnisse / Abnahme
 
-- [ ] Echter Hemp-Kreislauf einschließlich kostenpflichtiger Quelle
-- [ ] Erstes Rule7-Haus besitzt zwei getrennt gelieferte Originalgüter
+- [x] Echter Hemp-Kreislauf einschließlich kostenpflichtiger Quelle
+- [x] Erstes Rule7-Haus besitzt zwei getrennt gelieferte Originalgüter
 
 ### Pflichtprüfungen
 
-- [ ] Paid Produktion, Ziel- und Lagerüberlauf, Abbruch/reload, Conservation
-- [ ] Alte Town/World-Invarianten erneut prüfen
+- [x] Paid Produktion, Ziel- und Lagerüberlauf, Abbruch/reload, Conservation
+- [x] Alte Town/World-Invarianten erneut prüfen
 
 ## Stop-Bedingung und Fehlerbehandlung
 

@@ -19,13 +19,13 @@ Arbeite am tatsächlichen HEAD von `oliverjessner/OpenEmperor`. Lies zuerst `doc
 
 ### Fertige Ergebnisse / Abnahme
 
-- [ ] Real transportierter Bestand vom Markt zum Haus, nicht durch Setzen eines Zustands
-- [ ] World-Route/Ownership/Reservation konsistent bei F5/F9
+- [x] Real transportierter Bestand vom Markt zum Haus, nicht durch Setzen eines Zustands
+- [x] World-Route/Ownership/Reservation konsistent bei F5/F9
 
 ### Pflichtprüfungen
 
-- [ ] Paid Market->House Ceramics Dispatch/Arrival/Return
-- [ ] Disconnect/Repair, full capacity, mid-courier recovery und Conservation
+- [x] Paid Market->House Ceramics Dispatch/Arrival/Return
+- [x] Disconnect/Repair, full capacity, mid-courier recovery und Conservation
 
 ## Stop-Bedingung und Fehlerbehandlung
 

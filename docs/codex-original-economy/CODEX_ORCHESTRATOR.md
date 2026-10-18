@@ -4,6 +4,14 @@ Du implementierst die Aufgaben in `docs/codex-original-economy/prompts/` in **ex
 
 ## Steuerung
 
+Die Nutzerfortsetzung vom2026-10-17 beauftragt alle noch offenen OE-14–33
+ohne Wartepunkt für manuelle Playtests. Zusätzlich gilt der
+[Ausführungsvertrag](../original-economy/completion-contract.md): aktive
+Rule10/Schema26 mit strikter Entwicklungsrevision, alte1–9/1–25 eingefroren,
+ein getesteter Commit je Task und gemeinsamer PR/Merge nach Endabnahme.
+Historische Rule7-Bezeichnungen in den noch offenen Prompts meinen deren
+Originalwirtschaftsfunktion im ausdrücklich gewählten Nachfolger.
+
 1. Prüfe `git status --short`, aktiven Branch und aktuellen Upstream-HEAD. Wenn Nutzeränderungen vorhanden sind, fasse sie nicht an.
 2. Lies `AGENTS.md`, `README.md`, `QUALITY_GATES.md`, `FORK_DELTA.md`, `PROGRESS.md` und für jeden Task genau dessen Markdown-Datei.
 3. Ermittle den ersten noch nicht abgeschlossenen Task. **Führe jeweils nur einen Task vollständig aus.** Arbeite danach nur weiter, wenn sein PASS/Commit und der relevante Gate-Status gesichert sind.

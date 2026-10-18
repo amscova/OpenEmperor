@@ -5,9 +5,13 @@
 namespace openemperor::simulation {
 
 bool fire_eligible(Object kind) {
-    return kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
+    if (kind==Object::OriginalElitePlot) return true;
+    return original_industry_source(kind) || kind==Object::OriginalMusicSchool211 || kind==Object::OriginalAcrobatSchool212 ||
+        kind==Object::OriginalDramaSchool213 || kind==Object::OriginalDaoistShrine215 ||
+        kind==Object::OriginalBuddhistShrine217 || kind==Object::OriginalConfucianAcademy219 ||
+        kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Household || kind==Object::Farm || kind==Object::ServicePost ||
-        kind==Object::Market || kind==Object::HealthPost;
+        kind==Object::Market || kind==Object::HealthPost || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalWaterWell72;
 }
 
 bool World::building_on_fire(BuildingId id) const {

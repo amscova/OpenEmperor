@@ -6,6 +6,14 @@ Jeder Task benötigt die erfolgreichen Vorgänger. Wenn sich Scope/Schema durch 
 
 ## Versions- und Git-Strategie
 
+Seit dem ausdrücklichen Gesamtauftrag vom2026-10-17 gilt für OE-14–33 der
+[Ausführungsvertrag](../original-economy/completion-contract.md). Historische
+Rule7-Bezeichnungen der offenen Prompts werden im neuen Rule10-/Schema26-
+Nachfolger mit strikter gespeicherter Entwicklungsrevision umgesetzt;
+veröffentlichte Regeln1–9 und Schemas1–25 bleiben exakt. Aufgabenreihenfolge,
+ein getesteter Commit je Task und Phasen-Gates bleiben verbindlich. Kein
+Warten auf menschliche Playtests; gemeinsamer PR/Merge nach Endabnahme.
+
 - Auf einem neuen Branch `feature/original-economy-v1` arbeiten. Wenn der Branch bereits existiert: HEAD/Status prüfen; keinesfalls anderer Leute Änderungen verwerfen.
 - Beginn am aktuellen `main`, nicht am Windows-Fork. Fork nur als Referenz für Original-Regeln und testbare Differenzen.
 - Geplante **City-v16 Rule7 / MapPermissions policy3 / Save schema23** nur als bedingte Architekturentscheidung. Die freien Nummern zu Laufzeit prüfen; verbindliche Wahl in `DECISIONS.md` festhalten.

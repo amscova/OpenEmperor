@@ -19,13 +19,13 @@ Arbeite am tatsächlichen HEAD von `oliverjessner/OpenEmperor`. Lies zuerst `doc
 
 ### Fertige Ergebnisse / Abnahme
 
-- [ ] Tatsächlich geliefertes Hemp/Ceramics wird am richtigen Zeitpunkt verbraucht
-- [ ] Keine negativen Stocks, duplizierte Buchung oder Phantom-Lieferung
+- [x] Tatsächlich geliefertes Hemp/Ceramics wird am richtigen Zeitpunkt verbraucht
+- [x] Keine negativen Stocks, duplizierte Buchung oder Phantom-Lieferung
 
 ### Pflichtprüfungen
 
-- [ ] Vor/auf/nach Step 0 und 7, min0, kein Einwohner, Unterversorgung
-- [ ] Save-to-next-cycle und 20k deterministischer Vergleich
+- [x] Vor/auf/nach Step 0 und 7, min0, kein Einwohner, Unterversorgung
+- [x] Save-to-next-cycle und 20k deterministischer Vergleich
 
 ## Stop-Bedingung und Fehlerbehandlung
 

@@ -9,7 +9,11 @@ enum class BuildingId : std::uint32_t;
 
 // Authored runtime binding to a verified model row, not a reconstructed full
 // original building or a functional_model_candidate identity upgrade.
-enum class OriginalInfluenceSourceType : std::uint16_t { Well72=72 };
+enum class OriginalInfluenceSourceType : std::uint16_t {
+    Well72=72, Herbalist207=207, Acupuncture208=208, Music211=211,
+    Acrobat212=212, Drama213=213, Ancestor214=214, Daoist215=215,
+    Buddhist217=217, Confucian219=219
+};
 
 struct OriginalInfluenceSourceState {
     BuildingId building_id=static_cast<BuildingId>(0);

@@ -4,6 +4,17 @@
 
 Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei der **nächsten** Aufgabe die vorige SHA in dieser Datei nachtragen, weil ein Commit seine eigene SHA nicht enthalten kann.
 
+**Fortsetzung am2026-10-18:** Der Nutzer hebt die Pause nach OE-24 ausdrücklich
+auf und beauftragt OE-25. Dieser Task ist umgesetzt und geprüft; sein
+versionierter Vertrag steht in `housing-stages-runtime.md`. Als Nächstes ist
+OE-26 vorgesehen, bleibt aber nach ausdrücklichem Nutzerwunsch erneut
+pausiert und unbegonnen.
+
+**Zwischenmerge am2026-10-18:** Der Nutzer beauftragt anschließend ausdrücklich
+Commit und Merge des gesamten geprüften Standes bis OE-25. Diese Freigabe
+umfasst Push und Pull Request nach `main`; die Aufgabenpause vor OE-26 bleibt
+bestehen. Dies ist keine Endabnahme von OE-26–33 oder Gate D–F.
+
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
@@ -19,19 +30,19 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 | OE-10 | PASS | `b4c22e6ecc49558e137288801d2e2a866cd8fc44` | `.local/original-economy/oe10/`, OE-00/`oe10-verification/` | Clock-only Mapping1;177 relevante CTests PASS, je20k tatsächliche Restores/F5F9/Prozessreplay;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-11 | PASS | `b3b15a6ec98912a35982d9bcec30d7a651fed0a3` | `.local/original-economy/oe11/`, OE-00/`oe11-verification/` | Immutable Sessionmodell;207 relevante CTests PASS;F5/F9/Quellenisolation/191 Refusals;72 Legacy-Saves/1485 Policyfälle identisch;Gate B offen |
 | OE-12 | PASS | `ec3a2d60c7541f8a11338c80d5398ce54e51f3a8` | `.local/original-economy/oe12/implementation/`, OE-00/`oe12-final-verification/` | Rule8/Schema24: bezahlte Well72-Quellen,20 Häuser, Abriss/Wiederkauf/Prozessreplay;181 unterschiedliche CTests je Konfiguration belegt;72 Legacy-Saves/Snapshots und1485 Policyfälle exakt;Gate B PASS |
-| OE-13 | PASS | Vertragsdokumentation `aaecabd638359a48d513f2d5146457fdd1c9e67a`; Task-SHA im Folgecommit | `.local/original-economy/oe13/implementation/`, `oe13/goods-fixtures/run-d4mm76cf/`, OE-00/`oe13-final-verification/` | Rule9/Schema25-Buchhaltungsfundament;117 relevante Konfigurations-CTests, echte F5/F9-/40k-Prozessfortsetzungen;72 Legacy-Saves/Snapshots und1485 Policyfälle sowie eingefrorene7/23-/8/24-Bytes exakt; reale Waren0/unsupported, Gate C offen |
-| OE-14 | TODO | — | — | — |
-| OE-15 | TODO | — | — | — |
-| OE-16 | TODO | — | — | — |
-| OE-17 | TODO | — | — | — |
-| OE-18 | TODO | — | — | — |
-| OE-19 | TODO | — | — | — |
-| OE-20 | TODO | — | — | — |
-| OE-21 | TODO | — | — | — |
-| OE-22 | TODO | — | — | — |
-| OE-23 | TODO | — | — | — |
-| OE-24 | TODO | — | — | — |
-| OE-25 | TODO | — | — | — |
+| OE-13 | PASS | `887dda562622d59487a92b8966b62b218cb59ce3` | `.local/original-economy/oe13/implementation/`, `oe13/goods-fixtures/run-d4mm76cf/`, OE-00/`oe13-final-verification/` | Rule9/Schema25-Buchhaltungsfundament;117 relevante Konfigurations-CTests, echte F5/F9-/40k-Prozessfortsetzungen;72 Legacy-Saves/Snapshots und1485 Policyfälle sowie eingefrorene7/23-/8/24-Bytes exakt; reale Waren0/unsupported, Gate C offen |
+| OE-14 | PASS | `2bd6878f0ab06af0764d84120f8bf9cb6c2dd726` | `.local/original-economy/oe14/`, OE-00/`oe14-final-verification/` | Aktive Rule10/Schema26/Revision14; bezahlter Zuzug/Worker, echter Clay→Pottery→Warehouse→Ceramics-Ursprung,129 relevante CTests und separate20k-Prozessreplays; alte1–9/1–25-Verträge erhalten; Gate C offen |
+| OE-15 | PASS | `390c87481b2259a0e95559e0c975e974a7b627af` | `.local/original-economy/oe15/implementation/`, `oe15/production-fixtures/final-source-5f09/`, OE-00/`oe15-final-verification/` | Aktive Revision15: reale bezahlte Market→House-Lieferung, sichere Rückgabe, begrenzte Transferhistorie;135 relevante Konfigurations-CTests/3×74 Forkvergleiche/separate20k-Prozessreplays; alte1–9-Verträge exakt, Gate C offen |
+| OE-16 | PASS | `86cde0c54577a9889632e45432fe7fe18acd7fac` | `.local/original-economy/oe16/implementation/`, `oe16/production-fixtures/final-source-55c8/`, OE-00/`oe16-final-verification/` | Revision16: bezahlte HempFarm192/Feld194, echte Zweigüterankunft/separate Prozessreplays;147 relevante Konfigurations-CTests/3×74 Vergleiche,72 Legacy-Saves/Snapshots und1485 Policyfälle exakt. Gate C TODO |
+| OE-17 | PASS | `b30718f` | `.local/original-economy/oe17/implementation/`, `oe17/production-fixtures/debug-first/`, OE-00/`oe17-final-verification/` | Revision17: tatsächlicher Konsum an0/7 mit strikter House-Historie;153 relevante Konfigurations-CTests, zwei Modellpfade/vier20k-Prozessreplays,25 Saves unabhängig rekonstruiert; Legacy exakt, Gate C TODO |
+| OE-18 | PASS | `144eec6` | `.local/original-economy/oe18/implementation/`, `oe18/production-fixtures/final-53/`, OE-00/`oe18-final-verification/` | Revision18: bezahlte FoodFarm193/Felder195,196; tatsächliche Qualität20/35/80,159 volle Konfigurations-CTests plus3 nach reinem Formatfix, acht20k-Prozessreplays; Legacy exakt. Gate C TODO |
+| OE-19 | PASS | `ba116b4c97defdf134434c1b0398292fb3727d0e` | `.local/original-economy/oe19/gate-c/final-3/`, `oe19/implementation/`, OE-00/`oe19-final-verification/` | Revision19: bezahlte207/208-Ankünfte und getrennte96er-Timer; drei volle202er-Suiten, zwölf20k-Prozessfortsetzungen, strikter Restore, Legacy exakt. Gate C PASS; Originalgrafik/native/human offen |
+| OE-20 | PASS | 825fd2c65d90c9139e283f2bf3e191bb5feb4e39 | `.local/original-economy/oe20/implementation/runs/final3/`, `oe20/production-fixtures/final/`, OE-00/`oe20-final-verification/` | Revision20: bezahlter Ancestor214, echter40er-Besuch/Verfall/Wiederbesuch,369 relevante Konfigurations-CTests,18 separate20k-Fortsetzungen und Legacy exakt. Gate D bleibt TODO; Originalgrafik/native/human offen |
+| OE-21 | PASS | d0dae2830a7025c12b32ce783fa6de416e131b44 | `.local/original-economy/oe21/implementation/runs/final4/`, `oe21/production-fixtures/final4/` | Revision21: bezahltes Wasser, echter Hut→Plain-Aufstieg, zehnte negative Auswertung/Rückentwicklung,141 Konfigurations-CTests und24 separate20k-Prozesse; Gate D bleibt TODO |
+| OE-22 | PASS | 1e7e2715704bd7b5def483d4924292c1d4d41181 | `.local/original-economy/oe22/validation2/`, `oe22/production-fixtures/final2/` | Revision22: bezahlte215/217/219, getrennte40er-Timer/OR, echte3×3-Ankunft;150 Konfigurations-CTests und30 separate20k-Fortsetzungen. Confucian-Elite/Material ausdrücklich authored/offen; Gate D TODO |
+| OE-23 | PASS | 95967cec1e691a50e9a771a59940deda2230807b | `.local/original-economy/oe23/validation/`, `oe23/production-fixtures/final/` | Revision23: bezahlte211/212/213, neun getrennte Timer, reine Verfügbarkeit/Ankunft-Diagnose und echte Quellenbrände;159 Konfigurations-CTests,36 separate20k-Fortsetzungen. Originale Venue-/Performer-Kette weiterhin ausdrücklich experimentell; Gate D TODO |
+| OE-24 | PASS | 7360f84e40c6cd558d3cf87de41c8b713645840f | `.local/original-economy/oe24/validation2/`, `oe24/production-fixtures/final2/` | Revision24: vier bezahlte Luxusketten, fünf getrennte Vorprodukte und echter Paper→Academy-Materialpfad; 168 Konfigurations-CTests, 43 separate20k-Replays, beide Software-SDL-Ansichten geöffnet. Historische Nutzerpause danach, am2026-10-18 aufgehoben; Gate D TODO |
+| OE-25 | PASS | 9bac35b5626834b42d35d52c23b11eb039b14f21 | `.local/original-economy/oe25/validation3/`, `oe25/production-fixtures/final3/` | Revision25:15 Zeilen, bezahlte getrennte Elitefamilie, echte13→12→13 und Common6;177 relevante CTests/50 getrennte20k-Replays/4 geöffnete Softwarebilder;4×4-Geometrie26/Originalsprites29/Gate D27 offen |
 | OE-26 | TODO | — | — | — |
 | OE-27 | TODO | — | — | — |
 | OE-28 | TODO | — | — | — |
@@ -47,7 +58,7 @@ Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei
 |---|---|---|
 | A | PASS | OE-07: gepinnter Vier-Modul-Vergleich/74 Vektoren, Parser-/Quellenbindung/Negativfälle,507 CTests in drei Konfigurationen und exakter Legacy-Replay; begrenzte Kernabnahme, keine Gesamt-Originalparität |
 | B | PASS | OE-08–12: ausdrücklich freigegebener Rule8-/Schema24-Nachfolger; vollständige Gate-Suites und finale gezielte Wiederholungen in Debug/Release/ASan+UBSan, bezahlte20-Haus-/Quellen-/Reload-Szene und exakter Legacyvergleich; technische begrenzte Abnahme, native/human NOT_RUN |
-| C | TODO | — |
+| C | PASS | OE-13–19: tatsächliche bezahlte Ceramics-/Hemp-/Food-Lieferung, Konsum und medizinische Ankunft;606 vollständige Konfigurations-CTests,12 getrennte20k-Prozessfortsetzungen, unabhängige Raw-Audits und unveränderter Legacyvertrag. Begrenzte technische Abnahme; Originalart/native/human nicht abgenommen |
 | D | TODO | — |
 | E | TODO | — |
 | F | TODO | — |
@@ -1742,3 +1753,1260 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   oder Originalspiel-Gesamtparität. Native/human **NOT_RUN**. Task-Commit
   und delegierter PR/regulärer Merge folgen nach Abschlussprüfung, SHA in
   Antwort. Nächster vorgesehener Task **OE-14 TODO**, hier nicht begonnen.
+
+### OE-14 Umsetzung – 2026-10-17, Basis41091b66
+
+- **Auftrag und Beginn:** Nutzer beauftragt alle offenen Aufgaben bis OE-33
+  der Reihe nach ohne Wartepunkt für seine manuellen Tests; echte Sprites und
+  Objekte sind Teil des Abschlussziels. Sauberer aktueller `main`
+  `41091b66e960b4c82c378d5ae3b83088325f5a61`, Feature per Fast-forward
+  angeglichen. Vorige OE-13-SHA oben nachgetragen. Neuer expliziter
+  [Ausführungsvertrag](../original-economy/completion-contract.md): Rule10/
+  Schema26/policy3, strikte Entwicklungsrevision14, authored Startfunds12000,
+  bezahlte Zuwanderung/Worker und einmalige Warehouse-Konvertierung;
+  veröffentlichte1–9/1–25-Verträge bleiben unverändert.
+- **Echte produktive Integration:**
+  [Runtimebeschreibung](../original-economy/production-runtime.md), regulär
+  gekaufte Straßen, vier leere Häuser, Clay Pit, Kiln und Warehouse. Einwohner
+  entstehen erst aus120t/40t-Zuzugsereignissen an realen Straßeneingängen,
+  bis zur vorbereiteten Shelterkapazität. Sie allein liefern Worker.
+  Gemeinsame unveränderte Clay-/Pottery-Rezepte und bestehende Courier-
+  Navigation/Bewegung; erst tatsächliche Warehouse-Ankunft erzeugt über den
+  reinen Ledgerkern Ceramics. Legacy-Warehouse-Pottery bleibt0. Clay,
+  unkonvertierte Pottery und typisierte Ceramics sind getrennt massenerhalten.
+  Kein Market, Hausvorrat, Verbrauch, Food, Service oder Tax vorgezogen.
+- **Debug, Release, ASan+UBSan:** Konfiguration und aktuelle Registrierung
+  vor dem ersten CTest erfasst; final190 registrierte Tests.34 relevante
+  Targets einschließlich normaler Anwendung, alter/neuer Save-/SDL-Pfade,
+  Bridge-/Ramp-Renderer/Transport und ausgeschlossener Launcher/Prozessfixtures
+  gebaut. Finale43er-Auswahl **je43/43 PASS**, insgesamt129 relevante
+  Konfigurations-CTests ohne Skip. Laufzeiten Debug56.000s, Release6.542s,
+  Sanitizer22.277s. Exakte Befehle/Exitcodes/Logs/JUnit in
+  `.local/original-economy/oe14/implementation/{debug,release,sanitizer}-targeted-result.json`,
+  gleichnamigen `*-targeted-*`-Logs und `*-targeted.xml`.
+  Keine vorgezogene vollständige190er-Phasen-Gate-Suite behauptet.
+- **Betriebsausfälle und Roundtrips:** Keine Bewohner vor dem ersten
+  Zuzugsereignis; fehlende Häuser/Straße verhindern Worker/Produktion.
+  Pause/Resume, reale Straßentrennung/bezahlt reparierte Verbindung und
+  natürlich ausgelöste Fire-Vorfälle geprüft. Mid-Pottery-Courier wird als
+  tatsächlicher bewegter Zustand restauriert, vollständige WorldSnapshots
+  laufen danach exakt weiter. House-, Produktions-, Finanz- und Aktor-
+  Grants/Orphans, falsche Entwicklungsrevision und doppelte Pottery-Buchung
+  werden verweigert.
+- **Strict Save26:** Eigener kanonischer Reader/Writer/Restore, nur lokale
+  Syntaxprojektion auf unveränderte Infrastrukturfelder, keine Veröffentlichung
+  einer heruntergestuften World. Modell-/Map-/Masken-/policy3-Hashbindung,
+  tatsächliche Rezept-/Übergabehistorie, IDs, Population, Routes, Cargo,
+  Reservierungen und Kosten werden vollständig geprüft. Neue Save-Suite
+  verweigert795 adversariale Fälle; frühere575 Rule9-Verweigerungen bestehen
+  weiter. Rekursiv unbekannte/fehlende Keys, Duplikate, koordinierte positive
+  Stock-/Handoff-Fälschungen, Symlinks/Outputpfade und atomare Schreibfehler
+  sind enthalten.
+- **Unabhängiger Review und Korrektur:** Reviewer fand einen selbstkonsistenten,
+  aber nicht erreichbaren Restore mit Bewohner4→3 plus passendem Historiendelta.
+  Die neue Populationvalidierung verlangt Zweierschritte oder die tatsächliche
+  ungerade Endkapazität. Regressionstest gegen Tick160 und positive vollständige
+  Restorekontrolle bei Shelterkapazität7 ergänzt. Erstes neues Gate-CTest
+  erwartete10 noch als unbekannt; Grenze explizit auf11 verschoben und die
+  positive10-Matrix, exakte Entwicklerfactory-/policy3- und Normalapp-Verweigerung
+  ergänzt. Keine alte Autorität freigeschaltet oder Negativprüfung entfernt.
+- **Reales Modell und separate OS-Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/market-walkers-finish/debug-build`:
+  **PASS**, Bericht `oe14/production-fixtures/run-1j37xg9h/report.json`, SHA
+  `b4d16abe0ebcaaf034568e5154fa46dea0a84c1c94f9b8b09f5d12690188354b`.
+  Hashidentische private echte Modellkopie, authored24×20-Geographie,
+  reale818 Funds Bauausgaben/11182 Rest.400 Ticks gestoppter Clay Pit:
+  vier Häuser mit28 regulär zugezogenen Einwohnern, null Clay/Pottery.
+  Erster tatsächlicher Warehouse-Übergang bei Tick675:8 Clay extrahiert,
+  ein Potteryrezept abgeschlossen, ein Ceramics gebucht, zwölf Worker genutzt.
+  Mid-Pottery- und positiver Warehouse-Stand werden je in einem separaten
+  OS-Prozess mit10000 Ticks, einem bezahlten Straßenbau und weiteren10000 Ticks
+  fortgesetzt. Vollständige SaveDocuments/Bytes/Provenance/Bilanzen exakt;
+  Originalinputs, private Modellkopie und Eingabesaves samt Metadaten unverändert.
+  13 Python-Outputguardtests und vier tatsächliche Python-/C++-CLI-Escape-
+  Verweigerungen PASS. Keine Snapshot-, Vorrats- oder Bewohnerinjektion.
+- **Eingefrorene Vorgänger:** Aktuelle Writer-/Prozessfixtures erhalten exakt
+  Rule7/Schema23, sechs eingefrorene Rule8/Schema24-Saves und zehn Rule9/Schema25-
+  Saves samt Provenance aus OE-13. Der separate OE-00-Vertrag allein deckt diese
+  späteren Versionen nicht ab. Die alte Originalinstallation bleibt read-only.
+- **Tatsächliche SDL-Handler:** Neue explizite10-Factory, reguläre bezahlte
+  Bauten/Zuwanderung/Produktion, bewegtes Cargo, echte F5/F9-Schema26-Handler,
+  atomare Verweigerung falscher Revision und100 Idleframes ohne Worldkopien,
+  Commands, BFS, Datei-/Decode-/Uploadarbeit bestanden. Finalen Capture
+  `implementation/production-view-final.png` tatsächlich geöffnet: Rule10/
+  Policy3/Save26/Revision14, Tick1091, Funds11196 und vier authored Testhäuser
+  mit je37 tatsächlichen Bewohnern; diese Modellkapazität ist synthetisch.
+  Der separate echte Modellrun oben hat dagegen28 Bewohner. Kein Originalart-
+  oder native/human-PASS. Neuer ausgeschlossener Launcher gebaut; Start
+  `sh tools/play_original_economy.sh`, eigener Rule10-Savepfad.
+- **Forkvergleich:** Alle drei tatsächlich ausgeführten Vergleiche
+  **74/74 PASS**,46 parity/18 corrected_bug/6 unverified/4 unsupported;
+  sämtliche18 Housingbeobachtungen und1800 realen Modellwerte im Digest exakt.
+  21 live Archive und fünf ABI-Header geprüft; alte numerische Originaldateien
+  und historische Nicht-current-Felder unverändert. Portable aktuelle
+  `core-parity.json` SHA
+  `940cb0d80e272e4065e9d4b9c6df85a264c9a369126613dd4e2f96d52cfe8732`.
+  28 Python-Vertragsprüfungen sowie25 strenge Sanitizerprozesse mit vollständig
+  leerem stderr PASS; `implementation/parity-validation-summary.json`.
+- **Vollständiger Legacyvergleich:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe14-final-verification`:
+  **PASS**, zusätzlich alle72 vollständigen Saves und72 Snapshotdateien sowie
+  Contract wörtlich bytegleich zur OE-00-Referenz nachverglichen.1485 Policyfälle,
+  167 komplette Maps/165 vorbereitet/zwei bestehende Konflikte, elf Rampen-
+  und zehn Bridge-Restartpaare exakt. Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  `run.json` SHA
+  `4e332d473c474ded7a5b32e4db580f3be1f24b8ebba26e899d37282adcd90097`;
+  `implementation/legacy-literal-proof.json` SHA
+  `3d31e7008a301f5ae3e989972acc260d02ad060c79635c609d120e39c57a18d2`.
+- **Finale aktuelle Binarybindung:** Nach den vollständigen Builds waren die
+  Fixtures neu gelinkt. Deshalb wurde der tatsächliche Prozessnachweis mit
+  den finalen Releasebinaries vollständig erneut ausgeführt, ohne Berichthashes
+  lediglich umzuschreiben:
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/reswall/release-build --output .local/original-economy/oe14/production-fixtures/final-source-6acc`:
+  **PASS**, Report-SHA
+  `745881cb0eb3a8090c5902b5ae9477c0d0fdab3d3e95a96a5f8f03d438863842`,
+  aktuelles Fixturebinary
+  `3fab6095ecbc40c3e5f89e350035bb582d1caf9aa0608a2a22eaf2b3dad0ffd4`.
+  Auch die21 Libraryhashes passen nach den Builds unverändert zu den drei
+  echten Forkvergleichen; separater `parity-post-fullbuild-archive-check.json`.
+- **Abschluss:** Finaler Source-/Test-/Tool-/Resourcehash
+  `6acc2db2c5552a246659e78cf75023cbf1e0dba07a70885c4755d53a77da8640`;
+  Originalinventar1464 Dateien/819711091 Bytes, unverändertes Contentmanifest
+  `dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb`.
+  Private `implementation/final-validation.json` prüft33 eigene Pfade,
+  23 eingefrorene Sourcepfade, tatsächliche Tests/Archive/Binaries/Saves,
+  alle lokalen Dokumentationslinks und scoped Status. **OE-14 PASS**;
+  Gate C TODO und native/human NOT_RUN. Ein eigener getesteter Task-Commit;
+  danach unmittelbar OE-15 gemäß Gesamtauftrag, kein Wartepunkt für Playtests.
+
+### OE-15 – Umsetzung, 2026-10-17, Basis2bd6878
+
+- **Vertrag und Authority:** Rule10/Schema26/Revision15, unveränderte policy3.
+  Bezahlt gekaufte Warehouses und Markets transportieren Ceramics über dieselben
+  bestehenden Routen/Actorrollen bis in den alleinigen HouseState-Bestand.
+  Typisiertes Ledger-Cargo wird nicht in die alten Courier-Mengen gespiegelt.
+  Anzeige, geladene Walker und Diagnose lesen die tatsächliche Menge. Frühe
+  originale Modellbedarfe bleiben0; der physische Hauspuffer8 ist ausdrücklich
+  authored Provisionierung. Kein Verbrauch vor OE-17, keine Originalartbehauptung.
+- **Sicherheit:** Physische Rückkehrkapazität bleibt am Quellowner reserviert;
+  Stock/Cargo/Incoming können keine Überfüllung oder Rückgabesperre erzeugen.
+  Ownerpause erhält begonnene Kanten, führt beladen über den vorhandenen
+  Navigator zurück und bucht Ware erst am Owner. Reguläres Disconnect/Repair,
+  volle Puffer, sicher verweigerter Abriss, echte Teilbeladung und tatsächliche
+  vollständige Ankünfte geprüft. Es wurde keine unerreichbare Teilankunft durch
+  Kapazitäts-/Snapshot-Injektion hergestellt. Letzte Transferzeile je Actor als
+  Sequenz-Highwater, höchstens sechs Zeilen auch nach mehr als26 echten Fahrten;
+  stale/doppelte Ankünfte verweigert. Canonicaldiagnose enthält die vollständigen
+  typisierten Cargo-/Reservationfelder nur unter Rule10; alte Strings bleiben exakt.
+- **Unabhängiger Review:** Drei reine-Ledger-legitime, aber im atomaren Worldpfad
+  unerreichbare Restorezustände geschlossen: reserved≠loaded, Teilgutschrift vor
+  Ankunft und entfernte Terminalhistorie eines bereits verwendeten Couriers.
+  Koordinierte Gegenfälle erhalten Conservation und werden trotzdem verweigert.
+  Reiner Transaktionskern bleibt unverändert und erlaubt seine geprüften
+  Teiloperationen weiterhin. Finale Saveprüfungen:676 Marktverweigerungen,
+  798 Produktionsverweigerungen,575 eingefrorene Rule9-Verweigerungen.
+- **Tatsächliche Builds/Tests:**
+  `python3 .local/original-economy/oe15/implementation/run_targeted.py <debug|release|sanitizer> --build-only`
+  und anschließend jeweils `--test-only`: **je45/45 PASS,135 insgesamt,0 Skip**.
+  Debug84.984s, Release final6.706s, ASan+UBSan31.831s; genaue Zeiten/Befehle,
+  tatsächliche192er-Testinventare,36 Targets und JUnit unter `implementation/`.
+  Release wurde wegen einer Koordinationsüberschneidung zweimal erfolgreich
+  ausgeführt; kein zusätzlicher Featurebeleg daraus abgeleitet. Ein anfänglicher
+  UI-Compilefehler durch verschiedene Courier-Diagnose-Datentypen wurde über
+  denselben generischen lesenden Helfer behoben, danach alle Builds erfolgreich.
+- **Echtes Modell und OS-Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/market-walkers-finish/debug-build --output .local/original-economy/oe15/production-fixtures/final-source-5f09`:
+  **PASS**.958 Funds tatsächlich ausgegeben,11042 Rest,28 echte modellgebundene
+  Bewohner/Worker,16 zugewiesen. Bei706t Market-Courier mit einer typisierten
+  Einheit und null Hausstock; bei815t erste tatsächliche House-Ceramics-Ankunft.
+  Separater beladener Pause-/Returnstand ohne vorzeitige Hausgutschrift. Zwei
+  separate OS-Prozesse setzen jeweils10000 Ticks, einen bezahlten Straßenbau
+  und weitere10000 Ticks exakt fort: volle SaveDocuments/Bytes/Provenance und
+  unabhängig summierte House/WH/Market/Cargo-Bilanzen gleich. Report-SHA
+  `0d72330786f6ba885384a7918107d4462f8f40e4cfdf2511f6ffb1b5c8b9907f`;
+  aktuelles Debugfixture `f225a31fb2ed2befc90cc275acab07bcdb424820ed08a07e5b33d47c694b8da8`.
+  Originalinstallation/private Modellkopie/Eingabesaves unverändert;72 private
+  Outputhashes geprüft.13 Pythonverträge und sechs tatsächliche CLI-Outputguards
+  inklusive alter OE-14-Root-Verweigerung PASS. Alte Rule7-, sechs Rule8- und zehn
+  Rule9-Saves unabhängig bytegleich; diese späteren Versionen ergänzen OE-00.
+- **SDL/UI:** Market über Taste0 und echten Mausklick bezahlt, echter typisierter
+  Mid-courier-F5/F9 und tatsächliche Hausankunft, danach100 Idleframes ohne World-
+  kopien, Commands, BFS, Dateien, Decode oder Upload bestanden. Aufnahme
+  `implementation/production-view-final.png` tatsächlich geöffnet: Revision15,
+  Tick1181/Funds11056, Markt1, House-Ceramics4/8. Vier authored Testhäuser mit
+  je37 Einwohnern sind synthetische Kapazität; echter Modellrun oben hat28.
+  Native/human NOT_RUN; echte Objekt-/Spritekomposition folgt ihrer Aufgabe.
+- **Forkvergleich:** Drei tatsächliche74/74-Vergleiche PASS, unverändert46 parity/
+  18 corrected_bug/6 unverified/4 unsupported.21 aktuelle Archive, fünf ABI-Header,
+  sämtliche alten numerischen Module/Beobachtungen,18 Housingbeobachtungen und
+  1800 Modellwerte geprüft.25 zusätzliche Sanitizerprozesse stderrleer,28 Python-
+  Verträge PASS. Portable `core-parity.json` SHA
+  `df7d817f0dd2c4d44f3cc5032c43674ef7faf419eb3d55458a1a348ba5dd8f9f`;
+  `implementation/parity-validation-summary.json` SHA
+  `aa873e4275213b58a9a327a4022f0200706a88cd0128751404f9f213054d65cb`.
+- **Vollständiger Legacyabschluss:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe15-final-verification`:
+  **PASS**. Alle72 vollständigen Saves und72 Snapshots sowie der Gesamtvertrag
+  anschließend unabhängig wörtlich bytegleich nachgeprüft.167 komplette Maps,
+  165 vorbereitet/zwei bestehende Konflikte,1485 Policyfälle, elf Rampen- und
+  zehn Bridge-Restartpaare unverändert. Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  run.json SHA `4f26db164ad216da59ee1b5314c345153b395072a367de6481ce5740d409247d`;
+  Literalproof SHA `350aaa0b4c73aed88217a4db978373410a6af32a43d6f7127a8c9f546a29ff03`.
+- **Abschluss:** Eingefrorener Source-/Test-/Tool-/Resourcehash
+  `5f09b3fd42f4cbb0fa9fd2d2abbbde026ef8b0dd49a46b0222ed7e7c5bb9b658`;
+  19 eigene Source- und24 gesamte Taskpfade. Originalinventar1464 Dateien/
+  819711091 Bytes samt Metadaten unverändert. Unabhängige finale Prüfung
+  `implementation/final-validation.json` bindet die tatsächlichen Binaries,
+  Archive, JUnitdaten, Savebytes, Warenbilanzen, Quellen und Dokumentationslinks.
+  OE-15 PASS, OE-16 folgt direkt; Gate C bis OE-19 TODO, native/human NOT_RUN.
+
+### OE-16 – Umsetzung, 2026-10-17, Basis390c874
+
+- **Vertrag und tatsächliche Authority:**
+  [Hemp-Laufzeitvertrag](../original-economy/hemp-runtime.md), explizite
+  Rule10/Schema26/policy3 mit Entwicklungsrevision16. Separat bezahlte Hemp
+  Farm192 und Hemp Field194, eindeutige Feldbindung und2×2-/1×1-Flächen.
+  Modell-Cost→Funds, Feldnachbarschaft und80 produktive Ticks je Einheit sind
+  ausdrücklich authored. Modellgebundene Employees erhalten ihre Worker aus
+  echten zugezogenen Bewohnern. Höchstens zwei Farms mit je einem gekauften
+  Feld; eigene Farm-Couriers und vorhandene Warehouse-/Marketrollen bewegen
+  Hemp und Ceramics über denselben Navigator. Die sechs HouseState-Bestände
+  bleiben alleinige Hausauthority. Keine Gratisfelder, Vorräte oder Worker.
+- **Modell und eingefrorene Vorgänger:** Der neue ausdrückliche
+  `prepare_production()`-Pfad bereitet zusätzlich die beiden benannten Zeilen
+  vor. Der alte Sieben-Zeilen-Pfad verlangt und validiert sie nicht; auch
+  semantisch unpassende zusätzliche Zeilen ändern seine bisherigen Werte nicht.
+  Neue synthetische und echte Modellprüfungen vergleichen alle Felder über
+  fünf Difficulties sowie die bisherigen sieben Building- und15 Housezeilen.
+  Neue Object-/Command-/Courier-IDs sind append-only. Die neuen funktionalen
+  Zuordnungen sind authored und behaupten keine Originalmechanik oder fertige
+  Originalgrafik. Regeln1–9/Schemas1–25 bleiben eingefroren; frühere
+  Schema26-Entwicklungsrevisionen werden atomar verweigert.
+- **Unabhängige Reviews und Härtungen:** Feldnachbarschaft promoviert alle
+  Koordinaten vor Addition/Subtraktion in int64; extreme Feldcommands werden
+  atomar verweigert. Ein zusätzlicher bestätigter Farm-INT_MAX-Restoreüberlauf
+  in der späteren2×2-Footprintaddition führte zu einer vorgelagerten vollständigen
+  Geometrieprüfung per Subtraktion, bevor irgendein Offset addiert wird.
+  Ergänzt sind14 Grenzlagen über drei getrennte Verweigerungspfade (World,
+  Writer, Reader/Restore),42 neue Negativfälle beziehungsweise939 Hemp-Save-
+  Verweigerungen sowie vier legale Farm-/Feld-Eckroundtrips. Alle drei finalen
+  Konfigurationen bestätigen diese Fälle. Eigener Farmstock, ausgehendes Cargo und letzte
+  Transferhistorie können die eigene tatsächliche
+  Ernte nicht überschreiten; eine zweite Farm ohne Feld kann keine fremde
+  Ernte übernehmen. Koordinierte Stockverschiebungen nach Market/Haus trotz
+  unveränderter Gesamtmasse werden ohne mögliche tatsächliche Ankunft
+  verweigert. Alte Ceramicsfahrten ersetzen nicht die erste Hemp-Farmankunft.
+  Diese begrenzten Herkunftsprüfungen rekonstruieren keine vollständige
+  Besuchshistorie: spätere Sequenzen dürfen ältere kompaktierte Ziele/Waren
+  enthalten. Ownerpause, begonnene Kanten, physischer Rückkehrplatz, sichere
+  Abrissverweigerung und stale/doppelte Ankünfte bleiben gebunden; höchstens
+  acht letzte typisierte Transferzeilen. Reiner Ledgerkern unverändert.
+- **Finale Builds und relevante Tests:**39 Targets in Debug, Release und
+  ASan+UBSan gebaut;196 Tests je Konfiguration tatsächlich registriert.
+  Finale Auswahl jeweils **49/49 PASS**, insgesamt147 CTests, keine Fehler
+  oder Skips. Exakte CTest-Zeiten Debug117.442s, Release11.807s,
+  Sanitizer46.241s. Vollständige Commands/Exitcodes, Inventare, Logs und JUnit
+  unter `implementation/{debug,release,sanitizer}-targeted-result.json`,
+  `*-targeted-*.log` und `*-targeted.xml`. Save-Negativfälle je Konfiguration:
+  Hemp939, bestehende Produktion800, Market677 und eingefrorene Rule9-Goods575.
+  Dies ist die relevante49er-Auswahl, keine vorgezogene vollständige196er-
+  Phasen-Gate-Suite.
+- **Echtes Modell und separate OS-Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/market-walkers-finish/debug-build --output .local/original-economy/oe16/production-fixtures/final-source-55c8`:
+  **PASS**, Bericht-SHA
+  `55623e8de8f89ac0560765c5cdfa6f73f4339c4a241cd29cdb2db6c3061c5de9`,
+  tatsächliches Fixturebinary
+  `9d025cc5e34ea617743d5c42ae1ac5f36593c76246be1d9c40e4317005baa27a`.
+  24 Straßen, sechs Häuser, Clay Pit, Kiln, Warehouse, Market und eine separat
+  bezahlte Farm samt Feld kosten1162 Funds;10838 verbleiben. Bei400t bestehen
+  42 echte Bewohner, aber durch gestoppte Quellen noch null Waren. Bei480t
+  bewegt der Farm-Courier die erste Hemp-Einheit mit null Legacy-Cargo;34
+  Worker sind regulär zugewiesen. Bei3650t hat Haus-ID5 tatsächlich
+  gelieferte Hemp8/Ceramics4; die gemeinsame Bilanz lautet Hemp33=31 Stock+2
+  Cargo und Ceramics35=35 Stock. Alle vier weiteren Waren bleiben unsupported0.
+  Beladene Ownerpause/Rückgabe und natürliches Feuer separat geprüft.
+  Zwei neue OS-Prozesse setzen Mid-Hemp-Courier und Zweigüter-Hausstand jeweils
+  mit10000 Ticks, einem bezahlten Straßenbau und weiteren10000 Ticks fort.
+  Vollständige SaveDocuments, kanonische Bytes, Provenance und Bilanzen stimmen
+  exakt überein. Eingabesaves samt Metadaten, hashidentische private Modellkopie
+  und Originalinventar1464 Dateien/819711091 Bytes bleiben unverändert.
+  Rule7/Schema23, sechs Rule8/Schema24- und zehn Rule9/Schema25-Saves bleiben
+  unabhängig bytegleich; diese Nachweise ergänzen die frische vollständige
+  OE-00-Baseline unten. Keine Snapshot-/Stock-/Workerinjektion.
+  Sechs tatsächliche Python-/C++-CLI-Outputguards gegen das aktuelle Binary
+  verweigern Ausgaben außerhalb des privaten OE-16-Roots, Symlinkpfade und
+  den alten OE-15-Root; Zielpfade bleiben abwesend. Symlinkvorbedingungen wurden
+  frisch geprüft; frühere Ausgaben ohne wiederhergestellten Testsymlink bleiben
+  als abweichendes Setup erhalten. Beleg `oe16/persistence/actual-output-guards.json`.
+- **SDL-Nachweis und Präsentationsgrenze:** Explizite Farmtaste N und Feldtaste M mit
+  tatsächlichen bezahlten Mausklicks, Farm ohne kostenloses Feld, bewegtes
+  Hemp-Cargo, echte F5/F9-Handler und zwei Waren im selben HouseState geprüft.
+  Der SDL-/Sanitizernachweis wurde zum finalen Quellenstand55c8 wiederholt.
+  Die tatsächlich geöffnete Softwareaufnahme
+  `implementation/production-view-final.png` zeigt Revision16, Tick1636,
+  Funds11002 und House2 mit Hemp2/Ceramics4. Die vier authored Testhäuser mit
+  je37 Bewohnern sind synthetisch; der echte Modellprozess oben hat42 Bewohner
+  in sechs Häusern.100 Idleframes verursachen keine Worldkopien, Commands,
+  BFS-, Datei-, Decode- oder Uploadarbeit. Native/human **NOT_RUN**; die
+  endgültige Originalsprite-/Objektkomposition bleibt ein späterer Auftrag.
+  Ausgeschlossener Entwicklerstart: `sh tools/play_original_economy.sh`.
+- **Frische Forkvergleiche zum Quellenstand55c8:** Debug, Release und ASan+UBSan jeweils
+  **74/74 PASS**, unverändert46 parity/18 corrected_bug/6 unverified/4 unsupported.
+  Alle18 Housingbeobachtungen und der1800-Werte-Originalmodelldigest bleiben
+  exakt.21 Archive, fünf World-/DTO- und zwei zusätzliche Modellheader geprüft;
+  die fünf geprüften additiven Modelländerungen sind einzeln gepinnt, die
+  übrigen numerischen Module und historischen Nicht-current-Belege unverändert.
+  25 zusätzliche Sanitizerprozesse mit leerem stderr und28 Pythonverträge
+  bestanden. Alle drei vorherigen Paritätsverzeichnisse bleiben unter
+  `parity-*-before-bounds` erhalten; neue Läufe stehen in
+  `parity-*-run-after-bounds.log`. Portable
+  `core-parity.json` SHA
+  `e71ec3fec3d0a60f36ecbce9447a2260d1ebf7278f5fa9ee960ef51891ec8718`;
+  `implementation/parity-validation-summary.json` SHA
+  `3fb26f0a56f0e2c0ca24ff529201fc5592076c68bbb565be83d3e6f378b32f9f`.
+- **Vollständiger Legacyabschluss:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe16-final-verification`:
+  **PASS**, Quelle55c8 und Originalinputs während des gesamten Laufs unverändert.
+  Alle72 vollständigen Saves,72 Snapshots und der Vertrag anschließend
+  unabhängig wörtlich bytegleich nachverglichen.167 vollständige Maps,
+  165 vorbereitet/zwei bestehende Konflikte,1485 Policyfälle sowie elf Rampen-
+  und zehn Bridge-Restartpaare exakt. Kanonischer Vertragsdigest weiterhin
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  raw `contract.json` SHA
+  `1407fdf01945e85e62e92b231d84e0224f0804cc7a9a2d914d4e344e89d6da03`;
+  `run.json` SHA
+  `9acab3800c5dec0aa735c182d840aabc6a26a0cdb58390e0e7bf1711be38f82f`;
+  `implementation/legacy-literal-proof.json` SHA
+  `b318f1ff1d4b796cc00d03c1606bcb16af560a0508c3a2ed86cd378ad61d9fae`.
+- **Quellenabschluss und Grenzen:** Source-/Test-/Toolhash
+  `55c8d195d45e7b2d3a22a9fb37c69fef29e2fc7520c4c363d9aa1ec798513287`,
+  35 eingefrorene Sourcepfade/42 gesamte Taskpfade. Der vorangegangene Stand
+  `6967cba3fad26b862164e63c7fc495b8fe46d741dd792e41e5a5c555120953c8`
+  unterscheidet sich von Prozessstand
+  `675a5b46cd87d0569f8e2d6810c30694112b7f9544a0d0ccf46c4982a2371007`
+  ausschließlich durch den ungültigen Test-Sentinel von
+  `OriginalInfluenceSource+1` auf `OriginalHempField+1`: Objects14/15 sind nun
+  gültig,16 und255 ungültig. Zwischen diesen beiden Ständen bleiben die
+  Runtimebinaries unverändert. Der anschließend bestätigte Farmfootprint-
+  Restorebefund ist im neuen55c8-Quellenfreeze behoben; alle drei neuen Builds,
+  der aktuelle echte Prozesslauf, SDL-Nachweis und die drei neu ausgeführten
+  Paritätsvergleiche sind **PASS**. Die fünf Szenenberichte initial/stopped/
+  paused_return/final/fire sind gegenüber675a vollständig identisch, nicht
+  lediglich auf dieselben Eckwerte gekürzt.
+  6967 bleibt ausdrücklich ein **Zwischenstand**. Frühere
+  vollständige Auswahlversuche mit diesem veralteten Sentinel bleiben als
+  `*-before-sentinel`-Belege erhalten. Finale49 relevante CTests je Debug/
+  Release/Sanitizer und der frische vollständige Legacyvertrag sind **PASS**.
+  Alle21 Archivhashes und35 Sourcepfade passen nach den Fullbuilds weiterhin
+  exakt; `implementation/parity-post-fullbuild-archive-check.json`.
+  **OE-16 technisch PASS**, OE-17 TODO, Gate C TODO und native/human NOT_RUN.
+  Kein Verbrauch, keine Hausentwicklung oder vollständige Originalspiel- bzw.
+  Originalsprite-Parität behauptet. Eigener Task-Commit nach Abschlussprüfung;
+  danach OE-17 gemäß Gesamtauftrag ohne Wartepunkt für manuelle Playtests.
+
+### OE-17 – Umsetzung, 2026-10-17, Basis86cde0c
+
+- **Vertrag und Versionierung:**
+  [Verbrauchsvertrag](../original-economy/consumption-runtime.md) vor der
+  Implementierung festgelegt. Ausschließlich die aktive Rule10/Schema26/
+  policy3 verwendet jetzt Entwicklungsrevision17. Frühere Entwicklungsrevisionen
+  werden atomar verweigert; Regeln1–9/Schemas1–25 und normales Spielprofil
+  bleiben unverändert. Der ausdrücklich ausgeschlossene Entwicklerstart
+  `sh tools/play_original_economy.sh` verwendet seinen eigenen Revision17-Save.
+- **Tatsächliche Konsumgrenzen:** Der unveränderte pure Kern liest die aktuelle
+  Housezeile und bucht je Ware `min(stock,max(need,0))`, ohne Footprint- oder
+  Bewohnermultiplikation. Null Bewohner konsumiert nichts. Bronze und Lack
+  bleiben getrennte Kernoperationen, in dieser World ohne reale Quellen0.
+  Der unveränderte gespeicherte Scheduler ist die einzige Clock: Phase39,
+  Schritte0/7, zuerst abgeschlossene Ticks40/397/856/1213. Nach Produktion,
+  tatsächlicher Bewegung, Fire und Zuzug erfolgt genau eine Buchung. Eine
+  tatsächliche Ankunft an derselben Tickgrenze wird bereits berücksichtigt;
+  freier Puffer wirkt bei der nächsten Disposition. Keine400-Tick-Nachfrage,
+  Servicegutschrift, Warenquelle oder vorgezogene Evolution.
+- **Persistenz und unabhängiger Review:** `house_consumption` enthält genau
+  eine sortierte Zeile pro gekauftem House mit sechs uint64-Zählern. HouseState
+  bleibt der einzige Hausbestand; die Spaltensummen entsprechen dem gesamten
+  Ledgerverbrauch. Bounded House-/Ledgerkandidaten werden vor Veröffentlichung
+  geprüft, ohne Worldkopie oder doppelte Abbuchung. Das bezahlte Housealter
+  begrenzt mögliche Schedulerereignisse; die gebundene Shelterzeile verschärft
+  das strukturelle Maximum8 pro Ereignis auf ihren tatsächlichen Bedarf.
+  Der isolierte positive Need1-Test verschiebt ausschließlich real vorhandenen
+  Housebestand in Verbrauch: Empfang und Masse bleiben unverändert, der
+  statische Validator und JSON-Reader akzeptieren die Struktur, erst der
+  gebundene Restore/Writer verweigert den zu hohen Zähler. Zusätzlich sind
+  Nullbedarf, genaue IDs/Anzahl, unbekannte/fehlende/doppelte Keys, Integer-
+  und Summenüberläufe sowie koordinierte vollständig konsumierte Geschenke
+  ohne tatsächliche Distributorankunft negativ geprüft. Mögliche Farm- und
+  Hausankünfte werden auch für konsumierte Mengen verlangt; passende letzte
+  Completed-Lieferungen können den kumulativen Empfang nicht überschreiten.
+  Kompaktierte Transferhistorie bleibt notwendige Provenienz, kein vollständiges
+  Besuchsjournal. Waren-/Zielrotation wird gemeinsam fortgeschrieben; finite
+  Läufe mit sechs Häusern/einem Market sowie20 Häusern/zwei Markets liefern
+  und konsumieren tatsächlich beide Waren je Haus, ohne universelle
+  Starvation-Freiheit zu behaupten.
+- **Echte Erstlauf-Fails und Korrekturen:** Der erste ASan-Save-Test meldete
+  einen echten Use-after-free in der neuen Testiteration: normale Commands
+  ersetzten die World, während Buildingreferenzen weiterverwendet wurden.
+  Der Test sammelt nun IDs vor den Commands. Der erste Debug-Worldtest
+  überschritt sein180s-Limit. Seine unveränderten Sechs-Waren-Assertions lesen
+  nun eine gemeinsame `original_goods_balances()`-Abfrage statt sechs
+  wiederholter vollständiger Abfragen; der vollständige20k-Tick-/Snapshot-
+  Vergleich bleibt bestehen. Die fehlgeschlagenen Erstläufe werden nicht
+  nachträglich als PASS geführt: Logs/Results/JUnit bleiben unter
+  `implementation/*before-test-fix*` erhalten.
+  `implementation/test-only-fix-binding.json` rekonstruiert den vollständigen
+  Zwischenhash `5ed0df3eb0826735058e6d8760c7896bcb239b6e3a5413e37dfa1a54e79a3532`
+  aus dem finalen Stand mit genau zwei gepinnten Testdatei-Overrides.
+  Sämtliche Runtime-, Fixture- und Legacyquellen bleiben bytegleich; die
+  Legacytargets kompilieren keine der geänderten Testtranslationseinheiten.
+  Diese explizite Bindung erhält frühere Prozess-/Legacybelege am finalen
+  Quellenstand, ohne einen nicht ausgeführten erneuten Gesamtlauf zu behaupten.
+- **Finale Builds und relevante Tests:**41 Targets in Debug, Release und
+  ASan+UBSan gebaut;198 Tests je Konfiguration tatsächlich registriert.
+  Finale Auswahl jeweils **51/51 PASS**, insgesamt153 Konfigurations-CTests,
+  keine Fehler oder Skips. CTest-Laufzeiten Debug154.068s, Release10.598s,
+  Sanitizer54.619s; der finale Debug-Consumption-Worldtest benötigt76.03s.
+  Exakte Configure-/Inventory-/Build-/CTestcommands, Exitcodes und Zeiten
+  stehen unter `.local/original-economy/oe17/implementation/` in
+  `{debug,release,sanitizer}-targeted-result.json`, den gleichnamigen Logs
+  und JUnitdateien. Ausführung über
+  `python3 .local/original-economy/oe17/implementation/run_targeted.py <Konfiguration>`
+  beziehungsweise dessen getrennte `--build-only`-/`--test-only`-Schritte.
+  Saveverweigerungen je Konfiguration: Consumption34, Hemp958, Market690,
+  Produktion813 und eingefrorene Rule9-Goods575. Die neue Worldsuite prüft
+  beide Grenzen±1, min0/Unterversorgung/Leerstand, eine zeitlich regulär
+  ausgerichtete echte Ankunft auf der Konsumgrenze sowie laufende bezahlte
+  Zweigüterversorgung und20k-Snapshot-Replay. Dies ist die relevante51er-
+  Auswahl, keine vollständige198er-Phasen-Gate-Suite.
+- **Zwei Modellpfade und vier echte OS-Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/market-walkers-finish/debug-build --output .local/original-economy/oe17/production-fixtures/debug-first`:
+  **PASS**, Report-SHA
+  `5a26ddbfad4f4ac12611adbcd633ebee169ddbc9ab902ff6c6f5197054b814f2`,
+  tatsächliches Fixturebinary
+  `9780b4624c74e75c1432025d45c2e4ffb1053c7674070d4ab22af1cd1ad6d37a`.
+  Das hashidentische Originalmodell hat Shelter-Hemp0/Ceramics0 und konsumiert
+  trotz tatsächlicher Ankünfte korrekt0. Der ausdrücklich getrennte positive
+  Modellpfad verändert genau zwei Bedarfsbytes einer privaten Kopie auf1/1;
+  alle anderen Bytes einschließlich Kapazität7, Preisen und Employees bleiben
+  identisch. Seine SHA lautet
+  `6b26637469de347541154a3902a2bf4f1da5d7c35d92d56966c8f6c8f6261dfa`.
+  Beide Szenen bezahlen24 Straßen, sechs Häuser und die vollständige Clay-/
+  Pottery-/Warehouse-/Market-/HempFarm-/Feldkette mit1162 Funds;10838 bleiben.
+  42 Bewohner wandern regulär zu. Ohne Snapshot-, Stock- oder Workerinjektion
+  entstehen reale Waren und reale Lieferungen. Positive Prozessgrenzen:
+  Ticks855→856→857, Schritt0 mit Hemp1/Ceramics1;1212→1213→1214, Schritt7
+  mit Hemp1/Ceramics2. Der Market wird dabei regulär pausiert; nachweislich
+  keine Houseankunft verdeckt die geprüften Stock-/Audit-/Ledgerdeltas.
+  Die separate Worldsuite oben prüft gerade den tatsächlichen Same-Tick-Arrival.
+  Vier neue OS-Prozesse laden realen Mid-Hemp-Courier, reales Zweigüterhaus
+  sowie beide authored Vor-Konsumgrenzen. Je10000 Ticks, ein real bezahlter
+  Straßenbau und weitere10000 Ticks ergeben vollständig gleiche SaveDocuments,
+  kanonische Bytes, Provenance und Warenbilanzen. Eingabesaves samt Metadaten,
+  beide privaten Modell-/Mapinputs und das Originalinventar1464 Dateien/
+  819711091 Bytes bleiben unverändert. Sechs tatsächliche Python-/C++-CLI-
+  Guards verweigern Outside-, Symlink- und alte OE-16-Ausgabepfade ohne
+  Zielerzeugung; `oe17/runner-guards/report.json`.16 Pythonverträge PASS.
+- **Unabhängige Raw-Rekonstruktion:**
+  `.local/original-economy/oe17/world/raw-process-audit.json` bindet den finalen
+  df785-Quellenstand und das tatsächliche unveränderte Fixturebinary.
+  **92725 Checks PASS**:25 Schema26-Saves und20 Reports unabhängig aus ihren
+  gespeicherten Zahlen rekonstruiert, sechs Warenbilanzen, rohe Clay-/Pottery-
+  Vorgeschichte, Houses, Cargo, Finanzen, Quellenidentitäten sowie direkte volle
+  Byte-/Wertvergleiche aller vier Restartpaare. Der Raw-Audit bestätigt die
+  Artefakte; tatsächlicher OS-Prozessstart wird vom separat ausgeführten
+  Fixtureworkflow belegt und nicht aus Savebytes allein abgeleitet.
+- **Frische Forkvergleiche:** Debug/Release/ASan+UBSan jeweils **74/74 PASS**,
+  unverändert46 parity/18 corrected_bug/6 unverified/4 unsupported.
+  21 aktuelle Archive,18 Housingbeobachtungen und der1800-Werte-Modelldigest
+  geprüft; alte numerische Module und historische Nicht-current-Belege
+  unverändert.25 zusätzliche Sanitizerprozesse stderrleer,28 Pythonverträge
+  PASS. Portable `core-parity.json` SHA
+  `8ad785cb048893b8194ce888addc806502e30cd2f0f0b44c6cd80eedc636a952`;
+  `implementation/parity-validation-summary.json` SHA
+  `d7f518bbd74ce6f4ce53145b4a597ea3942f60dfcf5b0e162554afd4d377f70a`.
+- **Vollständiger Legacyabschluss:**
+  `python3 tools/original_economy_baseline.py verify --data .local/gog-extracted/app --build .local/reswall/release-build --reference .local/original-economy/oe00/reference/contract.json --output .local/original-economy/oe00/oe17-final-verification`:
+  **PASS** auf Zwischenquelle5ed0, durch die oben geprüften zwei ausschließlichen
+  Teständerungen strikt an die finale Quelle gebunden.72 vollständige Saves,
+  72 Snapshots und der gesamte Vertrag unabhängig wörtlich bytegleich;
+  167 vollständige Maps,165 vorbereitet/zwei bestehende Konflikte,1485 Policy-
+  Fälle sowie elf Rampen- und zehn Bridge-Restartpaare exakt. Vertragsdigest
+  weiterhin `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`;
+  run.json SHA `d7de57d34137fc7d5c236053f0b53b5b3bf5ef5fe5f83e6aa5de6ee4eb45daa1`;
+  finale `implementation/legacy-literal-proof.json` SHA
+  `a69b49031d2df97a4b4ad1a0ddfd7452beb02532d55aba95294fc54be828df69`.
+  Die separat eingefrorenen Rule7-/sechs Rule8-/zehn Rule9-Saves bleiben
+  ebenfalls wörtlich gleich; diese ergänzen die ältere vollständige OE-00-Serie.
+- **SDL und Aussagegrenze:** Geöffnete Softwareaufnahme
+  `implementation/production-view-final.png`, gebundener Bericht
+  `production-view-final.json`: Revision17/Tick1636/Funds11002, House2 mit
+  Hemp2/Ceramics4,148 regulär eingewanderte Bewohner in vier ausdrücklich
+  synthetischen Kapazität37-Häusern. Bezahlte Tastatur-/Mausbefehle, Farm/Feld,
+  tatsächliche Zweigüterankunft und F5/F9 sind geprüft.100 Idleframes ohne
+  Worldkopien, Commands, BFS-, Datei-, Decode- oder Uploadarbeit. Dieser
+  Nullbedarfs-SDL-Test ist **keine positive Konsumgrafik-Abnahme**.
+  Native/human **NOT_RUN**, vollständige Originalsprite-/Objektkomposition
+  weiterhin späterer Pflichtauftrag.
+- **Abschluss:** Finaler Source-/Test-/Toolhash
+  `df7851d80fd8b2d35fcf3777e7047522afe80dd4d8bf3af536a3ad80eb1e28e7`,
+  20 eingefrorene Sourcepfade/26 gesamte Taskpfade. **OE-17 technisch PASS**;
+  Gate C TODO, OE-18 als nächster Auftrag TODO. Kein Food-/Service-/Evolutions-
+  oder Originalart-PASS vorweggenommen. Eigener Task-Commit folgt nach finaler
+  Abschlussprüfung; anschließend gemäß Gesamtauftrag direkt OE-18, ohne
+  Wartepunkt für einen menschlichen Playtest.
+
+
+## OE-18 – Start: reale Food-Qualität
+
+- OE-17 ist nach finalen11/11 Prüfungen als `b30718f` committed.
+- OE-18 **IN_PROGRESS**; maßgeblich ist der vor der Implementierung erstellte
+  [Food-Vertrag](../original-economy/food-runtime.md), ausschließlich Rule10/Schema26 Revision18.
+- Getrennte zwei-Crop-Mengen, bezahlter Farmhouse193/Fields195,196, echte
+  Market-/Hausankunft und originale Mischung; Source-Scores und Food-Sink authored.
+- Gate C bleibt TODO. Keine vorgezogene Originalgrafik-/Evolution-/Endabnahme.
+
+
+### OE-18 – bezahlte Food-Kette und tatsächliche Qualitätsankunft
+
+- **Basis und Vertrag:** OE-17 `b30718fe08fb118da5dce05a6846d10bfaf3adeb`;
+  [vorab festgelegter Food-Vertrag](../original-economy/food-runtime.md).
+  Nur Rule10/Schema26/policy3 wechselt auf Revision18. Echte bezahlte
+  Farmhouse193-Körper3×3 und separat gekaufte Wheat195-/Millet196-Felder1×1
+  verwenden gebundene Modellkosten/-Employees. Maximal zwei Farms mit je
+  genau einem ausdrücklich zugeordneten Feld. Alte Farm-/Foodprofile bleiben
+  unverändert; kein Gratisfeld, Bestand, Bewohner oder Worker.
+- **Laufzeit:** getrennte zwei-Crop-Mengen, eigene reale Farm→Market- und
+  Market→House-Couriers, sechs begrenzte letzte Trips,26 begrenzte Konten.
+  `loaded-delivered-returned` ist sole Cargo; alte Food-/Cargo-/Residentfelder
+  bleiben0. Physische Reservation und Rückkehrraum, Pausen, begonnene Kante,
+  Roads, Fire, Workforce und gewöhnlicher Navigator bleiben verbindlich.
+  Pro Besitzer und Crop gilt exakt harvest+received+returned=stock+departed+consumed.
+- **Original und authored:** ausschließlich positive tatsächliche Hausankunft
+  mischt Qualität über den unveränderten Originalkern und akzeptierte Mengen.
+  Source-Scores Wheat20/Millet80 und deren volumenabhängige Mischung sind
+  ausdrücklich authored; ursprüngliche Scoreerzeugung/Diversität bleiben offen.
+  Food-Sink1 an denselben0/7-Grenzen, Wheat-first, Missed Demand und Leerung→
+  Qualität0 sind ebenfalls authored. HouseState ist die einzige Qualitätsauthority;
+  ein gespeicherter Arrival-Witness bindet vorherige Mengen, Qualität und echten
+  Transfer. Kein konstantes20 aus bloßem Stock und keine additive Behauptung
+  einer bei Originalrundung konservierten quality-times-volume-Masse.
+- **Modell und Bedürfnisse:** alle fünf Originalschwierigkeiten gegen die
+  unveränderte Modelldatei geprüft, inklusive tatsächlich berechneter
+  Farm-/Feldpreise und Farmworker. Historische sieben Modellzeilen bleiben
+  gleich.11 von16 Originalmodul-Dateien sind bytegleich; fünf eng geprüfte
+  additive Modell-/Mappingänderungen ergänzen ausschließlich zwei benannte
+  Feldzeilen und neue aktive Bindungen. Die reinen Blend-/Housing-/Warenformeln
+  bleiben exakt. Ein ausdrücklich synthetischer Foodbedarf80 prüft tatsächliche
+  Housezustände: leer falsch, reale Wheat20 falsch, reale Millet80 wahr,
+  tatsächliche Leerung wieder falsch; noch keine World-Evolution vor OE-21.
+- **Vollständige relevante Tests:** je53 CTests in Debug/Release/ASan+UBSan,
+  insgesamt **159 PASS**,0 Fehler/0 Skips, auf vollständiger Quelle
+  `b53edf2d3f505551ff8ba506f556f6a2768d1d986711c8655978a5c4db17e4c2`.
+  Zeiten194.866/11.478/81.612s. FoodSave verweigert230 Manipulationen; echte
+  gemischte20/80-Ankünfte, voller Empfänger/Teilmenge, Rückkehr, Missing Food,
+  Ursprung, Phase, Grenzen, Witness und gebundene Finanzfälschung sind geprüft.
+  20k-Direktreplay und zwei20k-Savefortsetzungen bleiben vollständig gleich.
+- **Warnungsabschluss und ehrliche Quellenbindung:** sieben mehrdeutige
+  Einrückungen in genau `OriginalProductionFixture.cpp` und
+  `OriginalFoodWorldTests.cpp` wurden ausschließlich mit Whitespace berichtigt.
+  Die frühere fehlende optionale Initialisierung war bereits vor b53 behoben;
+  erste Buildlogs enthielten noch diese alten Diagnosen. Nach dem Formatfix:
+  drei neue komplette43-Target-Builds ohne Warnungen und zusätzlich je ein
+  tatsächlicher FoodWorld-Test, also **3 weitere PASS**,10.156/0.917/4.359s.
+  Damit sind insgesamt162 tatsächlich ausgeführte Konfigurationsfälle bestanden.
+  Der private `format-only-binding/`-Nachweis vergleicht Clang-Tokens, Literale,
+  Kommentare und Präprozessorzeilen exakt und rekonstruiert das komplette
+  b53-Sourceinventar allein mit den beiden gesicherten Vorbildern. Kein Token,
+  Assert, Preis, Runtime-/Modell-/DTO-/CMakebyte geändert. Der tatsächliche
+  Release-Prozessfixture bleibt bytegleich mit SHA
+  `e967d33e3bd5ad4352bc2da322ec8d167cd4a59f16034e997c453b16db4402ad`.
+  Die159er-/Prozess-/SDL-/Legacy-Belege werden ausdrücklich als b53-Läufe
+  bewahrt und streng an diese Formatänderung gebunden, nicht umetikettiert.
+- **Tatsächliche Prozesse:**
+  `python3 tools/test_original_production.py .local/gog-extracted/app --build-dir .local/reswall/release-build --output .local/original-economy/oe18/production-fixtures/final-53`:
+  **PASS**, acht separate OS-Restarts mit je10000 Ticks, echtem bezahltem
+  Straßenbau und weiteren10000 Ticks. Ganze SaveDocuments, Rohbytes,
+  Provenance, Berichte und Bilanzen gleich. Separater Originalmodell-/authored
+  H/C1/1-/Foodpfad; Food zahlt12 Häuser,77 Straßen,zwei Farms,zwei Felder und
+  einen Markt:1363 ausgegeben/10637 Funds, anfangs0 Bewohner, später84 reguläre
+  Bewohner. Reale Lieferung: Wheat20,3W+1M→35 und reine Millet4→80 bei Haus5/
+  Tick2750. Straßenreparatur kostet weitere2 Funds. Kein Source-/Stategrant.
+  Report SHA `b025edf1e9d13d18c38d81f8ab3bbbdd2e57a563fda89fd80a44fb50a478be62`.
+  Unabhängiger Postreview prüft148 Artefakte/4316994 Bytes. Sechs tatsächliche
+  C++-/Python-Ausgabegrenzen verweigern Outside, echten Symlink und alten
+  OE-17-Root ohne Ausgabe;19 Pythonverträge PASS. Originalinventar1464 Dateien/
+  819711091 Bytes und Metadaten unverändert.
+- **Unabhängiger Rohdaten-Audit:**242831 Checks PASS,45 Schema26-Dokumente,
+  davon20 mit Foodfarms,40 aus gespeicherten Feldern rekonstruierte Foodreports
+  und acht direkte vollständige Restartsets. Cropmassen, Cargo, Quelle,
+  Ankunft, Clock, Funds und binäre32-Rundung unabhängig rekonstruiert.
+  `oe18/world/raw-food-audit.json` SHA
+  `d152cdb7d106aa88a83b32ced4c7c54b2bced234dbc20a445050c95ed071bce7`.
+  Rawbytes allein beweisen keine Prozessausführung; diese ist separat oben belegt.
+- **Parität und Legacy:** Debug/Release/Sanitizer je74/74 tatsächliche
+  Forkvergleiche, weiterhin46 parity/18 corrected_bug/6 unverified/4 unsupported;
+  21 aktuelle Archive,25 strikte Sanitizerprozesse stderrleer und28 Pythonverträge
+  PASS. Portable `core-parity.json` SHA
+  `52d1a54304d1b87cf1c6ac99c7474d2d9dc03d8ff000355c15e6ed868bef4444`.
+  Frischer vollständiger OE-00-Workflow **PASS** mit source_unchanged=true auf
+  b53:72 ganze Saves und72 Snapshots unabhängig wörtlich bytegleich,
+  167 Maps/165 vorbereitet/zwei bekannte Konflikte,1485 Policyfälle und elf
+  Rampen-/zehn Bridge-Restartpaare. Gesamter Vertragsdigest unverändert
+  `12823612834d27099189c18e31ed4fed4761c9ff34486227b3075cf1069a49e5`.
+  Zusätzlich Rule7 ein, Rule8 sechs und Rule9 zehn eingefrorene Save-Literale exakt.
+- **SDL und Grenzen:** tatsächliche Dummy-/Softwareaufnahme geöffnet und an
+  beobachtete JSON-/Save-Sidecars gebunden: Revision18/Tick1970/Funds10802,
+  synthetische Kapazität37,148 regulär eingewanderte Bewohner, ausgewähltes
+  Haus2 H2/C7/Food[1,0]/Qualität20. Bezahlte O/W/L-Tastatur-/Mausbefehle,
+  Food-Midcourier-F5/F9 und100 Idleframes ohne World-/Datei-/Asset-/BFSarbeit.
+  Dies ist positive Food-Ankunfts-/Qualitätspräsentation, keine vollständige
+  Originalgrafik-/native-/menschliche Abnahme. Native/human **NOT_RUN**;
+  Originalsprites und vollständige Objektkomposition bleiben Pflicht von OE-29.
+- **Erhaltene Fehlversuche:** erster anonymer Validator kollidierte beim Build
+  mit World::validate und wurde gezielt umbenannt. Der SDL-Test wartete zuerst
+  auf irgendein Food-Haus statt das nachfolgend ausgewählte dreifach versorgte
+  Haus; Wartebedingung wurde verschärft. Vier aktive ältere Tests erwarteten
+  noch den einzelnen Ceramics-Distributor bzw Revision17; nun prüfen sie die
+  beiden exakten bezahlten Rollen/Owner und Revision18. Erste Paritätsprüfung
+  startete vor Export des frischen Berichts. Alte FAIL-Logs/XML/Resultate und
+  die Einrückungswarnungen bleiben privat erhalten; kein Assertionabbau.
+- **Abschluss:** finale Quelle
+  `c3cfaf8b4f61ab06f689aa1e1aed9762d656638437428d8deb9c5e5513ada9b3`,
+ 37 Sourcepfade/43 gesamte Taskpfade. OE-18 technisch PASS; eigener Commit
+ folgt nach strikter Abschlussprüfung. Gate C und OE-19 bleiben bis dessen
+ tatsächlichem Start TODO. Danach unmittelbar OE-19, ohne manuellen Testhalt.
+
+
+### OE-19 – Start: gezielte medizinische Besuche
+
+- OE-18 nach11/11 Abschlussprüfungen als `144eec6` committed.
+- Vor Implementierung festgelegter [Service-Vertrag](../original-economy/services-runtime.md):
+  Revision19, zwei explizit bezahlte Provider, reale cargo-freie Ankunft, nur
+  passende96er-Timer und Countdown in Phase35 jedes51er-Passes.
+- Gate C bleibt TODO; keine Implementierungs-/Originalgrafik-/Endabnahme vorweggenommen.
+
+### OE-19 – implementierter Stand vor vollständiger Gate-Abnahme
+
+- Zwei bezahlte2×2-Provider207/208, getrennte reale cargo-freie Courierrollen,
+  exakte vorbereitete Preise/Employees, Round-Robin/Wait/Replan/Return und
+  Phase35-Verfall sind angeschlossen. HouseState bleibt alleinige Timerauthority;
+  typisierte Provider-/Trip-/Witness-Zeilen binden Herkunft und Restore.
+- Aktive Revision19 verweigert18/future20; alte1–9/1–25-Pfade bleiben gesondert.
+  Modell208 ist ausschließlich neue aktive Fähigkeit; historische siebenzeilige
+  Vorbereitung erhält keine zusätzliche Abhängigkeit. Pure ServiceRules,
+  GoodsRules und HouseEvolution bleiben unverändert.
+- Frühe Debug-Prüfungen:2 Modellfälle und medizinischer Savefall bestanden;
+  danach World- und echte SDL-Viewtests bestanden. Das sind Vorprüfungen,
+  keine Behauptung finaler Vollsuite. Der erste Worldtest-Build verwendete einen
+  nicht vorhandenen CourierState-Gleichheitsoperator; korrigiert auf vollständige
+  gespeicherte Couriervector-Gleichheit. Ein Sign-conversion-Warning im neuen
+  Mindestfahrzeitprodukt ist mit geprüftem explizitem Cast behoben. Fehlversuche
+  bleiben unter `.local/original-economy/oe19/first-debug-*` erhalten.
+- Unabhängiger Review ergänzte koordinierte Trip-/Witness-/Timer-Negative
+  gegen unmöglich kurze Ankünfte und kompaktierte Herkunft. Physischer
+  Mindestabstand bindet die tatsächliche5-Tick-Kantenzeit; keine Rekonstruktion
+  heutiger Straßen als angeblich historische Route.
+- Nun folgen frische vollständige Builds/Suites aller202 registrierten CTests
+  in Debug/Release/ASan+UBSan, neue3×74-Parityfälle, zwölf getrennte20k-
+  Prozessfortsetzungen, unabhängiger Rohdatenabgleich und kompletter
+  Legacy-/167-Kartenvertrag. Gate C bis zu deren tatsächlichem Abschluss TODO.
+  Originalart ist weiterhin für OE-29 offen; Softwaretests sind kein Human-PASS.
+
+- Der erste vollständige Buildversuch `gate-c/final-1` wurde in allen drei
+  Konfigurationen während des Builds abgebrochen, nachdem ein zweiter Review
+  eine echte fehlende Bewegungszeitbindung fand. Ein unabhängiger C++-Prozess
+  reproduzierte mit tatsächlicher letzter Outbound-Kante: manipulierte
+  Disposition wird geladen, der nächste Tick wirft. Beleg:
+  `oe19/restore-regression/before-fix.json` auf Quelle `d9f5b58`.
+  Neue notwendige Vertex-/Fortschrittsgrenzen für Outbound/Return/Idle und
+  zwölf Ablehnungswege plus drei positive nächsteTicks sind ergänzt. Der
+  ursprüngliche Freeze und alle drei unterbrochenen Logs bleiben erhalten;
+  daraus wird kein Build-/Test-PASS abgeleitet. Es folgt ein neuer kompletter
+  Versuch `final-2` nach frischen Fokusprüfungen.
+
+- `final-2` erreichte tatsächlich einen warnungsfreien vollständigen Debugbuild
+  und74/74 Debug-Paritätsfälle. Die geöffnete tatsächliche SDLaufnahme zeigte
+  jedoch eine neue Inspector-Verdrängung: wiederholte Herkunftstexte der
+  Medizinzeilen versteckten die bisherigen Food-Details. Release/Sanitizer
+  wurden deshalb noch während des Builds gestoppt; keine Vollsuite behauptet.
+  Der ausschließlich aktive Inspector ist nun kompakt. Frischer Viewbuild und
+  echte Bedienprüfung bestanden; die erneut geöffnete Aufnahme zeigt H/C,
+  beide getrennten Timer und Food/Qualität/Crops gleichzeitig. Beobachtungs-
+  und vollständige SaveDocumentbytes vor/nach diesem Präsentationsfix sind
+  exakt gleich. Alle früheren Artefakte bleiben getrennt erhalten. Nun folgt
+  vollständig `final-3`; ältere Durchläufe werden nicht umetikettiert.
+
+### OE-19 – tatsächlicher Abschluss und Gate C
+
+- Finale Quelle `6d38de1170b5b1b473e9540c142dbaf021d53ef40b818e5cfdcdd822701700ef`:
+  30 geänderte Sourcepfade, insgesamt35 Taskpfade einschließlich Dokumentation
+  und Paritätsexport. Der tatsächliche Abschluss-Preflight besteht13/13 Checks.
+  Belege unter `.local/original-economy/oe19/implementation/`.
+- **Vollständige Gate-Suites:** drei frische, warnungsfreie Cleanbuilds mit
+  Werror; danach ohne Filter je **202/202 CTests PASS** in Debug, Release und
+  ASan/UBSan. Insgesamt606 Testausführungen, keine Fehler, Timeouts oder
+  übersprungenen Fälle. Tatsächliche Laufzeiten1811.29s/130.85s/505.06s.
+  Alle aufgezeichneten Executables und Archive nach dem Lauf unverändert;
+  strikte Sanitizerflags, keine Sanitizerdiagnostik. Ergebnisse/JUnit/Logs:
+  `oe19/gate-c/final-3/{debug,release,sanitizer}/`.
+- **Ankunft und Restore:** bezahlte2×2-Provider207/208 kosten30/50 und
+  benötigen7/8 tatsächliche Worker aus dem gebundenen Modell. Reale Ankunft
+  setzt nur die passende Kategorie auf96; alle16 Phase35-Schritte,
+  gleichzeitiges96→95, Verfall, Wiederbesuch, Pause/Brand, Roadcut/Repair und
+ 20k-Replay sind geprüft. Bewegungszeit, letzte Disposition, Ziel, tatsächliche
+  Ankunft und kompaktierte Herkunft bleiben strikt gebunden. Alte1200er-Service-
+  und2400er-Healthfelder bleiben0; keine Waren durch medizinische Besucher.
+- **Tatsächliche Prozesse:**12 getrennte OS-Fortsetzungen mit je10000 Ticks,
+  bezahlter Straße und weiteren10000 Ticks; ganze SaveDocuments, Rohbytes und
+  Berichte stimmen überein. Der Workflow erfasst23 reale Kindprozesse.
+ 12 Häuser/77 Straßen/zwei Foodfarmen/zwei Felder/Market/207/208 kosten1443;
+ 10557 Funds bleiben, anfangs0 Bewohner, später84 reguläre Einwohner für63
+  benötigte Worker. Sechs tatsächliche C++-/Python-Ausgabegrenzen verweigern
+  Outside, Symlink und alten OE-18-Ausgabeordner ohne Ausgabe.
+  Prozessbericht SHA `a5b7a2eada1be76234f24be0373c50440db44522b0065ab78bced605b367f3a9`.
+- **Unabhängige Rohdaten:**457858 Checks PASS über65 Schema26-Dokumente,
+ 60 rekonstruierte Services-/Food-/SixGoods-Berichte und zwölf Restartsets.
+ 194 Dateien/6537447 Bytes unverändert; eigener Prozessreview bindet die
+  tatsächlichen PIDs/Kommandos/Logs. Raw-Audit SHA
+  `bec0e32b220e1d70ef0c83e223a5715dc202fe9ece6e66e7902c8a0fcdd784f8`.
+  Der vorherige private Auditfehler durch die historische siebenzeilige
+  Rule7-Modellkopie bleibt erhalten; diese wird jetzt gesondert an ihre
+  eingefrorenen Bytes gebunden, niemals als aktives Produktionsmodell gelesen.
+- **Parität:** je74/74 tatsächliche Vergleiche in drei Konfigurationen,
+  weiterhin46 parity/18 corrected_bug/6 unverified/4 unsupported;24 aktuelle
+  Archive,25 strikte Sanitizerprozesse ohne stderr und28 Pythonverträge PASS.
+  Exportierte `core-parity.json` SHA
+  `16d88d55ef366d2c48187d090f8d05b960d4e1f41410c38936f7b415b96a176e`.
+- **Legacy:** frischer kompletter OE-00-Vergleich PASS:72 ganze Saves und72
+  Snapshots wörtlich bytegleich,167 Maps/165 vorbereitet/zwei bekannte
+  Konflikte,1485 Policyfälle sowie elf Rampen-/zehn Bridge-Neustartpaare.
+  Zusätzlich die eingefrorenen Rule7-/8-/9-Literale exakt. Quelle und gesamte
+  Originalinstallation mit1464 Dateien/819711091 Bytes samt Metadaten gleich.
+  Der separate historische Releasebaum verwendet unveränderte Warnungsregeln:
+  genau eine bekannte Switchwarnung der gesperrten
+  `tools/CityV16PlaythroughFixture.cpp:25`, deren Quelle bytegleich bleibt.
+  Der vorherige Werror-Fehllauf bleibt separat erhalten; dieser Legacybaum
+  wird ausdrücklich nicht als warnungsfrei bezeichnet.
+- **Prüferkorrekturen:** die tatsächlichen zwölf Build-/Testmanifeste binden
+  exakt517 Code-/Datendateien, normalisierter SHA
+  `cf0a7730279650932ecebeecb6a61337ff8f8f7bde5dcd9a0d4f83456368b2e3`.
+  Der rekursive520-Dateien-Pin enthält zusätzlich drei ignorierte Finderdateien;
+  deren frühere Einzelaufnahme wird nicht behauptet. Der konfigurierte externe
+  Pythoninterpreter wird separat über Configure-Argument, Inventar, erfassten
+  Testcache und Build/Test/Livehash gebunden. Alle übrigen Binaries/Archive
+  bleiben strikt im Buildroot. Beide ursprünglichen privaten Auditorversionen
+  und FAIL-Berichte bleiben erhalten; keine Tests, Quellen oder Ergebnisse
+  wurden dafür geändert.
+- **Darstellung:** echte SDL-Dummy-/Softwareaufnahme1100×700 erzeugt und
+  geöffnet. BeiTick2649/Funds10722 zeigt dasselbe Haus3 Hemp3, Ceramics7,
+  Food[3,1]/Qualität35 sowie Herbalist96/Acupuncture96 gleichzeitig lesbar.
+  Synthetische Kapazität37 und148 regulär Zugezogene sind ausdrücklich
+  authored, kein Originalmodell-Playthrough.100 Idleframes ohne Worldänderung
+  oder Command-/Tick-/BFS-/Datei-/Assetarbeit. Originalsprites und vollständige
+  Objektkomposition bleiben OE-29; native/human **NOT_RUN**.
+- OE-19 und Gate C technisch PASS. Eigener Commit folgt nach der finalen
+  Status-/Diffprüfung; danach direkt OE-20 ohne manuellen Testhalt.
+
+
+### OE-20 – tatsächlicher Abschluss am2026-10-17
+
+- Eigener bezahlter2×2-Schrein214, Modellpreis/-Workers Normal40/4 und genau
+  ein eigener cargo-freier Courier. Erst tatsächliche DirectReligion-Ankunft
+  setzt Ancestor40; Phase35 kann im selben Tick39 daraus machen. Kein Visit
+  durch Kauf, Disposition, Return, Idle oder Rendering.6/6/60 bleibt geschlossen;
+  Quelle/Pause/Brand, Zielbrand, Disconnect/Wait/Repair und vollständiger
+  Verfall/Wiederbesuch sind tatsächlich geprüft. Ein voller bezahlter46-Körper-/
+  26-Actor-Zustand erlaubt weiter normale Straßenreparatur und verweigert
+  zusätzliche Quellen atomar. Strikte Revision20 verweigert19/future21.
+- **Drei inkrementelle Werror-Builds** und danach dieselben **123/123 CTests je
+  Debug/Release/ASan+UBSan PASS**, insgesamt369 Ausführungen ohne Skip/Fehler.
+  Frisches Inventar204, explizite123er-Auswahl; keine vollständige Gate-D-Suite.
+  Testzeiten235.99/33.94/118.66s. Exakte Configure-/Build-/CTestkommandos,
+  JUnit, Source-/Original-/Binary-/Archivbindungen stehen unter
+  `.local/original-economy/oe20/implementation/runs/final3/`.
+- **3×74 Kernvergleiche PASS**,24 tatsächliche Archivbindungen,25 einmalig
+  ausgeführte strikte Sanitizer-Proben ohne stderr und28 Pythonverträge PASS.
+  Nach dem exakten Export wurden die25 Proben nur noch read-only gebunden.
+  Der portable Bericht hat SHA
+  `16c96b2b932280b6644d61f9c1921121a8e89956f90c2a0b059eb5090e9390da`.
+  Elf bisherige Numerikdateien bleiben bytegleich; Modell-/Mappingänderungen
+  beschränken sich auf die aktive214-Erweiterung.
+- **18 tatsächliche20k-Prozessfortsetzungen** mit den bisherigen zwölf und
+  sechs neuen Ancestor-Checkpoints, darunter Midroute, Straßenbruch, Visit,
+  vor/nach Ablauf und Wiederbesuch.30 echte C++-Kinder mit Exit0 umfassen
+ 18 Produktions- und vier zusätzliche Legacy-Restarts. Unabhängiger Review
+  prüft36 ganze Save-/Reportpaare und262 Dateien. Der zusätzliche Raw-Audit
+  rekonstruiert95 Schema26-Dokumente und90 Berichte mit723601 Prüfungen;
+ 262 Inputdateien/9711020 Bytes bleiben exakt. Anfang1483/10517 und bezahlte
+  Reparatur1485/10515 sind ohne Waren-/Worker-/Timerinjektion erhalten.
+  ProzessreportSHA `6da17d642ee2b0cc351235c9379283f7f0546594e955445eb732ea2873e9843f`;
+  RawSHA `fee5109fb95cab5d294acb641f0b7af0d57ef88f05302eb8a1915ee33eab58bc`.
+- **Tatsächlich geöffnete SDL-Aufnahme:** Tick2774, Funds10682,148 Bewohner
+  im ausdrücklich synthetischen37er-Kapazitätsmodell. Dasselbe Haus zeigt
+  Ceramics5/Hemp1/Food[1,3]/Qualität65/Herbalist96/Acupuncture95/Ancestor39.
+  Alle Werte und Food-Fehlversuche5 bleiben im Standardinspector sichtbar.
+  Echte Y-/Mauskäufe, Helpmodal, Midroute-F5/F9 und100 ruhende Frames ohne
+  Worldänderung oder Datei-/Asset-/BFS-Arbeit PASS. Aufnahme und Manifest:
+  `oe20/implementation/{view-final/,production-view-final.json}`.
+  Das ist Software-SDL/diagnostische Darstellung, keine Originalsprite- oder
+  native/human-Abnahme. Die Originalkörper/Walker bleiben OE-29 zugeordnet.
+- **Frischer Legacyvollvergleich PASS:**72 vollständige Savebytes und72
+  Snapshots,167/165/2 Karten,1485 vollständige Policies sowie11 Rampen- und
+ 10 Bridge-Restartpaare. Alle1464 Originaldateien/819711091 Bytes einschließlich
+  Mode/mtime unverändert. LiteralvertragSHA
+  `1407fdf01945e85e62e92b231d84e0224f0804cc7a9a2d914d4e344e89d6da03`.
+  Der getrennte historische Releasebaum behält WerrorOFF und genau eine
+  bekannte Switchwarnung im unveränderten gesperrten Playthrough-Fixture;
+  kein Warnungsfreiheitsclaim dafür. Die drei aktuellen Produktbuilds sind
+  dagegen mit Werror warnungsfrei. Sechs frische Ausgabe-/Symlink-/Altroot-
+  Schutzprüfungen PASS ohne Output oder Originaländerung.
+- Erhaltene negative Versuche: erster Build scheitert am signed/unsigned-
+  Vergleich des neuen Kapazitätstests; der explizite Cast ändert keine Assertion.
+  Die erste geöffnete Aufnahme zeigt umgebrochene Medizinwerte und verdrängte
+  Food-Fehlversuche; kompakte Namen und echter Inspectorregressionstest beheben
+  dies. Ein privater Workflowwrapper zählt zuerst alle22 Resumes statt der18
+  Produktionsresumes. Sein FAIL/Exit1 bleibt bytegenau erhalten; ein separater
+  unabhängiger Korrekturaudit bindet die18 Produktions- plus vier Legacy-
+  Resumes an dieselben30 tatsächlichen PIDs/Logs. Keine Spielergebnisse oder
+  fehlgeschlagenen Berichte wurden umgeschrieben.
+- Finale Quelle `da8cdc585c6e72ff25fb0a52c21f50aab88d4333335734a87532391e73bba7c1`,
+  FreezeSHA `86dbffb866a5af80554104a8b341c40eafadd3b4a20455d56a39b2596418946c`.
+  Tatsächliche unabhängige Vorprüfung **8/8 PASS** vor Statusänderung.
+  OE-20 erhält seinen eigenen Commit; danach folgt OE-21 direkt. Gate D bleibt
+  bis OE-27 offen, menschliche Abnahme bleibt NOT_RUN.
+
+
+### OE-21 – tatsächlicher Abschluss am2026-10-17
+
+- Vorheriger eigener Commit: OE-20 `825fd2c65d90c9139e283f2bf3e191bb5feb4e39`.
+  [Vorvertrag](../original-economy/housing-runtime.md) vor Implementierung;
+  ausdrücklich Rule10/Schema26/policy3, Revision21 statt20, keine Migration.
+- Eigene bezahlte Well72 (Normal25/4), normaler realer96er-Wasserbesuch,
+  Phase28-Materialisierung/Phase35-Verfall; alte Influence60 bleibt ohne Wasser.
+  Gemeinsame Routen, echter Actor und eigene Herkunftsbelege, keine Aura.
+- Produktive Phase39 führt den unveränderten puren Evolutionskern vor dem
+  Verbrauch0/7 aus. Frühe authored Grenze Plain Cottage, zwei permanente
+  erste Aufstiegsinputs, historische Bedarfssinks je drei Modellzeilen und
+  globaler Ursprung entfernter neutraler Quellen. Keine erfundene Eviction.
+- Echte Originalmodell-Szene: fünf Häuser/24 Straßen/Food/Wheat/Market/Well/
+  Ancestor kosten708 (Funds11292), initial0 Bewohner und0 Waren. Wirkliche
+  Wasserankunft Tick170; Hut193 mit4 Bewohnern; Plain346 mit12; Counter9 bei856;
+  zehnte verfehlte Auswertung907 macht Hut bei weiterhin22 Bewohnern. Die
+  vollständige bezahlte Goods/Food/Medizin/Ancestor/Water-Szene kostet1948
+  (Funds10052), erreicht deren gemeinsame tatsächliche Ankünfte plus Plain729.
+  Modellbytes bleiben SHA `7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6`.
+- Gegenproben: alte Influence60/kein Wasser, kein Ancestor, kein Food/Quality,
+  unzugänglicher Market sowie ausdrücklich authored HempNeed1/DesHigh99.
+  Original-Plain hat keinen Hemp-/Ceramicsbedarf; keine falsche Negativbehauptung.
+- Drei warnungsfreie inkrementelle Werror-Builds, je47 relevante registrierte
+  CTests in Debug/Release/ASan+UBSan:141 PASS,0 FAIL/Skip. Tatsächliche CTestzeit
+  74.89/7.65/41.05s. Kein Cleanbuild-/voller Gate-D-Claim.
+  Quelle529 rekursive Dateien inkl drei Finderdateien:
+  `b3cd644b904835e6e5b04fbe412d1c45aa01af815d0ecc6471e8b2176eaf1d08`.
+  FreezeSHA `e648143b0dbc234c3183437808c7c0a3946c6f9445387b895344f618a8e0f912`.
+  Unabhängiger141-JUnit/118-Livebinary/39-Archiv-Check:
+  `b279bf983f5cede3666db717cf9c9d3474173187add364292703e45ad06de5cc`.
+- Drei tatsächliche74er-Paritätsvergleiche,24 Archivbindungen,25 strikte
+  San-Probeaufrufe und28 Python-Paritätsprüfungen bestanden.15 reine Dateien
+  bytegleich; einzige numerische Modulergänzung ist der explizite Water-Well-
+  Mappingfall, keine Änderung einer Regelformel. Portabler Export:
+  `2226e812eff5558c47f0568a7f3ccaa7657bd07b37d01f7bb491343a23aecd65`.
+- Tatsächlich37 C++-Kindprozesse: sechs Creates,24 Production-Fortsetzungen
+  je20k und sieben Legacy-Kinder (vier davon Fortsetzungen).48 vollständige
+  Save-/Report-Paarsets gleich;125 Schema26-Dokumente/120 Raw-Projektionen,
+ 17 alte Save-/16 Report-Literalpaare und334 Dateien unabhängig neu gelesen,
+ 1.374.023 Prüfungen. Originale/Workspace/Source/Binaries vor/nach unverändert.
+  ProzessreportSHA `cd675c0145e875999151e8d2f772773af63d02a833a01fbcf70c32f130ab54ba`;
+  Workflow `167a9eeb981befaf3d5249af0d599a1f7d315fd1b6a50afcc991a572f661e094`;
+  unabhängiger Reader `cd03e84975bf48f09beaa833d095a2bff8d8af4f238d553a9774d8206f055dd1`.
+- Sechs tatsächliche C++/Python-Ausgabepfadverweigerungen vor jedem Schreiben
+  bestanden. Getrennter spielbarer Launcher gebaut, `sh -n` PASS; Standardziel
+  korrigiert auf eigenen `rule10-revision21.json` statt des alten18er-Pfads.
+- Tatsächlich geöffnete Software-SDL-Aufnahme: Typ5/Wasser1/Raw94/Counter0,
+  H1/C8, Quality65, Medizin96/95, Ancestor35 und Foodmiss5 zusammen sichtbar;
+  Q-Kauf/Maus/Modalgate, echte F5/F9-Midtrips und100 ruhende Frames geprüft.
+  Aktuelles Binary bytegleich dem aufgenommenen; synthetisches Modell,
+  kein Originalsprite-/native-/human-PASS. VisualReviewSHA
+  `9f63e3caae9a2dd5e848987c4842eb4b3ebb87b1f3fc8000b16d8d719b66f0d6`.
+- Erhaltene FAILs führten zu echten Korrekturen: Water-Fixture-Fieldindex,
+  aktiver Pausen-Syntaxadapter, exakte Evolution-vor-Verbrauch-Tests sowie
+  tatsächlich fehlende historische Populationsparität. Ungerade Bewohner
+  brauchen eine erreichbare frühere ungerade Kapazität; Shelter6→3 bleibt
+  verweigert, echtes Shelter7→Hut14 erlaubt später9/11/13. Alte positive
+  Revisionsliterale20 im Harness wurden auf21 korrigiert, Preise und volle
+  House-/Sinkvergleiche nicht gelockert. Beide gescheiterten Prozessläufe
+  bleiben mit2 bzw5 tatsächlichen Creates/0 Resumes erhalten.
+- Final3-Paritäts-Prepare verweigerte einen schon vorhandenen bytegleichen
+  Kandidaten nach25 echten Probes; ursprünglicher FAIL und unabhängiger
+  Recovery-Audit bleiben. Final4-Prepare/Export/Postcheck bestehen frisch.
+  Ein erster privater Abschlussaufruf hatte nur einen relativen Pfadfehler;
+  der vollständige korrigierte Abschlussprüfer wurde tatsächlich ausgeführt.
+  FinalvalidierungSHA `fe732bafa2d98911b4aa567279c8786582d9dd101c4ecacac8a0a1f14a11bf78`.
+- Kein Wartepunkt für manuelle Tests. Nach eigenem OE-21-Commit folgt OE-22;
+  Originalobjektgrafiken/Actors folgen weiterhin den Aufgaben26/29, voller
+  Cleanbuild-/Corpus-Gate D erst nach27.
+
+
+### OE-22 – 2026-10-17, Basis d0dae283
+
+- Vor Beginn sauberer Feature-Branch/HEAD und tatsächliche Remote-Refs geprüft:
+  main41091b66e960b4c82c378d5ae3b83088325f5a61,
+  origin-feature887dda562622d59487a92b8966b62b218cb59ce3. OE-21-SHA oben
+  nachgetragen. Vor Runtime-Anschluss festgelegter
+  [Religionsvertrag](../original-economy/religion-runtime.md).
+- Read-only-Quellenprüfung: Originalmodell/EXE und sieben gebundene Quellen
+  unverändert.129 enge Assertions/29 Disassemblyfenster/1326Instruktionen/
+  3979Byte tatsächlich PASS. Bericht `oe22/research/religion-source-facts.json`,
+  SHA c87f2f43dcd34931ff70447b5fb170eeda12448cbdde5235b3fa63b0fe074fba.
+  [Neue Reverse-Dokumentation](../reverse/original-religion-source-contract.md)
+  belegt215/21745/4/2×2 und21980/12/3×3, getrennte40er-Timer sowie zusätzlich
+  originales initiales Confucian-Elite-Gate und echten Wood/Paper-Input.
+  Der frühe Adapter bleibt an beiden219-Grenzen ausdrücklich authored; keine
+  Gratisressource und keine volle Original-Lifecycle-Paritätsbehauptung.
+- Aktive Revision22,52Körper/32Courier,12Provider/12Trips/120Witnesses.
+  Historische46/26 unverändert. Sechs feste Housing-Witnessslots0/1/5/6/7/8;
+  echte3×3-Grundfläche auch für historische Mindestfahrzeit und Begun-edge-
+  Plausibilität. Neue U/K/V-Werkzeuge ersetzen inaktive Overlays; Q/Y bleiben
+  Wasser/Ancestor. Spielstart `sh tools/play_original_economy.sh` nutzt eigenes
+  `rule10-revision22.json`. Keine alten Save- oder Regelversionen umgedeutet.
+- Frühe Debug-World-/Model- und Housing-/SDL-Prüfungen bestanden. Ein neuer
+  Testfall hatte sein Food-Feld innerhalb der3×3-Farm platziert; exakt auf
+  angrenzendes x+3 korrigiert, anschließender SaveTest PASS. Erste Hilfe-
+  Arraygröße15 statt16 und ein Build vor CMake-Regeneration korrigiert;
+  ursprüngliche Logs bleiben `oe22/early-*.log` erhalten.
+- Früher echter C++-Create-PID7253 PASS; separater Pythonreader fand seine
+  falsche Annahme43Worker nach bewusstem Pausieren. Korrigiert auf echte
+  midroute43/visited23 und separate tatsächliche Water/Food20/Ancestor-
+  Voraussetzungen bei Kategorie-Negativen. Frischer PID7482/27.268s und
+  separater Reader beide PASS: sechs Checkpoints/18 Saves/18 Projektionen.
+  `oe22/world/early-religion{1,2}-*.json`; ursprünglicher FAIL bleibt erhalten.
+- Erste vollständige Auswahl: Debug/Release/Sanitizer jeweils49/50 PASS,
+  jeweils nur `original-ancestor-world` FAIL. Der alte Test erwartete bei46/26
+  einen Baustopp, obwohl Revision22 ausdrücklich52/32 erlaubt. Er behält nun
+  46/26 als positiven bezahlten Zwischenstand, kauft sechs reale neue Quellen
+  für340 nach und verlangt bei53.Körper exakte Kapazitätsbegründung plus
+  unveränderten vollständigen Snapshot/Cache. Keine Runtimeänderung dafür.
+  Alle drei originalen FAIL-JUnits stehen `oe22/implementation/runs/final/`.
+- Finaler Sourcefreeze531Dateien:93a3b5d965a8aa8ece6810a12a8f4f9e469f62852f9553b60334728b36092e1a;
+  `oe22/validation2/source-freeze.json`, SHA
+  c24f7dc754b9b8342fe3c08ffe19336c85eed0aee865947690bf4b072dd811c2.
+  Gegen vorigen Stand ist ausschließlich der genannte Kapazitätstest anders.
+  **Drei warnungsfreie inkrementelle Werror-Builds und3×50 tatsächliche CTests
+  PASS**,0Fail/Skip. Keine Cleanbuild- oder vorgezogene Gate-D-Behauptung.
+  Tatsächliche Befehle/JUnits/Zeiten/Inventare unter
+  `oe22/validation2/runs/final2/{debug,release,sanitizer}/{build,test}/`.
+  Unabhängiger JUnit-/124Livebinary-/39Archive-Abgleich PASS.
+- Frische3×74 Paritätsfälle,24 Archivebindungen,25 strenge Sanitizer-Prozesse
+  mit leeren Fehlerstreams und28 Python-Postexporttests PASS. Alle alten
+  numerischen Beobachtungen/Klassifikationen exakt. Elf von16 Originaldateien
+  bytegleich; fünf exakt additive aktive Model-/Namens-/Mappingerweiterungen,
+  sechs geprüfte ABI-Pins. Portable `core-parity.json` SHA
+  bcb3ca58e90e88b0581d16a74292fbfdcb76f53a344bce9420db28d2a702c98f.
+- Tatsächlicher finaler Prozessworkflow: **44 unterschiedliche C++-PIDs**,
+  sieben aktive Creates,30 aktive separate20k-Fortsetzungen, drei historische
+  Creates/vier historische Resumes. Keine25/34/44-Verwechslung als aktive
+  Replayzahl. Source/Originalinventar/Workspace/Binaries vor/nach unverändert.
+  Acht Häuser/24Roads/sieben Quellen bezahlen1003; drei neue Quellen allein170
+  und20Worker. Alle Quellen gemeinsam43Worker; nach drei Pausen tatsächlich23.
+  Sichere Roadreparatur kostet weitere2. Dao-only/Budd-only/neither/noConf
+  verwenden exakt nur zwei geänderte Plain-Bedarfsfelder in Modellkopien;
+  die Wege und Ankünfte bleiben real. Authorisierte Wasserbarriere bleibt
+  tatsächlicher unveränderlicher MapPermissions-Blocker, kein Originalmap-PASS.
+- Unabhängiger Rawreader PASS:1.894.137Checks,60 vollständige Save-/Reportpaare
+  byte-/JSONgleich,155Schema26-Dokumente/150 Rohprojektionen; alte7/8/9 mit17
+  Save- und16Report-Literalpaaren exakt.410Dateien/28.087.645Byte gebunden.
+  Privat kopierter Run-ID-Reader hatte irrtümlich auch einen Rohdatenkey und
+  historischen Referenzpfad umbenannt; genau diese Literale zurückgesetzt,
+  ursprünglicher Reader-FAIL und Code archiviert. Kein Produktionsartefakt
+  und kein Source verändert. Bericht `oe22/validation2/final2-runner-review.json`.
+- Sechs tatsächliche C++-/Python-CLI-Refusals für äußeren Pfad, Symlink und
+  alten21er-Ausgabebereich PASS, keinerlei Original-/Zieländerung.
+  Finale Software-SDL-Aufnahme tatsächlich geöffnet:2992Ticks, synthetisches
+  Modell, Typ5,37 regulär zugelassene Bewohner, sechs getrennte Timer,
+  Water1/raw94, Food3/8/Quality65 und Foodmisses5 gemeinsam sichtbar.
+  Echte Tastatur-/Mauskäufe, Mid-Walker-F5/F9 und100Idleframes ohne
+  World-/Datei-/BFS-/Assetarbeit bestehen. Unveränderte UI-Code-/Binarybytes
+  binden diese Aufnahme auch an final2; nur Kapazitätstest änderte sich.
+  `oe22/implementation/view-final/` und
+  `oe22/validation2/presentation-capture-binding.json`.
+- Root-Abschlussprüfung `oe22/validation2/final-validation.json` PASS,
+  SHA2904bfad9ff033574be2d3ce921dfefd2a52a65c7af0391be57f57ead54e210d.
+  Gate D bleibt bis27 offen, Originalsprites bis29 und Native/Human getrennt.
+  Voller167er-Corpus wurde hier nicht erneut als neu ausgeführt ausgegeben;
+  aktueller begrenzter Legacybeleg ist obige Auswahl plus Literalprozesspaare.
+  Eigenständiger22er-Commit, danach unmittelbar23 ohne manuellen Testhalt.
+
+
+### OE-23 – 2026-10-17, Basis1e7e271
+
+- Vorabvertrag: [culture-runtime.md](../original-economy/culture-runtime.md),
+  Quellenbefund: [original-culture-source-contract.md](../reverse/original-culture-source-contract.md).
+  Bezahlte Music211/Acrobat212/Drama213 mit2×2/3×3/3×3 und echten Modellpreisen,
+  Employees, privaten Zielrotationen und getrennten96er-DirectService-Ankünften.
+  Die originale Schule→Venue-/Performer-Ausbildung wird nicht behauptet;
+  gezielte Schulbesuche sind in UI/Report als experimentell gekennzeichnet.
+- Aktive Revision23:58Bodies/38Courier,18Provider/18Trips/180Witnesses.
+  Neun historische Slots bewahren das alte Präfix0/1/5/6/7/8 und hängen2/3/4 an.
+  Veröffentlichte Regeln/Schemas und alte46/26-Grenzen bleiben erhalten.
+  Reine Availability-Diagnose trennt vorhandene, tatsächlich beschäftigte,
+  bereits erreichbar vorbereitete Quellen, aktuelle Hinfahrt und wirklichen
+  House-Timer/letzte Ankunft; keine Zukunftszusage, Mutation oder BFS.
+- Review fand fehlende Fire-Registrierung bei Kultur und den drei zuvor
+  ergänzten Religionstypen. Alle sechs sind nun im unveränderten Brandpfad.
+  Echte Quellen-/Zielbrände, laufende Tour, Dispatchsperre und Restore wurden
+  tatsächlich geprüft; dies ist kein rückwirkender Revision22-Nachweis.
+- Frühe4Debugtests PASS. Früher C++-Aufruf ohne authored Influence.map wurde
+  vor Checkpoint abgewiesen; neue private Datenkopie enthält nur originale
+  Modellbytes plus authored Map. PID29278/68.276s lieferte echten Kultur-PASS.
+  Dessen erster Pythoncheck verlangte irrtümlich aktuellen Food20 nach dem
+  Aufstieg397; der belegte Input war Food20, danach verbrauchte derselbe Tick
+  die letzte Nahrung. Historischer Input und exakter wheat-first-Sink sind
+  jetzt getrennt streng geprüft. Negative Kontrollen behalten echte Food20.
+  Ursprüngliche FAILs und unveränderte echte Artefakte bleiben privat erhalten.
+- UI-Frühprüfung fand umbrochene Diagnoseworte; kurze vollständige Zeilen
+  halten alle neun Timer, Foodquality/Wheat/Millet und Foodmisses sichtbar.
+  Doppelte Bauzähler wurden in den tatsächlich geöffneten Bildern korrigiert.
+  Externe SDL-Umgebungsvariablen hatten zuvor die eigenen Hints übersteuert;
+  der echte Software-SDL-Test läuft mit seinen vorgesehenen eigenen Hints.
+- Finaler Sourcefreeze533Dateien:
+  daaf02b0b2bae7a9fa174f1781e9d54affa63f3c25f4ed4e93523b9081a21d28;
+  `oe23/validation/source-freeze.json` SHA
+  baa706b1d2a451eb8a5d32c2f02a6db5a0e50ed877a0ea224177de155f8f92d4.
+  Drei warnungsfreie inkrementelle Werror-Builds, **3×53 CTests PASS**,0Fail/Skip.
+  Debug150.745s, Release14.675s, Sanitizer68.600s. Unabhängig130Livebinary-
+  und39Archivepfade gebunden. Keine Cleanbuild-/Gate-D-Behauptung.
+- Frische3×74 Paritätsfälle,24 Archivebindungen,25 strenge Sanitizeraufrufe
+  und28 Python-Postexporttests PASS. Alte Beobachtungen/Klassifikationen exakt;
+  elf Originaldateien bytegleich, fünf exakt begrenzte aktive Modellergänzungen,
+  sechs verifizierte ABI-Pins. `core-parity.json` SHA
+  cd335d3de7a962982a432a640b4b171f04dcae4dc17047d35c3441fa9f530722.
+- Tatsächlicher Workflow:51 unterschiedliche C++-PIDs =8 aktive Creates,
+  **36 aktive separate20k-Resumes**,3 historische Creates und4 historische
+  Resumes. Hauptszene kauft10Häuser/44Roads/alle neun Services/Water für1383;
+  70 echte Shelterworker vor Dispatch,43 nach Pausieren der drei Schulen.
+  Reparatur kostet2. Need1-Kopien ändern jeweils exakt ein Plain-Feld5/6/7.
+  Kein Stock-/Worker-/Snapshotgrant. Vollständige Source-/Original-/Workspace-
+  und Binärinventare während der tatsächlichen Ausführung unverändert.
+- Unabhängiger Reader PASS:3.434.555Checks,72 ganze Save-/Reportpaare exakt,
+  185Schema26-Saves/180 Rohprojektionen,17 alteSave-/16 alteReport-Literalpaare;
+  484Dateien/46.574.517Byte gebunden. Zusätzlicher adversarialer Reportcheck
+  bindet Status/Access exakt an den Save und verweigert drei koordinierte
+  Falschmeldungen, während20 reale Availability-Szenen/3Rawpaare gültig bleiben.
+  Sechs echte C++-/Python-CLI-Refusals für Außenpfad/Symlink/alten22er-Bereich PASS.
+- Finale Release-Software-SDL-Aufnahme tatsächlich geöffnet:3082Ticks,
+  synthetisches Modell,148 regulär zugezogene Bewohner, ausgewähltes Typ5-Haus
+  mit37Bewohnern, allen neun echten Timern, Water1/Raw92, Food3/8/Quality65,
+  Hemp1/Ceramics8 undFoodmisses5. Echte Maus-/Tastaturkäufe, F3-/Help-Gates,
+  Mid-Walker-F5/F9 und100Idleframes ohne World-/BFS-/Datei-/Assetarbeit PASS.
+  Bild, Beobachtungs-JSON, Save, tatsächlicher PID38906 und finaler Binaryhash
+  unter `oe23/validation/view/` gebunden. Kein Originalgrafik-/Native-/Human-PASS.
+- Root-Abschluss `oe23/validation/final-validation.json` PASS, SHA
+  c67a6d655a29af764ac49a869381d8cfe4fbe3225c86282d9b6c23c396245c98.
+  Statische Quellenprüfung bleibt ausdrücklich PASS_BOUNDED_STATIC_RESEARCH;
+  kein Original-EXE-Lauf. Gate D folgt27, Originalsprites29, vollständiger
+  Original167er-Corpus hier nicht erneut ausgeführt. Nach eigenem23er-Commit
+  unmittelbar OE-24, ohne manuellen Testhalt.
+
+
+### OE-24 – 2026-10-17, Basis95967ce
+
+- Vorabvertrag: [luxury-runtime.md](../original-economy/luxury-runtime.md),
+  Originalquellen: [original-luxury-source-contract.md](../reverse/original-luxury-source-contract.md).
+  Neun separat bezahlte Producer und drei passende bezahlte Pflanzen verwenden
+  echte vorbereitete Modellkosten/Employees. Tea, Silk, Bronzeware und
+  Lacquerware erreichen über tatsächliche Carts, Warehouse und Market das Haus
+  und dessen Verbrauch. Fünf Auxmaterialien bleiben getrennt von den sechs
+  Hauswaren; Clay und Hemp behalten jeweils ihre vorhandene Mengenauthority.
+- Aktive Revision24 erweitert auf82Bodies/58Courier; alte Regeln1–9,
+  Schemas1–25 und deren46/26-Grenzen bleiben erhalten. Bezahlte Hemp→Paper-
+  Produktion und tatsächliche Paperankunft sperren/erlauben Academy-Dispatch;
+  je neuer Tour wird1Paper verbraucht. Managed Ernten,80er-Rezeptzeiten,
+  PaperOnly und direkte Schulbesuche bleiben ausdrücklich authored.
+  Das anfängliche originale Confucian-Elitegate gehört weiterhin zu25.
+- Der Originalnachweis bestätigt Bronze/Lacquer als OR-Bedarf, aber getrennten
+  Verbrauch beider tatsächlich vorhandenen Bestände. Der eingefrorene reine
+  GoodsRules-Kern bleibt unverändert. Echte positive Aufstiegs-/Verbrauchs-
+  zeugen und strikte fehlende-Ware-Kontrollen verwenden klar markierte Need1-
+  Modellkopien; unveränderte frühe Originalbedarfe0 werden nicht erfunden.
+- Tatsächliche frühe Läufe fanden Clay-Reservierungs-, Reisezeit- und
+  Bootstrapfehler sowie einen Market ohne angrenzende Straße. Die bezahlte
+  Hauptszene kauft43Bodies/107Roads für3159 und wartet auf echten Zuzug bis
+  zur installierten Workeranforderung185. Eine gekoppelte Goods-/Zielrotation
+  konnte bei sechs Waren Tea übergehen; feste Target×Good-Paare beheben dies
+  ohne neue gespeicherte Authority. Belegte endliche Ankünfte/Verbräuche sind
+  keine universelle Starvationfreiheitsgarantie.
+- Produktive neue Bodies/Pflanzen/Materialempfänger verweigern Abriss atomar.
+  Der bisher erlaubte bezahlte neutrale Wellabriss besteht während realer
+  Warenproduktion mit vollständiger Conservation. Tests decken vier Luxusgüter,
+  Teilmengen, fehlende Zutaten, volle Reservierungen/Rückkehrraum, zwei
+  Warehouses, Pause, Brand, Straßenreparatur, Überlauf und strikten Restore ab.
+- Finale Quelle539Dateien:
+  9c8be66e22201027849937025a7b350061c7e66f0b0c8527ca864f79bf19f75c;
+  `oe24/validation2/source-freeze.json` SHA
+  cc3b57ec89817ee14c230fe2b22b2c26a8fd1ec5bb0894d00b0938709981985d.
+  Drei warnungsfreie inkrementelle Werror-Builds; **3×56 CTests PASS**,0Fail/Skip.
+  Tatsächliche CTestzeiten: Debug583.761s, Release34.899s,
+  ASan+UBSan195.559s; keine Sanitizerdiagnose. Unabhängig136Livebinary-
+  und39Archivepfade an die tatsächlichen Builds/JUnit-Dateien gebunden.
+  Kein vollständiger Cleanbuild-/Gate-D-Nachweis.
+- Frische3×74 Kernvergleiche,25 strenge Sanitizerprozesse und28 Python-
+  Postexporttests PASS. Alte numerische Beobachtungen/Klassifikationen exakt;
+  aktive Modellergänzungen und neue DTO-Pins eng geprüft. `core-parity.json`
+  SHA09cf9096bb3e18c2c65999c516a8d4ec9a2cb720b58234c54f38530c41cccbd5.
+- Tatsächlicher final2-Workflow:59 unterschiedliche C++-PIDs = neun aktive
+  Creates, **43 separate aktive20k-Fortsetzungen**, drei historische Creates
+  und vier historische Resumes. Unabhängiger Reader PASS:5.784.687Checks,
+  220Schema26-Dokumente/215Rohprojektionen,86 volle Save-/Reportpaare exakt;
+  alte Regeln7/8/9 mit17Save-/16Report-Literalpaaren unverändert.
+  563Dateien/78.329.192Byte gebunden. Sechs echte C++-/Python-Refusals für
+  Außenpfad, Symlink und alten23er-Ausgabebereich PASS.
+- Der erste finale Workflow verweigerte seine Services-Szene: deren Test
+  erwartete fälschlich sieben statt sechs Actors ohne Warehouse. Nur dieser
+  Fixturezähler wurde auf sechs exakte Owner/Rollen korrigiert; ursprünglicher
+  Source, drei Binaries und FAIL bleiben unter `oe24/validation/` erhalten.
+  Der unabhängige final2-Reader rechnete zunächst bestehendes Pottery mit
+  einem statt zwei Clay pro Einheit. Nur diese Prüfformel wurde korrigiert;
+  erster Reader/FAIL unter `validation2/reader-before-pottery-coefficient-fix/`
+  erhalten. Danach tatsächlich neu ausgeführter Reader PASS; keine Save-,
+  Runtime- oder Bilanzmanipulation.
+- Beide finalen Release-Software-SDL-Bilder tatsächlich geöffnet, PID73969:
+  House bei3639Ticks/148Bewohnern, Typ5 mit37Bewohnern, alle neun Timer,
+  Water1/raw94 und Food5/8/Quality80/Misses5 lesbar. Industry bei2947Ticks:
+  PaperMaker#22, Hemp→Paper, Workers10/10, tatsächlicher Progress/Input/Output/
+  Cargo und explizites Original-Art-pending-Label ohne Überlappung. Industry-
+  Bauaktionen, echte Maus-/Tastaturkäufe, F5/F9 und Idle-Grenzen bestehen.
+  Bilder/Beobachtungs-JSON/Saves unter `oe24/validation2/view/` gebunden.
+- Statische Originalprüfung PASS_BOUNDED_STATIC_RESEARCH mit234Assertions;
+  Originale unverändert, kein Original-EXE-Lauf. Root-Abschluss
+  `oe24/validation2/final-validation.json` PASS, SHA
+  305cd8ff9066c6ab9e338d5ad14598117f2bdb843c943855bad77387a9a6c512.
+  Voller167er-Corpus hier nicht erneut ausgeführt. Gate D bleibt bis27 offen;
+  Originalsprites29 sowie native/human Abnahme bleiben getrennte offene Arbeit.
+- **Ausdrückliche Nutzerentscheidung:** nach dem geprüften eigenen24er-Commit
+  Pause. OE-25 wird nicht begonnen; kein Push, PR, Merge, Tag oder Release.
+
+
+## OE-25 – fünfzehn Hauszeilen und getrennte bezahlte Elitefamilie
+
+- **PASS am2026-10-18**, auf OE24 `7360f84e40c6cd558d3cf87de41c8b713645840f`.
+  Aktiv ausschließlich Rule10/Schema26/policy3, `development_revision=25`;
+  Revision24/26-Crossloads verweigert, veröffentlichte1–9/1–25 unverändert.
+  Vertrag: `docs/original-economy/housing-stages-runtime.md`; Quellenbeleg:
+  `docs/reverse/original-house-lifecycle-contract.md`. Eigene Commit-SHA folgt
+  in der Antwort und nach bestehender Dateikonvention im nächsten Task.
+- Common und Elite besitzen getrennte tatsächliche Körperfamilien; gemeinsames
+  Limit20. Der neue authored80er Eliteplot startet11/leer. Echter Zuzug liest
+  die Vorereigniskapazität und erzeugt11→13, keine kostenlose12 und keinen
+  Common→Elite-Umbau. Alle15 Modellzeilen, getrennte Admission-/Censusselector,
+  echte Bedarfe und10/12/50/18-Ereignisgrenzen bleiben im Originalkern.
+  Die Plain5-Clamp entfällt. Bereits zugelassene Bewohner bleiben erhalten.
+- Feste15 Verbrauchszeilen, erste tatsächliche Übergangsinputs und die letzte
+  Phase39-Eingabe werden streng mit Familie, echter Admission, Mengen,
+  Quality, Wasser-/Servicewitnesses, Counter und chronologischer Kapazität
+  restauriert. Const-Diagnose/15-Zeilen-Matrix ändern weder World noch Routes,
+  Dateien oder Assets. UI zeigt einzelne Bedarfe/OR, DES, Counter und Kapazitäten.
+- Confucian219 ist bei Dispatch, Ankunft und Diagnose Elite-only und benötigt
+  weiter wirklich geliefertes Paper mit1-Paper-Dispatchsink. Common bleibt
+  unberechtigt. Neun bereits bezahlte Provider tragen ihre eigenen vorbereiteten
+  DES-Zeilen und wirklichen2×2-/3×3-Flächen in stabiler ID-Reihenfolge bei;
+  Präsenz auch bei Pause/Brand, historisch nur vorher gekaufte Quellen. Kein
+  Alias-Well, Zweitkauf, zusätzlicher Source-Save oder Frame-/Tickaufbau.
+- Tatsächliche Originalmodell-/Normal-Szene: Bauausgaben1727/Funds10273.
+  Elite11 leer bei0, echter Erstbezug13 mit2 Bewohnern bei120, Counter49 bei2590,
+  50. Fehlschlag13→12 bei2641, fünf Bewohner behalten; echte12→13-Erholung bei6313.
+  Zugleich ist Common8 real Typ6/20Bewohner, Elite9 Typ13/5Bewohner. Conf-Ankunft
+  bei6170 hat einen wirklichen Paper-Sink; eine spätere noch reisende Tour
+  zählt nicht als Besuch. Recovered/Advanced/Visited sind tatsächlich derselbe
+  Tick6313 und byteidentische Zustände, keine drei zusätzlichen Ereignisse.
+- Konkrete höhere Grenzen dieser bezahlten Szene: Common DES6<High14 und
+  nächste Herbalist/Music0/1; Elite DES4≤Low35 und <High50, nächster Bedarf
+  Herbalist/Music/Acrobat0/1, FoodQuality0/50 und Silk0/1. Aktuelle Hemp-/
+  Ceramicsbedarfe erfüllt; kein zusätzlicher Pure-Tick wurde dafür ausgeführt.
+  Höhere Stufen/Heavenly werden nicht als erreicht ausgegeben. Privater
+  vollständiger Befund: `oe25/high-stage-observation.md`.
+- Elitegeometrie bleibt ausdrücklich authored2×2; belegtes Original4×4 und
+  atomische Materialisierung vor Erstbezug gehören zum eigenen26er Vertrag.
+  Zuzug120/40/+2, Elitepreis, All-residents-Workeradapter, direkte Besucher und
+  Produktionsuhren bleiben benannt authored; zwei Evolutionsglobals false.
+  Originalsprites29, vollständiger Gate D27, native/human Abnahme offen.
+- Finale Quelle543Dateien: `80680cd335add3f62770290f2d2548497d56dbcb1c3909b2b6c38705a0a16d28`;
+  `oe25/validation3/source-freeze.json` SHA `0ac74afa2e9c8eb7c039cd94c48127d9f4446e21469f4a566afabd0d74c2d9ef`.
+  Drei frische warnungsfreie inkrementelle Werror-Builds; **3×59 CTests PASS**,
+  0Fail/Skip. Tatsächliche CTestzeiten Debug648.503s,
+  Release36.872s, ASan+UBSan227.226s, keine Sanitizerdiagnose.
+  Unabhängig142Binarypfade/39Archive an tatsächliche Builds/JUnit und Livebytes
+  gebunden. Kein voller Cleanbuild-/Gate-D-Nachweis.
+- Frische3×74 Kernvergleiche,25 tatsächliche strenge Sanitizerprozesse und28
+  Postexport-Pythonverträge PASS. Alte Beobachtungen/Klassifikationen exakt.
+  Unter `simulation/original/` bleiben15 Kern-/Parser-/Vorbereitungsdateien
+  bytegleich; einzig `OriginalModelMapping.h` ergänzt genau den ausdrücklichen
+  unmapped-Elitefall, ohne erfundene ModelBuilding-/Grafikidentität. Vier
+  aktive ABI-Pins eng geprüft. `core-parity.json` SHA `ee6060212708a759c1f47a4062935e00a25a3f8361d02d39673e3b5ae3793af6`.
+- Actual final3: **67 eindeutige C++-PIDs**,10 aktive Creates,50 getrennte
+  aktive20k-Fortsetzungen,3 historische Creates/4 historische Resumes.
+  Reader PASS mit8267294 Checks,255Schema26-Dokumenten/250Rohprojektionen;
+  **100 ganze Savepaare und100 ganze Reportpaare** am Mittelpunkt/Ende exakt.
+  Alte Regeln7/8/9:17Save-/16Report-Literalpaare unverändert.
+  644Dateien/130937093Bytes gebunden;
+  sechs echte C++-/Python-Ausgaberefusals für Außenpfad, Symlink und alten24er-Root.
+- Fehler und Korrekturen bleiben tatsächlich erhalten: frühe View-/Einrückungs-
+  Compilerfehler sowie alte JSON-/Common-Conf-Fixtureannahmen; `early5`58/59
+  (IndustrySave ohne Eliteziel), `early6`57/59 (neuer Elitebefehl erhöhte die
+  alte Logistics-Sequenz trotz Refusal). Ein enger neuer Commandguard bewahrt
+  alle bisherigen Befehle. `early7`59/59 PASS. Der echte Save-Counter12-RED
+  wird durch einen modellabhängigen Guard geschlossen; authored Row9-Need1
+  mit echten Counter1/11/zwölftem Reset bleibt speicherbar.
+- Erster final1-Prozessworkflow: echter Python-FAIL nach7 erfolgreichen C++-
+  Creates; Paper kam bei813 nach Verbrauch der ersten Foodportion. Nur der
+  C++-Fixture-Predicate/Kauf-ID-Teil wartet nun gleichzeitig auf tatsächliches
+  Paper, volle sichere Besetzung und alle übrigen Bedarfe. Python bleibt strikt.
+  Korrekter isolierter Probe3-PASS bei1484: Common Water/Q20/Ancestor/Dao,
+  Conf0, zweite echte Foodankunft; Academy Paper4,12Worker, eligiblefalse.
+  Kein Farmstaging/Grant/Runtimefix. Vorherige Probe1/2-Refusals waren Root-
+  Harnessfehler vor der Simulation (Ausgabepfad bzw. fehlende authored Map),
+  keine Gameplaytimeouterkenntnis. Final1-Quellen, Binaries und FAIL sind
+  getrennt von den neu ausgeführten final3-Berichten erhalten.
+- Final2-Debug58/59: ausschließlich der integrierte UI-Test traf sein altes
+  60s-Limit. Unverändert isoliert PASS75,512s/71,249CPU-Sekunden; tatsächliche
+  1s-Stackprobe zeigt bestehende Debug-Navigationsassertionen im realen Tickpfad.
+  Alter24er-Debugtest43,136s, tatsächliche Spielticks3639→7468. Nur dessen
+  CTestbudget wurde begründet auf120s gesetzt; kein Tick, Ziel, Bedarf oder
+  Assert gelockert und keine Runtime geändert. Final2-FAIL und Messung bleiben
+  unter validation2/ erhalten; final3 wurde vollständig neu ausgeführt.
+- Finale Release-Software-SDL-Bilder PID34323 alle vier tatsächlich geöffnet:
+  House/Industry/Diagnose/weitere Einzelbedarfe. Neun Timer, DES/Counter,
+  actual/need/OR-Werte und PaperMaker-Worker/Input/Output lesbar; authored2×2,
+  Original4×4:26 und Original-Art-pending ausdrücklich sichtbar.12 gebundene
+  PNG-/Observed-/Saveartefakte; echte UI-Käufe, Scrollen, F5/F9 und Idlegrenzen
+  geprüft. Keine Originalgrafik-/native-/human-Abnahme daraus abgeleitet.
+- Statische Quellenprüfung:26 Fenster/1651Instruktionen/4751Bytes/52Assertions,
+  Original-EXE/Modelbytes und Metadaten unverändert; kein Original-EXE-Lauf.
+  Gesamter167er-Mapcorpus hier nicht erneut ausgeführt. Root-Abschluss
+  `oe25/validation3/final-validation.json` PASS, SHA `b1b29b8b3f4f12dd7bf95ed7f19d33417cfe0e482ae09c04c96364a10b9e960f`.
+  Ausdrückliche Nutzerentscheidung2026-10-18: nach geprüftem eigenem25er-Commit
+  erneut Pause. OE26 bleibt unbegonnen; kein Push/PR/Merge/Tag/Release.
+
+## Zwischenmerge OE-14–25 – Nutzerfreigabe am2026-10-18
+
+- Der anschließende Auftrag „so können wir jetzt alles mal mergen und
+  commiten?“ erlaubt den Zwischenmerge nach `main` einschließlich Push/PR.
+  Er ersetzt den vorherigen Remote-Ausschluss für diesen geprüften Stand;
+  OE-26 bleibt unbegonnen und Tags/Releases bleiben ausgeschlossen.
+- Frisch abgeglichene Basis: `origin/main` ist
+  `41091b66e960b4c82c378d5ae3b83088325f5a61`; zwölf eigenständige Taskcommits
+  OE-14–25 bis `9bac35b5626834b42d35d52c23b11eb039b14f21` fehlen dort.
+  Arbeitsverzeichnis vor dem Handoff sauber, kein offener PR dieses Branches.
+- Code und Tests bleiben unverändert zum tatsächlich geprüften OE-25-Stand.
+  Dessen177 CTests,50 getrennte20k-Fortsetzungen und vier geöffnete
+  Softwareansichten sind die aktuelle relevante Abnahme. Die Quellbindung
+  steht unter `oe25/validation3/postcommit-source-check.json`.
+  Kein erneuter Testlauf allein aufgrund dieser Dokumentationsänderungen.
+- Regulärer Merge erhält alle Taskcommits; erwarteten PR-Head und tatsächliche
+  GitHub-Prüfungen vor dem Merge kontrollieren, anschließend `main` und lokalen
+  Feature-Branch ausschließlich per Fast-forward angleichen. Keine erzwungenen
+  Ref-Updates, kein Squash und kein Branchlöschen.
+- Aufgaben26–33 und Gates D–F bleiben offen. Vorläufige Elite2×2, originale
+  Elite4×4 in26, Original-Haussprites29, native/human NOT_RUN sowie die
+  dokumentierten höheren Housing-Szenenblocker werden nicht hochgestuft.

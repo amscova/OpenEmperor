@@ -69,7 +69,8 @@ void version_contract() {
     check(sim::rule_version_supported(sim::RulesProfile::CityV16,6) &&
           sim::rule_version_supported(sim::RulesProfile::CityV16,7) &&
           sim::rule_version_supported(sim::RulesProfile::CityV16,8) &&
-          !sim::rule_version_supported(sim::RulesProfile::CityV16,10),
+          sim::rule_version_supported(sim::RulesProfile::CityV16,10) &&
+          !sim::rule_version_supported(sim::RulesProfile::CityV16,11),
           "Unknown City-v16 rule accepted");
     const auto p2=policy(cells());
     const auto p1=sim::authored_simple_permissions(size,size,std::vector<std::uint8_t>(size*size,1));
