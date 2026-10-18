@@ -29,7 +29,7 @@ Nothing in the game's behaviour has been changed for Windows.
 ## Requirements
 
 - Windows 10 or 11, x64.
-- A legitimate copy of *Emperor: Rise of the Middle Kingdom*. **The game files are not included and never will be.** OpenEmperor reads the installed game and does not redistribute it or decoded copies of it. This fork is developed against the GOG release (2.0.0.2).
+- A legitimate copy of *Emperor: Rise of the Middle Kingdom*. **The game files are not included and never will be.** OpenEmperor reads the installed game and does not redistribute it or decoded copies of it. This fork is developed against the GOG release (2.0.0.2). Available on [GOG.com](https://www.gog.com/en/game/emperor_rise_of_the_middle_kingdom).
 - To build: CMake 3.24+, Ninja, llvm-mingw, zlib, SDL3 3.4.10+ and OpenSSL 3.
 
 ## Build
