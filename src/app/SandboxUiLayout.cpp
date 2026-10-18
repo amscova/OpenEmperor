@@ -63,7 +63,8 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
             Action::OriginalLoggingShed,Action::OriginalBronzeSmelter,Action::OriginalBronzewareMaker,
             Action::OriginalLacquerwareMaker,Action::OriginalPaperMaker,Action::OriginalWeaver,
             Action::OriginalTeaCuringShed,Action::OriginalLacquerRefinery,Action::OriginalSilkwormShed,
-            Action::OriginalTeaBush,Action::OriginalLacquerTree,Action::OriginalMulberryTree,Action::ToggleIndustryPage};
+            Action::OriginalTeaBush,Action::OriginalLacquerTree,Action::OriginalMulberryTree,
+            Action::OriginalElitePlot,Action::ToggleIndustryPage};
     }
     const int tool_count=static_cast<int>(tools.size());
     const int tool_columns=wrapped_tools ? (original_production ? 5:health ? 4:5):tool_count;

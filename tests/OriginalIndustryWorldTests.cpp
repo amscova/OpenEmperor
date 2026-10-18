@@ -31,7 +31,7 @@ Scene scene(sim::World& w){
     for(const int y:{3,7,11,16})for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
     for(const int y:{4,5,6,8,9,10,12,13,14,15})f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
     f::buy(w,{sim::CommandType::PlaceRoad,{14,12}});
-    Scene s;for(const int y:{1,5})for(int x=0;x<24;x+=3){const auto id=buy(w,sim::CommandType::PlaceHousehold,{x,y});if(x==0&&y==1)s.first=id;}
+    Scene s;for(const int y:{1,5})for(int x=0;x<24;x+=3){const auto id=buy(w,x==0&&y==1 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{x,y});if(x==0&&y==1)s.first=id;}
     for(int x=0;x<12;x+=3)(void)buy(w,sim::CommandType::PlaceHousehold,{x,9});
     s.tea=buy(w,sim::CommandType::PlaceOriginalTeaCuringShed,{0,12});s.lacquer=buy(w,sim::CommandType::PlaceOriginalLacquerRefinery,{4,12});s.silkworm=buy(w,sim::CommandType::PlaceOriginalSilkwormShed,{8,12});
     for(const auto& [command,id,cell]:std::array{std::tuple{sim::CommandType::PlaceOriginalTeaBush,s.tea,sim::Cell{2,12}},std::tuple{sim::CommandType::PlaceOriginalLacquerTree,s.lacquer,sim::Cell{6,12}},std::tuple{sim::CommandType::PlaceOriginalMulberryTree,s.silkworm,sim::Cell{10,12}}}){sim::Command plant{command,cell};plant.building_id=id;f::buy(w,plant);s.plants.push_back(*w.building_owner_at(cell));}
@@ -78,15 +78,15 @@ void authored_plain_needs_and_original_both_stock_consumption(const f::fs::path&
     until(w,[&]{for(const auto& row:w.original_economy_state()->houses){const auto& h=row.house;if(h.water&&h.food_quality>=20&&h.ancestor&&h.silk&&(h.bronzeware||h.lacquerware)){selected=row.building_id;return true;}}return false;},"Authored Plain negative never received actual other prerequisites");
     check(!home(w,selected).tea&&home(w,selected).type==orig::HouseType::Hut&&!orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,home(w,selected)),"Missing actual Tea passed explicitly authored PlainNeed1");
     f::buy(w,sim::set_building_operation(s.tea,true));
-    until(w,[&]{for(const auto& row:w.original_production_state()->housing.houses)if(row.first_plain_evaluation){
-        const auto& input=row.first_plain_evaluation->input;
+    until(w,[&]{for(const auto& row:w.original_production_state()->housing.houses)if(row.first_transitions[2]){
+        const auto& input=row.first_transitions[2]->evaluation.input;
         if(input.tea>0&&input.silk>0&&(input.bronzeware>0||input.lacquerware>0)&&
            orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,input)){selected=row.building_id;return true;}}
         return false;},"Actual luxury delivery never admitted authored PlainNeed1");
     const auto& rows=w.original_production_state()->housing.houses;const auto proof=std::find_if(rows.begin(),rows.end(),[&](const auto& row){return row.building_id==selected;});
-    check(proof!=rows.end()&&proof->first_plain_evaluation&&proof->first_plain_evaluation->input.tea>0&&proof->first_plain_evaluation->input.silk>0&&
-          (proof->first_plain_evaluation->input.bronzeware>0||proof->first_plain_evaluation->input.lacquerware>0)&&
-          orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,proof->first_plain_evaluation->input),
+    check(proof!=rows.end()&&proof->first_transitions[2]&&proof->first_transitions[2]->evaluation.input.tea>0&&proof->first_transitions[2]->evaluation.input.silk>0&&
+          (proof->first_transitions[2]->evaluation.input.bronzeware>0||proof->first_transitions[2]->evaluation.input.lacquerware>0)&&
+          orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,proof->first_transitions[2]->evaluation.input),
           "First Plain proof lacks actual historical luxury goods before same-tick sink");
     const auto due=[&]{const auto d=orig::next_scheduler_dispatch(w.ticks());return d&&d->consumption;};
     until(w,[&]{if(!due())return false;
@@ -94,7 +94,7 @@ void authored_plain_needs_and_original_both_stock_consumption(const f::fs::path&
             if(h.bronzeware<=0||h.lacquerware<=0||h.tea<=0||h.silk<=0)continue;
             const auto& histories=w.original_production_state()->housing.houses;
             const auto history_row=std::find_if(histories.begin(),histories.end(),[&](const auto& row){return row.building_id==candidate.building_id;});
-            if(history_row==histories.end()||!history_row->first_plain_evaluation)continue;
+            if(history_row==histories.end()||!history_row->first_transitions[2])continue;
             auto input=h;input.desirability=static_cast<std::int8_t>(w.original_influence_provenance(candidate.building_id).value);
             auto evolved=orig::evolve_step(fixture.model->house_rules(),input);
             if(evolved.type>orig::HouseType::PlainCottage)evolved.type=orig::HouseType::PlainCottage;
@@ -103,10 +103,10 @@ void authored_plain_needs_and_original_both_stock_consumption(const f::fs::path&
     },"Actual both OR stocks never coincided with a due consumption boundary after pure evolution");
     const auto& sink_rows=w.original_production_state()->housing.houses;
     const auto sink_row=std::find_if(sink_rows.begin(),sink_rows.end(),[&](const auto& row){return row.building_id==selected;});
-    check(sink_row!=sink_rows.end()&&sink_row->first_plain_evaluation&&
-          orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,sink_row->first_plain_evaluation->input),
+    check(sink_row!=sink_rows.end()&&sink_row->first_transitions[2]&&
+          orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,sink_row->first_transitions[2]->evaluation.input),
           "Actual consumption target lacks its own genuine strict first-Plain proof");
-    const auto first_plain_input=sink_row->first_plain_evaluation->input;
+    const auto first_plain_input=sink_row->first_transitions[2]->evaluation.input;
     const auto history=[&]{for(const auto& row:w.original_production_state()->house_consumption)if(row.building_id==selected)return row.consumed;throw std::runtime_error("Missing actual House sink history");};
     auto bronze_only=first_plain_input,lacquer_only=first_plain_input,neither=first_plain_input;
     bronze_only.bronzeware=home(w,selected).bronzeware;bronze_only.lacquerware=0;

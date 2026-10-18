@@ -13,6 +13,24 @@
 #include <vector>
 
 namespace oe_production_fixture {
+// Explicit authored model editing for independent scenario requirements. The
+// caller changes inputs before preparation; this never edits a live World.
+inline void set_house_field(std::string& text,std::size_t row,unsigned field,int value) {
+    namespace original=openemperor::original;
+    oe_influence_fixture::check(row<original::house_row_count && field<original::house_field_count,
+                                "Authored housing field outside typed model domain");
+    const std::string marker=std::string(original::model_label(static_cast<original::ModelHouse>(row)))+",{,";
+    auto at=text.find(marker);
+    oe_influence_fixture::check(at!=std::string::npos,"Authored housing model row missing");
+    at+=marker.size();
+    for (unsigned i=0;i<field;++i) {
+        at=text.find(',',at);
+        oe_influence_fixture::check(at!=std::string::npos,"Authored housing field missing");++at;
+    }
+    const auto end=text.find(',',at);
+    oe_influence_fixture::check(end!=std::string::npos,"Authored housing field value missing");
+    text.replace(at,end-at,std::to_string(value));
+}
 inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,int ceramics_need=0,int food_need=0,
                                        int herbalist_need=0,int acupuncture_need=0,int ancestor_need=0,
                                        int hut_capacity=14,int plain_capacity=22,int plain_hemp_need=0,int plain_ceramics_need=0,
@@ -54,6 +72,18 @@ inline std::string authored_model_text(int shelter_capacity=37,int hemp_need=0,i
         oe_influence_fixture::check(at!=std::string::npos,"Authored production housing row missing");
         text.replace(at,empty.size(),prepared);
     }
+    // The active generation prepares all fifteen rows. These deliberately
+    // authored defaults retain the early focused scenarios while making every
+    // later capacity readable; EliteUnoccupied's literal row remains zero.
+    set_house_field(text,2,1,100);
+    constexpr std::array<int,12> later_capacities{31,41,52,63,74,0,1,5,10,15,20,25};
+    for (std::size_t i=0;i<later_capacities.size();++i) {
+        set_house_field(text,i+3,0,-99);
+        set_house_field(text,i+3,1,100);
+        set_house_field(text,i+3,17,later_capacities[i]);
+    }
+    set_house_field(text,10,9,1);
+    set_house_field(text,10,10,1);
     const std::string old_well="72,Well,{,0,12,2,-2,5,0,0,0,0,0,0,0,0,},,,\n";
     const auto well=text.find(old_well);
     oe_influence_fixture::check(well!=std::string::npos,"Authored production Well row missing");
@@ -154,5 +184,49 @@ inline PaperSupply add_paper_supply(openemperor::simulation::World& world,const 
                                     "Paper supply reused a non-Warehouse body");
     } else result.warehouse=purchase(sim::CommandType::PlaceWarehouse,layout.warehouse);
     result.spent=world.construction_spent_total()-before;return result;
+}
+
+// Shared paid OE25 layout. All actors, stock and residents originate in normal
+// commands/ticks. Keeping material producers paused initially permits a real
+// Modest13 shortage/devolution before the ordinary supply chain is resumed.
+struct HousingStagesScene {
+    std::vector<openemperor::simulation::BuildingId> common_houses;
+    openemperor::simulation::BuildingId elite{},water{},ancestor{},market{},clay{},kiln{},warehouse{},
+        academy{},food{},food_field{},hemp{},hemp_field{},paper{};
+    std::vector<openemperor::simulation::BuildingId> material_sources;
+    std::uint64_t spent=0;
+};
+inline HousingStagesScene add_housing_stages_scene(openemperor::simulation::World& world,bool pause_material=true) {
+    namespace sim=openemperor::simulation;
+    HousingStagesScene result;
+    const auto before=world.construction_spent_total();
+    const auto purchase=[&](sim::CommandType type,sim::Cell cell) {
+        oe_influence_fixture::buy(world,{type,cell});
+        return *world.building_owner_at(cell);
+    };
+    for (const int y:{4,9}) for (int x=0;x<24;++x)
+        oe_influence_fixture::buy(world,{sim::CommandType::PlaceRoad,{x,y}});
+    for (int y=5;y<9;++y) oe_influence_fixture::buy(world,{sim::CommandType::PlaceRoad,{20,y}});
+    for (int x=0;x<24;x+=3) result.common_houses.push_back(purchase(sim::CommandType::PlaceHousehold,{x,2}));
+    result.elite=purchase(sim::CommandType::PlaceOriginalElitePlot,{0,5});
+    result.water=purchase(sim::CommandType::PlaceOriginalWaterWell,{3,5});
+    result.ancestor=purchase(sim::CommandType::PlaceOriginalAncestorShrine,{6,5});
+    result.market=purchase(sim::CommandType::PlaceMarket,{9,5});
+    result.clay=purchase(sim::CommandType::PlaceClaySource,{12,5});
+    result.kiln=purchase(sim::CommandType::PlacePottery,{15,5});
+    result.warehouse=purchase(sim::CommandType::PlaceWarehouse,{18,5});
+    result.academy=purchase(sim::CommandType::PlaceOriginalConfucianAcademy,{21,5});
+    result.food=purchase(sim::CommandType::PlaceOriginalFoodFarm,{0,10});
+    sim::Command field{sim::CommandType::PlaceOriginalMilletField,{3,10}};field.building_id=result.food;
+    oe_influence_fixture::buy(world,field);result.food_field=*world.building_owner_at(field.cell);
+    result.hemp=purchase(sim::CommandType::PlaceOriginalHempFarm,{5,10});
+    field={sim::CommandType::PlaceOriginalHempField,{7,10}};field.building_id=result.hemp;
+    oe_influence_fixture::buy(world,field);result.hemp_field=*world.building_owner_at(field.cell);
+    result.paper=purchase(sim::CommandType::PlaceOriginalPaperMaker,{9,10});
+    result.material_sources={result.clay,result.kiln,result.hemp,result.paper,result.food,result.academy};
+    if (pause_material) for (const auto id:result.material_sources)
+        oe_influence_fixture::buy(world,sim::set_building_operation(id,false));
+    result.spent=world.construction_spent_total()-before;
+    return result;
 }
 } // namespace oe_production_fixture

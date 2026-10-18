@@ -1404,6 +1404,18 @@ simulation::OriginalHousingEvaluation parse_production_housing_evaluation(const 
     result.food_consumed=parse_production_counters<simulation::original_food_crop_count>(field(j,"food_consumed"));
     result.goods_consumed_before=parse_production_counters<original::goods_count>(field(j,"goods_consumed_before"));return result;
 }
+json production_housing_transition_json(const simulation::OriginalHousingTransition& transition) {
+    return {{"kind",static_cast<unsigned>(transition.kind)},
+        {"evaluation",production_housing_evaluation_json(transition.evaluation)},
+        {"admitted",transition.admitted}};
+}
+simulation::OriginalHousingTransition parse_production_housing_transition(const json& j) {
+    simulation::OriginalHousingTransition result;
+    result.kind=static_cast<simulation::OriginalHousingTransitionKind>(number(field(j,"kind"),1));
+    result.evaluation=parse_production_housing_evaluation(field(j,"evaluation"));
+    result.admitted=static_cast<std::int16_t>(number(field(j,"admitted"),2));
+    return result;
+}
 json production_housing_json(const simulation::OriginalHousingState& state) {
     require(state.neutral_source_origins.size()<=37 && state.houses.size()<=simulation::Rules::city_v10_household_limit,
             "schema26 housing context exceeds bound");
@@ -1413,12 +1425,14 @@ json production_housing_json(const simulation::OriginalHousingState& state) {
             {"origin",json::array({source.origin.x,source.origin.y})}});
     for (const auto& h:state.houses) {
         json rows=json::array();for (const auto& row:h.consumption_rows) rows.push_back({{"events",row.events},{"consumed",row.consumed}});
+        json transitions=json::array();
+        for (const auto& transition:h.first_transitions)
+            transitions.push_back(transition ? production_housing_transition_json(*transition):json(nullptr));
         houses.push_back({{"building_id",static_cast<std::uint32_t>(h.building_id)},
             {"first_admission_tick",h.first_admission_tick ? json(*h.first_admission_tick):json(nullptr)},
             {"consumption_rows",std::move(rows)},
             {"last_evaluation",h.last_evaluation ? production_housing_evaluation_json(*h.last_evaluation):json(nullptr)},
-            {"first_hut_evaluation",h.first_hut_evaluation ? production_housing_evaluation_json(*h.first_hut_evaluation):json(nullptr)},
-            {"first_plain_evaluation",h.first_plain_evaluation ? production_housing_evaluation_json(*h.first_plain_evaluation):json(nullptr)}});
+            {"first_transitions",std::move(transitions)}});
     }
     return {{"neutral_source_origins",std::move(sources)},{"houses",std::move(houses)}};
 }
@@ -1438,14 +1452,17 @@ simulation::OriginalHousingState parse_production_housing(const json& j) {
         require(result.houses.empty() || result.houses.back().building_id<h.building_id,"schema26 housing Houses must be sorted unique");
         const auto& first=field(value,"first_admission_tick");if (!first.is_null()) h.first_admission_tick=number(first);
         const auto& rows=field(value,"consumption_rows");
-        require(rows.is_array() && rows.size()==h.consumption_rows.size(),"schema26 housing requires exactly three consumption rows");
+        require(rows.is_array() && rows.size()==h.consumption_rows.size(),"schema26 housing requires exactly fifteen consumption rows");
         for (std::size_t i=0;i<h.consumption_rows.size();++i) {
             h.consumption_rows[i].events=number(field(rows[i],"events"));
             h.consumption_rows[i].consumed=parse_production_counters<original::goods_count>(field(rows[i],"consumed"));
         }
         const auto& last=field(value,"last_evaluation");if (!last.is_null()) h.last_evaluation=parse_production_housing_evaluation(last);
-        const auto& hut=field(value,"first_hut_evaluation");if (!hut.is_null()) h.first_hut_evaluation=parse_production_housing_evaluation(hut);
-        const auto& plain=field(value,"first_plain_evaluation");if (!plain.is_null()) h.first_plain_evaluation=parse_production_housing_evaluation(plain);
+        const auto& transitions=field(value,"first_transitions");
+        require(transitions.is_array() && transitions.size()==h.first_transitions.size(),
+                "schema26 housing requires exactly fifteen first-transition slots");
+        for (std::size_t i=0;i<h.first_transitions.size();++i)
+            if (!transitions[i].is_null()) h.first_transitions[i]=parse_production_housing_transition(transitions[i]);
         result.houses.push_back(h);
     }
     return result;
@@ -1469,7 +1486,8 @@ json production_document_json(const SaveDocument& d) {
     projected.world.original_economy.reset();projected.world.original_influence.reset();
     projected.world.original_goods.reset();projected.world.original_production.reset();
     for (auto& building:projected.world.buildings) {
-        if (building.kind==simulation::Object::OriginalInfluenceSource) building.kind=simulation::Object::Well;
+        if (building.kind==simulation::Object::OriginalElitePlot) building.kind=simulation::Object::Household;
+        else if (building.kind==simulation::Object::OriginalInfluenceSource) building.kind=simulation::Object::Well;
         else if (building.kind==simulation::Object::OriginalHempFarm) building.kind=simulation::Object::Pottery;
         else if (building.kind==simulation::Object::OriginalHempField) building.kind=simulation::Object::Well;
         else if (building.kind==simulation::Object::OriginalFoodFarm) building.kind=simulation::Object::Farm;
@@ -1594,8 +1612,10 @@ SaveDocument parse_production_document(const json& j) {
     require(buildings.is_array() && buildings.size()<=simulation::Rules::original_production_building_limit,
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalMulberryTree28));
-        if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalElitePlot));
+        if (kind==static_cast<unsigned>(simulation::Object::OriginalElitePlot))
+            building["kind"]=static_cast<int>(simulation::Object::Household);
+        else if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalHempFarm))
             building["kind"]=static_cast<int>(simulation::Object::Pottery);

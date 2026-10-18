@@ -57,9 +57,15 @@ template<class Buildings,class Couriers> void validate_market_bindings(const Bui
             invalid("typed market must retain exactly the latest real loaded trip per courier");
         const auto c=std::find_if(couriers.begin(),couriers.end(),[&](const auto& value){return value.id==r.transfer.courier_id;});
         const auto source=std::find_if(buildings.begin(),buildings.end(),[&](const auto& b){return b.id==r.source;});
+        const auto target=std::find_if(buildings.begin(),buildings.end(),[&](const auto& b){return b.id==r.target;});
         if (source==buildings.end() || c==couriers.end() || !typed(c->role) || c->owner!=r.source || c->target!=r.target ||
             c->last_dispatched_target!=r.target || !carries(source->kind,c->role,r.good))
             invalid("typed transfer is not owned by its actual courier and destination");
+        if (target!=buildings.end() && original_house_kind(target->kind)) {
+            const auto h=std::lower_bound(homes.begin(),homes.end(),target->id,[](const auto& value,BuildingId id){return value.building_id<id;});
+            if (h==homes.end() || h->building_id!=target->id || h->house.occupants<=0)
+                invalid("typed targeted dispatch requires a genuinely occupied House");
+        }
     }
     for (const auto& c:couriers) if (typed(c.role)) {
         if (c.cargo || c.reserved || c.good!=(c.role==CourierRole::OriginalHempToWarehouse ? Good::Goods:Good::Pottery)) invalid("typed cargo is mirrored into legacy fields");
@@ -161,7 +167,7 @@ template<class Buildings,class Couriers> void validate_market_bindings(const Bui
             !possible_arrival(b.id,original::Goods::Hemp,CourierRole::MarketPotteryInbound))
             invalid("Paper Hemp input lacks an actual Warehouse supplier arrival");
     }
-    for (const auto& b:buildings) if (original_industry_goods::owner(b.kind) && b.kind!=Object::Household) {
+    for (const auto& b:buildings) if (original_industry_goods::owner(b.kind) && !original_house_kind(b.kind)) {
         const auto stock=std::find_if(goods.stocks.begin(),goods.stocks.end(),[&](const auto& s){return s.building_id==b.id;});
         if (stock==goods.stocks.end()) invalid("typed physical owner has no stock");
         for (std::size_t g=0;g<original::goods_count;++g) {
@@ -236,11 +242,11 @@ CourierDispatchDecision World::original_market_dispatch_status(const CourierStat
         const auto index=(start+offset)%pairs;const auto& target=*targets[index/original::goods_count];
         const auto good=static_cast<original::Goods>(index%original::goods_count);
         if (!carries(source.kind,c.role,good) || capacity(target.kind,good)<=0) continue;
-        if (target.kind==Object::Household) {
+        if (original_house_kind(target.kind)) {
             const auto& homes=original_economy_->houses;
             const auto h=std::lower_bound(homes.begin(),homes.end(),target.id,
                 [](const auto& value,BuildingId id){return value.building_id<id;});
-            if (h==homes.end() || h->building_id!=target.id || !original::accepts_goods_delivery(h->house)) continue;
+            if (h==homes.end() || h->building_id!=target.id || h->house.occupants<=0) continue;
         }
         // Reserved Paper input may arrive while its recipe is stopped/burning.
         if (target.kind!=Object::OriginalPaperMaker45 && (!target.operating_enabled || building_on_fire(target.id))) continue;

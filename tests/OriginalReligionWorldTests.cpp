@@ -32,9 +32,9 @@ oe_production_fixture::PaperSupply paper_kit(sim::World& w,const std::vector<sim
 void edit(std::string& text,unsigned field,int value){const std::string marker="3: Plain Cottage,{,";auto at=text.find(marker);check(at!=std::string::npos,"Authored Plain model row missing");at+=marker.size();for(unsigned i=0;i<field;++i){at=text.find(',',at);check(at!=std::string::npos,"Authored Plain field missing");++at;}const auto end=text.find(',',at);check(end!=std::string::npos,"Authored Plain value missing");text.replace(at,end-at,std::to_string(value));}
 struct Fixture{
     f::Root root;std::shared_ptr<const sim::MapPermissions> policy=f::permissions();std::shared_ptr<const orig::OriginalRulesModel> model;
-    explicit Fixture(const f::fs::path& real={},bool authored_needs=false){
+    explicit Fixture(const f::fs::path& real={},int authored_needs=-1){
         auto bytes=real.empty()?oe_production_fixture::authored_model_text(7):f::read_text(real/"Model/EmperorBuildingModels.txt");
-        if(authored_needs){edit(bytes,22,1);edit(bytes,23,1);}
+        if(authored_needs>=0){edit(bytes,23,1);if(authored_needs>=3)edit(bytes,22,1);}
         f::write_text(root.data/"Model/EmperorBuildingModels.txt",bytes);model=f::save::prepare_original_production_rules_model(root.data);
     }
     sim::World world()const{return sim::World::create_original_production_development(policy,model);}
@@ -61,7 +61,7 @@ void ticks(sim::World& w,int n){for(int i=0;i<n;++i){w.tick();authority(w);}}
 struct Scene{sim::BuildingId home{};std::array<sim::BuildingId,3> providers{};};
 Scene scene(sim::World& w,bool prior=true){
     for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,4}});
-    Scene s;for(int x=0;x<24;x+=3){const auto id=buy(w,sim::CommandType::PlaceHousehold,{x,2});if(!x)s.home=id;}
+    Scene s;for(int x=0;x<24;x+=3){const auto id=buy(w,x ? sim::CommandType::PlaceHousehold:sim::CommandType::PlaceOriginalElitePlot,{x,2});if(!x)s.home=id;}
     const auto before=w.construction_spent_total();
     for(unsigned i=0;i<3;++i)s.providers[i]=buy(w,commands[i],{10+4*static_cast<int>(i),5});
     check(w.construction_spent_total()-before==170,"Three paid religion sources must independently cost45+45+80=170");
@@ -71,7 +71,7 @@ Scene scene(sim::World& w,bool prior=true){
 }
 std::optional<sim::BuildingId> expected_target(const sim::World& w,const sim::CourierState& c){
     std::vector<sim::BuildingId> ids;
-    for(const auto& h:w.original_economy_state()->houses)if(h.house.occupants>0&&h.access_enabled&&(h.original_status==1||h.original_status==3)&&w.building(h.building_id).fire_until_tick<=w.ticks()+1)ids.push_back(h.building_id);
+    for(const auto& h:w.original_economy_state()->houses)if(h.house.occupants>0&&h.access_enabled&&(h.original_status==1||h.original_status==3)&&w.building(h.building_id).fire_until_tick<=w.ticks()+1&&(c.role!=sim::CourierRole::OriginalConfucian||orig::is_elite(h.house.type)))ids.push_back(h.building_id);
     if(ids.empty())return{};std::size_t first=0;
     for(std::size_t i=0;i<ids.size();++i)if(c.last_dispatched_target==ids[i])first=(i+1)%ids.size();
     for(std::size_t i=0;i<ids.size();++i){const auto id=ids[(first+i)%ids.size()];for(const auto& route:c.dynamic_target_routes)if(route.first==id&&route.second)return id;}
@@ -113,7 +113,14 @@ void paid_independent_visits_expiry_revisit_and_private_fairness(const f::fs::pa
         w.tick();authority(w);
         for(unsigned r=0;r<3;++r){const auto* t=trip(w,ids[r]);if(t&&t->transfer.sequence!=sequence[r])check(targets[r]&&t->target==*targets[r],"Religion dispatch lost its private cyclic reachable-target order");}
     }
-    for(const auto& home:w.original_economy_state()->houses)for(const auto role:faiths)(void)witness(w,home.building_id,role);
+    for(const auto& home:w.original_economy_state()->houses) for(const auto role:faiths) {
+        if (role==orig::ServiceRole::Confucian&&!orig::is_elite(home.house.type)) {
+            check(!home.house.confucian&&std::none_of(w.original_production_state()->services.witnesses.begin(),
+                w.original_production_state()->services.witnesses.end(),[&](const auto& visit) {
+                    return visit.building_id==home.building_id&&visit.role==role;
+                }),"Original Elite-only source left a forged Common visit/history");
+        } else (void)witness(w,home.building_id,role);
+    }
 }
 void actual_religion_source_and_target_fire(const f::fs::path& real){
     for(unsigned index=0;index<3;++index){
@@ -122,9 +129,9 @@ void actual_religion_source_and_target_fire(const f::fs::path& real){
         const auto source=buy(w,commands[index],{20,5});
         check(sim::fire_eligible(w.building(source).kind),"Active religion source is not fire eligible");
         f::buy(w,sim::set_building_operation(source,false));ticks(w,600);
-        const auto home=buy(w,sim::CommandType::PlaceHousehold,{0,2});
+        const auto home=buy(w,index==2 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{0,2});
         (void)buy(w,sim::CommandType::PlaceHousehold,{3,2});
-        if(index==2)(void)paper_kit(w,{{6,2},{9,2},{12,2},{15,2}});
+        if(index==2)(void)paper_kit(w,{{6,2},{9,2},{12,2},{15,2},{18,2}});
         while(w.ticks()<1990)w.tick();
         f::buy(w,sim::set_building_operation(source,true));const auto id=actor(w,source);
         until(w,[&]{return w.courier(id).phase==sim::CourierPhase::ToWarehouse&&w.courier(id).edge_progress>0;},
@@ -142,9 +149,9 @@ void actual_religion_source_and_target_fire(const f::fs::path& real){
             "Burning religion source full Snapshot restore diverged");}
         auto target=fixture.world();
         for(int x=0;x<24;++x)f::buy(target,{sim::CommandType::PlaceRoad,{x,4}});
-        const auto first=buy(target,sim::CommandType::PlaceHousehold,{0,2});
+        const auto first=buy(target,index==2 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{0,2});
         (void)buy(target,sim::CommandType::PlaceHousehold,{3,2});
-        if(index==2)(void)paper_kit(target,{{6,2},{9,2},{12,2},{15,2}});
+        if(index==2)(void)paper_kit(target,{{6,2},{9,2},{12,2},{15,2},{18,2}});
         ticks(target,1000);
         const auto delayed=buy(target,commands[index],{20,5});f::buy(target,sim::set_building_operation(delayed,false));
         while(target.ticks()<1990)target.tick();
@@ -160,8 +167,8 @@ void confucian_far_body_edge_and_restore(const f::fs::path& real){
     Fixture f(real);auto w=f.world();
     for(const int y:{4,8})for(int x=18;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
     for(int y=5;y<8;++y)f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
-    (void)buy(w,sim::CommandType::PlaceHousehold,{21,2});(void)buy(w,sim::CommandType::PlaceHousehold,{21,9});
-    (void)paper_kit(w,{{0,2},{3,2},{6,2},{9,2}},true);
+    (void)buy(w,sim::CommandType::PlaceOriginalElitePlot,{21,2});(void)buy(w,sim::CommandType::PlaceHousehold,{21,9});
+    (void)paper_kit(w,{{0,2},{3,2},{6,2},{9,2},{12,2}},true);
     const auto academy=buy(w,commands[2],{18,5});const auto id=actor(w,academy);
     until(w,[&]{return w.courier(id).phase==sim::CourierPhase::ToWarehouse&&w.courier(id).edge_progress>0;},"Paid3x3 Confucian source never dispatched");
     check(w.courier(id).path.front().x==20||w.courier(id).path.front().y==7,"Confucian test did not exercise actual source+2 body edge");
@@ -195,11 +202,19 @@ NeedScene need_scene(sim::World& w,int mode){
     return s;
 }
 void authored_or_and_confucian_predicate_from_actual_arrivals(const f::fs::path& real){
-    for(int mode=0;mode<4;++mode){Fixture f(real,true);auto w=f.world();const auto s=need_scene(w,mode);
-        until(w,[&]{const auto& h=house(w,s.home);return h.water&&h.food_quality>=20&&h.ancestor&&(mode==3?(h.daoist>0):(h.confucian>0));},"Authored OR scene did not receive genuine other prerequisites",10000);
+    for(int mode=0;mode<5;++mode){Fixture f(real,mode);auto w=f.world();const auto s=need_scene(w,mode);
+        until(w,[&]{const auto& h=house(w,s.home);return h.water&&h.food_quality>=20&&h.ancestor&&(mode==2 ? true:mode==1 ? h.buddhist>0:h.daoist>0);},"Authored OR/Common-Conf scene did not receive genuine other prerequisites",10000);
         if(mode<2){until(w,[&]{return house(w,s.home).type==orig::HouseType::PlainCottage;},"Actual single-faith OR did not permit authored Plain",10000);
             const auto& h=house(w,s.home);check((mode==0?h.daoist:h.buddhist)>0&&!(mode==0?h.buddhist:h.daoist),"Single-faith OR test silently received both categories");
         }else{
+            if(mode==4) {
+                until(w,[&]{for(const auto& row:w.original_production_state()->industry.auxiliary)
+                    if(w.building(row.building_id).kind==sim::Object::OriginalConfucianAcademy219) return row.amounts[4]>0;
+                    return false;},"Common-Conf negative lacked genuine Academy Paper");
+                const auto unavailable=w.original_service_availability(s.home,orig::ServiceRole::Confucian);
+                check(!unavailable.eligible_target&&!house(w,s.home).confucian,
+                      "Fully paid/Paper-supplied Academy bypassed original Elite-only target restriction");
+            }
             ticks(w,150);check(house(w,s.home).type==orig::HouseType::Hut,"Neither/noConfucian evolved through authored Need1");
             check(!orig::needs_met(f.model->house_rules(),orig::ModelHouse::PlainCottage,house(w,s.home)),"Actual missing faith met authored Plain predicate");
         }

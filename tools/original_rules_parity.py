@@ -462,13 +462,13 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-24: Rule10 adds paid luxury production and separate auxiliary materials.
+    # OE-25: Rule10 adds separate House families and fifteen-row paid evolution history.
     # Additive model rows/DTOs require matching ABI pins; every pure numerical kernel
     # and the legacy HouseholdV3/CityV7 probe behavior remain unchanged.
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "8a788a25cb5ee4a502486ec8944f2b92dba78386":
+    if world_blob != "af7bfff86751abd67c2bc36d95b1f4494a98cdba":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -476,7 +476,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-state API drift: fourth-module adapter needs a reviewed compatibility contract")
     influence_dto = ROOT / "src/simulation/OriginalInfluenceState.h"
     influence_blob = hashlib.sha1(b"blob " + str(influence_dto.stat().st_size).encode() + b"\0" + influence_dto.read_bytes()).hexdigest()
-    if influence_blob != "ee4947358cbf3c221650970a9071e39b30f2b5ae":
+    if influence_blob != "5f93ab4b1fb587f98dcda62b16b0cdc814fb2467":
         raise ValueError("Original-influence API drift: fourth-module adapter needs a reviewed compatibility contract")
     goods_dto = ROOT / "src/simulation/OriginalGoodsState.h"
     goods_blob = hashlib.sha1(b"blob " + str(goods_dto.stat().st_size).encode() + b"\0" + goods_dto.read_bytes()).hexdigest()
@@ -484,7 +484,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     production_dto = ROOT / "src/simulation/OriginalProductionState.h"
     production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
-    if production_blob != "123a7d0d4054865a6faae44619ba37325f7afa5a":
+    if production_blob != "71862a25e02336f9e803577edd194ea875a88d4a":
         raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
     food_dto = ROOT / "src/simulation/OriginalFoodState.h"
     food_blob = hashlib.sha1(b"blob " + str(food_dto.stat().st_size).encode() + b"\0" + food_dto.read_bytes()).hexdigest()
@@ -504,7 +504,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     added_header = ROOT / "src/simulation/OriginalHousingState.h"
     added_bytes = added_header.read_bytes()
     added_blob = hashlib.sha1(b"blob " + str(len(added_bytes)).encode() + b"\0" + added_bytes).hexdigest()
-    if added_blob != "78e53aaa66c632ab538a68be6884b5f90ff938c1":
+    if added_blob != "4265e759e568fb39cb69ad3958a421468cd4a8f2":
         raise ValueError("Water/Housing ABI drift requires reviewed compatibility contract")
     added_header_blobs["OriginalHousingState.h"] = added_blob
     industry_dto = ROOT / "src/simulation/OriginalIndustryState.h"

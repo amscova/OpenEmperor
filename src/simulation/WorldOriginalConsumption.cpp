@@ -26,7 +26,7 @@ std::array<std::uint64_t,original::goods_count> house_totals(
             invalid("original consumption House references must be exact and sorted");
         const auto b=std::lower_bound(buildings.begin(),buildings.end(),entry.building_id,
             [](const auto& value,BuildingId id){return value.id<id;});
-        if (b==buildings.end() || b->id!=entry.building_id || b->kind!=Object::Household || b->placed_tick>tick)
+        if (b==buildings.end() || b->id!=entry.building_id || !original_house_kind(b->kind) || b->placed_tick>tick)
             invalid("original consumption history has no paid House");
         // paid age proves placed+119 is in-domain before that addition.
         const auto opportunities=tick-b->placed_tick<120 ? 0:
@@ -35,8 +35,8 @@ std::array<std::uint64_t,original::goods_count> house_totals(
             int cap=Rules::household_capacity;
             if (rules) {
                 int need=0;
-                for (const auto row:{original::ModelHouse::Shelter,original::ModelHouse::Hut,original::ModelHouse::PlainCottage})
-                    need=std::max(need,rules->value(row,original::goods_field(static_cast<original::Goods>(g))));
+                for (std::size_t r=0;r<original::house_row_count;++r) if ((r>=8)==original_elite_house_kind(b->kind))
+                    need=std::max(need,rules->value(static_cast<original::ModelHouse>(r),original::goods_field(static_cast<original::Goods>(g))));
                 cap=std::clamp(need,0,cap);
             }
             const auto maximum=static_cast<std::uint64_t>(cap);const auto n=entry.consumed[g];
@@ -76,7 +76,7 @@ void World::consume_original_house_goods() {
     if (history.size()!=candidate.houses.size() || rows.size()!=history.size()) throw std::logic_error("missing House consumption history");
     for (std::size_t i=0;i<candidate.houses.size();++i) {
         if (!candidate.houses[i].house.occupants) continue;
-        auto& row=rows[i].consumption_rows[static_cast<std::size_t>(candidate.houses[i].house.type)-3];
+        auto& row=rows[i].consumption_rows[original::model_row(original::house_row(candidate.houses[i].house.type)).value];
         if (row.events==UINT64_MAX) throw std::overflow_error("Housing consumption events exhausted");
         ++row.events;
         // Keep the original OR-needs and separate per-commodity debit kernel.

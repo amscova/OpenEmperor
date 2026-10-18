@@ -78,8 +78,8 @@ void authority(const sim::World& world) {
         check(h.type>=orig::HouseType::Vacant&&h.type<=orig::HouseType::PlainCottage&&h.devolve_counter<=9,
               "Early housing escaped its authored type/counter boundary");
         check(bool(audit.first_admission_tick)==bool(h.occupants),"Housing lifetime admission did not originate in real residents");
-        if (h.type>=orig::HouseType::Hut) check(audit.first_hut_evaluation.has_value(),"Hut has no first actual upgrade input");
-        if (h.type>=orig::HouseType::PlainCottage) check(audit.first_plain_evaluation.has_value(),"Plain has no first actual upgrade input");
+        if (h.type>=orig::HouseType::Hut) check(audit.first_transitions[1].has_value(),"Hut has no first actual upgrade input");
+        if (h.type>=orig::HouseType::PlainCottage) check(audit.first_transitions[2].has_value(),"Plain has no first actual upgrade input");
         if (audit.last_evaluation) check(audit.last_evaluation->tick==sim::original_housing_evaluation_tick(world.ticks())&&
             audit.last_evaluation->tick%51==40,"Housing evaluated outside actual phase39");
     }
@@ -108,9 +108,9 @@ Scene minimal(sim::World& world,int missing=0) {
 }
 void verify_first_upgrade(const sim::World& world,sim::BuildingId id) {
     const auto& h=house(world,id);const auto& audit=history(world,id);
-    check(h.type==orig::HouseType::PlainCottage&&audit.first_hut_evaluation&&audit.first_plain_evaluation,
+    check(h.type==orig::HouseType::PlainCottage&&audit.first_transitions[1]&&audit.first_transitions[2],
           "Paid House did not actually evolve Shelter->Hut->Plain");
-    const auto& hut=*audit.first_hut_evaluation;const auto& plain=*audit.first_plain_evaluation;
+    const auto& hut=audit.first_transitions[1]->evaluation;const auto& plain=audit.first_transitions[2]->evaluation;
     check(hut.tick<plain.tick&&hut.input.type==orig::HouseType::Shelter&&plain.input.type==orig::HouseType::Hut&&
           hut.input.water&&plain.input.water&&plain.input.food_quality>=20&&plain.input.ancestor>0&&
           hut.water_evaluation_witness&&plain.water_evaluation_witness&&plain.food_quality_witness&&plain.service_witnesses[2],
@@ -179,7 +179,7 @@ void missing_requirements_and_authored_counterexamples(const f::fs::path& origin
         Fixture fixture(original);auto world=fixture.world();const auto s=minimal(world,missing);
         ticks(world,1700);
         for (const auto& h:world.original_economy_state()->houses) {
-            check(h.house.type!=orig::HouseType::PlainCottage&&!history(world,h.building_id).first_plain_evaluation,
+            check(h.house.type!=orig::HouseType::PlainCottage&&!history(world,h.building_id).first_transitions[2],
                   "Missing Water/Ancestor/Food/unreachableMarket permitted Plain");
             if (missing==1) check(h.house.type==orig::HouseType::Shelter&&!h.house.water,
                   "Historical influence-only source granted water or Hut");
@@ -194,7 +194,7 @@ void missing_requirements_and_authored_counterexamples(const f::fs::path& origin
         until(world,[&]{return house(world,s.home).water&&house(world,s.home).food_quality>=20&&house(world,s.home).ancestor>0;},
               "Authored counterexample did not obtain real other prerequisites",1700);
         ticks(world,150);
-        check(house(world,s.home).type==orig::HouseType::Hut&&!history(world,s.home).first_plain_evaluation,
+        check(house(world,s.home).type==orig::HouseType::Hut&&!history(world,s.home).first_transitions[2],
               "Authored missingHempNeed1/insufficientDes counterexample evolved");
         if (authored_variant==1) check(!house(world,s.home).hemp&&
             fixture.model->house_rules().value(orig::ModelHouse::PlainCottage,orig::HouseField::Hemp)==1,

@@ -24,7 +24,8 @@ enum class Action {
     OriginalMusicSchool, OriginalAcrobatSchool, OriginalDramaSchool,
     OriginalLoggingShed, OriginalBronzeSmelter, OriginalBronzewareMaker, OriginalLacquerwareMaker,
     OriginalPaperMaker, OriginalWeaver, OriginalTeaCuringShed, OriginalLacquerRefinery,
-    OriginalSilkwormShed, OriginalTeaBush, OriginalLacquerTree, OriginalMulberryTree, ToggleIndustryPage
+    OriginalSilkwormShed, OriginalTeaBush, OriginalLacquerTree, OriginalMulberryTree, ToggleIndustryPage,
+    OriginalElitePlot
 };
 
 struct Button { Action action; Rect rect; bool enabled=true; };

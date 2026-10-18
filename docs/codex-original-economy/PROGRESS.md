@@ -4,8 +4,11 @@
 
 Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei der **nächsten** Aufgabe die vorige SHA in dieser Datei nachtragen, weil ein Commit seine eigene SHA nicht enthalten kann.
 
-**Nutzerpause nach OE-24:** OE-24 ist technisch abgeschlossen. OE-25 bleibt
-TODO und wird erst nach ausdrücklicher Fortsetzung begonnen.
+**Fortsetzung am2026-10-18:** Der Nutzer hebt die Pause nach OE-24 ausdrücklich
+auf und beauftragt OE-25. Dieser Task ist umgesetzt und geprüft; sein
+versionierter Vertrag steht in `housing-stages-runtime.md`. Als Nächstes ist
+OE-26 vorgesehen, bleibt aber nach ausdrücklichem Nutzerwunsch erneut
+pausiert und unbegonnen.
 
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
@@ -33,8 +36,8 @@ TODO und wird erst nach ausdrücklicher Fortsetzung begonnen.
 | OE-21 | PASS | d0dae2830a7025c12b32ce783fa6de416e131b44 | `.local/original-economy/oe21/implementation/runs/final4/`, `oe21/production-fixtures/final4/` | Revision21: bezahltes Wasser, echter Hut→Plain-Aufstieg, zehnte negative Auswertung/Rückentwicklung,141 Konfigurations-CTests und24 separate20k-Prozesse; Gate D bleibt TODO |
 | OE-22 | PASS | 1e7e2715704bd7b5def483d4924292c1d4d41181 | `.local/original-economy/oe22/validation2/`, `oe22/production-fixtures/final2/` | Revision22: bezahlte215/217/219, getrennte40er-Timer/OR, echte3×3-Ankunft;150 Konfigurations-CTests und30 separate20k-Fortsetzungen. Confucian-Elite/Material ausdrücklich authored/offen; Gate D TODO |
 | OE-23 | PASS | 95967cec1e691a50e9a771a59940deda2230807b | `.local/original-economy/oe23/validation/`, `oe23/production-fixtures/final/` | Revision23: bezahlte211/212/213, neun getrennte Timer, reine Verfügbarkeit/Ankunft-Diagnose und echte Quellenbrände;159 Konfigurations-CTests,36 separate20k-Fortsetzungen. Originale Venue-/Performer-Kette weiterhin ausdrücklich experimentell; Gate D TODO |
-| OE-24 | PASS | — | `.local/original-economy/oe24/validation2/`, `oe24/production-fixtures/final2/` | Revision24: vier bezahlte Luxusketten, fünf getrennte Vorprodukte und echter Paper→Academy-Materialpfad; 168 Konfigurations-CTests, 43 separate20k-Replays, beide Software-SDL-Ansichten geöffnet. Nutzerpause nach diesem Task; Gate D TODO |
-| OE-25 | TODO | — | — | Nicht begonnen; Nutzerpause nach OE-24 |
+| OE-24 | PASS | 7360f84e40c6cd558d3cf87de41c8b713645840f | `.local/original-economy/oe24/validation2/`, `oe24/production-fixtures/final2/` | Revision24: vier bezahlte Luxusketten, fünf getrennte Vorprodukte und echter Paper→Academy-Materialpfad; 168 Konfigurations-CTests, 43 separate20k-Replays, beide Software-SDL-Ansichten geöffnet. Historische Nutzerpause danach, am2026-10-18 aufgehoben; Gate D TODO |
+| OE-25 | PASS | — | `.local/original-economy/oe25/validation3/`, `oe25/production-fixtures/final3/` | Revision25:15 Zeilen, bezahlte getrennte Elitefamilie, echte13→12→13 und Common6;177 relevante CTests/50 getrennte20k-Replays/4 geöffnete Softwarebilder;4×4-Geometrie26/Originalsprites29/Gate D27 offen |
 | OE-26 | TODO | — | — | — |
 | OE-27 | TODO | — | — | — |
 | OE-28 | TODO | — | — | — |
@@ -2878,3 +2881,104 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   Originalsprites29 sowie native/human Abnahme bleiben getrennte offene Arbeit.
 - **Ausdrückliche Nutzerentscheidung:** nach dem geprüften eigenen24er-Commit
   Pause. OE-25 wird nicht begonnen; kein Push, PR, Merge, Tag oder Release.
+
+
+## OE-25 – fünfzehn Hauszeilen und getrennte bezahlte Elitefamilie
+
+- **PASS am2026-10-18**, auf OE24 `7360f84e40c6cd558d3cf87de41c8b713645840f`.
+  Aktiv ausschließlich Rule10/Schema26/policy3, `development_revision=25`;
+  Revision24/26-Crossloads verweigert, veröffentlichte1–9/1–25 unverändert.
+  Vertrag: `docs/original-economy/housing-stages-runtime.md`; Quellenbeleg:
+  `docs/reverse/original-house-lifecycle-contract.md`. Eigene Commit-SHA folgt
+  in der Antwort und nach bestehender Dateikonvention im nächsten Task.
+- Common und Elite besitzen getrennte tatsächliche Körperfamilien; gemeinsames
+  Limit20. Der neue authored80er Eliteplot startet11/leer. Echter Zuzug liest
+  die Vorereigniskapazität und erzeugt11→13, keine kostenlose12 und keinen
+  Common→Elite-Umbau. Alle15 Modellzeilen, getrennte Admission-/Censusselector,
+  echte Bedarfe und10/12/50/18-Ereignisgrenzen bleiben im Originalkern.
+  Die Plain5-Clamp entfällt. Bereits zugelassene Bewohner bleiben erhalten.
+- Feste15 Verbrauchszeilen, erste tatsächliche Übergangsinputs und die letzte
+  Phase39-Eingabe werden streng mit Familie, echter Admission, Mengen,
+  Quality, Wasser-/Servicewitnesses, Counter und chronologischer Kapazität
+  restauriert. Const-Diagnose/15-Zeilen-Matrix ändern weder World noch Routes,
+  Dateien oder Assets. UI zeigt einzelne Bedarfe/OR, DES, Counter und Kapazitäten.
+- Confucian219 ist bei Dispatch, Ankunft und Diagnose Elite-only und benötigt
+  weiter wirklich geliefertes Paper mit1-Paper-Dispatchsink. Common bleibt
+  unberechtigt. Neun bereits bezahlte Provider tragen ihre eigenen vorbereiteten
+  DES-Zeilen und wirklichen2×2-/3×3-Flächen in stabiler ID-Reihenfolge bei;
+  Präsenz auch bei Pause/Brand, historisch nur vorher gekaufte Quellen. Kein
+  Alias-Well, Zweitkauf, zusätzlicher Source-Save oder Frame-/Tickaufbau.
+- Tatsächliche Originalmodell-/Normal-Szene: Bauausgaben1727/Funds10273.
+  Elite11 leer bei0, echter Erstbezug13 mit2 Bewohnern bei120, Counter49 bei2590,
+  50. Fehlschlag13→12 bei2641, fünf Bewohner behalten; echte12→13-Erholung bei6313.
+  Zugleich ist Common8 real Typ6/20Bewohner, Elite9 Typ13/5Bewohner. Conf-Ankunft
+  bei6170 hat einen wirklichen Paper-Sink; eine spätere noch reisende Tour
+  zählt nicht als Besuch. Recovered/Advanced/Visited sind tatsächlich derselbe
+  Tick6313 und byteidentische Zustände, keine drei zusätzlichen Ereignisse.
+- Konkrete höhere Grenzen dieser bezahlten Szene: Common DES6<High14 und
+  nächste Herbalist/Music0/1; Elite DES4≤Low35 und <High50, nächster Bedarf
+  Herbalist/Music/Acrobat0/1, FoodQuality0/50 und Silk0/1. Aktuelle Hemp-/
+  Ceramicsbedarfe erfüllt; kein zusätzlicher Pure-Tick wurde dafür ausgeführt.
+  Höhere Stufen/Heavenly werden nicht als erreicht ausgegeben. Privater
+  vollständiger Befund: `oe25/high-stage-observation.md`.
+- Elitegeometrie bleibt ausdrücklich authored2×2; belegtes Original4×4 und
+  atomische Materialisierung vor Erstbezug gehören zum eigenen26er Vertrag.
+  Zuzug120/40/+2, Elitepreis, All-residents-Workeradapter, direkte Besucher und
+  Produktionsuhren bleiben benannt authored; zwei Evolutionsglobals false.
+  Originalsprites29, vollständiger Gate D27, native/human Abnahme offen.
+- Finale Quelle543Dateien: `80680cd335add3f62770290f2d2548497d56dbcb1c3909b2b6c38705a0a16d28`;
+  `oe25/validation3/source-freeze.json` SHA `0ac74afa2e9c8eb7c039cd94c48127d9f4446e21469f4a566afabd0d74c2d9ef`.
+  Drei frische warnungsfreie inkrementelle Werror-Builds; **3×59 CTests PASS**,
+  0Fail/Skip. Tatsächliche CTestzeiten Debug648.503s,
+  Release36.872s, ASan+UBSan227.226s, keine Sanitizerdiagnose.
+  Unabhängig142Binarypfade/39Archive an tatsächliche Builds/JUnit und Livebytes
+  gebunden. Kein voller Cleanbuild-/Gate-D-Nachweis.
+- Frische3×74 Kernvergleiche,25 tatsächliche strenge Sanitizerprozesse und28
+  Postexport-Pythonverträge PASS. Alte Beobachtungen/Klassifikationen exakt.
+  Unter `simulation/original/` bleiben15 Kern-/Parser-/Vorbereitungsdateien
+  bytegleich; einzig `OriginalModelMapping.h` ergänzt genau den ausdrücklichen
+  unmapped-Elitefall, ohne erfundene ModelBuilding-/Grafikidentität. Vier
+  aktive ABI-Pins eng geprüft. `core-parity.json` SHA `ee6060212708a759c1f47a4062935e00a25a3f8361d02d39673e3b5ae3793af6`.
+- Actual final3: **67 eindeutige C++-PIDs**,10 aktive Creates,50 getrennte
+  aktive20k-Fortsetzungen,3 historische Creates/4 historische Resumes.
+  Reader PASS mit8267294 Checks,255Schema26-Dokumenten/250Rohprojektionen;
+  **100 ganze Savepaare und100 ganze Reportpaare** am Mittelpunkt/Ende exakt.
+  Alte Regeln7/8/9:17Save-/16Report-Literalpaare unverändert.
+  644Dateien/130937093Bytes gebunden;
+  sechs echte C++-/Python-Ausgaberefusals für Außenpfad, Symlink und alten24er-Root.
+- Fehler und Korrekturen bleiben tatsächlich erhalten: frühe View-/Einrückungs-
+  Compilerfehler sowie alte JSON-/Common-Conf-Fixtureannahmen; `early5`58/59
+  (IndustrySave ohne Eliteziel), `early6`57/59 (neuer Elitebefehl erhöhte die
+  alte Logistics-Sequenz trotz Refusal). Ein enger neuer Commandguard bewahrt
+  alle bisherigen Befehle. `early7`59/59 PASS. Der echte Save-Counter12-RED
+  wird durch einen modellabhängigen Guard geschlossen; authored Row9-Need1
+  mit echten Counter1/11/zwölftem Reset bleibt speicherbar.
+- Erster final1-Prozessworkflow: echter Python-FAIL nach7 erfolgreichen C++-
+  Creates; Paper kam bei813 nach Verbrauch der ersten Foodportion. Nur der
+  C++-Fixture-Predicate/Kauf-ID-Teil wartet nun gleichzeitig auf tatsächliches
+  Paper, volle sichere Besetzung und alle übrigen Bedarfe. Python bleibt strikt.
+  Korrekter isolierter Probe3-PASS bei1484: Common Water/Q20/Ancestor/Dao,
+  Conf0, zweite echte Foodankunft; Academy Paper4,12Worker, eligiblefalse.
+  Kein Farmstaging/Grant/Runtimefix. Vorherige Probe1/2-Refusals waren Root-
+  Harnessfehler vor der Simulation (Ausgabepfad bzw. fehlende authored Map),
+  keine Gameplaytimeouterkenntnis. Final1-Quellen, Binaries und FAIL sind
+  getrennt von den neu ausgeführten final3-Berichten erhalten.
+- Final2-Debug58/59: ausschließlich der integrierte UI-Test traf sein altes
+  60s-Limit. Unverändert isoliert PASS75,512s/71,249CPU-Sekunden; tatsächliche
+  1s-Stackprobe zeigt bestehende Debug-Navigationsassertionen im realen Tickpfad.
+  Alter24er-Debugtest43,136s, tatsächliche Spielticks3639→7468. Nur dessen
+  CTestbudget wurde begründet auf120s gesetzt; kein Tick, Ziel, Bedarf oder
+  Assert gelockert und keine Runtime geändert. Final2-FAIL und Messung bleiben
+  unter validation2/ erhalten; final3 wurde vollständig neu ausgeführt.
+- Finale Release-Software-SDL-Bilder PID34323 alle vier tatsächlich geöffnet:
+  House/Industry/Diagnose/weitere Einzelbedarfe. Neun Timer, DES/Counter,
+  actual/need/OR-Werte und PaperMaker-Worker/Input/Output lesbar; authored2×2,
+  Original4×4:26 und Original-Art-pending ausdrücklich sichtbar.12 gebundene
+  PNG-/Observed-/Saveartefakte; echte UI-Käufe, Scrollen, F5/F9 und Idlegrenzen
+  geprüft. Keine Originalgrafik-/native-/human-Abnahme daraus abgeleitet.
+- Statische Quellenprüfung:26 Fenster/1651Instruktionen/4751Bytes/52Assertions,
+  Original-EXE/Modelbytes und Metadaten unverändert; kein Original-EXE-Lauf.
+  Gesamter167er-Mapcorpus hier nicht erneut ausgeführt. Root-Abschluss
+  `oe25/validation3/final-validation.json` PASS, SHA `b1b29b8b3f4f12dd7bf95ed7f19d33417cfe0e482ae09c04c96364a10b9e960f`.
+  Ausdrückliche Nutzerentscheidung2026-10-18: nach geprüftem eigenem25er-Commit
+  erneut Pause. OE26 bleibt unbegonnen; kein Push/PR/Merge/Tag/Release.

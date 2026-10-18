@@ -122,6 +122,7 @@ struct FunctionalModelCandidate {
     case Object::Road:
     case Object::Workshop:
     case Object::Household:
+    case Object::OriginalElitePlot:
     case Object::ServicePost:
     case Object::FireWatch:
     case Object::OriginalInfluenceSource:

@@ -10,7 +10,7 @@ namespace openemperor::simulation {
 namespace {
 [[noreturn]] void invalid(const char* message) {throw std::invalid_argument(message);}
 bool food_role(CourierRole role) {return role==CourierRole::OriginalFoodToMarket || role==CourierRole::OriginalFoodToHouse;}
-bool food_owner(Object kind) {return kind==Object::OriginalFoodFarm || kind==Object::Market || kind==Object::Household;}
+bool food_owner(Object kind) {return kind==Object::OriginalFoodFarm || kind==Object::Market || original_house_kind(kind);}
 int capacity(Object kind) {return kind==Object::Market ? 16:8;}
 std::size_t crop_index(OriginalFoodCrop crop) {
     const auto result=static_cast<std::size_t>(crop);
@@ -118,7 +118,9 @@ void validate_food(const OriginalFoodState& food,const Buildings& buildings,cons
             invalid("Food transaction lost actual actor/source/target binding");
         const auto& source=body(buildings,trip.source);const auto& target=body(buildings,trip.target);
         if (source.kind!=(c->role==CourierRole::OriginalFoodToMarket ? Object::OriginalFoodFarm:Object::Market) ||
-            target.kind!=(c->role==CourierRole::OriginalFoodToMarket ? Object::Market:Object::Household)) invalid("Food actor has incompatible owner or target");
+            (c->role==CourierRole::OriginalFoodToMarket ? target.kind!=Object::Market:!original_house_kind(target.kind))) invalid("Food actor has incompatible owner or target");
+        if (original_house_kind(target.kind) && home(houses,target.id).house.occupants<=0)
+            invalid("Food targeted dispatch requires a genuinely occupied House");
         const auto loaded=volume(trip.loaded);(void)volume(trip.delivered);(void)volume(trip.returned);
         if (loaded<=0 || loaded>4) invalid("Food trip must load positive actual Cart volume");
         const bool complete=trip.phase==OriginalGoodsTransferPhase::Completed,returned=trip.phase==OriginalGoodsTransferPhase::Returned;
@@ -170,11 +172,11 @@ void validate_food(const OriginalFoodState& food,const Buildings& buildings,cons
             if (input!=output || stock.returned[g]>stock.departed[g]) invalid("Food owner harvest+received+returned differs from stock+departed+consumed");
             if (b.kind==Object::OriginalFoodFarm && (stock.received[g] || stock.consumed[g])) invalid("Food Farm received or consumed unearned crop");
             if (b.kind==Object::Market && stock.consumed[g]) invalid("Market cannot consume household Food");
-            if (b.kind==Object::Household && (stock.departed[g] || stock.returned[g])) invalid("House Food cannot depart or return");
+            if (original_house_kind(b.kind) && (stock.departed[g] || stock.returned[g])) invalid("House Food cannot depart or return");
             add(all_stock[g],static_cast<std::uint64_t>(stock.amounts[g]));add(all_consumed[g],stock.consumed[g]);
             add(all_departed[g],stock.departed[g]);add(all_received[g],stock.received[g]);add(all_returned[g],stock.returned[g]);
         }
-        if (b.kind!=Object::Household) {
+        if (!original_house_kind(b.kind)) {
             if (stock.missed_demands || stock.quality_witness) invalid("only actual Houses own Food demand and quality witnesses");
             const auto c=std::find_if(couriers.begin(),couriers.end(),[&](const auto& actor){return actor.owner==b.id && food_role(actor.role);});
             if (c==couriers.end()) invalid("paid Food source lost its real courier");const auto* trip=trip_for(food.trips,c->id);
@@ -310,7 +312,7 @@ CourierDispatchDecision World::original_food_dispatch_status(const CourierState&
     if (!original_food_stock(c.owner)) return {CourierDispatchStatus::NoStock,{}};
     std::array<const BuildingState*,Rules::city_v10_household_limit> targets{};std::size_t count=0;
     for (const auto& b:buildings_) if (courier_can_target(c.role,b) && b.operating_enabled && !building_on_fire(b.id)) {
-        if (b.kind==Object::Household && !original::accepts_goods_delivery(home(original_economy_->houses,b.id).house)) continue;
+        if (original_house_kind(b.kind) && home(original_economy_->houses,b.id).house.occupants<=0) continue;
         targets[count++]=&b;
     }
     if (!count) return {CourierDispatchStatus::NoTarget,{}};std::size_t start=0;
@@ -360,11 +362,11 @@ void World::arrive_original_food(CourierState& c) {
     if (c.phase==CourierPhase::ToWarehouse) {
         const auto& target=building(c.target);const auto cargo=remaining(*trip);
         if (!target.operating_enabled || building_on_fire(target.id) ||
-            (target.kind==Object::Household && !original::accepts_goods_delivery(home(houses,target.id).house))) trip->phase=OriginalGoodsTransferPhase::Returning;
+            (original_house_kind(target.kind) && home(houses,target.id).house.occupants<=0)) trip->phase=OriginalGoodsTransferPhase::Returning;
         else {
             auto& stock=account(candidate.stocks,target.id);const auto before=volume(stock.amounts),accepted=volume(cargo);
             if (!accepted || before+accepted>capacity(target.kind)) throw std::logic_error("reserved Food arrival no longer fits its physical target");
-            if (target.kind==Object::Household) {
+            if (original_house_kind(target.kind)) {
                 auto& h=home(houses,target.id);
                 stock.quality_witness=OriginalFoodQualityWitness{trip->transfer,ticks_,cargo,stock.consumed,h.house.food_quality};
                 h.house.food_quality=original::blend_food_quality(h.house.food_quality,original_food_batch_quality(cargo).value,accepted,before);

@@ -62,7 +62,7 @@ void validate_witness(const OriginalWaterWitness& witness,const OriginalWaterSta
     const auto& admitted=home(housing.houses,witness.building_id).first_admission_tick;
     const auto actor=std::find_if(couriers.begin(),couriers.end(),[&](const auto& c){return c.id==witness.transfer.courier_id;});
     const auto* trip=latest_trip(state.trips,witness.transfer.courier_id);
-    if (source.kind!=Object::OriginalWaterWell72 || target.kind!=Object::Household || !accepts(h) ||
+    if (source.kind!=Object::OriginalWaterWell72 || !original_house_kind(target.kind) || !accepts(h) ||
         actor==couriers.end() || actor->owner!=p.building_id || actor->role!=CourierRole::OriginalWater ||
         !trip || !witness.transfer.sequence || witness.transfer.sequence>trip->transfer.sequence ||
         !witness.arrival_tick || witness.arrival_tick>tick || witness.transfer.sequence>witness.arrival_tick ||
@@ -84,7 +84,7 @@ void validate_evaluation(const OriginalWaterState& state,const Buildings& buildi
                          const std::optional<OriginalWaterWitness>& captured,bool supplied) {
     if (observed>tick) invalid("water evaluation cannot observe a future clock");
     const auto& b=body(buildings,id);const auto& row=home(state.houses,id);
-    if (b.kind!=Object::Household || observed<b.placed_tick) invalid("water evaluation predates its paid House");
+    if (!original_house_kind(b.kind) || observed<b.placed_tick) invalid("water evaluation predates its paid House");
     const auto evaluated=original_water_evaluation_tick(observed);
     if (captured) {
         if (captured->building_id!=id || !evaluated || captured->arrival_tick>evaluated)
@@ -137,7 +137,7 @@ void validate_water(const OriginalWaterState& state,const Buildings& buildings,c
         const auto& source=body(buildings,provider(state,actor->owner).building_id);
         const auto& target=body(buildings,trip.target);const auto& h=home(houses,trip.target);
         const auto& admitted=home(housing.houses,trip.target).first_admission_tick;
-        if (target.kind!=Object::Household || !accepts(h) || trip.dispatched_tick<=source.placed_tick ||
+        if (!original_house_kind(target.kind) || !accepts(h) || trip.dispatched_tick<=source.placed_tick ||
             trip.dispatched_tick<target.placed_tick || trip.dispatched_tick-target.placed_tick<121 ||
             !admitted || trip.dispatched_tick<=*admitted)
             invalid("water dispatch predates or mismatches its paid occupied target");
@@ -228,7 +228,7 @@ bool World::original_water_courier(CourierRole role) const {
 CourierDispatchDecision World::original_water_dispatch_status(const CourierState& courier) const {
     (void)provider(original_production_->water,courier.owner);
     std::array<const BuildingState*,original_water_house_limit> targets{};std::size_t count=0;
-    for (const auto& b:buildings_) if (b.kind==Object::Household && !building_on_fire(b.id) &&
+    for (const auto& b:buildings_) if (original_house_kind(b.kind) && !building_on_fire(b.id) &&
         accepts(home(original_economy_->houses,b.id))) targets[count++]=&b;
     if (!count) return {CourierDispatchStatus::NoTarget,{}};
     std::size_t start=0;

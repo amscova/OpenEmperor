@@ -13,12 +13,13 @@ _SPEC = importlib.util.spec_from_file_location(
 legacy = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(legacy)
 MODEL_SHA = legacy.MODEL_SHA
-DEVELOPMENT_REVISION = 24
+DEVELOPMENT_REVISION = 25
 INDUSTRY_CHECKPOINTS = ["mid-aux-courier", "paper-academy-arrival", "mid-luxury-courier", "house-four-luxuries",
     "industry-return", "industry-road-disconnected", "industry-recipe-ready"]
 CULTURE_ROLES = (2, 3, 4)
 CULTURE_CHECKPOINTS = ["mid-culture-couriers", "culture-road-disconnected", "house-three-cultures",
     "culture-before-expiry", "culture-expired", "culture-revisited"]
+STAGES_CHECKPOINTS = ["elite-empty", "elite-first-admission", "elite-counter49", "elite-abandoned", "elite-recovered", "common-attractive", "elite-confucian-visit"]
 HOUSING_WITNESS_ROLES = (0, 1, 5, 6, 7, 8, 2, 3, 4)
 RELIGION_ROLES = (7, 8, 6)
 RELIGION_CHECKPOINTS = ["mid-religion-couriers", "religion-road-disconnected", "house-three-religions",
@@ -27,7 +28,7 @@ SERVICE_PROVIDERS = ((11, 12, 207, 30, 7), (5, 8, 208, 50, 8), (15, 19, 214, 40,
     (17, 21, 215, 45, 4), (18, 22, 217, 45, 4), (19, 23, 219, 80, 12),
     (20, 24, 211, 50, 8), (21, 25, 212, 60, 9), (22, 26, 213, 70, 10))
 SERVICE_ROLES = (0, 1, 5, 7, 8, 6, 2, 3, 4)
-PRIVATE_OUTPUT = Path(".local/original-economy/oe24/production-fixtures")
+PRIVATE_OUTPUT = Path(".local/original-economy/oe25/production-fixtures")
 RULE9_REFERENCE = Path(".local/original-economy/oe13/goods-fixtures/run-d4mm76cf")
 RULE9_REPORT_SHA = "1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2"
 RULE9_REVIEW_SHA = "c5534befba97a9ad1469bec05131d21f17fe509db101c0f4bd1e0351e742a017"
@@ -372,16 +373,27 @@ def housing_needs(row, state):
 
 
 def housing_step(rows, state):
-    """Independent early-type reference for the unchanged pure operation."""
+    """Independent fifteen-row reference; no World type is assigned here."""
     kind, counter = state["type"], state["devolve_counter"]
-    if kind == 2 or not state["occupants"]:
+    if kind == 11 or (kind in (2, 3) and state["occupants"] <= 0):
         return kind, counter
-    row = rows[kind - 3]
-    if not housing_needs(row, state) or state["desirability"] <= row[0]:
-        return (kind, counter + 1) if counter < 9 else (max(3, kind - 1), 0)
-    if state["desirability"] >= row[1] and kind < 5 and housing_needs(rows[kind - 2], state):
-        return kind + 1, 0
-    return kind, 0
+    row = rows[max(0, kind - 3)]
+    next_row = 10 if kind == 11 else 14 if kind == 17 else max(0, kind - 3) + 1
+    verdict = 1 if kind == 12 else -1 if state["desirability"] <= row[0] else 1 if state["desirability"] >= row[1] else 0
+    if not housing_needs(row, state):
+        verdict = -1
+    elif verdict == 1 and not housing_needs(rows[next_row], state):
+        verdict = 0
+    if kind == 2:
+        return (3 if verdict == 1 else 2), counter
+    if verdict == 1:
+        return (kind + 1 if kind in (*range(3, 10), *range(12, 17)) else kind), 0
+    if verdict == 0:
+        return kind, 0
+    limit = 9 if kind <= 10 else 11 if kind == 12 else 49 if kind == 13 else 17
+    if counter < limit:
+        return kind, counter + 1
+    return (kind - 1 if kind in (*range(4, 11), *range(13, 18)) else kind), 0
 
 
 def check_housing(scene):
@@ -389,7 +401,8 @@ def check_housing(scene):
     assert state["evaluation_tick"] == housing_evaluation_tick(tick)
     assert state["consumption_events"] == housing_consumption_events(tick)
     rows = state["model_rows"]
-    assert len(rows) == 3 and all(len(r) == 24 and all(type(n) is int for n in r) and 0 < r[17] <= 32767 for r in rows)
+    assert len(rows) == 15 and all(len(r) == 24 and all(type(n) is int for n in r) for r in rows)
+    assert rows[8][17] == 0 and all(0 < row[17] <= 32767 for index, row in enumerate(rows) if index != 8)
     houses = {h["id"]: h for h in scene["houses"]}
     histories = {h["id"]: h for h in state["houses"]}
     buildings = {b["id"]: b for b in scene["buildings"]}
@@ -402,20 +415,28 @@ def check_housing(scene):
         if identity in buildings:
             assert buildings[identity]["kind"] == 13 and buildings[identity]["cell"] == cell
 
-    def evaluation(e, identity):
-        assert type(e["tick"]) is int and 0 < e["tick"] <= tick and e["tick"] % 51 == 40
+    def evaluation(e, identity, admission=False):
+        assert type(e["tick"]) is int and 0 < e["tick"] <= tick
+        if not admission:
+            assert e["tick"] % 51 == 40
         i = e["input"]
-        assert i["type"] in (3, 4, 5) and type(i["occupants"]) is int and 0 < i["occupants"] <= 32767
-        assert type(i["devolve_counter"]) is int and 0 <= i["devolve_counter"] <= 9
+        elite = buildings[identity]["kind"] == 39
+        assert i["type"] in (range(11, 18) if elite else range(2, 11))
+        assert type(i["occupants"]) is int and (i["occupants"] == 0 if admission else 0 < i["occupants"] <= 32767)
+        limit = 0 if i["type"] in (2, 11) else 9 if i["type"] <= 10 else 11 if i["type"] == 12 else 49 if i["type"] == 13 else 17
+        assert type(i["devolve_counter"]) is int and 0 <= i["devolve_counter"] <= limit
         assert type(i["water"]) is bool and type(i["desirability"]) is int and -128 <= i["desirability"] <= 127
         assert len(i["goods"]) == 6 and all(type(n) is int and 0 <= n <= 8 for n in i["goods"])
-        assert len(i["service_timers"]) == 9 and all(type(n) is int and 0 <= n <= 96 for n in i["service_timers"])
+        assert len(i["service_timers"]) == 9 and all(type(n) is int and 0 <= n <= (40 if r >= 5 else 96) for r, n in enumerate(i["service_timers"]))
+        if not elite:
+            assert i["service_timers"][6] == 0
         assert len(e["service_witnesses"]) == 9
         for index, role in enumerate(HOUSING_WITNESS_ROLES):
             w = e["service_witnesses"][index]
             expected = 0
             if w:
                 assert w["house_id"] == identity and w["role"] == role and 0 < w["arrival_tick"] <= e["tick"]
+                assert role != 6 or elite
                 expected = max((40 if role >= 5 else 96) - (service_countdowns(e["tick"]) - service_countdowns(w["arrival_tick"] - 1)), 0)
             assert i["service_timers"][role] == expected
         assert i["water"] is bool(water_timer(e["water_evaluation_witness"], water_evaluation_tick(e["tick"])))
@@ -437,16 +458,20 @@ def check_housing(scene):
     capacity = 0
     for identity, h in houses.items():
         audit = histories[identity]
-        assert h["type"] in (2, 3, 4, 5) and type(h["devolve_counter"]) is int and 0 <= h["devolve_counter"] <= 9
+        elite = buildings[identity]["kind"] == 39
+        assert buildings[identity]["kind"] in (6, 39)
+        assert h["type"] in (range(11, 18) if elite else range(2, 11))
+        limit = 0 if h["type"] in (2, 11) else 9 if h["type"] <= 10 else 11 if h["type"] == 12 else 49 if h["type"] == 13 else 17
+        assert type(h["devolve_counter"]) is int and 0 <= h["devolve_counter"] <= limit
         assert type(h["occupants"]) is int and 0 <= h["occupants"] <= 32767
-        capacity += rows[max(0, h["type"] - 3)][17]
+        capacity += rows[9 if h["type"] == 11 else max(0, h["type"] - 3)][17]
         admitted = audit["first_admission_tick"]
         if admitted is None:
-            assert h["type"] == 2 and h["occupants"] == 0
+            assert h["type"] == (11 if elite else 2) and h["occupants"] == 0
         else:
             assert type(admitted) is int and buildings[identity]["placed_tick"] + 120 <= admitted <= tick
             assert (admitted - buildings[identity]["placed_tick"] - 120) % 40 == 0 and h["occupants"] > 0
-        assert len(audit["consumption_rows"]) == 3
+        assert len(audit["consumption_rows"]) == 15
         for row, model in zip(audit["consumption_rows"], rows, strict=True):
             assert type(row["events"]) is int and 0 <= row["events"] <= state["consumption_events"]
             assert len(row["consumed"]) == 6
@@ -455,19 +480,28 @@ def check_housing(scene):
                 assert type(n) is int and 0 <= n <= row["events"] * min(need, 8)
         assert sum(r["events"] for r in audit["consumption_rows"]) <= state["consumption_events"]
         assert [sum(r["consumed"][g] for r in audit["consumption_rows"]) for g in range(6)] == h["consumed"]
-        for name, input_type, output_type in (("first_hut_evaluation", 3, 4), ("first_plain_evaluation", 4, 5)):
-            e = audit[name]
-            if e:
-                evaluation(e, identity)
-                assert e["input"]["type"] == input_type and housing_step(rows, e["input"]) == (output_type, 0)
-        if h["type"] >= 4:
-            assert audit["first_hut_evaluation"]
-        if h["type"] == 5:
-            assert audit["first_plain_evaluation"]
-        if audit["first_plain_evaluation"]:
-            assert audit["first_hut_evaluation"] and audit["first_hut_evaluation"]["tick"] < audit["first_plain_evaluation"]["tick"]
-        ever = 2 if audit["first_plain_evaluation"] else 1 if audit["first_hut_evaluation"] else 0
-        assert h["occupants"] <= max(row[17] for row in rows[:ever + 1])
+        transitions = audit["first_transitions"]
+        assert len(transitions) == 15
+        for row, transition in enumerate(transitions):
+            if transition is None:
+                continue
+            target = row + 3
+            assert (target >= 11) is elite and type(transition["kind"]) is int and transition["kind"] in (0, 1)
+            e = transition["evaluation"]
+            evaluation(e, identity, transition["kind"] == 0)
+            if transition["kind"] == 0:
+                assert target == (13 if elite else 3) and e["tick"] == admitted
+                assert e["input"]["type"] == (11 if elite else 2)
+                assert type(transition["admitted"]) is int
+                assert transition["admitted"] == min(2, rows[11 if elite else 0][17])
+            else:
+                assert transition["admitted"] == 0 and housing_step(rows, e["input"]) == (target, 0)
+        assert audit["first_hut_evaluation"] == (transitions[1]["evaluation"] if transitions[1] else None)
+        assert audit["first_plain_evaluation"] == (transitions[2]["evaluation"] if transitions[2] else None)
+        if admitted is not None:
+            assert transitions[10 if elite else 0] and transitions[10 if elite else 0]["kind"] == 0
+            visited = [row for row, proof in enumerate(transitions) if proof]
+            assert h["occupants"] <= max(rows[row][17] for row in visited)
         e = audit["last_evaluation"]
         if e:
             evaluation(e, identity)
@@ -533,7 +567,7 @@ def check_availability(scene):
     for r in rows:
         identity, role = r["house_id"], r["role"]
         h = houses[identity]
-        expected_eligible = h["occupants"] > 0 and h["access_enabled"] and h["status"] in (1, 3) and not buildings[identity]["on_fire"]
+        expected_eligible = h["occupants"] > 0 and h["access_enabled"] and h["status"] in (1, 3) and not buildings[identity]["on_fire"] and (role != 6 or buildings[identity]["kind"] == 39)
         assert type(r["eligible_target"]) is bool and r["eligible_target"] is expected_eligible
         assert type(r["delivered_timer"]) is int and r["delivered_timer"] == h["service_timers"][role]
         matching = [p for p in providers if SERVICE_ROLES[p["type"]] == role]
@@ -576,7 +610,7 @@ def check_culture_fixture(fixture):
     initial = fixture["initial"]
     assert initial["construction_spent"] == 2127 and initial["funds"] == 9873
     assert initial["house_count"] == 15 and initial["road_count"] == 84 and initial["building_count"] == 29 and initial["courier_count"] == 14
-    assert initial["population"] == 0 and fixture["stopped"]["population"] == fixture["stopped"]["workforce_supply"] == 105
+    assert initial["population"] == 0 and fixture["stopped"]["population"] == fixture["stopped"]["workforce_supply"] == 103
     assert not fixture["stopped"]["services"]["trips"] and not fixture["stopped"]["services"]["witnesses"]
     assert fixture["midroute"]["workforce_used"] == 100 and fixture["visited"]["workforce_used"] == 73
     assert all(not b["operating"] and b["workers"] == 0 for b in fixture["visited"]["buildings"] if b["kind"] in (24, 25, 26))
@@ -695,6 +729,7 @@ def check_services(scene, positive=False, ancestor=False, religions=False, cultu
         assert t["dispatched_tick"] > source["placed_tick"]
         assert t["dispatched_tick"] >= target["placed_tick"] + 121
         assert houses[t["target"]]["occupants"] > 0
+        assert c["role"] != 19 or buildings[t["target"]]["kind"] == 39
         assert type(t["visit_applied"]) is bool
         if t["arrival_tick"] is None:
             assert not t["visit_applied"] and c["phase"] == 1
@@ -709,6 +744,7 @@ def check_services(scene, positive=False, ancestor=False, religions=False, cultu
         assert identity in houses and type(role) is int and role in SERVICE_ROLES and w["provider_id"] in providers
         p = providers[w["provider_id"]]
         assert SERVICE_ROLES[p["type"]] == role and w["courier_id"] in actors
+        assert role != 6 or buildings[identity]["kind"] == 39
         c = couriers[w["courier_id"]]
         assert c["owner"] == p["id"] and w["courier_id"] in trips
         t = trips[w["courier_id"]]
@@ -821,6 +857,45 @@ def check_ancestor_fixture(fixture):
     assert again["sequence"] > first["sequence"] and again["arrival_tick"] > fixture["expiry_tick"]
 
 
+def check_stages_fixture(fixture):
+    assert fixture["status"] == "PASS" and fixture["snapshot_injection"] is False
+    assert fixture["real_model_housing_stages"] is fixture["authored_geography"] is True
+    assert fixture["temporary_elite_geometry"] == [2, 2] and fixture["original_elite_required_side"] == 4
+    assert fixture["authored_elite_plot_price"] == 80 and fixture["paid_city_heavenly_reached"] is False
+    assert [entry["tag"] for entry in fixture["checkpoints"]] == STAGES_CHECKPOINTS
+    for name in ("initial", "admitted", "counter49", "abandoned", "recovered", "advanced", "visited"):
+        scene = fixture[name]
+        check_balances(scene)
+        assert scene["model_sha256"] == MODEL_SHA and scene["development_revision"] == DEVELOPMENT_REVISION
+        assert scene["construction_spent"] == fixture["scene_spent"] and scene["funds"] + scene["construction_spent"] == 12000
+    elite = fixture["elite_id"]
+    home = lambda name: next(h for h in fixture[name]["houses"] if h["id"] == elite)
+    proof = lambda name: next(h for h in fixture[name]["housing"]["houses"] if h["id"] == elite)
+    assert home("initial")["type"] == 11 and home("initial")["occupants"] == 0
+    admission = proof("admitted")["first_transitions"][10]
+    assert fixture["admitted"]["tick"] == 120 and admission["kind"] == 0 and admission["admitted"] == 2
+    assert admission["evaluation"]["input"]["type"] == 11 and admission["evaluation"]["input"]["occupants"] == 0
+    assert home("admitted")["type"] == 13 and home("admitted")["occupants"] == 2
+    assert home("counter49")["type"] == 13 and home("counter49")["devolve_counter"] == 49
+    assert home("abandoned")["type"] == 12 and home("abandoned")["devolve_counter"] == 0
+    down = proof("abandoned")["first_transitions"][9]
+    assert down["kind"] == 1 and down["evaluation"]["input"]["type"] == 13 and down["evaluation"]["input"]["devolve_counter"] == 49
+    recovered = proof("recovered")["last_evaluation"]
+    assert recovered["input"]["type"] == 12 and recovered["input"]["goods"][0] > 0 and recovered["input"]["goods"][1] > 0
+    assert home("recovered")["type"] == 13 and home("recovered")["occupants"] >= home("abandoned")["occupants"]
+    common = next(h for h in fixture["advanced"]["houses"] if h["id"] == fixture["home_id"])
+    assert 6 <= common["type"] <= 10
+    common_history = next(h for h in fixture["advanced"]["housing"]["houses"] if h["id"] == fixture["home_id"])
+    actual_first_attractive = common_history["first_transitions"][3]
+    assert actual_first_attractive and actual_first_attractive["kind"] == 1
+    assert actual_first_attractive["evaluation"]["input"]["food_quality"] >= 30
+    assert home("visited")["service_timers"][6] > 0
+    assert all(h["service_timers"][6] == 0 for h in fixture["visited"]["houses"] if h["type"] < 11)
+    academy = next(s for s in fixture["visited"]["industry"]["stocks"] if s["id"] == fixture["academy_id"])
+    assert academy["received"][4] > 0 and academy["consumed"][4] > 0
+    assert len(fixture["higher_stage_observations"]) == 2
+
+
 def check_religion_fixture(fixture):
     assert fixture["status"] == "PASS" and fixture["snapshot_injection"] is False
     assert fixture["authored_geography"] is fixture["real_model_prices_and_workers"] is True
@@ -839,7 +914,7 @@ def check_religion_fixture(fixture):
     initial = fixture["initial"]
     assert initial["construction_spent"] == 1571 and initial["funds"] == 10429 and initial["population"] == 0
     assert initial["house_count"] == 11 and initial["road_count"] == 56 and initial["courier_count"] == 11
-    assert fixture["stopped"]["population"] == fixture["stopped"]["workforce_supply"] == 77
+    assert fixture["stopped"]["population"] == fixture["stopped"]["workforce_supply"] == 75
     assert not fixture["stopped"]["services"]["trips"]
     assert fixture["midroute"]["workforce_used"] == 73 and fixture["visited"]["workforce_used"] == 53
     assert all(not b["operating"] and b["workers"] == 0 for b in fixture["visited"]["buildings"] if b["kind"] in (21, 22, 23))
@@ -865,7 +940,7 @@ def check_religion_fixture(fixture):
     check_services(fixture["revisited"], religions=True)
     for key in ("before_expiry", "expired"):
         assert all(not b["operating"] for b in fixture[key]["buildings"] if b["kind"] in (21, 22, 23))
-    assert [p["case"] for p in fixture["predicate_controls"]] == ["dao-only", "buddhist-only", "neither-or", "no-confucian"]
+    assert [p["case"] for p in fixture["predicate_controls"]] == ["dao-only", "buddhist-only", "neither-or", "no-confucian", "common-confucian-refused"]
     for index, p in enumerate(fixture["predicate_controls"]):
         assert p["authored_model"] is True and p["original_model_or_requirement"] is False
         final = p["final"]
@@ -875,12 +950,12 @@ def check_religion_fixture(fixture):
         assert supplied["water"] and supplied["food_quality"] >= 20 and supplied["service_timers"][5] > 0
         assert prerequisites["model_sha256"] == final["model_sha256"]
         check_balances(final)
-        assert final["model_sha256"] != MODEL_SHA and final["housing"]["model_rows"][2][22:] == [1, 1]
+        assert final["model_sha256"] != MODEL_SHA and final["housing"]["model_rows"][2][22:] == [int(index >= 3), 1]
         h = next(h for h in final["houses"] if h["id"] == p["home_id"])
         assert h["water"] and h["service_timers"][5] > 0
         if index < 2:
             role, other = ((7, 8), (8, 7))[index]
-            assert h["type"] == 5 and h["food_quality"] >= 20 and h["service_timers"][role] > 0 and h["service_timers"][other] == 0 and h["service_timers"][6] > 0
+            assert h["type"] == 5 and h["food_quality"] >= 20 and h["service_timers"][role] > 0 and h["service_timers"][other] == 0 and h["service_timers"][6] == 0
             check_balances(p["expired"])
             expired = next(h for h in p["expired"]["houses"] if h["id"] == p["home_id"])
             assert expired["service_timers"][role] == expired["service_timers"][other] == 0
@@ -889,8 +964,8 @@ def check_religion_fixture(fixture):
         else:
             assert p["expired"] is None and h["type"] == 4
             assert all(not a["first_plain_evaluation"] for a in final["housing"]["houses"])
-            assert not h["service_timers"][6] if index == 3 else not any(h["service_timers"][r] for r in (7, 8))
-            assert not supplied["service_timers"][6] if index == 3 else not any(supplied["service_timers"][r] for r in (7, 8))
+            assert not h["service_timers"][6] if index >= 3 else not any(h["service_timers"][r] for r in (7, 8))
+            assert not supplied["service_timers"][6] if index >= 3 else not any(supplied["service_timers"][r] for r in (7, 8))
             assert not housing_needs(final["housing"]["model_rows"][2], dict(type=supplied["type"], water=supplied["water"],
                 food_quality=supplied["food_quality"], service_timers=supplied["service_timers"], goods=[supplied["hemp"], supplied["ceramics"], 0, 0, 0, 0]))
     barrier = fixture["barrier"]
@@ -941,7 +1016,7 @@ def check_food(scene, positive=False):
     trips = {trip["courier_id"]: trip for trip in food["trips"]}
     assert len(trips) == len(food["trips"])
     for row in food["stocks"]:
-        assert row["kind"] in (6, 9, 16) and vector(row["amounts"], 16)
+        assert row["kind"] in (6, 9, 16, 39) and vector(row["amounts"], 16)
         assert sum(row["amounts"]) <= (16 if row["kind"] == 9 else 8)
         for key in ("received", "departed", "returned", "consumed"):
             assert vector(row[key], 2**64 - 1)
@@ -949,7 +1024,7 @@ def check_food(scene, positive=False):
         for good in (0, 1):
             harvest = farms[row["id"]]["harvested"] if row["id"] in farms and farms[row["id"]]["crop"] == good else 0
             assert harvest + row["received"][good] + row["returned"][good] == row["amounts"][good] + row["departed"][good] + row["consumed"][good]
-        if row["kind"] != 6:
+        if row["kind"] not in (6, 39):
             assert row["quality"] == 0 and row["quality_witness"] is None and row["missed_demands"] == 0 and not any(row["consumed"])
             continue
         assert row["id"] in houses and row["quality"] == houses[row["id"]]["food_quality"]
@@ -1248,7 +1323,7 @@ def main():
         expected = source_model.read_bytes()
         marker = b"3: Plain Cottage,{,"
         assert expected.count(marker) == 1
-        for field in (22, 23):
+        for field in ((22, 23) if predicate["case"] in ("no-confucian", "common-confucian-refused") else (23,)):
             start = expected.index(marker) + len(marker)
             for _ in range(field):
                 start = expected.index(b",", start) + 1
@@ -1304,7 +1379,13 @@ def main():
     check_industry_fixture(industry_fixture)
     checkpoint_inputs = [row + (False,) for row in checkpoint_inputs]
     checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, False, False, False, False, False, True) for entry in industry_fixture["checkpoints"]]
-    for checkpoint, replay_data, model_sha, authored_needs, food_scenario, services_scenario, ancestor_scenario, housing_scenario, religion_scenario, culture_scenario, industry_scenario in checkpoint_inputs:
+    legacy.run(binary, ["--create-stages", stage, output / "stages"], output / "stages.log")
+    stages_fixture = json.loads((output / "stages/fixture.json").read_text())
+    check_stages_fixture(stages_fixture)
+    checkpoint_inputs = [row + (False,) for row in checkpoint_inputs]
+    checkpoint_inputs += [(entry, stage, MODEL_SHA, False, False, False, False, False, False, False, False, True)
+                         for entry in stages_fixture["checkpoints"]]
+    for checkpoint, replay_data, model_sha, authored_needs, food_scenario, services_scenario, ancestor_scenario, housing_scenario, religion_scenario, culture_scenario, industry_scenario, stages_scenario in checkpoint_inputs:
         source = checked_path(repo, output, checkpoint["save"])
         source_identity = file_identity(source)
         source_report = json.loads(checked_path(repo, output, checkpoint["report"]).read_text())
@@ -1314,7 +1395,7 @@ def main():
             assert any(c["role"] == 12 and c["typed_cargo_good"] == 0 and c["typed_cargo"] > 0 and
                        c["cargo"] == 0 and c["edge_progress"] > 0
                        for c in source_report["couriers"])
-        elif not authored_needs and not food_scenario and not services_scenario and not housing_scenario and not industry_scenario:
+        elif not authored_needs and not food_scenario and not services_scenario and not housing_scenario and not industry_scenario and not stages_scenario:
             check_balances(source_report, positive=True)
             assert any(house["hemp"] > 0 and house["ceramics"] > 0 for house in source_report["houses"])
         if food_scenario:
@@ -1401,16 +1482,19 @@ def main():
             expected = checked_path(repo, output, checkpoint[expected_key])
             assert actual.read_bytes() == expected.read_bytes(), "Canonical new-process replay bytes differ"
             assert json.loads(actual.read_text()) == json.loads(expected.read_text()), "Full SaveDocument differs"
-            report = json.loads((folder / (name + "-report.json")).read_text())
-            assert report == json.loads(checked_path(repo, output, checkpoint[report_key]).read_text())
-            check_balances(report, positive=not food_scenario and not services_scenario and not housing_scenario and not industry_scenario)
+            actual_report = folder / (name + "-report.json")
+            expected_report = checked_path(repo, output, checkpoint[report_key])
+            assert actual_report.read_bytes() == expected_report.read_bytes(), "Canonical new-process report bytes differ"
+            report = json.loads(actual_report.read_text())
+            assert report == json.loads(expected_report.read_text())
+            check_balances(report, positive=not food_scenario and not services_scenario and not housing_scenario and not industry_scenario and not stages_scenario)
             assert report["model_sha256"] == model_sha
             if authored_needs:
                 assert report["shelter_needs"] == [1, 1]
                 assert all(report["balances"][good]["consumed"] > 0 for good in (0, 1))
             else:
                 assert report["shelter_needs"] == [0, 0]
-                assert all(not any(house["consumed"]) for house in report["houses"])
+                assert all(not any(row["consumed"]) for house in report["housing"]["houses"] for row in house["consumption_rows"][:3])
             saved = json.loads(actual.read_text())
             assert saved["schema_version"] == 26 and saved["rules"]["version"] == 10
             assert saved["world"]["original_production"]["development_revision"] == DEVELOPMENT_REVISION
@@ -1426,7 +1510,7 @@ def main():
         assert file_identity(source) == source_identity, "Process changed its source save or metadata"
         restarts.append({"checkpoint": checkpoint["tag"], "separate_os_process": True,
             "authored_model_needs": authored_needs, "food_scenario": food_scenario, "services_scenario": services_scenario,
-            "ancestor_scenario": ancestor_scenario, "housing_scenario": housing_scenario, "religion_scenario": religion_scenario, "culture_scenario": culture_scenario, "industry_scenario": industry_scenario, "model_sha256": model_sha,
+            "ancestor_scenario": ancestor_scenario, "housing_scenario": housing_scenario, "religion_scenario": religion_scenario, "culture_scenario": culture_scenario, "industry_scenario": industry_scenario, "stages_scenario": stages_scenario, "model_sha256": model_sha,
             "ticks_advanced": 20000, "periods": [10000, 10000], "actual_paid_road_continuation": True,
             "full_savedocument_equal": True, "canonical_bytes_equal": True, "provenance_equal": True,
             "balances_equal": True, "midpoint_equal": True, "source_save_and_metadata_unchanged": True})
@@ -1445,8 +1529,8 @@ def main():
     assert sum(row["culture_scenario"] for row in restarts) == 6
     assert sum(row["religion_scenario"] for row in restarts) == 6
     assert sum(row["industry_scenario"] for row in restarts) == 7
-    assert len(restarts) == 43 and sum(row["ancestor_scenario"] for row in restarts) == sum(row["housing_scenario"] for row in restarts) == 6
-    report = {"status": "PASS", "evidence": "Actual paid four-luxury and five-Aux chains, native Clay/Hemp inputs, real delivered Paper Academy gate and all36 prior plus7new full20k process cases",
+    assert len(restarts) == 50 and sum(row["stages_scenario"] for row in restarts) == 7 and sum(row["ancestor_scenario"] for row in restarts) == sum(row["housing_scenario"] for row in restarts) == 6
+    report = {"status": "PASS", "evidence": "Actual paid four-luxury and five-Aux chains, native Clay/Hemp inputs, real delivered Paper Academy gate and all43 prior scenario tags plus7new full20k process cases under the explicit active25 contract",
         "original_data": str(original), "original_inventory_before": before, "original_inventory_after": after,
         "original_unchanged": True, "private_source_inventory_unchanged": True,
         "original_model_sha256": MODEL_SHA, "model_copy_byte_identical": True,
@@ -1461,19 +1545,20 @@ def main():
         "housing_fixture": housing_fixture, "positive_runtime_water": True, "positive_runtime_housing": True,
         "religion_fixture": religion_fixture, "positive_authored_runtime_religion": True, "original_confucian_resource_gate": True,
         "industry_fixture": industry_fixture, "positive_runtime_four_luxury_goods": True,
+        "stages_fixture": stages_fixture, "positive_runtime_housing_stages": True,
         "culture_fixture": culture_fixture, "positive_authored_runtime_culture": True, "original_venue_performer_loop": False,
         "restarts": restarts, "legacy": old,
         "frozen_baseline_capture_sha256": digest(baseline / "capture.json"),
         "frozen_baseline_head": capture["head_before_implementation"],
         "limits": ["Actual paid Food/Hemp/Ceramics delivery; original Shelter six-Goods needs0 consume0; Food sink is separate authored rule",
-            "All six goods are active; house types above Plain remain inactive in revision24",
+            "All fifteen house rows are diagnosed; paid Common>5 and Elite11->13->12->13 are actual, high tiers remain separately observed",
             "Need1 and stricter Desirability counterexamples use explicitly authored copies; original Plain Hemp/Ceramics requirements are zero",
-            "Actual early evolution uses unchanged pure formulas with an explicit authored Plain ceiling; no full historical transport proof",
+            "Actual stage decisions use immutable pure formulas and bounded real transition inputs; Elite geometry is temporarily authored2x2 until26",
             "Experimental targeted School-to-House visitors use actual paid bodies and direct96 effects; Original venue/performer/Actor36 loop is not reconstructed and receives no free state",
             "Actual Plain culture needs0; single-Need1 controls change only copied fields5/6/7",
             "Availability diagnosis reads existing prepared state and cannot grant current or future access",
             "Academy now consumes actual delivered Paper per new trip; production timing and managed ore are authored, no resource grant",
-            "Original Plain religion needs0; OR/Conf1 control copies change only fields22/23",
+            "Original Plain religion needs0; OR controls change field23 and Common-Conf counterexamples additionallyfield22; actual Conf visits are Elite-only",
             "Ancestor elite_only=false and targeted ordinary tours are explicit authored integration, no original spawn cadence or random-walk parity claim",
             "Migration, funding, Food crop scores20/80 and recipe timing are authored; no original production parity claim",
             "Authored geography; separate SDL/native/human acceptance"]}

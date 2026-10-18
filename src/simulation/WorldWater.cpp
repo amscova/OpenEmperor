@@ -24,7 +24,7 @@ std::optional<BuildingId> World::nearest_water_source_at(Cell origin) const {
 
 std::optional<BuildingId> World::nearest_water_source(BuildingId id) const {
     const auto& home=building(id);
-    if (!home.placed || home.kind!=Object::Household)
+    if (!home.placed || !original_house_kind(home.kind))
         throw std::invalid_argument("water query requires a placed Household");
     return nearest_water_source_at(home.cell);
 }

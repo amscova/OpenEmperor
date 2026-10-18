@@ -1349,3 +1349,48 @@ Der Nutzer verlangt ausdrücklich: „lass uns nach oe-24 eine pause einlegen“
 Nach dem eigenen geprüften OE-24-Commit endet die automatische Fortsetzung.
 OE-25 bleibt TODO; erst ein neuer Fortsetzungsauftrag hebt diese Pause auf.
 Kein Push, PR, Merge, Tag oder Release während dieser Pause.
+
+
+### OE-25: Fortsetzung und vorab festgelegter Hausstufenvertrag
+
+Am2026-10-18 setzt der Nutzer ausdrücklich mit OE25 fort. Die Pause nach24
+ist damit aufgehoben. Auf Basis7360f84 gilt vor Implementierung der
+[Hausstufenvertrag25](../original-economy/housing-stages-runtime.md):
+Common und Elite bleiben getrennte Familien, reine numerische Kerne exakt;
+aktiver Stand Rule10/Schema26/Revision25, alte Versionen ohne Migration.
+
+Ein separat bezahlter80er Eliteplot verwendet in25 ausdrücklich vorläufige
+authored2×2-Geometrie. Zwei ursprüngliche Arrivalpfade belegen Erstbezug nach
+Typ13, nicht12;120/40/+2 und Preis bleiben authored. Typ12 entsteht durch
+echte50er-Rückentwicklung. Die belegten originalen Seiten2/Common und4/Elite
+erfordern für26 eine eigene sichere Materialisierung vor dessen Erstbezug,
+keine stillschweigende Uminterpretation der25er Saves. Der bestehende
+All-residents-Workeradapter bleibt ausdrücklich authored auch für Elite.
+
+Neun bereits bezahlte Provider erhalten eng begrenzte eigene Modell-DES-
+Quellen. Confucian ist künftig tatsächlich elite-only mit realem Paper;
+die gezielten World-Besuche bleiben ausdrücklich auf bewohnte Häuser begrenzt.
+Alle15 Konsum-/Diagnosezeilen und historische Übergangsinputs werden streng
+an tatsächliche Ankünfte, Bedarfe, Typen, Kapazitäten und Zeitpunkte gebunden.
+Keine Type-/Stock-/Timer-/Workergrants, keine automatische Hochstufung für Tests.
+Hohe Stufen brauchen eigenen Paid-Beleg oder einen konkreten Szenenblocker;
+Originalsprites, große Geometrie und vollständiger Gate D bleiben getrennt.
+
+
+OE25-Abschluss: Die tatsächliche bezahlte Normal-Szene belegt Common6 sowie
+Elite11→13→12→13; höhere Grenzen werden aus gespeicherten DES-/Bedarfswerten
+benannt, kein Heavenly-PASS. Ein modellabhängiger Typ12-Counterguard sperrt
+nur bei stets erfüllter aktueller Abandonedzeile unmögliche positive Inputs;
+authored Need1-Modelle behalten ihre tatsächlichen12er-Fehlerereignisse.
+Der neu angehängte deaktivierte Elitebefehl wird auch im alten Logisticsprofil
+vor Sequenz-/Zustandsänderungen abgefangen; alte Befehle behalten ihren Vertrag.
+Die gemeinsame Paper-/Food-/Versorgungswartebedingung betrifft ausschließlich
+die bezahlte Prüfszene, keine geänderte Produktions-/Zuzugs-/Versorgungsregel.
+Der explizit unmapped Elitefall in OriginalModelMapping erfindet keine
+Originalgebäude-/Spriteidentität. Abschluss25 gibt keine26er-Geometrie oder
+29er-Originalgrafik als bereits erledigt aus.
+
+Ausdrückliche Nutzerentscheidung am2026-10-18 während der finalen25er-Prüfung:
+Nach Abschluss und eigenem geprüftem OE25-Commit wird erneut pausiert.
+OE26 bleibt TODO/unbegonnen. Kein Push, PR, Merge, Tag oder Release; erst
+ein neuer Fortsetzungsauftrag hebt diese Pause auf.

@@ -30,14 +30,21 @@ struct OriginalHousingConsumptionRow {
     std::array<std::uint64_t,original::goods_count> consumed{};
     bool operator==(const OriginalHousingConsumptionRow&) const = default;
 };
+enum class OriginalHousingTransitionKind : std::uint8_t { Admission=0, Evolution=1 };
+struct OriginalHousingTransition {
+    OriginalHousingTransitionKind kind=OriginalHousingTransitionKind::Admission;
+    OriginalHousingEvaluation evaluation;
+    std::int16_t admitted=0;
+    bool operator==(const OriginalHousingTransition&) const = default;
+};
 struct OriginalHousingHouse {
     BuildingId building_id=static_cast<BuildingId>(0);
     std::optional<std::uint64_t> first_admission_tick;
-    // Type3,4,5 only in this explicitly bounded development revision.
-    std::array<OriginalHousingConsumptionRow,3> consumption_rows{};
+    // ModelHouse row order (type3..17); the paid family's initial empty type
+    // is established by its body kind, not by a duplicated family flag.
+    std::array<OriginalHousingConsumptionRow,original::house_row_count> consumption_rows{};
     std::optional<OriginalHousingEvaluation> last_evaluation;
-    std::optional<OriginalHousingEvaluation> first_hut_evaluation;
-    std::optional<OriginalHousingEvaluation> first_plain_evaluation;
+    std::array<std::optional<OriginalHousingTransition>,original::house_row_count> first_transitions{};
     bool operator==(const OriginalHousingHouse&) const = default;
 };
 struct OriginalHousingSourceOrigin {

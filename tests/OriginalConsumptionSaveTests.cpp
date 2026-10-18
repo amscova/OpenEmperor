@@ -53,7 +53,7 @@ struct Fixture {
         const auto before=value.snapshot();const auto d=document(value);
         save::write_save(target,d,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(d,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==25,
               "Consumption save lost its active generation");
         auto copy=restore(parsed);check(copy.snapshot()==before,"F5/F9 changed consumption authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
@@ -115,7 +115,6 @@ sim::WorldSnapshot positive_boundary(Fixture& f,int step) {
         if (input.occupants>0) {
             input.desirability=static_cast<std::int8_t>(f.world.original_influence_provenance(home.building_id).value);
             input=orig::evolve_step(f.model->house_rules(),input);
-            if (input.type>orig::HouseType::PlainCottage) input.type=orig::HouseType::PlainCottage;
         }
         evolved.push_back(input);
     }
@@ -163,7 +162,7 @@ void adversarial(Fixture& f,const sim::WorldSnapshot& actual) {
             {base+"/0/consumed/0",UINT64_MAX},{base+"/0/consumed/0",0.0},
             {base+"/0/consumed/0",true},{base+"/0/consumed/0","0"},
             {base+"/0/consumed/0",nullptr},{base+"/0/consumed/5",1},
-            {"/world/original_production/development_revision",16},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",25}}) {
+            {"/world/original_production/development_revision",16},{"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",26}}) {
         auto j=good;j.at(json::json_pointer(path))=value;reject(j);
     }
     {auto j=good;auto& rows=j.at(json::json_pointer(base));std::swap(rows[0],rows[1]);reject(j);}
@@ -263,7 +262,7 @@ void positive_model_bound_refuses_sink() {
     if (good==0) house.hemp=remaining;else house.ceramics=remaining;
     counter+=debit;bad.world.original_goods->totals[good].consumed+=debit;
     auto& housing=bad.world.original_production->housing.houses[selected];
-    check(house.type==orig::HouseType::Shelter && !housing.first_hut_evaluation && !housing.first_plain_evaluation &&
+    check(house.type==orig::HouseType::Shelter && !housing.first_transitions[1] && !housing.first_transitions[2] &&
           housing.consumption_rows[0].events==opportunities,
           "Need1 model-only control unexpectedly left its actual Shelter consumption row");
     housing.consumption_rows[0].consumed[good]+=debit;

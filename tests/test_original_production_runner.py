@@ -51,6 +51,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe21/production-fixtures/run",
                        self.repo / ".local/original-economy/oe22/production-fixtures/run",
                        self.repo / ".local/original-economy/oe23/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe24/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -300,9 +301,10 @@ class ProductionRunnerTests(unittest.TestCase):
 
     def test_boundary_guard_checks_scheduler_delta_and_no_second_booking(self):
         before = self.scene()
-        rows = [[0] * 24 for _ in range(3)]
+        rows = [[0] * 24 for _ in range(15)]
         for row in rows:
             row[0], row[1], row[17] = -99, -10, 7
+        rows[8][17] = 0
         rows[0][9] = rows[0][10] = rows[1][3] = 1
         before.update(tick=855, shelter_needs=[1, 1], pottery_handed_off=12, pottery_completed=12,
                       hemp_harvested=6, hemp_farms=[{"harvested": 6}], residents_admitted=42,
@@ -327,6 +329,15 @@ class ProductionRunnerTests(unittest.TestCase):
                     "first_hut_evaluation": None, "first_plain_evaluation": None,
                     "consumption_rows": [{"events": events, "consumed": consumed.copy()},
                         {"events": 0, "consumed": [0] * 6}, {"events": 0, "consumed": [0] * 6}]})
+            for audit in histories:
+                admission = {"tick": 120, "input": {"type": 2, "occupants": 0, "desirability": 0,
+                    "devolve_counter": 0, "water": False, "service_timers": [0] * 9, "food_quality": 0,
+                    "goods": [0] * 6}, "service_witnesses": [None] * 9, "water_evaluation_witness": None,
+                    "food_quality_witness": None, "food_received": [0, 0], "food_consumed": [0, 0],
+                    "goods_consumed_before": [0] * 6}
+                audit["first_transitions"] = [None] * 15
+                audit["first_transitions"][0] = {"kind": 0, "admitted": 2, "evaluation": admission}
+                audit["consumption_rows"] += [{"events": 0, "consumed": [0] * 6} for _ in range(12)]
             scene["housing"] = {"model_rows": rows, "evaluation_tick": runner.housing_evaluation_tick(scene["tick"]),
                 "consumption_events": runner.housing_consumption_events(scene["tick"]),
                 "neutral_source_origins": [], "houses": histories}
@@ -487,9 +498,10 @@ class ProductionRunnerTests(unittest.TestCase):
 
     @staticmethod
     def housing_scene():
-        rows = [[0] * 24 for _ in range(3)]
+        rows = [[0] * 24 for _ in range(15)]
         for i, row in enumerate(rows):
             row[0], row[1], row[17] = -99, -5 if i < 2 else 99, 7 + 7 * i
+        rows[8][17] = 0
         rows[1][3] = rows[2][3] = rows[2][21] = 1
         rows[2][8] = 20
         i = {"type": 3, "occupants": 4, "devolve_counter": 0, "water": True, "desirability": 0,
@@ -499,14 +511,23 @@ class ProductionRunnerTests(unittest.TestCase):
                                           "sequence": 1, "arrival_tick": 150},
              "food_quality_witness": None, "food_received": [0, 0], "food_consumed": [0, 0],
              "goods_consumed_before": [0] * 6}
-        return {"tick": 193, "capacity": 14,
+        scene = {"tick": 193, "capacity": 14,
                 "houses": [{"id": 1, "type": 4, "occupants": 4, "devolve_counter": 0, "consumed": [0] * 6}],
                 "buildings": [{"id": 1, "kind": 6, "cell": [0, 2], "placed_tick": 0}],
                 "housing": {"model_rows": rows, "evaluation_tick": 193,
                     "consumption_events": runner.housing_consumption_events(193), "neutral_source_origins": [],
                     "houses": [{"id": 1, "first_admission_tick": 120,
-                        "consumption_rows": [{"events": 0, "consumed": [0] * 6} for _ in range(3)],
+                        "consumption_rows": [{"events": 0, "consumed": [0] * 6} for _ in range(15)],
                         "last_evaluation": e, "first_hut_evaluation": copy.deepcopy(e), "first_plain_evaluation": None}]}}
+
+        audit = scene["housing"]["houses"][0]
+        admission = copy.deepcopy(e)
+        admission.update(tick=120, water_evaluation_witness=None)
+        admission["input"].update(type=2, occupants=0, water=False)
+        audit["first_transitions"] = [None] * 15
+        audit["first_transitions"][0] = {"kind": 0, "admitted": 2, "evaluation": admission}
+        audit["first_transitions"][1] = {"kind": 1, "admitted": 0, "evaluation": copy.deepcopy(e)}
+        return scene
 
     def test_housing_upgrade_requires_real_input_and_per_type_historical_consumption(self):
         scene = self.housing_scene()
@@ -725,6 +746,8 @@ class ProductionRunnerTests(unittest.TestCase):
     def religion_scene():
         # Synthetic report-parser data, not evidence of a running paid World.
         scene = ProductionRunnerTests.ancestor_scene()
+        next(b for b in scene["buildings"] if b["id"] == 1)["kind"] = 39
+        scene["houses"][0]["type"] = 13
         for index, (kind, model, cost, workers, actor_role, timer_role) in enumerate((
                 (21, 215, 45, 4, 17, 7), (22, 217, 45, 4, 18, 8), (23, 219, 80, 12, 19, 6))):
             owner, actor = 5 + index, 4 + index
@@ -863,9 +886,12 @@ class ProductionRunnerTests(unittest.TestCase):
         for key in ("last_evaluation", "first_hut_evaluation"):
             e = row[key]
             for index, role in enumerate((0, 1, 5, 6, 7, 8, 2, 3, 4)):
+                if role == 6:
+                    continue
                 e["service_witnesses"][index] = {"house_id": 1, "role": role, "provider_id": role + 10,
                     "courier_id": role + 10, "sequence": 1, "arrival_tick": 180}
                 e["input"]["service_timers"][role] = 95 if role < 5 else 39
+        row["first_transitions"][1]["evaluation"] = copy.deepcopy(row["first_hut_evaluation"])
         runner.check_housing(scene)
         for left, right in ((6, 7), (7, 8), (2, 6)):
             bad = copy.deepcopy(scene)
@@ -910,6 +936,50 @@ class ProductionRunnerTests(unittest.TestCase):
             with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
                 runner.check_availability(bad)
 
+
+
+    def test_original_15_row_domains_and_admission_records_are_strict(self):
+        scene = self.housing_scene()
+        self.assertEqual(len(scene["housing"]["model_rows"]), 15)
+        runner.check_housing(scene)
+        mutations = (
+            lambda s: s["housing"]["model_rows"][8].__setitem__(17, 1),
+            lambda s: s["housing"]["houses"][0]["first_transitions"].pop(),
+            lambda s: s["housing"]["houses"][0]["first_transitions"][0].update(kind=1),
+            lambda s: s["housing"]["houses"][0]["first_transitions"][0].update(kind=False),
+            lambda s: s["housing"]["houses"][0]["first_transitions"][0].update(admitted=1),
+            lambda s: s["housing"]["houses"][0]["first_transitions"][0].update(admitted=3),
+            lambda s: s["housing"]["houses"][0]["first_transitions"][1].update(admitted=1),
+            lambda s: s["buildings"][0].update(kind=39),
+        )
+        for mutation in mutations:
+            wrong = copy.deepcopy(scene)
+            mutation(wrong)
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                runner.check_housing(wrong)
+
+    def test_confucian_actual_visit_requires_elite_family(self):
+        scene = self.religion_scene()
+        runner.check_services(scene, religions=True)
+        wrong = copy.deepcopy(scene)
+        next(b for b in wrong["buildings"] if b["id"] == 1)["kind"] = 6
+        wrong["houses"][0]["type"] = 3
+        with self.assertRaises(AssertionError):
+            runner.check_services(wrong, religions=True)
+
+    def test_pure_reference_elite_inert_terminal_and_literal_counter_limits(self):
+        scene = self.housing_scene()
+        rows = scene["housing"]["model_rows"]
+        for row in rows:
+            row[3] = 1
+        state = copy.deepcopy(scene["housing"]["houses"][0]["last_evaluation"]["input"])
+        state.update(type=11, water=False, devolve_counter=0)
+        self.assertEqual(runner.housing_step(rows, state), (11, 0))
+        for kind, limit in ((3, 9), (5, 9), (10, 9), (12, 11), (13, 49), (14, 17), (17, 17)):
+            state.update(type=kind, water=False, devolve_counter=limit - 1)
+            self.assertEqual(runner.housing_step(rows, state), (kind, limit))
+            state["devolve_counter"] = limit
+            self.assertEqual(runner.housing_step(rows, state), (kind if kind in (3, 12) else kind - 1, 0))
 
 
 if __name__ == "__main__":

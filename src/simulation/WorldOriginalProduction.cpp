@@ -17,7 +17,8 @@ constexpr auto ceramics=static_cast<std::size_t>(original::Goods::Ceramics);
 using GoodsContext=original_industry_goods::Context;
 std::uint64_t paid_cost(Object kind) {
     switch (kind) {
-    case Object::Household:return Rules::household_cost;
+    case Object::Household:
+    case Object::OriginalElitePlot:return Rules::household_cost;
     case Object::ClaySource:return Rules::clay_source_cost;
     case Object::Pottery:return Rules::pottery_cost;
     case Object::Warehouse:return Rules::warehouse_cost;
@@ -102,7 +103,7 @@ template<class Building> void validate_neutral_fields(const Building& b) {
         expected.fire_risk=b.fire_risk;expected.fire_protection_until_tick=b.fire_protection_until_tick;
         expected.fire_until_tick=b.fire_until_tick;
     }
-    if (b.kind!=Object::Household && b.kind!=Object::OriginalInfluenceSource && !field) {
+    if (!original_house_kind(b.kind) && b.kind!=Object::OriginalInfluenceSource && !field) {
         expected.operating_enabled=b.operating_enabled;expected.workforce_priority=b.workforce_priority;
     }
     if (b.kind==Object::ClaySource) {
@@ -231,17 +232,21 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
             }
         }
         const auto age=s.ticks-b.placed_tick;
-        if (b.kind==Object::Household) {
+        if (original_house_kind(b.kind)) {
             if (house_index>=s.original_economy->houses.size()) invalid("missing original production house");
             const auto& h=s.original_economy->houses[house_index++];
             const auto occupants=h.house.occupants;
             const auto maximum=age<120 ? 0:std::min<std::uint64_t>(INT16_MAX,2*std::min<std::uint64_t>(INT16_MAX,(age-120)/40+1));
             if (h.building_id!=b.id || occupants<0 || static_cast<std::uint64_t>(occupants)>maximum)
                 invalid("original residents exceed paid house immigration history");
-            if (!occupants && h!=OriginalHouseState{b.id}) invalid("empty original House owns unsupported authority");
-            if (occupants && (h.house.type<original::HouseType::Shelter || h.house.type>original::HouseType::PlainCottage ||
-                h.original_status!=3 || !h.access_enabled || h.cycle_phase || h.house.devolve_counter>9))
-                invalid("unsupported early original House state");
+            OriginalHouseState empty{b.id};
+            if (original_elite_house_kind(b.kind)) empty.house.type=original::HouseType::EliteUnoccupied;
+            if (!occupants && h!=empty) invalid("empty original House owns unsupported authority");
+            const bool family=original_elite_house_kind(b.kind) ?
+                h.house.type>=original::HouseType::EliteAbandoned && h.house.type<=original::HouseType::HeavenlyCompound:
+                h.house.type>=original::HouseType::Shelter && h.house.type<=original::HouseType::LuxuriousApartment;
+            if (occupants && (!family || h.original_status!=3 || !h.access_enabled || h.cycle_phase ||
+                h.house.devolve_counter>original::devolve_limit(h.house.type))) invalid("unsupported original House family/state");
             residents+=static_cast<std::uint64_t>(occupants);
         } else if (b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm ||
                    b.kind==Object::OriginalPaperMaker45 || original_industry_goods::output(b.kind)) {
@@ -338,7 +343,7 @@ std::array<OriginalGoodsBalance,original::goods_count> World::original_productio
 int World::original_ceramics_stock(BuildingId owner) const {return original_typed_stock(owner,original::Goods::Ceramics);}
 
 int World::original_typed_stock(BuildingId owner,original::Goods good) const {
-    if (building(owner).kind==Object::Household) {
+    if (original_house_kind(building(owner).kind)) {
         const auto& homes=original_economy_->houses;
         const auto found=std::lower_bound(homes.begin(),homes.end(),owner,
             [](const OriginalHouseState& home,BuildingId id){return home.building_id<id;});
@@ -373,10 +378,15 @@ void World::admit_original_residents() {
         if (age<120 || (age-120)%40 || home.house.occupants>=capacity || building_on_fire(b.id) ||
             building_entrances(b.id).empty()) continue;
         const auto admitted=std::min(2,capacity-home.house.occupants);
-        home.house.occupants=static_cast<std::int16_t>(home.house.occupants+admitted);
         if (!original_production_->housing.houses[i].first_admission_tick) {
-            original_production_->housing.houses[i].first_admission_tick=ticks_;home.house.type=original::HouseType::Shelter;
+            auto& history=original_production_->housing.houses[i];
+            OriginalHousingEvaluation origin;origin.tick=ticks_;origin.input=home.house;
+            home.house.type=original_elite_house_kind(b.kind) ? original::HouseType::ModestSiheyuan:original::HouseType::Shelter;
+            history.first_admission_tick=ticks_;
+            history.first_transitions[original::model_row(original::house_row(home.house.type)).value]=
+                OriginalHousingTransition{OriginalHousingTransitionKind::Admission,origin,static_cast<std::int16_t>(admitted)};
         }
+        home.house.occupants=static_cast<std::int16_t>(home.house.occupants+admitted);
         home.original_status=3;home.access_enabled=true;
         original_production_->residents_admitted+=static_cast<std::uint64_t>(admitted);
     }

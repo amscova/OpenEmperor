@@ -114,6 +114,7 @@ std::size_t building_limit(RulesProfile profile,Object kind) {
     case Object::OriginalWaterWell72: return 2;
     case Object::OriginalHempFarm:
     case Object::OriginalHempField: return 2;
+    case Object::OriginalElitePlot:
     case Object::Household: return Rules::city_v10_household_limit;
     case Object::ClaySource: return Rules::city_v10_clay_source_limit;
     case Object::Pottery: return Rules::city_v10_pottery_limit;
@@ -203,6 +204,7 @@ std::optional<Object> placed_object(CommandType type) {
     case CommandType::PlaceClaySource: return Object::ClaySource;
     case CommandType::PlacePottery: return Object::Pottery;
     case CommandType::PlaceHousehold: return Object::Household;
+    case CommandType::PlaceOriginalElitePlot: return Object::OriginalElitePlot;
     case CommandType::PlaceFarm: return Object::Farm;
     case CommandType::PlaceServicePost: return Object::ServicePost;
     case CommandType::PlaceMarket: return Object::Market;
@@ -247,11 +249,14 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
     if (role==CourierRole::OriginalAuxSupplier)
         return target.kind==Object::OriginalBronzeSmelter39 || target.kind==Object::OriginalBronzewareMaker42 ||
             target.kind==Object::OriginalLacquerwareMaker44 || target.kind==Object::OriginalWeaver47 || target.kind==Object::OriginalConfucianAcademy219;
-    return role==CourierRole::FireInspector ? fire_eligible(target.kind):target.kind==courier_target_kind(role);
+    const auto kind=courier_target_kind(role);
+    return role==CourierRole::FireInspector ? fire_eligible(target.kind):
+        kind==Object::Household ? original_house_kind(target.kind):target.kind==kind;
 }
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
     if (original_production_enabled(profile,rule_version)) {
+        if (kind==Object::OriginalElitePlot) return {2,2};
         if (kind==Object::OriginalBronzeSmelter39) return {3,3};
         if (original_industry_source(kind)) return {2,2};
         if (original_industry_plant(kind)) return {1,1};
@@ -760,6 +765,7 @@ std::int64_t World::construction_cost(CommandType type) const {
     case CommandType::PlaceClaySource: return Rules::clay_source_cost;
     case CommandType::PlacePottery: return Rules::pottery_cost;
     case CommandType::PlaceWarehouse: return Rules::warehouse_cost;
+    case CommandType::PlaceOriginalElitePlot: return original_production_enabled() ? Rules::household_cost:0;
     case CommandType::PlaceHousehold: return Rules::household_cost;
     case CommandType::PlaceFarm: return food_profile(profile_) ? Rules::farm_cost:0;
     case CommandType::PlaceServicePost:
@@ -847,7 +853,7 @@ int World::workforce_supply() const {
     if (population_profile(profile_)) return total_population();
     int households=0;
     for (const auto& b:buildings_)
-        if (b.placed && b.kind==Object::Household) ++households;
+        if (b.placed && original_house_kind(b.kind)) ++households;
     return households*Rules::household_workers;
 }
 
@@ -972,7 +978,7 @@ int World::settlement_goal_households_ready() const {
     if (!city_profile(profile_)) return 0;
     int ready=0;
     for (const auto& home:buildings_) {
-        if (home.kind!=Object::Household) continue;
+        if (!original_house_kind(home.kind)) continue;
         const auto threshold=food_profile(profile_) ?
             Rules::city_v7_level2_demands:Rules::settlement_goal_fulfilled_demands;
         if (home.placed && (desirability_profile(profile_) ? household_level(home.id)==2:
@@ -984,7 +990,7 @@ int World::settlement_goal_households_ready() const {
 bool World::settlement_goal_reached() const {
     if (scalable(profile_)) {
         const auto houses=static_cast<int>(std::count_if(buildings_.begin(),buildings_.end(),
-            [](const BuildingState& b) { return b.placed && b.kind==Object::Household; }));
+            [](const BuildingState& b) { return b.placed && original_house_kind(b.kind); }));
         return houses>=Rules::city_v10_goal_households &&
             settlement_goal_households_ready()>=Rules::city_v10_goal_level2_households &&
             total_population()>=Rules::city_v10_population_goal;
@@ -998,7 +1004,7 @@ int World::historical_household_level(BuildingId id) const {
     if (original_economy_enabled())
         throw std::logic_error("original houses have no legacy Household level");
     const auto& home=building(id);
-    if (!food_profile(profile_) || !home.placed || home.kind!=Object::Household) return 0;
+    if (!food_profile(profile_) || !home.placed || !original_house_kind(home.kind)) return 0;
     if (home.fulfilled_demand>=Rules::city_v7_level2_demands) return 2;
     if (home.fulfilled_demand>=Rules::city_v7_level1_demands) return 1;
     return 0;
@@ -1008,7 +1014,7 @@ int World::household_level(BuildingId id) const {
     if (original_economy_enabled())
         throw std::logic_error("original houses have no legacy Household level");
     const auto& home=building(id);
-    if (!home.placed || home.kind!=Object::Household) return 0;
+    if (!home.placed || !original_house_kind(home.kind)) return 0;
     const auto historical=historical_household_level(id);
     if (water_profile(profile_) && !household_has_water(id)) return 0;
     return desirability_profile(profile_) ?
@@ -1017,26 +1023,26 @@ int World::household_level(BuildingId id) const {
 
 int World::household_population(BuildingId id) const {
     const auto& home=building(id);
-    if (original_production_enabled() && home.placed && home.kind==Object::Household) {
+    if (original_production_enabled() && home.placed && original_house_kind(home.kind)) {
         const auto& homes=original_economy_->houses;
         const auto found=std::lower_bound(homes.begin(),homes.end(),id,
             [](const OriginalHouseState& value,BuildingId key) {return value.building_id<key;});
         if (found==homes.end() || found->building_id!=id) throw std::logic_error("missing original household");
         return found->house.occupants;
     }
-    return population_profile(profile_) && home.placed && home.kind==Object::Household ?
+    return population_profile(profile_) && home.placed && original_house_kind(home.kind) ?
         home.population:0;
 }
 
 int World::household_population_capacity(BuildingId id) const {
     const auto& home=building(id);
-    if (original_production_enabled() && home.placed && home.kind==Object::Household) {
+    if (original_production_enabled() && home.placed && original_house_kind(home.kind)) {
         const auto h=std::lower_bound(original_economy_->houses.begin(),original_economy_->houses.end(),id,
             [](const auto& row,BuildingId key){return row.building_id<key;});
         return original_rules_model_->house_rules().row_capacity(original::census_capacity_row(h->house.type));
     }
     if (original_economy_enabled()) return 0;
-    if (!population_profile(profile_) || !home.placed || home.kind!=Object::Household) return 0;
+    if (!population_profile(profile_) || !home.placed || !original_house_kind(home.kind)) return 0;
     const int level=household_level(id);
     return level>=2 ? Rules::household_level2_capacity:
         level==1 ? Rules::household_level1_capacity:Rules::household_level0_capacity;
@@ -1045,7 +1051,7 @@ int World::household_population_capacity(BuildingId id) const {
 int World::total_population() const {
     if (!population_profile(profile_)) return 0;
     int total=0;
-    for (const auto& b:buildings_) if (b.kind==Object::Household)
+    for (const auto& b:buildings_) if (original_house_kind(b.kind))
         total+=household_population(b.id);
     return total;
 }
@@ -1053,7 +1059,7 @@ int World::total_population() const {
 int World::total_population_capacity() const {
     if (!population_profile(profile_)) return 0;
     int total=0;
-    for (const auto& b:buildings_) if (b.kind==Object::Household)
+    for (const auto& b:buildings_) if (original_house_kind(b.kind))
         total+=household_population_capacity(b.id);
     return total;
 }
@@ -1070,19 +1076,26 @@ bool World::population_valid() const {
             const auto& home=original_economy_->houses[i];
             if (i>=original_production_->housing.houses.size()) return false;
             const auto& proof=original_production_->housing.houses[i];
-            auto capacity=original_rules_model_->house_rules().row_capacity(original::ModelHouse::Shelter);
-            if (proof.first_hut_evaluation) capacity=std::max(capacity,original_rules_model_->house_rules().row_capacity(original::ModelHouse::Hut));
-            if (proof.first_plain_evaluation) capacity=std::max(capacity,original_rules_model_->house_rules().row_capacity(original::ModelHouse::PlainCottage));
-            auto minimum_odd_cap=INT16_MAX+1;
-            const auto eligible_cap=[&](original::HouseType type,int population_at_unlock) {
+            const auto& body=building(home.building_id);
+            if (!original_house_kind(body.kind) || home.house.occupants<0) return false;
+            if (!proof.first_admission_tick) {
+                if (home.house.occupants) return false;
+                continue;
+            }
+            const auto initial_type=original_elite_house_kind(body.kind) ? original::HouseType::ModestSiheyuan:original::HouseType::Shelter;
+            const auto& initial=proof.first_transitions[original::model_row(original::house_row(initial_type)).value];
+            if (!initial || initial->kind!=OriginalHousingTransitionKind::Admission || initial->admitted<=0) return false;
+            auto capacity=std::max<int>(initial->admitted,original_rules_model_->house_rules().row_capacity(original::admission_capacity_row(initial_type)));
+            auto minimum_odd_cap=initial->admitted%2 ? static_cast<int>(initial->admitted):INT16_MAX+1;
+            for (std::size_t r=0;r<proof.first_transitions.size();++r) if (const auto& entry=proof.first_transitions[r]) {
+                const auto type=static_cast<original::HouseType>(r+3);
+                if (original::is_elite(type)!=original_elite_house_kind(body.kind)) return false;
+                if (entry->evaluation.tick>=ticks_) continue;
                 const auto cap=original_rules_model_->house_rules().row_capacity(original::admission_capacity_row(type));
-                if (cap%2 && cap>population_at_unlock) minimum_odd_cap=std::min(minimum_odd_cap,cap);
-            };
-            eligible_cap(original::HouseType::Shelter,0);
-            if (proof.first_hut_evaluation && proof.first_hut_evaluation->tick<ticks_) eligible_cap(original::HouseType::Hut,proof.first_hut_evaluation->input.occupants);
-            if (proof.first_plain_evaluation && proof.first_plain_evaluation->tick<ticks_) eligible_cap(original::HouseType::PlainCottage,proof.first_plain_evaluation->input.occupants);
-            if (home.house.occupants<0 || home.house.occupants>capacity ||
-                (home.house.occupants%2 && home.house.occupants<minimum_odd_cap)) return false;
+                capacity=std::max(capacity,cap);
+                if (cap%2 && cap>entry->evaluation.input.occupants) minimum_odd_cap=std::min(minimum_odd_cap,cap);
+            }
+            if (home.house.occupants>capacity || (home.house.occupants%2 && home.house.occupants<minimum_odd_cap)) return false;
             admitted+=static_cast<std::uint64_t>(home.house.occupants);
         }
         return original_production_ && admitted==original_production_->residents_admitted;
@@ -1097,7 +1110,7 @@ bool World::population_valid() const {
             if (value.population!=0) return false;
             continue;
         }
-        if (!value.placed || value.kind!=Object::Household) {
+        if (!value.placed || !original_house_kind(value.kind)) {
             if (value.population!=0) return false;
             continue;
         }
@@ -1111,7 +1124,7 @@ bool World::population_valid() const {
 
 bool World::household_service_active(BuildingId id) const {
     const auto& home=building(id);
-    return service_profile(profile_) && home.placed && home.kind==Object::Household &&
+    return service_profile(profile_) && home.placed && original_house_kind(home.kind) &&
         ticks_<home.service_until_tick;
 }
 
@@ -1121,7 +1134,7 @@ std::uint64_t World::household_service_remaining(BuildingId id) const {
 
 std::uint64_t World::household_move_in_grace_remaining(BuildingId id) const {
     const auto& home=building(id);
-    if (!home.placed || home.kind!=Object::Household) return 0;
+    if (!home.placed || !original_house_kind(home.kind)) return 0;
     const auto grace=active_rules().household_move_in_grace_ticks;
     if (grace==0 || ticks_<home.placed_tick || ticks_-home.placed_tick>=grace) return 0;
     return grace-(ticks_-home.placed_tick);
@@ -1130,7 +1143,7 @@ std::uint64_t World::household_move_in_grace_remaining(BuildingId id) const {
 int World::covered_households() const {
     if (!service_profile(profile_)) return 0;
     int covered=0;
-    for (const auto& b:buildings_) if (b.kind==Object::Household && household_service_active(b.id))
+    for (const auto& b:buildings_) if (original_house_kind(b.kind) && household_service_active(b.id))
         ++covered;
     return covered;
 }
@@ -1170,7 +1183,7 @@ bool World::city_economy_valid() const {
         history.construction_spent>history.buildings*static_cast<std::uint64_t>(Rules::pottery_cost) ||
         history.taxes>taxes_collected_total_) return false;
     for (const auto& b:buildings_) {
-        if (!desirability_profile(profile_) || b.kind!=Object::Household) {
+        if (!desirability_profile(profile_) || !original_house_kind(b.kind)) {
             if (b.taxes_paid_total!=0) return false;
         } else {
             // Historical rates are no longer reconstructible from current geometry.
@@ -1183,7 +1196,7 @@ bool World::city_economy_valid() const {
         }
     }
     std::uint64_t expected_taxes=history.taxes;
-    for (const auto& b:buildings_) if (b.kind==Object::Household) {
+    for (const auto& b:buildings_) if (original_house_kind(b.kind)) {
         const auto tax=household_tax_contributed(b.id);
         if (expected_taxes>UINT64_MAX-tax) return false;
         expected_taxes+=tax;
@@ -1204,7 +1217,7 @@ bool World::city_economy_valid() const {
         const auto cost=value.kind==Object::ClaySource ? Rules::clay_source_cost:
             value.kind==Object::Pottery ? Rules::pottery_cost:
             value.kind==Object::Warehouse ? Rules::warehouse_cost:
-            value.kind==Object::Household ? Rules::household_cost:
+            original_house_kind(value.kind) ? Rules::household_cost:
             value.kind==Object::Farm && food_profile(profile_) ? Rules::farm_cost:
             value.kind==Object::ServicePost && service_profile(profile_) ? Rules::service_post_cost:
             value.kind==Object::Market && market_profile(profile_) ? Rules::market_cost:
@@ -1246,7 +1259,7 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
     }
     const auto& b=*found;
     if (b.kind!=Object::ClaySource && b.kind!=Object::Pottery && b.kind!=Object::Warehouse &&
-        b.kind!=Object::Household && b.kind!=Object::Farm && b.kind!=Object::ServicePost &&
+        !original_house_kind(b.kind) && b.kind!=Object::Farm && b.kind!=Object::ServicePost &&
         b.kind!=Object::Market && !(fire_profile(profile_) && b.kind==Object::FireWatch) &&
         !(water_profile(profile_) && b.kind==Object::Well) &&
         !(health_profile(profile_) && b.kind==Object::HealthPost)) {
@@ -1298,6 +1311,8 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 CommandResult World::validate(Command command) const {
     const auto construction=placed_object(command.type);
     const bool industry_construction=construction && original_industry_model(*construction);
+    if (command.type==CommandType::PlaceOriginalElitePlot && !original_production_enabled())
+        return {false,false,"Elite plots require explicit original production rules",command_sequence_,ticks_};
     if (industry_construction) {
         const auto checked=validate_original_industry_command(command);if (!checked.accepted) return checked;
     }
@@ -1325,7 +1340,7 @@ CommandResult World::validate(Command command) const {
         return validate_original_influence_command(command);
     if (original_production_enabled() && !industry_construction && command.type!=CommandType::PlaceRoad &&
         command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
-        command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold &&
+        command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold && command.type!=CommandType::PlaceOriginalElitePlot &&
         command.type!=CommandType::PlaceClaySource && command.type!=CommandType::PlacePottery &&
         command.type!=CommandType::PlaceWarehouse && command.type!=CommandType::PlaceMarket &&
         command.type!=CommandType::PlaceOriginalHempFarm && command.type!=CommandType::PlaceOriginalHempField &&
@@ -1397,7 +1412,7 @@ CommandResult World::validate(Command command) const {
     if (command.type!=CommandType::PlaceRoad && command.type!=CommandType::PlaceWorkshop &&
         command.type!=CommandType::PlaceWarehouse && command.type!=CommandType::PlaceClaySource &&
         command.type!=CommandType::PlacePottery && command.type!=CommandType::RemoveRoad &&
-        command.type!=CommandType::PlaceHousehold && command.type!=CommandType::PlaceFarm &&
+        command.type!=CommandType::PlaceHousehold && command.type!=CommandType::PlaceOriginalElitePlot && command.type!=CommandType::PlaceFarm &&
         command.type!=CommandType::PlaceServicePost && command.type!=CommandType::PlaceMarket &&
         command.type!=CommandType::PlaceFireWatch && command.type!=CommandType::PlaceWell &&
         command.type!=CommandType::PlaceHealthPost && command.type!=CommandType::PlaceOriginalHempFarm &&
@@ -1504,9 +1519,9 @@ CommandResult World::validate(Command command) const {
             result.reason="Production ID limit reached"; return result;
         }
     }
-    if (command.type==CommandType::PlaceHousehold &&
+    if ((command.type==CommandType::PlaceHousehold || command.type==CommandType::PlaceOriginalElitePlot) &&
         (scalable(profile_) ? std::count_if(buildings_.begin(),buildings_.end(),
-            [](const BuildingState& b) { return b.placed && b.kind==Object::Household; })>=
+            [](const BuildingState& b) { return b.placed && original_house_kind(b.kind); })>=
                 static_cast<std::ptrdiff_t>(Rules::city_v10_household_limit) :
          profile_==RulesProfile::HouseholdV3 ? building(BuildingId::Household).placed :
          next_household_id_>=household_id_end)) {
@@ -1712,6 +1727,8 @@ CommandResult World::execute(Command command) {
 }
 
 CommandResult World::execute_impl(Command command,bool refresh_after,bool influence_prepared) {
+    if (command.type==CommandType::PlaceOriginalElitePlot && !original_production_enabled())
+        return validate(command);
     if (original_influence_enabled() && !influence_prepared) {
         const auto checked=validate(command);
         if (!checked.accepted || !checked.changed) return checked;
@@ -1779,7 +1796,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         if (b.kind==Object::ClaySource) demolition_history_.clay_extracted+=b.clay_extracted;
         if (b.kind==Object::Pottery) demolition_history_.pottery_completed+=b.recipes_completed;
         if (b.kind==Object::Farm) demolition_history_.food_produced+=b.food_produced;
-        if (b.kind==Object::Household) {
+        if (original_house_kind(b.kind)) {
             demolition_history_.pottery_consumed+=b.consumed_total;
             demolition_history_.food_consumed+=b.food_consumed_total;
             demolition_history_.taxes+=household_tax_contributed(id);
@@ -1787,7 +1804,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         const auto type=b.kind==Object::ClaySource ? CommandType::PlaceClaySource:
             b.kind==Object::Pottery ? CommandType::PlacePottery:
             b.kind==Object::Warehouse ? CommandType::PlaceWarehouse:
-            b.kind==Object::Household ? CommandType::PlaceHousehold:
+            original_house_kind(b.kind) ? CommandType::PlaceHousehold:
             b.kind==Object::Farm ? CommandType::PlaceFarm:
             b.kind==Object::ServicePost ? CommandType::PlaceServicePost:
             b.kind==Object::FireWatch ? CommandType::PlaceFireWatch:
@@ -1895,7 +1912,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         auto& well=add_v10_building(Object::OriginalWaterWell72);well.placed_tick=ticks_;
         original_production_->water.providers.push_back({well.id});
         add_v10_courier(well.id,CourierRole::OriginalWater,Good::Goods);
-        rebuild_original_influence_cache();break;
+        break;
     }
     case CommandType::PlaceOriginalAncestorShrine: {
         auto& shrine=add_v10_building(Object::OriginalAncestorShrine214);shrine.placed_tick=ticks_;
@@ -2005,14 +2022,17 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         courier.good=Good::Pottery; courier.enabled=true;
         break;
     }
+    case CommandType::PlaceOriginalElitePlot:
     case CommandType::PlaceHousehold: {
-        objects_[index(command.cell)]=Object::Household;
+        const auto kind=command.type==CommandType::PlaceOriginalElitePlot ? Object::OriginalElitePlot:Object::Household;
+        objects_[index(command.cell)]=kind;
         if (scalable(profile_)) {
-            auto& b=add_v10_building(Object::Household);
+            auto& b=add_v10_building(kind);
             b.placed_tick=ticks_;
-            if (original_economy_enabled())
+            if (original_economy_enabled()) {
                 original_economy_->houses.push_back(OriginalHouseState{b.id});
-            else b.population=Rules::household_initial_population;
+                if (original_elite_house_kind(kind)) original_economy_->houses.back().house.type=original::HouseType::EliteUnoccupied;
+            } else b.population=Rules::household_initial_population;
             if (original_production_enabled()) {
                 original_production_->house_consumption.push_back(OriginalHouseConsumptionState{b.id});
                 OriginalHousingHouse housing;housing.building_id=b.id;original_production_->housing.houses.push_back(housing);
@@ -2110,6 +2130,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         treasury_-=cost;
         construction_spent_total_+=static_cast<std::uint64_t>(cost);
     }
+    if (original_production_enabled() && placed_object(command.type) &&
+        original_influence_model(*placed_object(command.type))) rebuild_original_influence_cache();
     ++road_revision_;
     cached_route_.reset();
     if (refresh_after && production_profile(profile_)) refresh_routes();
@@ -2482,7 +2504,7 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
                 (start-first_household_id+step)%household_limit;
             const auto candidate=static_cast<BuildingId>(value);
             const auto& target=building(candidate);
-            if (!target.placed || target.kind!=Object::Household) continue;
+            if (!target.placed || !original_house_kind(target.kind)) continue;
             any_target=true;
             if (service_household_routes_[value-first_household_id])
                 return {CourierDispatchStatus::Ready,candidate};
@@ -2530,7 +2552,7 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
                 (start-first_household_id+step)%household_limit;
             const auto candidate=static_cast<BuildingId>(value);
             const auto& target=building(candidate);
-            if (!target.placed || target.kind!=Object::Household) continue;
+            if (!target.placed || !original_house_kind(target.kind)) continue;
             if (target.pottery_stock+target.reserved_incoming>=Rules::household_capacity)
                 continue;
             any_free=true;
@@ -2552,7 +2574,7 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
                 (start-first_household_id+step)%household_limit;
             const auto candidate=static_cast<BuildingId>(value);
             const auto& target=building(candidate);
-            if (!target.placed || target.kind!=Object::Household) continue;
+            if (!target.placed || !original_house_kind(target.kind)) continue;
             if (target.food_stock+target.reserved_food_incoming>=Rules::household_food_capacity)
                 continue;
             any_free=true;
@@ -2590,7 +2612,7 @@ bool World::household_route_available(BuildingId id) const {
 std::optional<bool> World::service_route_available(BuildingId id) const {
     if (!service_profile(profile_)) return std::nullopt;
     const auto& home=building(id);
-    if (!home.placed || home.kind!=Object::Household) return std::nullopt;
+    if (!home.placed || !original_house_kind(home.kind)) return std::nullopt;
     if (scalable(profile_)) {
         bool stale=false;
         for (const auto& c:couriers_) if (c.enabled && c.role==CourierRole::Service) {
@@ -2647,7 +2669,7 @@ void World::tick_production_v2() {
         }
     }
     if (household_profile(profile_)) for (auto& home:buildings_) {
-        if (home.kind!=Object::Household) continue;
+        if (!original_house_kind(home.kind)) continue;
         if (home.placed) {
             if (++home.demand_progress==Rules::household_demand_ticks) {
                 home.demand_progress=0;
@@ -2806,7 +2828,7 @@ void World::dispatch_v2(CourierState& courier) {
         return;
     }
     if (selected_service_home) {
-        if (source.kind!=Object::ServicePost || target.kind!=Object::Household ||
+        if (source.kind!=Object::ServicePost || !original_house_kind(target.kind) ||
             courier.good!=Good::Goods || courier.cargo || courier.reserved)
             throw std::logic_error("invalid Service visit relation");
         courier.path=*route;
@@ -2837,14 +2859,14 @@ void World::dispatch_v2(CourierState& courier) {
             original_market_headroom(target.id):Rules::warehouse_capacity; break;
     case CourierRole::Household:
         if (!household_profile(profile_) || source.kind!=Object::Warehouse ||
-            target.kind!=Object::Household || courier.good!=Good::Pottery ||
+            !original_house_kind(target.kind) || courier.good!=Good::Pottery ||
             (profile_==RulesProfile::HouseholdV3 && target_id!=BuildingId::Household))
             throw std::logic_error("invalid household delivery relation");
         source_stock=&source.pottery_stock; destination_stock=target.pottery_stock;
         capacity=Rules::household_capacity; break;
     case CourierRole::Food:
         if (!food_profile(profile_) || source.kind!=Object::Farm ||
-            target.kind!=Object::Household || courier.good!=Good::Food)
+            !original_house_kind(target.kind) || courier.good!=Good::Food)
             throw std::logic_error("invalid Food delivery relation");
         source_stock=&source.output; destination_stock=target.food_stock;
         destination_reservation=&target.reserved_food_incoming;
@@ -2864,13 +2886,13 @@ void World::dispatch_v2(CourierState& courier) {
         capacity=Rules::market_food_capacity; break;
     case CourierRole::MarketPotteryDistribution:
         if (!market_profile(profile_) || source.kind!=Object::Market ||
-            target.kind!=Object::Household || courier.good!=Good::Pottery)
+            !original_house_kind(target.kind) || courier.good!=Good::Pottery)
             throw std::logic_error("invalid Market Pottery distribution relation");
         source_stock=&source.pottery_stock; destination_stock=target.pottery_stock;
         capacity=Rules::household_capacity; break;
     case CourierRole::MarketFoodDistribution:
         if (!market_profile(profile_) || source.kind!=Object::Market ||
-            target.kind!=Object::Household || courier.good!=Good::Food)
+            !original_house_kind(target.kind) || courier.good!=Good::Food)
             throw std::logic_error("invalid Market Food distribution relation");
         source_stock=&source.food_stock; destination_stock=target.food_stock;
         destination_reservation=&target.reserved_food_incoming;
@@ -3011,7 +3033,7 @@ void World::move_v2(CourierState& courier) {
             target.fire_risk=0;
             target.fire_protection_until_tick=ticks_+Rules::fire_protection_ticks;
         } else if (courier.role==CourierRole::Service) {
-            if (!service_profile(profile_) || target.kind!=Object::Household ||
+            if (!service_profile(profile_) || !original_house_kind(target.kind) ||
                 courier.cargo || courier.reserved)
                 throw std::logic_error("invalid Service arrival");
             if (ticks_>UINT64_MAX-Rules::service_coverage_ticks)
@@ -3204,7 +3226,7 @@ bool World::production_balance_valid() const {
             home.consumed_total>UINT64_MAX-consumed || ticks_<home.placed_tick ||
             home.input_clay || home.output || home.progress || home.clay_extracted ||
             home.active_recipe_clay || home.recipes_completed ||
-            (home.placed && (id>=next_household_id_ || home.kind!=Object::Household)) ||
+            (home.placed && (id>=next_household_id_ || !original_house_kind(home.kind))) ||
             (!home.placed && (home.kind!=Object::Empty || home.pottery_stock ||
                 home.reserved_incoming || home.placed_tick || home.demand_progress ||
                 home.fulfilled_demand || home.missed_demand || home.last_demand_status)) ||
@@ -3302,6 +3324,9 @@ bool World::industry_balance_valid() const {
                     b.pottery_stock+b.reserved_incoming>Rules::warehouse_capacity))
                     return false;
                 pottery+=static_cast<std::uint64_t>(b.pottery_stock); break;
+            case Object::OriginalElitePlot:
+                if (!original_production_enabled()) return false;
+                [[fallthrough]];
             case Object::Household:
                 ++house_count;
                 if (b.pottery_stock<0 || b.pottery_stock+b.reserved_incoming>Rules::household_capacity ||
@@ -3595,7 +3620,7 @@ bool World::industry_balance_valid() const {
                 b.reserved_food_incoming || b.food_consumed_total || b.food_produced ||
                 b.service_until_tick || b.population ||
                 !add(pottery,static_cast<std::uint64_t>(b.pottery_stock))) return false;
-        } else if (b.kind==Object::Household) {
+        } else if (original_house_kind(b.kind)) {
             if (id<4 || id>=next_household_id_ ||
                 b.pottery_stock<0 || b.reserved_incoming<0 ||
                 b.pottery_stock+b.reserved_incoming>Rules::household_capacity ||
@@ -3666,7 +3691,7 @@ bool World::industry_balance_valid() const {
             if (c.last_dispatched_pottery) return false;
         } else if (role==CourierRole::Household) {
             if (static_cast<unsigned>(c.target)<4 || static_cast<unsigned>(c.target)>=8 ||
-                (c.phase!=CourierPhase::IdleAtWorkshop && target.kind!=Object::Household) ||
+                (c.phase!=CourierPhase::IdleAtWorkshop && !original_house_kind(target.kind)) ||
                 c.last_dispatched_pottery) return false;
         } else return false;
         if (c.phase==CourierPhase::ToWarehouse) {
@@ -3769,7 +3794,7 @@ bool World::food_balance_valid() const {
 bool World::service_state_valid() const {
     if (scalable(profile_)) {
         for (const auto& b:buildings_)
-            if (b.kind!=Object::Household && b.service_until_tick) return false;
+            if (!original_house_kind(b.kind) && b.service_until_tick) return false;
         for (const auto& c:couriers_) if (c.role==CourierRole::Service &&
             (c.cargo || c.reserved || building(c.owner).kind!=Object::ServicePost)) return false;
         return true;
@@ -4067,6 +4092,53 @@ std::string World::canonical_state() const {
             out<<"|service-witness:"<<static_cast<std::uint32_t>(row.building_id)<<','<<static_cast<unsigned>(row.role)<<','
                <<static_cast<std::uint32_t>(row.provider_id)<<','<<static_cast<std::uint32_t>(row.transfer.courier_id)<<','
                <<row.transfer.sequence<<','<<row.arrival_tick;
+        const auto water_witness=[&](const OriginalWaterWitness& w) {
+            out<<','<<static_cast<std::uint32_t>(w.building_id)<<','<<static_cast<std::uint32_t>(w.provider_id)<<','
+               <<static_cast<std::uint32_t>(w.transfer.courier_id)<<','<<w.transfer.sequence<<','<<w.arrival_tick;
+        };
+        const auto evaluation=[&](const OriginalHousingEvaluation& e) {
+            const auto& h=e.input;
+            out<<','<<e.tick<<','<<static_cast<unsigned>(h.type)<<','<<int(h.desirability)<<','<<h.occupants<<','
+               <<unsigned(h.devolve_counter)<<','<<h.water<<','<<unsigned(h.herbalist)<<','<<unsigned(h.acupuncture)<<','
+               <<unsigned(h.music)<<','<<unsigned(h.acrobat)<<','<<unsigned(h.drama)<<','<<unsigned(h.ancestor)<<','
+               <<unsigned(h.confucian)<<','<<unsigned(h.daoist)<<','<<unsigned(h.buddhist)<<','<<unsigned(h.food_quality)<<','
+               <<h.hemp<<','<<h.ceramics<<','<<h.tea<<','<<h.silk<<','<<h.bronzeware<<','<<h.lacquerware;
+            for (const auto& w:e.service_witnesses) {
+                out<<','<<bool(w);
+                if (w) out<<','<<static_cast<std::uint32_t>(w->building_id)<<','<<static_cast<unsigned>(w->role)<<','
+                    <<static_cast<std::uint32_t>(w->provider_id)<<','<<static_cast<std::uint32_t>(w->transfer.courier_id)<<','
+                    <<w->transfer.sequence<<','<<w->arrival_tick;
+            }
+            out<<','<<bool(e.water_evaluation_witness);if (e.water_evaluation_witness) water_witness(*e.water_evaluation_witness);
+            out<<','<<bool(e.food_quality_witness);
+            if (e.food_quality_witness) {
+                const auto& w=*e.food_quality_witness;
+                out<<','<<static_cast<std::uint32_t>(w.transfer.courier_id)<<','<<w.transfer.sequence<<','<<w.tick<<','<<unsigned(w.previous_quality);
+                parts(w.accepted);parts(w.consumed_before);
+            }
+            parts(e.food_received);parts(e.food_consumed);parts(e.goods_consumed_before);
+        };
+        for (const auto& source:original_production_->housing.neutral_source_origins)
+            out<<"|housing-source-origin:"<<static_cast<std::uint32_t>(source.building_id)<<','<<source.origin.x<<','<<source.origin.y;
+        for (const auto& row:original_production_->housing.houses) {
+            out<<"|housing-history:"<<static_cast<std::uint32_t>(row.building_id)<<','<<bool(row.first_admission_tick)<<','<<row.first_admission_tick.value_or(0);
+            for (const auto& consumed:row.consumption_rows) {out<<','<<consumed.events;parts(consumed.consumed);}
+            out<<','<<bool(row.last_evaluation);if (row.last_evaluation) evaluation(*row.last_evaluation);
+            for (const auto& first:row.first_transitions) {
+                out<<','<<bool(first);
+                if (first) {out<<','<<static_cast<unsigned>(first->kind)<<','<<first->admitted;evaluation(first->evaluation);}
+            }
+        }
+        for (const auto& row:original_production_->water.providers)
+            out<<"|water-provider:"<<static_cast<std::uint32_t>(row.building_id);
+        for (const auto& row:original_production_->water.trips)
+            out<<"|water-trip:"<<static_cast<std::uint32_t>(row.transfer.courier_id)<<','<<row.transfer.sequence<<','
+               <<static_cast<std::uint32_t>(row.target)<<','<<row.dispatched_tick<<','<<bool(row.arrival_tick)<<','<<row.arrival_tick.value_or(0)<<','<<row.visit_applied;
+        for (const auto& row:original_production_->water.houses) {
+            out<<"|water-house:"<<static_cast<std::uint32_t>(row.building_id)<<','<<unsigned(row.normal_timer)<<','<<unsigned(row.special_timer)<<','<<bool(row.current_witness);
+            if (row.current_witness) water_witness(*row.current_witness);
+            out<<','<<bool(row.evaluation_witness);if (row.evaluation_witness) water_witness(*row.evaluation_witness);
+        }
         const auto& industry=original_production_->industry;
         out<<"|original-industry:"<<industry.sources.size()<<','<<industry.managed_ore.size()<<','
            <<industry.auxiliary.size()<<','<<industry.aux_trips.size()<<','<<industry.clay_trips.size();
@@ -4220,10 +4292,10 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         throw std::invalid_argument("maintenance authority requires City-v16");
     w.maintenance_spent_total_=s.maintenance_spent_total;
     for (const auto& b:s.buildings)
-        if ((!desirability_profile(s.profile) || b.kind!=Object::Household) && b.taxes_paid_total)
+        if ((!desirability_profile(s.profile) || !original_house_kind(b.kind)) && b.taxes_paid_total)
             throw std::invalid_argument("tax payment authority requires a City-v13 Household");
     for (const auto& b:s.buildings)
-        if ((!health_profile(s.profile) || b.kind!=Object::Household) &&
+        if ((!health_profile(s.profile) || !original_house_kind(b.kind)) &&
             (b.health_risk || b.health_protection_until_tick || b.sick_until_tick))
             throw std::invalid_argument("health authority requires a City-v15 Household");
     if (health_profile(s.profile) && !w.original_economy_enabled() &&
@@ -4302,7 +4374,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             if (static_cast<std::uint32_t>(b.id)==0 || (i && !(s.buildings[i-1].id<b.id)) ||
                 !b.placed || b.kind==Object::Empty || b.kind==Object::Road ||
                 b.kind==Object::Workshop ||
-                ((original_industry_model(b.kind) || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
+                ((b.kind==Object::OriginalElitePlot || original_industry_model(b.kind) || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
                   b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
                   (b.kind==Object::OriginalMusicSchool211 || b.kind==Object::OriginalAcrobatSchool212 ||
                    b.kind==Object::OriginalDramaSchool213 || b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 ||

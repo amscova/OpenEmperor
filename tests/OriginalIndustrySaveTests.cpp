@@ -37,7 +37,7 @@ struct Fixture {
     sim::World world;
     f::fs::path target=root.path/"industry-schema26.json";
     std::array<sim::BuildingId,9> producers{};
-    sim::BuildingId academy{};
+    sim::BuildingId academy{},elite{};
     explicit Fixture(bool populate=true,int width=64,int height=36):
         policy(std::make_shared<const sim::MapPermissions>(width,height,3,
             std::vector<sim::MapCellPermission>(static_cast<std::size_t>(width*height),
@@ -50,7 +50,10 @@ struct Fixture {
         }()),world(sim::World::create_original_production_development(policy,model)) {
         if (!populate) return;
         for (int x=0;x<64;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
-        for (int x=0;x<60;x+=3) (void)buy(sim::CommandType::PlaceHousehold,{x,2});
+        for (int x=0;x<60;x+=3) {
+            const auto id=buy(x==0 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{x,2});
+            if (!x) elite=id;
+        }
         (void)buy(sim::CommandType::PlaceClaySource,{0,5});
         (void)buy(sim::CommandType::PlacePottery,{3,5});
         (void)buy(sim::CommandType::PlaceWarehouse,{6,5});
@@ -98,8 +101,8 @@ struct Fixture {
         const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,
-              "Industry save lost explicit revision24 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==25,
+              "Industry save lost explicit revision25 identity");
         const auto restored=restore(parsed);check(restored.snapshot()==before,"Industry F5/F9 changed full authority");
         save::write_save(target,document(restored),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Industry canonical rewrite mutated source authority");return bytes;
@@ -131,7 +134,7 @@ States lifecycle(Fixture& f) {
     until(f.world,[&] {
         const auto& state=*f.world.original_goods_state();
         return std::all_of(state.totals.begin()+2,state.totals.end(),[](const auto& totals){return totals.produced>0 && totals.consumed>0;}) &&
-            std::any_of(f.world.original_production_state()->services.witnesses.begin(),f.world.original_production_state()->services.witnesses.end(),[](const auto& w){return w.role==orig::ServiceRole::Confucian;});
+            std::any_of(f.world.original_production_state()->services.witnesses.begin(),f.world.original_production_state()->services.witnesses.end(),[&](const auto& w){return w.role==orig::ServiceRole::Confucian && w.building_id==f.elite;});
     });
     const auto& industry=f.world.original_production_state()->industry;
     check(source(f.world,f.producers[2]).clay_received>0 && source(f.world,f.producers[2]).clay_used>0 && source(f.world,f.producers[2]).last_clay_arrival,
@@ -203,7 +206,7 @@ void hostile(Fixture& f,const States& states) {
             {base+"/auxiliary/0/amounts/0",33},{base+"/aux_trips/0/material",5},
             {base+"/aux_trips/0/phase",0},{base+"/aux_trips/0/phase",4},{base+"/aux_trips/0/loaded",0},
             {base+"/clay_trips/0/loaded",0},{base+"/clay_trips/0/dispatched_tick",0},
-            {"/world/original_production/development_revision",23},{"/world/original_production/development_revision",25}}) {
+            {"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",26}}) {
         auto bad=good;bad.at(json::json_pointer(pointer))=value;reject(bad);
     }
     for (const auto& pointer:{base+"/sources/0/goods_inputs_used",base+"/sources/0/aux_inputs_used",base+"/auxiliary/0/amounts",

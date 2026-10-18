@@ -62,17 +62,14 @@ CourierRole courier_role_for(OriginalServiceProviderType type) {
     }
     invalid("unsupported original service Provider actor");
 }
-original::ServiceVisit visit_for(OriginalServiceProviderType type) {
-    const auto role=role_for(type);
-    // Fixed authored session capability: the original global constructor
-    // initializes Confucian's Source+0x174 elite-only gate totrue, whereas this
-    // adapter deliberately permits occupied common Houses until revision25.
-    // The revision24 physical Paper input and one-Paper-per-new-tour sink are
-    // explicit authored integration, not the original global27/10 selector or
-    // its personnel-consumption accumulator.
+original::ServiceVisit visit_for_role(original::ServiceRole role) {
+    // Restore the initial original Confucian elite-only condition. The
+    // physical Paper input/tour sink and occupied targeted dispatch remain
+    // explicitly authored; no original global27/10 selector is inferred.
     return {role>=original::ServiceRole::Ancestor ? original::VisitPath::DirectReligion:
-        original::VisitPath::DirectService,static_cast<original::VisitAction>(role),false};
+        original::VisitPath::DirectService,static_cast<original::VisitAction>(role),role==original::ServiceRole::Confucian};
 }
+original::ServiceVisit visit_for(OriginalServiceProviderType type) {return visit_for_role(role_for(type));}
 template<class Rows> decltype(auto) building_row(Rows& rows,BuildingId id) {
     const auto found=std::lower_bound(rows.begin(),rows.end(),id,[](const auto& row,BuildingId key){return row.id<key;});
     if (found==rows.end() || found->id!=id) invalid("original service refers to a missing paid body");return *found;
@@ -97,6 +94,9 @@ const OriginalServiceWitness* witness_for(const OriginalServicesState& state,Bui
 }
 std::uint64_t countdowns(std::uint64_t through) {return through<36 ? 0:1+(through-36)/51;}
 original::ServiceHouseContext context(const OriginalHouseState& house) {return {house.original_status,house.access_enabled};}
+bool eligible(const OriginalHouseState& house,original::ServiceVisit visit) {
+    return house.house.occupants>0 && original::accepts_service_visit(house.house,context(house),visit);
+}
 template<class Building> std::uint64_t minimum_travel_ticks(const Building& source,const Building& target) {
     // Use both real paid footprints, including Confucian219's3x3 body. The shared navigator
     // requires a source-body edge, at least one road cell and a target-body
@@ -162,10 +162,10 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
         const auto& p=provider(state,actor->owner);const auto& source=building_row(buildings,p.building_id);
         const auto& target=building_row(buildings,trip.target);const auto& h=house_row(houses,trip.target);
         const auto& first_admission=house_row(housing.houses,trip.target).first_admission_tick;
-        if (actor->role!=courier_role_for(p.type) || target.kind!=Object::Household ||
+        if (actor->role!=courier_role_for(p.type) || !original_house_kind(target.kind) ||
             trip.dispatched_tick<=source.placed_tick || trip.dispatched_tick<target.placed_tick || trip.dispatched_tick-target.placed_tick<121 ||
             !first_admission || trip.dispatched_tick<=*first_admission ||
-            !original::accepts_service_visit(h.house,context(h),visit_for(p.type)))
+            !eligible(h,visit_for(p.type)))
             invalid("original service dispatch predates or mismatches its paid source/occupied target");
         if (bind_movement && (actor->target!=trip.target || actor->last_dispatched_target!=trip.target))
             invalid("original service latest trip lost its fixed actual destination");
@@ -204,12 +204,12 @@ void validate_services(const OriginalServicesState& state,const Buildings& build
         const auto& first_admission=house_row(housing.houses,witness.building_id).first_admission_tick;
         const auto actor=std::find_if(couriers.begin(),couriers.end(),[&](const auto& c){return c.id==witness.transfer.courier_id;});
         const auto* trip=latest_trip(state.trips,witness.transfer.courier_id);
-        if (target.kind!=Object::Household || role_for(p.type)!=witness.role || actor==couriers.end() || actor->owner!=p.building_id ||
+        if (!original_house_kind(target.kind) || role_for(p.type)!=witness.role || actor==couriers.end() || actor->owner!=p.building_id ||
             actor->role!=courier_role_for(p.type) || !trip || !witness.transfer.sequence || witness.transfer.sequence>trip->transfer.sequence ||
             !witness.arrival_tick || witness.arrival_tick>tick || witness.transfer.sequence>witness.arrival_tick ||
             witness.arrival_tick<=source.placed_tick || witness.arrival_tick-source.placed_tick<2 ||
             witness.arrival_tick<target.placed_tick || witness.arrival_tick-target.placed_tick<122 || !first_admission || witness.arrival_tick<*first_admission ||
-            !original::accepts_service_visit(h.house,context(h),visit_for(p.type)))
+            !eligible(h,visit_for(p.type)))
             invalid("original service Witness has no possible paid direct-service arrival");
         if (trip->transfer==witness.transfer) {
             if (!trip->visit_applied || trip->target!=witness.building_id || trip->arrival_tick!=witness.arrival_tick)
@@ -257,11 +257,9 @@ OriginalServiceAvailability World::original_service_availability(BuildingId hous
     const auto body=std::lower_bound(buildings_.begin(),buildings_.end(),house,
         [](const auto& value,BuildingId id){return value.id<id;});
     if (home!=houses.end() && home->building_id==house && body!=buildings_.end() && body->id==house &&
-        body->kind==Object::Household && body->placed) {
-        const original::ServiceVisit visit{
-            role>=original::ServiceRole::Ancestor ? original::VisitPath::DirectReligion:original::VisitPath::DirectService,
-            static_cast<original::VisitAction>(role),false};
-        result.eligible_target=!building_on_fire(house) && original::accepts_service_visit(home->house,context(*home),visit);
+        original_house_kind(body->kind) && body->placed) {
+        const auto visit=visit_for_role(role);
+        result.eligible_target=!building_on_fire(house) && eligible(*home,visit);
         result.delivered_timer=original::service_timer(home->house,role);
         if (const auto* witness=witness_for(original_production_->services,house,role))
             result.last_arrival_tick=witness->arrival_tick;
@@ -322,9 +320,9 @@ CourierDispatchDecision World::original_service_dispatch_status(const CourierSta
     if (p.type==OriginalServiceProviderType::Confucian219 && !original_academy_paper_available(c.owner))
         return {CourierDispatchStatus::NoStock,{}};
     std::array<const BuildingState*,Rules::city_v10_household_limit> targets{};std::size_t count=0;
-    for (const auto& b:buildings_) if (b.kind==Object::Household && !building_on_fire(b.id)) {
+    for (const auto& b:buildings_) if (original_house_kind(b.kind) && !building_on_fire(b.id)) {
         const auto& h=house_row(original_economy_->houses,b.id);
-        if (original::accepts_service_visit(h.house,context(h),visit_for(p.type))) targets[count++]=&b;
+        if (eligible(h,visit_for(p.type))) targets[count++]=&b;
     }
     if (!count) return {CourierDispatchStatus::NoTarget,{}};std::size_t start=0;
     for (std::size_t i=0;i<count;++i) if (c.last_dispatched_target==targets[i]->id) start=(i+1)%count;
@@ -363,7 +361,7 @@ void World::arrive_original_service(CourierState& c) {
     trip->arrival_tick=ticks_;
     // A dispatched visitor finishes despite later source pause or fire. The
     // actual destination and original DirectService admission are rechecked.
-    if (!building_on_fire(target.id) && original::accepts_service_visit(h.house,context(h),visit_for(p.type))) {
+    if (!building_on_fire(target.id) && eligible(h,visit_for(p.type))) {
         h.house=original::apply_service_visit(h.house,context(h),visit_for(p.type));trip->visit_applied=true;
         OriginalServiceWitness witness{target.id,role_for(p.type),p.building_id,trip->transfer,ticks_};const auto key=witness_key(witness);
         const auto at=std::lower_bound(candidate.witnesses.begin(),candidate.witnesses.end(),key,[](const auto& row,const auto& value){return witness_key(row)<value;});

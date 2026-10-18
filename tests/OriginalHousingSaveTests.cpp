@@ -97,8 +97,8 @@ struct Fixture {
         const auto before=value.snapshot();const auto original=document(value);
         save::write_save(target,original,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(original,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==24,
-              "Housing save did not identify its explicit revision24");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==25,
+              "Housing save did not identify its explicit revision25");
         auto restored=restore(parsed);check(restored.snapshot()==before,"Housing F5/F9 changed full World state");
         save::write_save(target,document(restored),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Housing canonical rewrite mutated bytes/live state");return bytes;
@@ -129,7 +129,7 @@ States paid_lifecycle(Fixture& f) {
     const auto midwater=f.world.snapshot();f.roundtrip(f.world);
     check(!water(f.world,f.home).current_witness && !house(f.world,f.home).water,"Water dispatch supplied its future target");
     until(f.world,[&]{return house(f.world,f.home).type==orig::HouseType::Hut;});
-    check(history(f.world,f.home).first_hut_evaluation && !history(f.world,f.home).first_plain_evaluation,
+    check(history(f.world,f.home).first_transitions[1] && !history(f.world,f.home).first_transitions[2],
           "Actual water-backed Hut lacks its permanent first upgrade proof");
     for (const auto id:f.sources) if (!f.world.building(id).operating_enabled)
         f::buy(f.world,sim::set_building_operation(id,true));
@@ -137,15 +137,15 @@ States paid_lifecycle(Fixture& f) {
     {
         const auto pristine=f.roundtrip(f.world);auto bad=f.document(f.world);
         auto& row=bad.world.original_production->housing.houses[0];
-        check(row.first_plain_evaluation && row.last_evaluation &&
-              row.first_plain_evaluation->tick==row.last_evaluation->tick && row.first_plain_evaluation->input.occupants>1,
+        check(row.first_transitions[2] && row.last_evaluation &&
+              row.first_transitions[2]->evaluation.tick==row.last_evaluation->tick && row.first_transitions[2]->evaluation.input.occupants>1,
               "First Plain test did not capture one exact actual phase39 input");
-        --row.first_plain_evaluation->input.occupants;
+        --row.first_transitions[2]->evaluation.input.occupants;
         refuses([&]{(void)f.restore(bad);});
         refuses([&]{save::write_save(f.target,bad,f.root.data,f.policy->building_mask());});
         auto altered=json::parse(pristine);
-        altered["world"]["original_production"]["housing"]["houses"][0]["first_plain_evaluation"]["input"]["occupants"]=
-            row.first_plain_evaluation->input.occupants;
+        altered["world"]["original_production"]["housing"]["houses"][0]["first_transitions"][2]["evaluation"]["input"]["occupants"]=
+            row.first_transitions[2]->evaluation.input.occupants;
         const auto path=f.root.path/"contradictory-same-tick-housing.json";f::write_text(path,altered.dump());
         refuses([&]{(void)f.restore(save::read_save(path));});
         check(f::read_text(f.target)==pristine,"Contradictory same-tick proof replaced a valid actual upgrade save");
@@ -155,7 +155,7 @@ States paid_lifecycle(Fixture& f) {
         return house(f.world,f.home).type==orig::HouseType::PlainCottage && h.consumption_rows[2].consumed[0]>0 && h.consumption_rows[2].consumed[1]>0;
     });
     check(house(f.world,f.home).water && house(f.world,f.home).food_quality>=20 && house(f.world,f.home).ancestor>0 &&
-          history(f.world,f.home).first_hut_evaluation && history(f.world,f.home).first_plain_evaluation,
+          history(f.world,f.home).first_transitions[1] && history(f.world,f.home).first_transitions[2],
           "Paid full chain failed to prove its authored Need1/1 Plain upgrade");
     const auto plain=f.world.snapshot();f.roundtrip(f.world);
     // Removal is a normal paid-source lifecycle command. Every old origin
@@ -215,17 +215,17 @@ void hostile(Fixture& f,const States& states) {
         }
     }
     for (const auto& [path,replacement]:std::vector<std::pair<std::string,json>>{
-            {base+"development_revision",20},{base+"development_revision",21},{base+"development_revision",22},{base+"development_revision",23},{base+"development_revision",25},
+            {base+"development_revision",20},{base+"development_revision",21},{base+"development_revision",22},{base+"development_revision",23},{base+"development_revision",24},{base+"development_revision",26},
             {h+"first_admission_tick",nullptr},{h+"first_admission_tick",0},{h+"first_admission_tick",121},
-            {h+"last_evaluation",nullptr},{h+"first_hut_evaluation",nullptr},{h+"first_plain_evaluation",nullptr},
+            {h+"last_evaluation",nullptr},{h+"first_transitions/1",nullptr},{h+"first_transitions/2",nullptr},
             {h+"last_evaluation/tick",1},{h+"last_evaluation/input/type",17},
             {h+"last_evaluation/input/desirability",100},{h+"last_evaluation/input/water",false},
-            {h+"first_plain_evaluation/input/ancestor",0},{h+"first_plain_evaluation/input/food_quality",0},
-            {h+"first_plain_evaluation/input/hemp",0},{h+"first_plain_evaluation/input/ceramics",0},
-            {h+"first_hut_evaluation/water_evaluation_witness",nullptr},
-            {h+"first_hut_evaluation/input/occupants",8},
-            {h+"first_plain_evaluation/service_witnesses/2",nullptr},
-            {h+"first_plain_evaluation/food_quality_witness",nullptr},
+            {h+"first_transitions/2/evaluation/input/ancestor",0},{h+"first_transitions/2/evaluation/input/food_quality",0},
+            {h+"first_transitions/2/evaluation/input/hemp",0},{h+"first_transitions/2/evaluation/input/ceramics",0},
+            {h+"first_transitions/1/evaluation/water_evaluation_witness",nullptr},
+            {h+"first_transitions/1/evaluation/input/occupants",8},
+            {h+"first_transitions/2/evaluation/service_witnesses/2",nullptr},
+            {h+"first_transitions/2/evaluation/food_quality_witness",nullptr},
             {w+"current_witness",nullptr},{w+"evaluation_witness",nullptr},{w+"normal_timer",97},{w+"special_timer",1},
             {base+"water/providers/0/building_id",static_cast<unsigned>(f.neutral)},
             {base+"housing/neutral_source_origins/0/origin",json::array({INT32_MAX,INT32_MIN})}}) {
@@ -249,7 +249,7 @@ void hostile(Fixture& f,const States& states) {
     }
     auto never=sim::World::restore_original_production_development(states.midwater,f.policy,f.model);
     while (never.ticks()<397) never.tick();
-    check(!history(never,f.home).first_hut_evaluation && history(never,f.home).consumption_rows[0].events>0,
+    check(!history(never,f.home).first_transitions[1] && history(never,f.home).consumption_rows[0].events>0,
           "No-upgrade malicious-row fixture must own a real Shelter consumption opportunity");
     auto fake=json::parse(f.roundtrip(never));
     auto impossible_row=fake;
@@ -271,7 +271,7 @@ void hostile(Fixture& f,const States& states) {
     const auto document=f.document(actual);
     for (int fault=0;fault<9;++fault) {
         auto bad=document;auto& state=*bad.world.original_production;
-        if (fault==0) state.housing.houses[0].first_plain_evaluation.reset();
+        if (fault==0) state.housing.houses[0].first_transitions[2].reset();
         if (fault==1) state.housing.houses[0].last_evaluation->tick=bad.world.ticks+1;
         if (fault==2) state.housing.houses[0].consumption_rows[2].consumed[0]=UINT64_MAX;
         if (fault==3) state.water.houses[0].special_timer=1;
@@ -279,7 +279,7 @@ void hostile(Fixture& f,const States& states) {
         if (fault==5) state.housing.neutral_source_origins[0].origin={INT32_MAX,INT32_MIN};
         if (fault==6) state.development_revision=20;
         if (fault==7) {++bad.world.construction_spent_total;--bad.world.treasury;}
-        if (fault==8) state.housing.houses[0].first_hut_evaluation->input.occupants=8;
+        if (fault==8) state.housing.houses[0].first_transitions[1]->evaluation.input.occupants=8;
         refuses([&]{(void)f.restore(bad);});
         refuses([&]{save::write_save(f.target,bad,f.root.data,f.policy->building_mask());});
         check(f::read_text(f.target)==pristine,"Bad housing writer replaced protected canonical save");

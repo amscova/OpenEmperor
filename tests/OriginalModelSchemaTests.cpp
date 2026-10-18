@@ -315,11 +315,13 @@ void functional_mapping_checks() {
         if (result.candidate) ++mapped;
     }
     check(mapped == 7 && expected.size() - mapped == 6, "seven legacy candidates and six explicitly unmapped legacy Objects");
-    const auto source = original::functional_model_candidate(Object::OriginalInfluenceSource);
-    check(!source.candidate && source.functional == Status::Unknown &&
-          source.mechanics_identity == Status::Unknown && source.presentation_identity == Status::Unknown,
-          "authored influence binding does not upgrade functional or original identity evidence");
-    constexpr auto first_invalid = static_cast<Object>(static_cast<unsigned>(Object::OriginalMulberryTree28) + 1U);
+    for (const auto kind:{Object::OriginalInfluenceSource,Object::OriginalElitePlot}) {
+        const auto source=original::functional_model_candidate(kind);
+        check(!source.candidate && source.functional==Status::Unknown &&
+              source.mechanics_identity==Status::Unknown && source.presentation_identity==Status::Unknown,
+              "authored source/Elite plot does not invent a Building-model or sprite identity");
+    }
+    constexpr auto first_invalid = static_cast<Object>(static_cast<unsigned>(Object::OriginalElitePlot) + 1U);
     for (const auto bad : {first_invalid, static_cast<Object>(255)})
         expect_exception<std::out_of_range>([&] { (void)original::functional_model_candidate(bad); }, "invalid Object is not merely unmapped");
 }

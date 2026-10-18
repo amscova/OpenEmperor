@@ -19,11 +19,11 @@ inline std::optional<original::Goods> output(Object kind) {
     }
 }
 inline bool owner(Object kind) {
-    return kind==Object::Household || kind==Object::Warehouse || kind==Object::Market ||
+    return original_house_kind(kind) || kind==Object::Warehouse || kind==Object::Market ||
         kind==Object::OriginalHempFarm || kind==Object::OriginalPaperMaker45 || output(kind).has_value();
 }
 inline int capacity(Object kind,original::Goods good) {
-    if (kind==Object::Household) return Rules::household_capacity;
+    if (original_house_kind(kind)) return Rules::household_capacity;
     if (kind==Object::Warehouse) return Rules::warehouse_capacity;
     if (kind==Object::Market) return Rules::market_pottery_capacity;
     if (kind==Object::OriginalHempFarm || kind==Object::OriginalPaperMaker45)
@@ -39,7 +39,7 @@ public:
     template<class Buildings,class Couriers> Context(const Buildings& buildings,const Couriers& moving) {
         for (const auto& b:buildings) if (owner(b.kind)) {
             if (owner_count_==owners_.size()) throw std::invalid_argument("original goods owner bound exceeded");
-            auto& entry=owners_[owner_count_++];entry.building_id=b.id;entry.household=b.kind==Object::Household;
+            auto& entry=owners_[owner_count_++];entry.building_id=b.id;entry.household=original_house_kind(b.kind);
             for (std::size_t g=0;g<original::goods_count;++g)
                 entry.capacity[g]=capacity(b.kind,static_cast<original::Goods>(g));
         }

@@ -345,6 +345,26 @@ int main(int argc,char** argv) {
         check(tea!=sources.end() && tea->plant_id==plant && view->world().object_at({120,89})==sim::Object::OriginalTeaBush26 &&
               view->world().treasury()==industry_funds-166,"Plant mouse placement lost unique adjacent ownership or separate50/70/40/6 costs");
         const auto pause_tea=view->execute(sim::set_building_operation(tea_id,false));check(pause_tea.accepted && pause_tea.changed,"Tea did not pause through ordinary operation control");
+        const auto elite_funds=view->world().treasury();
+        const auto elite_old_tool=view->tool();key(*view,SDLK_H);action_click(*view,A::OriginalElitePlot);
+        check(view->tool()==elite_old_tool,"Elite tool escaped the Help modal");key(*view,SDLK_H);
+        action_click(*view,A::OriginalElitePlot);check(view->tool()==41,"Paid Elite plot tool unavailable");
+        click(*view,{118,92});
+        const auto elite_id=*view->world().building_owner_at({118,92});
+        check(view->world().object_at({119,93})==sim::Object::OriginalElitePlot &&
+              view->world().treasury()==elite_funds-80 && view->world().household_population(elite_id)==0,
+              "Elite mouse purchase lost authored2x2 ownership, exact80 price or granted residents");
+        const auto empty_diagnosis=view->world().original_housing_diagnosis(elite_id);
+        check(empty_diagnosis.actual.type==orig::HouseType::EliteUnoccupied && empty_diagnosis.awaiting_admission &&
+              empty_diagnosis.elite_family && empty_diagnosis.geometry_authored_2x2 && empty_diagnosis.geometry_deferred &&
+              empty_diagnosis.original_required_side==4 && empty_diagnosis.pure_result_type==orig::HouseType::EliteUnoccupied,
+              "Empty Elite diagnosis invented an Original footprint or pure first occupancy");
+        const auto empty_matrix=view->world().original_housing_decision_matrix(elite_id);
+        check(empty_matrix.size()==15 && empty_matrix[8].row_capacity==0 && empty_matrix[8].same_family &&
+              !empty_matrix[0].same_family && !empty_matrix[10].needs_met,
+              "Hypothetical15-row decision matrix granted an unlocked type or missing actual goods");
+        const auto elite_saved=view->world().snapshot();key(*view,SDLK_F5);key(*view,SDLK_F9);
+        check(view->world().snapshot()==elite_saved,"Empty paid Elite plot F5/F9 changed family or bootstrap state");
         view->set_tool(5);click(*view,{110,89});
         const auto paper_details=view->inspection_lines();
         check(view->industry_inspector_selected() && paper_details.size()<=10,
@@ -401,6 +421,16 @@ int main(int argc,char** argv) {
               "Actual material cargo was hidden by marker or diagnostic presentation");
         const auto paper_trip_saved=view->world().snapshot();key(*view,SDLK_F5);for (int i=0;i<40;++i) view->tick_once();key(*view,SDLK_F9);
         check(view->world().snapshot()==paper_trip_saved,"Material midcourier F5/F9 changed sole cargo or recipe sinks");
+        for (int i=0;i<800 && view->world().household_population(elite_id)==0;++i) view->tick_once();
+        const auto moved=view->world().original_housing_diagnosis(elite_id);
+        const auto& histories=view->world().original_production_state()->housing.houses;
+        const auto admitted=std::find_if(histories.begin(),histories.end(),[&](const auto& row){return row.building_id==elite_id;});
+        check(moved.actual.type==orig::HouseType::ModestSiheyuan && moved.actual.occupants>0 &&
+              admitted!=histories.end() && admitted->first_transitions[10] &&
+              admitted->first_transitions[10]->kind==sim::OriginalHousingTransitionKind::Admission &&
+              admitted->first_transitions[10]->evaluation.input.type==orig::HouseType::EliteUnoccupied &&
+              admitted->first_transitions[10]->admitted>0 && admitted->first_transitions[10]->admitted<=2,
+              "Elite first occupancy did not record the actual11→13 paid immigration event");
         bool religion_trip=false;
         for(int i=0;i<1200 && !religion_trip;++i) {
             view->tick_once();
@@ -415,11 +445,13 @@ int main(int argc,char** argv) {
         for(int i=0;i<6000 && !all_religions;++i) {
             view->tick_once();
             for(const auto& h:view->world().original_economy_state()->houses)
-                all_religions|=h.house.type==orig::HouseType::PlainCottage && h.house.confucian>0 &&
+                all_religions|=h.building_id==elite_id && orig::is_elite(h.house.type) && h.house.confucian>0 &&
                     h.house.daoist>0 && h.house.buddhist>0 && h.house.ancestor>0 && h.house.water &&
                     h.house.herbalist>0 && h.house.acupuncture>0 && h.house.hemp>0 && h.house.ceramics>0 && h.house.food_quality>0;
         }
-        check(all_religions,"No actual House simultaneously received six independent service categories and water/goods");
+        check(all_religions,"No actual occupied Elite received its Paper-backed Confucian visit and five other service categories");
+        for (const auto& h:view->world().original_economy_state()->houses)
+            if (!orig::is_elite(h.house.type)) check(h.house.confucian==0,"Common House received forbidden Elite-only Confucian effect");
         const auto culture_funds=view->world().treasury();
         for(int x=104;x<=120;++x)if(!view->world().road_cell({x,96}))buy(sim::CommandType::PlaceRoad,{x,96});
         for(int y:{97,98,99})if(!view->world().road_cell({104,y}))buy(sim::CommandType::PlaceRoad,{104,y});
@@ -466,11 +498,18 @@ int main(int argc,char** argv) {
         for(int i=0;i<6000 && !all_services;++i) {
             view->tick_once();
             for(const auto& h:view->world().original_economy_state()->houses)
-                all_services|=h.house.type==orig::HouseType::PlainCottage && h.house.music>0 && h.house.acrobat>0 && h.house.drama>0 &&
+                all_services|=h.building_id==elite_id && orig::is_elite(h.house.type) && h.house.music>0 && h.house.acrobat>0 && h.house.drama>0 &&
                     h.house.confucian>0 && h.house.daoist>0 && h.house.buddhist>0 && h.house.ancestor>0 && h.house.water &&
                     h.house.herbalist>0 && h.house.acupuncture>0 && h.house.hemp>0 && h.house.ceramics>0 && h.house.food_quality>0;
         }
         check(all_services,"No actual House simultaneously received nine separate services and paid water/goods/Food");
+        bool common_services=false;
+        for (const auto& h:view->world().original_economy_state()->houses) if (!orig::is_elite(h.house.type)) {
+            check(h.house.confucian==0,"New Elite-only religion leaked to a Common House");
+            common_services|=h.house.music>0 && h.house.acrobat>0 && h.house.drama>0 && h.house.daoist>0 &&
+                h.house.buddhist>0 && h.house.ancestor>0 && h.house.herbalist>0 && h.house.acupuncture>0;
+        }
+        check(common_services,"No actual Common House retained its eight independently delivered permitted services");
         key(*view,SDLK_F5);const auto current=f::read_text(target);
         const auto before=view->world().snapshot();
         const auto model_before=view->world().original_rules_model();
@@ -482,13 +521,17 @@ int main(int argc,char** argv) {
         f::write_text(target,current);key(*view,SDLK_F9);
         std::optional<sim::Cell> supplied;
         for(const auto& house:view->world().original_economy_state()->houses)
-            if(house.house.type==orig::HouseType::PlainCottage && house.house.water && house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
+            if(house.building_id==elite_id && orig::is_elite(house.house.type) && house.house.water && house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
                 house.house.herbalist>0 && house.house.acupuncture>0 && house.house.ancestor>0 &&
                 house.house.confucian>0 && house.house.daoist>0 && house.house.buddhist>0 &&
                 house.house.music>0 && house.house.acrobat>0 && house.house.drama>0) {supplied=view->world().building(house.building_id).cell;break;}
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
         const auto details=view->inspection_lines();
+        for (const std::string_view expected:{"temp2x2","Authored2x2; Original4x4:26","Current row","Next row",
+                "Bronze OR Lacquer","Daoist OR Buddhist","need","Original housing art pending"})
+            check(std::any_of(details.begin(),details.end(),[&](const auto& line){return line.find(expected)!=std::string::npos;}),
+                  "House inspector hid a real condition, alternative or temporary geometry boundary");
         check(std::count_if(details.begin(),details.end(),[](const auto& line) {
             return line.find("Herbalist")!=std::string::npos && line.find("Acupuncture")!=std::string::npos;
         })==1,"Medical values wrapped and displaced the default House inspector");
@@ -538,6 +581,60 @@ int main(int argc,char** argv) {
                 observed["selected_house_food"]=row.amounts;
             auto output=fs::path(argv[1]);output.replace_extension(".observed.json");f::write_text(output,observed.dump(2));
             output=fs::path(argv[1]);output.replace_extension(".save.json");f::write_text(output,current);
+            SDL_Event scroll{};scroll.type=SDL_EVENT_MOUSE_WHEEL;scroll.wheel.y=-8.0F;
+            scroll.wheel.mouse_x=static_cast<float>(view->layout().panel.x+12);
+            scroll.wheel.mouse_y=static_cast<float>(view->layout().panel.y+50);
+            bool running=true;view->handle_event(scroll,running);view->update(0);
+            check(view->render(),"Actual housing diagnosis scroll frame");
+            output=fs::path(argv[1]).parent_path()/"production.housing.png";
+            auto* diagnosis_frame=SDL_RenderReadPixels(renderer,nullptr);check(diagnosis_frame!=nullptr,"Housing diagnosis capture pixels");
+            const bool diagnosis_okay=SDL_SavePNG(diagnosis_frame,output.string().c_str());SDL_DestroySurface(diagnosis_frame);
+            check(diagnosis_okay,"Actual housing diagnosis capture output");
+            const auto diagnosis=view->world().original_housing_diagnosis(id);
+            const auto row_json=[](const sim::OriginalHousingRowDiagnosis& row) {
+                nlohmann::json needs=nlohmann::json::array();
+                for (const auto& need:row.requirements) needs.push_back({{"field",static_cast<unsigned>(need.field)},
+                    {"required",need.required},{"actual",need.actual},{"alternative",need.alternative},
+                    {"presence",need.presence},{"met",need.met}});
+                return nlohmann::json{{"row",static_cast<unsigned>(row.row)},{"low",row.low},{"high",row.high},
+                    {"row_capacity",row.row_capacity},{"needs_met",row.needs_met},{"requirements",needs}};
+            };
+            nlohmann::json housing_observed{{"capture","actual-paid-elite-housing-diagnosis"},
+                {"development_revision",view->world().original_production_state()->development_revision},
+                {"ticks",view->world().ticks()},{"selected_house",static_cast<unsigned>(id)},
+                {"selected_house_type",static_cast<unsigned>(diagnosis.actual.type)},
+                {"occupants",diagnosis.actual.occupants},{"elite_family",diagnosis.elite_family},
+                {"actual_cached_desirability",diagnosis.cached_desirability},{"counter",diagnosis.actual.devolve_counter},
+                {"counter_limit",diagnosis.devolve_limit},{"admission_capacity",diagnosis.admission_capacity},
+                {"census_capacity",diagnosis.census_capacity},{"current",row_json(diagnosis.current)},{"next",row_json(diagnosis.next)},
+                {"authored_footprint_side",2},{"original_required_side",diagnosis.original_required_side},
+                {"geometry_deferred",diagnosis.geometry_deferred},{"hypothetical_matrix_rows",15},
+                {"inspection_lines",view->inspection_lines()},{"actual_panel_wheel_notches",-8},
+                {"world_unchanged",view->world().snapshot()==before},{"original_art_restored",false}};
+            auto housing_observed_output=output;housing_observed_output.replace_extension(".observed.json");
+            f::write_text(housing_observed_output,housing_observed.dump(2)+"\n");
+            auto housing_saved_output=output;housing_saved_output.replace_extension(".save.json");f::write_text(housing_saved_output,current);
+            check(view->selected_building()==id && view->world().snapshot()==before,
+                  "Housing scroll or diagnostic screenshot changed paid World authority");
+            // Move through the real preceding service rows to the actual
+            // food/goods requirements. Wrapped OR labels also occupy rows.
+            scroll.wheel.y=-13.0F;view->handle_event(scroll,running);view->update(0);
+            check(view->render(),"Actual housing requirements scroll frame");
+            output=fs::path(argv[1]).parent_path()/"production.requirements.png";
+            auto* requirements_frame=SDL_RenderReadPixels(renderer,nullptr);check(requirements_frame!=nullptr,"Housing requirements capture pixels");
+            const bool requirements_okay=SDL_SavePNG(requirements_frame,output.string().c_str());SDL_DestroySurface(requirements_frame);
+            check(requirements_okay,"Actual housing requirements capture output");
+            auto requirements_observed=housing_observed;
+            requirements_observed["capture"]="actual-paid-elite-housing-requirements";
+            requirements_observed["actual_panel_wheel_notches"]=-21;
+            requirements_observed["additional_panel_wheel_notches"]=-13;
+            requirements_observed["inspection_lines"]=view->inspection_lines();
+            requirements_observed["world_unchanged"]=view->world().snapshot()==before;
+            auto requirements_observed_output=output;requirements_observed_output.replace_extension(".observed.json");
+            f::write_text(requirements_observed_output,requirements_observed.dump(2)+"\n");
+            auto requirements_saved_output=output;requirements_saved_output.replace_extension(".save.json");f::write_text(requirements_saved_output,current);
+            check(view->selected_building()==id && view->world().snapshot()==before,
+                  "Requirements scroll or screenshot changed paid World authority");
         }
         view->shutdown();view.reset();
         SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();

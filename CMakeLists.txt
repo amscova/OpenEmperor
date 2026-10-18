@@ -289,7 +289,8 @@ target_include_directories(openemperor-original-service-rules PUBLIC src)
 target_link_libraries(openemperor-original-service-rules PUBLIC openemperor-original-house-evolution)
 openemperor_enable_warnings(openemperor-original-service-rules)
 target_sources(openemperor-simulation PRIVATE src/simulation/WorldOriginalIndustry.cpp
-    src/simulation/WorldOriginalConsumption.cpp src/simulation/WorldOriginalServices.cpp
+    src/simulation/WorldOriginalConsumption.cpp src/simulation/WorldOriginalHousingDiagnosis.cpp
+    src/simulation/WorldOriginalServices.cpp
     src/simulation/WorldOriginalWater.cpp src/simulation/WorldOriginalHousing.cpp)
 target_link_libraries(openemperor-simulation PUBLIC openemperor-original-service-rules)
 # Pure goods transfers/consumption/quality observations; no World/app linkage.
@@ -966,6 +967,23 @@ if(BUILD_TESTING)
     add_test(NAME original-religion-save COMMAND openemperor-original-religion-save-tests)
     set_tests_properties(original-religion-save PROPERTIES TIMEOUT 180)
 
+    add_executable(openemperor-original-housing-stages-world-tests tests/OriginalHousingStagesWorldTests.cpp)
+    target_link_libraries(openemperor-original-housing-stages-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-housing-stages-world-tests)
+    add_test(NAME original-housing-stages-world COMMAND openemperor-original-housing-stages-world-tests)
+    set_tests_properties(original-housing-stages-world PROPERTIES TIMEOUT 300)
+    if(OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT)
+        add_test(NAME original-housing-stages-world-real COMMAND openemperor-original-housing-stages-world-tests
+            --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+        set_tests_properties(original-housing-stages-world-real PROPERTIES TIMEOUT 300)
+    endif()
+
+    add_executable(openemperor-original-housing-stages-save-tests tests/OriginalHousingStagesSaveTests.cpp)
+    target_link_libraries(openemperor-original-housing-stages-save-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-housing-stages-save-tests)
+    add_test(NAME original-housing-stages-save COMMAND openemperor-original-housing-stages-save-tests)
+    set_tests_properties(original-housing-stages-save PROPERTIES TIMEOUT 180)
+
     add_executable(openemperor-original-industry-world-tests tests/OriginalIndustryWorldTests.cpp)
     target_link_libraries(openemperor-original-industry-world-tests PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-original-industry-world-tests)
@@ -1600,7 +1618,9 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-original-production-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
     openemperor_enable_warnings(openemperor-original-production-view-tests)
     add_test(NAME original-production-view COMMAND openemperor-original-production-view-tests)
-    set_tests_properties(original-production-view PROPERTIES TIMEOUT 60)
+    # The paid Elite/nine-service sequence runs about twice the prior ticks;
+    # unchanged Debug navigation assertions measured 75.5s in isolation.
+    set_tests_properties(original-production-view PROPERTIES TIMEOUT 120)
 endif()
 add_executable(openemperor-city-v16-bridges-fixture EXCLUDE_FROM_ALL
     tools/CityV16BridgesFixture.cpp ${bridge_fixture_sources})

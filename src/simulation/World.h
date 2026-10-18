@@ -6,6 +6,7 @@
 #include "simulation/OriginalInfluenceState.h"
 #include "simulation/OriginalGoodsState.h"
 #include "simulation/OriginalProductionState.h"
+#include "simulation/OriginalHousingDiagnosis.h"
 #include "simulation/original/Desirability.h"
 
 #include "core/PerformanceDiagnostics.h"
@@ -271,8 +272,16 @@ enum class Object : std::uint8_t {
     OriginalFoodFarm, OriginalWheatField, OriginalMilletField, OriginalAncestorShrine214, OriginalWaterWell72,
     OriginalDaoistShrine215, OriginalBuddhistShrine217, OriginalConfucianAcademy219,
     OriginalMusicSchool211, OriginalAcrobatSchool212, OriginalDramaSchool213,
-    OriginalLoggingShed38, OriginalBronzeSmelter39, OriginalBronzewareMaker42, OriginalLacquerwareMaker44, OriginalPaperMaker45, OriginalWeaver47, OriginalTeaCuringShed237, OriginalLacquerRefinery238, OriginalSilkwormShed239, OriginalTeaBush26, OriginalLacquerTree27, OriginalMulberryTree28
+    OriginalLoggingShed38, OriginalBronzeSmelter39, OriginalBronzewareMaker42, OriginalLacquerwareMaker44, OriginalPaperMaker45, OriginalWeaver47, OriginalTeaCuringShed237, OriginalLacquerRefinery238, OriginalSilkwormShed239, OriginalTeaBush26, OriginalLacquerTree27, OriginalMulberryTree28,
+    OriginalElitePlot
 };
+// Classification for the opt-in original production adapter. Older rule
+// admission continues to reject the appended Elite body/command identities.
+constexpr bool original_house_kind(Object kind) noexcept {
+    return kind==Object::Household || kind==Object::OriginalElitePlot;
+}
+constexpr bool original_elite_house_kind(Object kind) noexcept {return kind==Object::OriginalElitePlot;}
+std::optional<original::ModelBuilding> original_influence_model(Object kind);
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
 };
@@ -338,7 +347,7 @@ enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySour
                          PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField, PlaceOriginalAncestorShrine, PlaceOriginalWaterWell,
                          PlaceOriginalDaoistShrine, PlaceOriginalBuddhistShrine, PlaceOriginalConfucianAcademy,
                          PlaceOriginalMusicSchool, PlaceOriginalAcrobatSchool, PlaceOriginalDramaSchool,
-                         PlaceOriginalLoggingShed, PlaceOriginalBronzeSmelter, PlaceOriginalBronzewareMaker, PlaceOriginalLacquerwareMaker, PlaceOriginalPaperMaker, PlaceOriginalWeaver, PlaceOriginalTeaCuringShed, PlaceOriginalLacquerRefinery, PlaceOriginalSilkwormShed, PlaceOriginalTeaBush, PlaceOriginalLacquerTree, PlaceOriginalMulberryTree };
+                         PlaceOriginalLoggingShed, PlaceOriginalBronzeSmelter, PlaceOriginalBronzewareMaker, PlaceOriginalLacquerwareMaker, PlaceOriginalPaperMaker, PlaceOriginalWeaver, PlaceOriginalTeaCuringShed, PlaceOriginalLacquerRefinery, PlaceOriginalSilkwormShed, PlaceOriginalTeaBush, PlaceOriginalLacquerTree, PlaceOriginalMulberryTree, PlaceOriginalElitePlot };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 // Fixed identities of active paid industry bodies; no file/model lookup here.
@@ -611,6 +620,8 @@ public:
     const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
     const std::optional<OriginalProductionState>& original_production_state() const { return original_production_; }
     OriginalServiceAvailability original_service_availability(BuildingId house,original::ServiceRole role) const;
+    OriginalHousingDiagnosis original_housing_diagnosis(BuildingId house) const;
+    std::array<OriginalHousingRowDiagnosis,original::house_row_count> original_housing_decision_matrix(BuildingId house) const;
     OriginalAuxBalance original_auxiliary_balance(OriginalAuxMaterial material) const;
     int original_auxiliary_cargo(CourierId id) const;
     OriginalGoodsBalance original_goods_balance(original::Goods good) const;

@@ -24,9 +24,13 @@ die originale Venue-/Training-Kette wird damit nicht als rekonstruiert behauptet
 Revision24 ergänzt [bezahlte Luxus- und Materialketten](luxury-runtime.md):
 Tea, Silk, Bronzeware und Lacquerware erreichen über tatsächliche Lieferungen
 das Haus. Fünf getrennte Vorprodukte versorgen die Rezepte; angeliefertes
-Paper ist Voraussetzung für einen neuen Academy-Dispatch. Aktueller
-Entwicklerstand ist Revision24. Das anfängliche originale Confucian-Elite-Gate
-folgt in25; die gemeinsame Common-House-Berechtigung bleibt bis dahin authored.
+Paper ist Voraussetzung für einen neuen Academy-Dispatch.
+Revision25 öffnet die [getrennten Hausfamilien und alle15 Bedarfszeilen](housing-stages-runtime.md).
+Common bleibt bei10 terminal; ein separat bezahlter experimenteller Eliteplot
+beginnt leer11 und erhält beim tatsächlichen ersten Zuzug Typ13. Confucian
+bedient jetzt ausschließlich tatsächlich bewohnte Elitehäuser mit angeliefertem
+Paper. Die ursprüngliche4×4-Elitegeometrie folgt in26; der25er Plot ist
+ausdrücklich vorläufig authored2×2. Aktueller Entwicklerstand ist Revision25.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
@@ -36,7 +40,7 @@ bis zu ihren späteren Aufgaben geschlossen.
 Ein leeres gekauftes Haus erhält ausschließlich durch normale laufende
 Zuwanderung Bewohner: Mindestalter120 Ticks, danach alle40 Ticks höchstens
 zwei, nur mit tatsächlich zulässigem Straßeneingang und ohne laufenden Brand.
-Der erste Zuzug aktiviert den Shelter-Typ. Die Kapazität kommt aus der
+Der erste Zuzug aktiviert Common-Shelter3 bzw. Elite-Modest13. Die Kapazität kommt aus der
 gebundenen vorbereiteten Modelldatei. Eine ungerade Schlusskapazität erhält
 beim letzten Zuzug genau den verbleibenden einen Bewohner. Nach einem Aufstieg kann die weitere Zweier-Zuwanderung auch ungerade
 Zwischenstände erreichen. Historische Aufnahmezeit und belegte frühere
@@ -71,8 +75,9 @@ Warehouse-Pottery-Slot bleibt null; es gibt keinen gespiegelten Vorrat.
 
 Revision24 erlaubt alle sechs Hauswaren über Warehouse, Market, tatsächliche
 Hausankunft und modellbasierten Verbrauch. Food und die neun getrennten
-Dienste besitzen eigene tatsächliche Lieferwege. Höhere Hausstufen und
-Steuern folgen ihren Aufgaben. Die frühen originalen Hausbedarfe bleiben unverändert0;
+Dienste besitzen eigene tatsächliche Lieferwege. Revision25 prüft sämtliche
+Hausbedarfe und getrennte Familien; positive hohe Stufen benötigen eigene
+bezahlte Belege. Steuern folgen27. Die frühen originalen Warenbedarfe bleiben unverändert0;
 ein ausdrücklich authored physischer Hauspuffer8 ermöglicht Provisionierung
 vor Evolution und Verbrauch.
 
