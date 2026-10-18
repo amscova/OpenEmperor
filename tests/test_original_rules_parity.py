@@ -22,11 +22,12 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import original_rules_parity as parity
 
-# The committed evidence keys source files with POSIX separators; on Windows
-# Path.relative_to() yields backslashes. Normalise only the key spelling here,
-# leaving the hashed tool itself (and so the committed report) untouched.
+# The committed evidence keys use canonical lower-case top-level POSIX paths;
+# Windows preserves the physical `Tools/` spelling when resolving this one
+# source file. Normalise separators and that directory component only in the
+# test, leaving the hashed tool and committed report untouched.
 _current_source_hashes = parity.current_source_hashes
-parity.current_source_hashes = lambda: {key.replace("\\", "/"): value
+parity.current_source_hashes = lambda: {key.replace("\\", "/").replace("Tools/", "tools/"): value
                                         for key, value in _current_source_hashes().items()}
 
 
