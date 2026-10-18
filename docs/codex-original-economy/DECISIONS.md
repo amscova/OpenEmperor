@@ -1394,3 +1394,26 @@ Ausdrückliche Nutzerentscheidung am2026-10-18 während der finalen25er-Prüfung
 Nach Abschluss und eigenem geprüftem OE25-Commit wird erneut pausiert.
 OE26 bleibt TODO/unbegonnen. Kein Push, PR, Merge, Tag oder Release; erst
 ein neuer Fortsetzungsauftrag hebt diese Pause auf.
+
+### Zwischenmerge bis OE-25 – ausdrückliche Nutzerfreigabe am2026-10-18
+
+Nach dem geprüften lokalen OE-25-Commit fragt der Nutzer ausdrücklich:
+„so können wir jetzt alles mal mergen und commiten?“ Dies beauftragt Commit,
+Push, Pull Request nach `main` und regulären Merge des geprüften Standes
+OE-14–25. Der vorherige Push-/PR-/Merge-Ausschluss während der Pause ist
+für diesen Zwischenmerge aufgehoben. Die Implementierungspause vor OE-26
+bleibt bestehen; keine Freigabe von OE-26–33 oder Gate D–F folgt daraus.
+
+Basis ist `origin/main` `41091b66e960b4c82c378d5ae3b83088325f5a61`, geprüfter
+Code-Head `9bac35b5626834b42d35d52c23b11eb039b14f21`. Alle zwölf Taskcommits
+bleiben erhalten, ergänzt um diesen Dokumentations-Handoff. Erwarteten PR-Head,
+Mergefähigkeit und tatsächliche Checks vor dem regulären Merge prüfen;
+anschließend nur Fast-forward-Synchronisierung, kein Squash, Branchlöschen,
+Tag oder Release. Die bisherige gemeinsame Endabnahme bleibt ein späterer
+Meilenstein; dieser Zwischenmerge behauptet keine vollständige Originalparität.
+
+Die vorhandenen relevanten OE-25-Prüfungen gelten für den unveränderten Code:
+177 CTests in Debug/Release/ASan+UBSan,50 getrennte20k-Fortsetzungen und vier
+tatsächlich geöffnete Softwareansichten. Große Elite-Footprints26,
+Original-Haussprites29, vollständiger Gate D und native/human Abnahme bleiben
+offen. Die Handoff-Änderungen betreffen ausschließlich Dokumentation.

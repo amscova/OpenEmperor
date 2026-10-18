@@ -16,6 +16,11 @@ Jeder erledigte OE-Task erhält nach seinen Tests einen eigenen Commit. Die
 Abhängigkeiten und Phasen-Gates bleiben verbindlich. Der gemeinsame PR/Merge
 folgt nach technischer Endabnahme; keine Tags oder Releases.
 
+Am2026-10-18 beauftragt der Nutzer zusätzlich ausdrücklich einen
+[Zwischenmerge bis OE-25](../codex-original-economy/DECISIONS.md#zwischenmerge-bis-oe-25--ausdrückliche-nutzerfreigabe-am2026-10-18)
+einschließlich Commit/Push/PR nach `main`. Die Pause vor OE-26 bleibt bestehen;
+dies ersetzt weder die spätere Endabnahme noch die offenen Aufgaben und Gates.
+
 Schema26 enthält eine strikt geprüfte `development_revision`, zunächst14.
 Eine Aufgabe, die gespeicherte Authority oder deren Bedeutung ändert, erhöht
 diese Revision ausdrücklich. Ein früherer Entwicklungsstand wird nicht

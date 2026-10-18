@@ -10,6 +10,11 @@ versionierter Vertrag steht in `housing-stages-runtime.md`. Als Nächstes ist
 OE-26 vorgesehen, bleibt aber nach ausdrücklichem Nutzerwunsch erneut
 pausiert und unbegonnen.
 
+**Zwischenmerge am2026-10-18:** Der Nutzer beauftragt anschließend ausdrücklich
+Commit und Merge des gesamten geprüften Standes bis OE-25. Diese Freigabe
+umfasst Push und Pull Request nach `main`; die Aufgabenpause vor OE-26 bleibt
+bestehen. Dies ist keine Endabnahme von OE-26–33 oder Gate D–F.
+
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
@@ -37,7 +42,7 @@ pausiert und unbegonnen.
 | OE-22 | PASS | 1e7e2715704bd7b5def483d4924292c1d4d41181 | `.local/original-economy/oe22/validation2/`, `oe22/production-fixtures/final2/` | Revision22: bezahlte215/217/219, getrennte40er-Timer/OR, echte3×3-Ankunft;150 Konfigurations-CTests und30 separate20k-Fortsetzungen. Confucian-Elite/Material ausdrücklich authored/offen; Gate D TODO |
 | OE-23 | PASS | 95967cec1e691a50e9a771a59940deda2230807b | `.local/original-economy/oe23/validation/`, `oe23/production-fixtures/final/` | Revision23: bezahlte211/212/213, neun getrennte Timer, reine Verfügbarkeit/Ankunft-Diagnose und echte Quellenbrände;159 Konfigurations-CTests,36 separate20k-Fortsetzungen. Originale Venue-/Performer-Kette weiterhin ausdrücklich experimentell; Gate D TODO |
 | OE-24 | PASS | 7360f84e40c6cd558d3cf87de41c8b713645840f | `.local/original-economy/oe24/validation2/`, `oe24/production-fixtures/final2/` | Revision24: vier bezahlte Luxusketten, fünf getrennte Vorprodukte und echter Paper→Academy-Materialpfad; 168 Konfigurations-CTests, 43 separate20k-Replays, beide Software-SDL-Ansichten geöffnet. Historische Nutzerpause danach, am2026-10-18 aufgehoben; Gate D TODO |
-| OE-25 | PASS | — | `.local/original-economy/oe25/validation3/`, `oe25/production-fixtures/final3/` | Revision25:15 Zeilen, bezahlte getrennte Elitefamilie, echte13→12→13 und Common6;177 relevante CTests/50 getrennte20k-Replays/4 geöffnete Softwarebilder;4×4-Geometrie26/Originalsprites29/Gate D27 offen |
+| OE-25 | PASS | 9bac35b5626834b42d35d52c23b11eb039b14f21 | `.local/original-economy/oe25/validation3/`, `oe25/production-fixtures/final3/` | Revision25:15 Zeilen, bezahlte getrennte Elitefamilie, echte13→12→13 und Common6;177 relevante CTests/50 getrennte20k-Replays/4 geöffnete Softwarebilder;4×4-Geometrie26/Originalsprites29/Gate D27 offen |
 | OE-26 | TODO | — | — | — |
 | OE-27 | TODO | — | — | — |
 | OE-28 | TODO | — | — | — |
@@ -2982,3 +2987,26 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   `oe25/validation3/final-validation.json` PASS, SHA `b1b29b8b3f4f12dd7bf95ed7f19d33417cfe0e482ae09c04c96364a10b9e960f`.
   Ausdrückliche Nutzerentscheidung2026-10-18: nach geprüftem eigenem25er-Commit
   erneut Pause. OE26 bleibt unbegonnen; kein Push/PR/Merge/Tag/Release.
+
+## Zwischenmerge OE-14–25 – Nutzerfreigabe am2026-10-18
+
+- Der anschließende Auftrag „so können wir jetzt alles mal mergen und
+  commiten?“ erlaubt den Zwischenmerge nach `main` einschließlich Push/PR.
+  Er ersetzt den vorherigen Remote-Ausschluss für diesen geprüften Stand;
+  OE-26 bleibt unbegonnen und Tags/Releases bleiben ausgeschlossen.
+- Frisch abgeglichene Basis: `origin/main` ist
+  `41091b66e960b4c82c378d5ae3b83088325f5a61`; zwölf eigenständige Taskcommits
+  OE-14–25 bis `9bac35b5626834b42d35d52c23b11eb039b14f21` fehlen dort.
+  Arbeitsverzeichnis vor dem Handoff sauber, kein offener PR dieses Branches.
+- Code und Tests bleiben unverändert zum tatsächlich geprüften OE-25-Stand.
+  Dessen177 CTests,50 getrennte20k-Fortsetzungen und vier geöffnete
+  Softwareansichten sind die aktuelle relevante Abnahme. Die Quellbindung
+  steht unter `oe25/validation3/postcommit-source-check.json`.
+  Kein erneuter Testlauf allein aufgrund dieser Dokumentationsänderungen.
+- Regulärer Merge erhält alle Taskcommits; erwarteten PR-Head und tatsächliche
+  GitHub-Prüfungen vor dem Merge kontrollieren, anschließend `main` und lokalen
+  Feature-Branch ausschließlich per Fast-forward angleichen. Keine erzwungenen
+  Ref-Updates, kein Squash und kein Branchlöschen.
+- Aufgaben26–33 und Gates D–F bleiben offen. Vorläufige Elite2×2, originale
+  Elite4×4 in26, Original-Haussprites29, native/human NOT_RUN sowie die
+  dokumentierten höheren Housing-Szenenblocker werden nicht hochgestuft.
