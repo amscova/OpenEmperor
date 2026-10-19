@@ -976,6 +976,7 @@ int World::workers_assigned(BuildingId id) const {
 }
 
 int World::settlement_goal_households_ready() const {
+    if (original_production_enabled()) return original_goal_status().common_houses;
     if (original_economy_enabled()) return 0;
     if (!city_profile(profile_)) return 0;
     int ready=0;
@@ -990,6 +991,7 @@ int World::settlement_goal_households_ready() const {
 }
 
 bool World::settlement_goal_reached() const {
+    if (original_production_enabled()) return original_goal_status().reached;
     if (scalable(profile_)) {
         const auto houses=static_cast<int>(std::count_if(buildings_.begin(),buildings_.end(),
             [](const BuildingState& b) { return b.placed && original_house_kind(b.kind); }));
@@ -1153,6 +1155,7 @@ int World::covered_households() const {
 }
 
 std::uint64_t World::household_tax_contributed(BuildingId id) const {
+    if (original_production_enabled()) return building(id).taxes_paid_total;
     if (desirability_profile(profile_)) return building(id).taxes_paid_total;
     const auto count=building(id).fulfilled_demand;
     if (profile_==RulesProfile::CityV6) {
@@ -2040,6 +2043,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
             if (original_production_enabled()) {
                 original_production_->house_consumption.push_back(OriginalHouseConsumptionState{b.id});
                 OriginalHousingHouse housing;housing.building_id=b.id;original_production_->housing.houses.push_back(housing);
+                OriginalFinanceHouse finance;finance.building_id=b.id;original_production_->finance.houses.push_back(finance);
                 OriginalWaterHouseState water;water.building_id=b.id;original_production_->water.houses.push_back(water);
                 original_production_->food.stocks.push_back(OriginalFoodStock{b.id});
             }
@@ -4060,6 +4064,12 @@ std::string World::canonical_state() const {
     if (original_production_) for (const auto& row:original_production_->house_consumption) {
         out<<"|original-consumption:"<<static_cast<std::uint32_t>(row.building_id);
         for (const auto amount:row.consumed) out<<','<<amount;
+    }
+    if (original_production_) for (const auto& row:original_production_->finance.houses) {
+        out<<"|original-finance:"<<static_cast<std::uint32_t>(row.building_id);
+        for (const auto& bucket:row.rows) out<<','<<bucket.events<<','<<bucket.resident_units;
+        out<<','<<bool(row.last_assessment);
+        if (row.last_assessment) out<<','<<row.last_assessment->tick<<','<<static_cast<unsigned>(row.last_assessment->type)<<','<<row.last_assessment->occupants;
     }
     if (original_production_) {
         const auto parts=[&](const auto& values){for (const auto n:values) out<<','<<n;};

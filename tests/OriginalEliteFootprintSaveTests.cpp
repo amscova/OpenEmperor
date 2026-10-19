@@ -137,7 +137,8 @@ void hostile_geometry() {
             {"/world/original_production/housing/houses/0/first_admission_tick",nullptr},
             {"/world/original_production/housing/houses/0/first_transitions/10",nullptr},
             {"/world/original_production/development_revision",25},
-            {"/world/original_production/development_revision",27}}) {
+            {"/world/original_production/development_revision",26},
+            {"/world/original_production/development_revision",28}}) {
         auto bad=good;bad.at(json::json_pointer(path))=value;reject(bad);
     }
     for (const int delta:{-1,1}) {

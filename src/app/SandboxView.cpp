@@ -64,6 +64,18 @@ const IndustryTool* industry_kind(simulation::Object kind) {
     return nullptr;
 }
 constexpr std::array<const char*,5> aux_names{"Wood","Bronze","RawSilk","Lacquer","Paper"};
+const char* original_difficulty_name(original::Difficulty difficulty) {
+    constexpr std::array names{"Very easy","Easy","Normal","Hard","Very hard"};
+    return names.at(static_cast<std::size_t>(difficulty));
+}
+std::uint64_t original_debt(std::int64_t funds) {
+    return funds<0 ? static_cast<std::uint64_t>(-(funds+1))+1U:0U;
+}
+std::optional<std::uint64_t> next_original_tax_tick(std::uint64_t tick) {
+    const auto remaining=simulation::original_tax_interval_ticks-tick%simulation::original_tax_interval_ticks;
+    if (tick>UINT64_MAX-remaining) return {};
+    return tick+remaining;
+}
 template<class Courier> int displayed_courier_cargo(const simulation::World& world,const Courier& courier) {
     return world.original_production_enabled() ?
         std::max(courier.cargo,world.original_courier_cargo(courier.id)):courier.cargo;
@@ -383,9 +395,13 @@ std::unique_ptr<SandboxView> SandboxView::create_original_goods_save_fixture(
         simulation::RulesProfile::CityV16,simulation::kOriginalGoodsRuleVersion,true));
 }
 std::unique_ptr<SandboxView> SandboxView::create_original_production_save_fixture(
-        maps::StoredMapSession session) {
-    return std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original production difficulty");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
         simulation::RulesProfile::CityV16,simulation::kOriginalProductionRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    return result;
 }
 #endif
 
@@ -416,6 +432,10 @@ void SandboxView::configure_save(std::filesystem::path root,std::filesystem::pat
             initial->world.rule_version)!=original_save_fixture_ ||
             (original_save_fixture_ && initial->world.rule_version!=requested_rule_version_)))
         throw std::invalid_argument("Original economy saves require the explicit scheduler-only development fixture");
+    if (initial && original_production_fixture() && original_requested_difficulty_ &&
+        (!initial->world.original_economy || !initial->world.original_economy->model_source ||
+         initial->world.original_economy->model_source->difficulty!=*original_requested_difficulty_))
+        throw std::invalid_argument("Requested original difficulty differs from saved difficulty");
     data_root_=std::move(root); map_relative_=std::move(map); save_path_=std::move(save);
     initial_save_=std::move(initial);
 }
@@ -451,6 +471,12 @@ void SandboxView::load_now() {
             document.world.rule_version)!=original_save_fixture_ ||
             (original_save_fixture_ && document.world.rule_version!=requested_rule_version_))
         throw std::runtime_error("Original economy saves require the explicit scheduler-only development fixture");
+    if (original_production_fixture() &&
+        (!document.world.original_economy || !document.world.original_economy->model_source ||
+         document.world.original_economy->model_source->difficulty!=world_->original_rules_model()->difficulty() ||
+         (original_requested_difficulty_ &&
+          document.world.original_economy->model_source->difficulty!=*original_requested_difficulty_)))
+        throw std::runtime_error("Saved original difficulty differs from this running session");
     auto replacement=original_production_fixture() ?
         persistence::restore_original_production_development(document,data_root_,buildable_mask_) : original_goods_fixture() ?
         persistence::restore_original_goods_development(document,data_root_,buildable_mask_) : original_influence_fixture() ?
@@ -561,7 +587,8 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         initial_save_.reset();
     } else if (original_production_fixture()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_production_development(
-            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_)));
+            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal))));
     } else if (original_goods_fixture()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_goods_development(
             std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
@@ -4301,7 +4328,9 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             {static_cast<unsigned>(selected_->x),static_cast<unsigned>(selected_->y)},background_.elevated(),&camera_));
     const auto add_maintenance=[&](simulation::BuildingId id) {
         const auto& b=world_->building(id);
-        const auto cost=simulation::maintenance_cost(rules_,b.kind);
+        const auto cost=original_production_fixture() ?
+            static_cast<std::int64_t>(world_->workforce_required(id))*simulation::original_worker_upkeep_funds:
+            simulation::maintenance_cost(rules_,b.kind);
         if (!cost) {
             if (debug_open_ && simulation::maintenance_profile(rules_) && b.kind==simulation::Object::Household)
                 lines.push_back("Maintenance none.");
@@ -4451,6 +4480,15 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                     " W"+std::to_string(food.amounts[0])+" M"+std::to_string(food.amounts[1]));
                 lines.push_back("Food demand misses: "+std::to_string(food.missed_demands));
             }
+            const auto tax=world_->original_house_tax_status(*house_id);
+            lines.push_back("Tax rate "+std::to_string(tax.rate)+" x residents "+std::to_string(tax.occupants));
+            lines.push_back("If assessed now "+std::to_string(tax.amount_if_assessed_now)+
+                (tax.burning ? " | FIRE exempt":tax.inhabited ? " | eligible":" | empty exempt"));
+            lines.push_back("Tax paid total "+std::to_string(tax.paid_total));
+            lines.push_back(tax.next_assessment_tick ? "Next tax tick "+std::to_string(*tax.next_assessment_tick):"Next tax unavailable");
+            if (tax.last_assessment) lines.push_back("Last tax tick "+std::to_string(tax.last_assessment->tick)+
+                " type"+std::to_string(static_cast<unsigned>(tax.last_assessment->type))+
+                " residents"+std::to_string(tax.last_assessment->occupants));
             lines.push_back("Scroll: housing diagnosis");
             lines.push_back(std::string(simulation::original_housing_type_name(h.type)));
             lines.push_back(d.elite_family ? d.actual_footprint_side==4 ?
@@ -4534,8 +4572,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                     " Well72 at "+std::to_string(entry.origin.x)+","+std::to_string(entry.origin.y)+
                     ": "+std::to_string(entry.before)+" + "+std::to_string(entry.contribution)+
                     " -> "+std::to_string(entry.after));
-            const std::array names{"Very easy","Easy","Normal","Hard","Very hard"};
-            lines.push_back(std::string("Difficulty: ")+names[static_cast<unsigned>(world_->original_rules_model()->difficulty())]);
+            lines.push_back(std::string("Difficulty: ")+original_difficulty_name(world_->original_rules_model()->difficulty()));
             lines.push_back("Model SHA: "+world_->original_rules_model()->provenance().sha256);
             lines.push_back("Well72 fields: DES/STP/SZE/RGE; SZE is value delta");
             return wrap_panel_lines(lines);
@@ -5013,9 +5050,17 @@ std::vector<std::string> SandboxView::inspection_lines() const {
     return simulation::maintenance_profile(rules_) ? wrap_panel_lines(lines):lines;
 }
 std::vector<std::string> SandboxView::income_summary_lines() const {
-    if (original_production_fixture()) return {"Funds "+std::to_string(world_->treasury()),
-        "Residents "+std::to_string(world_->total_population())+" | Workers "+std::to_string(world_->workforce_supply()),
-        "Paid production development; taxes are not active"};
+    if (original_production_fixture()) {
+        const auto goal=world_->original_goal_status();
+        return {"Funds "+std::to_string(world_->treasury())+" | Tax received "+std::to_string(world_->taxes_collected_total())+
+                " | Upkeep "+std::to_string(world_->current_maintenance_rate())+"/400t",
+            "Residents "+std::to_string(world_->total_population())+" | Workers "+std::to_string(world_->workforce_supply())+
+                " | Difficulty "+original_difficulty_name(world_->original_rules_model()->difficulty()),
+            std::string("Authored mission ")+(goal.reached ? "MET":"pending")+" | Homes "+
+                std::to_string(goal.inhabited_houses)+"/"+std::to_string(simulation::OriginalGoalStatus::required_inhabited_houses)+
+                " Plain+ "+std::to_string(goal.common_houses)+"/"+std::to_string(simulation::OriginalGoalStatus::required_common_houses)+
+                " Pop "+std::to_string(goal.population)+"/"+std::to_string(simulation::OriginalGoalStatus::required_population)+" | T: finances"};
+    }
     if (original_influence_fixture()) return {"Funds "+std::to_string(world_->treasury()),
         "Well72 influence development | no income or upkeep"};
     if (original_save_fixture_) return {"Funds "+std::to_string(world_->treasury()),
@@ -5070,13 +5115,35 @@ std::vector<std::string> SandboxView::income_lines() const {
     if (original_production_fixture()) {
         const auto balance=world_->original_goods_balance(original::Goods::Ceramics);
         const auto hemp=world_->original_goods_balance(original::Goods::Hemp);
-        return {"Original economy development",
-        "Funds: "+std::to_string(world_->treasury()),
+        const auto goal=world_->original_goal_status();
+        const auto next=next_original_tax_tick(world_->ticks());
+        return wrap_panel_lines({"Original economy development",
+        std::string("Difficulty: ")+original_difficulty_name(world_->original_rules_model()->difficulty()),
+        "Funds: "+std::to_string(world_->treasury())+" | Debt: "+std::to_string(original_debt(world_->treasury())),
+        "Taxes actually received: "+std::to_string(world_->taxes_collected_total()),
+        "Upkeep actually paid: "+std::to_string(world_->maintenance_spent_total()),
+        "Construction spent: "+std::to_string(world_->construction_spent_total()),
+        "Installed upkeep: "+std::to_string(world_->current_maintenance_rate())+" /400t",
+        "Authored upkeep:2 Funds /required worker; installed even paused",
+        "Authored direct tax: residents x model rate /816t",
+        "1 rate point =1 Fund per resident per authored month",
+        next ? "Next tax tick: "+std::to_string(*next)+" (in "+std::to_string(*next-world_->ticks())+")":"Next tax: clock exhausted",
+        "Current eligibility is not a promised future payment",
+        std::string("Authored housing mission: ")+(goal.reached ? "MET":"pending"),
+        "Nonburning occupied homes: "+std::to_string(goal.inhabited_houses)+" /"+
+            std::to_string(simulation::OriginalGoalStatus::required_inhabited_houses),
+        "Nonburning Common Plain+ homes: "+std::to_string(goal.common_houses)+" /"+
+            std::to_string(simulation::OriginalGoalStatus::required_common_houses),
+        "Actual population: "+std::to_string(goal.population)+" /"+
+            std::to_string(simulation::OriginalGoalStatus::required_population),
+        std::string("Positive tax received: ")+(goal.positive_tax ? "yes":"no")+" (required >0)",
+        std::string("Funds >=0: ")+(goal.nonnegative_funds ? "yes":"no"),
+        "Live conditions; can be lost. No bonus or win latch",
         "Residents: "+std::to_string(world_->total_population()),
         "Ceramics stock: "+std::to_string(balance.stock)+" | cargo: "+std::to_string(balance.cargo),
         "Hemp stock: "+std::to_string(hemp.stock)+" | cargo: "+std::to_string(hemp.cargo),
         "Incoming reserved: "+std::to_string(balance.incoming_reserved),
-        "Paid Clay/Pottery/Warehouse/Market; deliveries at actual arrival", "Tax integration follows OE-27"};
+        "Paid sources and goods; deliveries at actual arrival"});
     }
     if (original_influence_fixture()) return {"Well72 influence development",
         "Paid sources affect desirability only; no water, workers, income or upkeep"};
@@ -5237,6 +5304,84 @@ bool SandboxView::draw_text(double x,double y,const std::string& value,int max_w
                                         static_cast<float>(y/scale),text.c_str());
     return SDL_SetRenderScale(renderer_,1,1) && okay;
 }
+std::string SandboxView::hud_status_line() const {
+    std::string status=road_start_ && !road_preview_.valid ? sandbox_ui::road_plan_status(road_preview_) :
+        last_message_.empty() ? "OpenEmperor sandbox | Select a tool, then click the map" :
+        last_message_;
+    if (simulation::city_profile(rules_) && road_start_ &&
+        !road_preview_.valid && road_preview_.reason=="Not enough money") {
+        const auto count=world_->map_permissions() ? road_preview_.new_road_count:
+            static_cast<std::size_t>(std::count_if(road_preview_.cells.begin(),road_preview_.cells.end(),
+                [&](simulation::Cell cell) { return world_->object_at(cell)!=simulation::Object::Road; }));
+        status="Need "+std::to_string(count*simulation::Rules::road_cost)+
+            " funds; treasury "+std::to_string(world_->treasury());
+    }
+    if (simulation::city_profile(rules_) && !road_start_ && !bridge_start_ && !ramp_start_ && hovered_ && tool_!=14 && tool_!=15 &&
+        tool_!=(simulation::production_profile(rules_) ? 5:4)) {
+        const auto result=preview(*hovered_);
+        if (!result.accepted && std::string_view(result.reason)=="Not enough money") {
+            const auto cost=world_->construction_cost(command_type(rules_,tool_,original_influence_fixture()));
+            status="Need "+std::to_string(cost)+" funds; treasury "+
+                std::to_string(world_->treasury());
+        }
+    }
+    if (simulation::maintenance_profile(rules_) && hovered_ && !road_start_ && tool_!=5 && tool_!=6 && tool_!=14 && tool_!=15) {
+        const auto type=command_type(rules_,tool_,original_influence_fixture());
+        const auto cost=world_->construction_cost(type);
+        const auto kind=simulation::placed_object(type);
+        if (cost>0 && kind) {
+            if (original_production_fixture()) status="$"+std::to_string(cost)+
+                " | upkeep "+std::to_string(simulation::original_worker_upkeep_funds)+"/required worker/"+
+                std::to_string(simulation::original_worker_upkeep_interval_ticks)+"t; T: installed | "+status;
+            else status="$"+std::to_string(cost)+" | upkeep $"+
+                std::to_string(simulation::maintenance_cost(rules_,*kind))+"/400t | "+status;
+        }
+    }
+    if (tool_==13 && simulation::health_profile(rules_)) status="Road connection required. | "+status;
+    if (simulation::water_profile(rules_)) {
+        if (!original_production_fixture() && world_->taxes_collected_total()>0 && world_->water_covered_households()==0 &&
+            std::all_of(world_->buildings().begin(),world_->buildings().end(),[&](const auto& b) {
+                return b.kind!=simulation::Object::Household || (b.pottery_stock>0 && b.food_stock>0 &&
+                    world_->household_service_active(b.id) && !world_->building_on_fire(b.id) && !world_->household_sick(b.id));
+            }))
+            status="Your city is supplied. Add water to improve housing. | "+status;
+        if (predicted_water_) status=std::string("Water: ")+(*predicted_water_ ? "Yes":"No")+" | "+status;
+        if (predicted_well_coverage_) status="Would supply water to "+
+            std::to_string(predicted_well_coverage_->households)+" Houses ("+
+            std::to_string(predicted_well_coverage_->currently_dry)+" currently without water) | "+status;
+    }
+    if (predicted_desirability_) status="Predicted desirability at this location: "+
+        std::to_string(*predicted_desirability_)+" | "+status;
+    if (!recovery_status_.empty() && !budget_warning_ && !pending_demolition_ && !road_start_)
+        status+=" | "+recovery_status_;
+    if (original_production_fixture()) status+=world_->original_goal_status().reached ?
+        " | AUTHORED HOUSING MISSION MET | T: live conditions":
+        " | Housing mission pending | T: live conditions";
+    if (!original_influence_fixture() && simulation::city_profile(rules_))
+        status+=world_->settlement_goal_reached() ?
+            (simulation::population_profile(rules_) ?
+                " | GOAL REACHED - houses developed and population stable":
+             simulation::food_profile(rules_) ?
+                " | GOAL REACHED - all houses level 2":" | GOAL REACHED - settlement supplied") :
+            " | Goal "+std::to_string(world_->settlement_goal_households_ready())+
+                (simulation::food_profile(rules_) ?
+                    ((simulation::scalable_profile(rules_)) ? "/8 houses at level 2":
+                     "/4 houses at level 2"):"/4 households ready");
+    if (!original_influence_fixture() && simulation::population_profile(rules_) && !world_->settlement_goal_reached())
+        status+=" | Population "+std::to_string(world_->total_population())+"/"+
+            std::to_string((simulation::scalable_profile(rules_)) ?
+                simulation::Rules::city_v10_population_goal:simulation::Rules::city_v9_population_goal);
+    if (debug_open_ && walker_profile_) {
+        status+=" | Walkers ";
+        status+=walker_visuals_enabled_ ? "ON ":"OFF ";
+        for (std::size_t r=0;r<assets::walker_visual_role_count;++r) {
+            if (r) status+=' ';
+            status+=assets::walker_role_name(static_cast<assets::WalkerVisualRole>(r));
+            status+=walker_profile_->roles[r] ? ":yes":":no";
+        }
+    }
+    return status;
+}
 bool SandboxView::draw_hud() {
     using A=sandbox_ui::Action;
     const auto fill=[&](sandbox_ui::Rect rect,SDL_Color color)->bool {
@@ -5349,73 +5494,7 @@ bool SandboxView::draw_hud() {
     const auto menu=menu_button_rect();
     if (managed_ && !draw_text(menu.x+6*layout_.scale,menu.y+10*layout_.scale,
                                "[ MENU ]",menu.w-8*layout_.scale)) return false;
-    std::string status=road_start_ && !road_preview_.valid ? sandbox_ui::road_plan_status(road_preview_) :
-        last_message_.empty() ? "OpenEmperor sandbox | Select a tool, then click the map" :
-        last_message_;
-    if (simulation::city_profile(rules_) && road_start_ &&
-        !road_preview_.valid && road_preview_.reason=="Not enough money") {
-        const auto count=world_->map_permissions() ? road_preview_.new_road_count:
-            static_cast<std::size_t>(std::count_if(road_preview_.cells.begin(),road_preview_.cells.end(),
-                [&](simulation::Cell cell) { return world_->object_at(cell)!=simulation::Object::Road; }));
-        status="Need "+std::to_string(count*simulation::Rules::road_cost)+
-            " funds; treasury "+std::to_string(world_->treasury());
-    }
-    if (simulation::city_profile(rules_) && !road_start_ && !bridge_start_ && !ramp_start_ && hovered_ && tool_!=14 && tool_!=15 &&
-        tool_!=(simulation::production_profile(rules_) ? 5:4)) {
-        const auto result=preview(*hovered_);
-        if (!result.accepted && std::string_view(result.reason)=="Not enough money") {
-            const auto cost=world_->construction_cost(command_type(rules_,tool_,original_influence_fixture()));
-            status="Need "+std::to_string(cost)+" funds; treasury "+
-                std::to_string(world_->treasury());
-        }
-    }
-    if (simulation::maintenance_profile(rules_) && hovered_ && !road_start_ && tool_!=5 && tool_!=6 && tool_!=14 && tool_!=15) {
-        const auto type=command_type(rules_,tool_,original_influence_fixture());
-        const auto cost=world_->construction_cost(type);
-        const auto kind=simulation::placed_object(type);
-        if (cost>0 && kind)
-            status="$"+std::to_string(cost)+" | upkeep $"+std::to_string(simulation::maintenance_cost(rules_,*kind))+"/400t | "+status;
-    }
-    if (tool_==13 && simulation::health_profile(rules_)) status="Road connection required. | "+status;
-    if (simulation::water_profile(rules_)) {
-        if (world_->taxes_collected_total()>0 && world_->water_covered_households()==0 &&
-            std::all_of(world_->buildings().begin(),world_->buildings().end(),[&](const auto& b) {
-                return b.kind!=simulation::Object::Household || (b.pottery_stock>0 && b.food_stock>0 &&
-                    world_->household_service_active(b.id) && !world_->building_on_fire(b.id) && !world_->household_sick(b.id));
-            }))
-            status="Your city is supplied. Add water to improve housing. | "+status;
-        if (predicted_water_) status=std::string("Water: ")+(*predicted_water_ ? "Yes":"No")+" | "+status;
-        if (predicted_well_coverage_) status="Would supply water to "+
-            std::to_string(predicted_well_coverage_->households)+" Houses ("+
-            std::to_string(predicted_well_coverage_->currently_dry)+" currently without water) | "+status;
-    }
-    if (predicted_desirability_) status="Predicted desirability at this location: "+
-        std::to_string(*predicted_desirability_)+" | "+status;
-    if (!recovery_status_.empty() && !budget_warning_ && !pending_demolition_ && !road_start_)
-        status+=" | "+recovery_status_;
-    if (!original_influence_fixture() && simulation::city_profile(rules_))
-        status+=world_->settlement_goal_reached() ?
-            (simulation::population_profile(rules_) ?
-                " | GOAL REACHED - houses developed and population stable":
-             simulation::food_profile(rules_) ?
-                " | GOAL REACHED - all houses level 2":" | GOAL REACHED - settlement supplied") :
-            " | Goal "+std::to_string(world_->settlement_goal_households_ready())+
-                (simulation::food_profile(rules_) ?
-                    ((simulation::scalable_profile(rules_)) ? "/8 houses at level 2":
-                     "/4 houses at level 2"):"/4 households ready");
-    if (!original_influence_fixture() && simulation::population_profile(rules_) && !world_->settlement_goal_reached())
-        status+=" | Population "+std::to_string(world_->total_population())+"/"+
-            std::to_string((simulation::scalable_profile(rules_)) ?
-                simulation::Rules::city_v10_population_goal:simulation::Rules::city_v9_population_goal);
-    if (debug_open_ && walker_profile_) {
-        status+=" | Walkers ";
-        status+=walker_visuals_enabled_ ? "ON ":"OFF ";
-        for (std::size_t r=0;r<assets::walker_visual_role_count;++r) {
-            if (r) status+=' ';
-            status+=assets::walker_role_name(static_cast<assets::WalkerVisualRole>(r));
-            status+=walker_profile_->roles[r] ? ":yes":":no";
-        }
-    }
+    const auto status=hud_status_line();
     const auto& generated=background_.plan().regenerated;
     const bool preview_notice=generated && !generated->great_wall_preview_notice.empty();
     if (preview_notice && !draw_text(8*layout_.scale,layout_.status.y+2*layout_.scale,
@@ -6063,7 +6142,7 @@ bool SandboxView::draw_help_overlay() {
             "F5 Save | F9 Load | Space Pause", "All sources need actual workers",
             "Actual arrivals supply Houses", "Water is evaluated on phase28",
             "House evolution runs on phase39", "Plain needs Water/Food/Ancestor",
-            "Schools: experimental direct visits", "Current early ceiling: Plain Cottage",
+            "Schools: experimental direct visits", "T:816t tax;2/worker/400t upkeep",
             "Original graphics follow separately"};
         for (std::size_t row=0;row<help.size();++row)
             if (!draw_text(x+pad,y+pad+static_cast<int>(row)*line,help[row],width-2*pad)) return false;

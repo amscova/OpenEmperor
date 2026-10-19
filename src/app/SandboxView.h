@@ -71,7 +71,8 @@ public:
     static std::unique_ptr<SandboxView> create_original_goods_save_fixture(
         maps::StoredMapSession session);
     static std::unique_ptr<SandboxView> create_original_production_save_fixture(
-        maps::StoredMapSession session);
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt);
 #endif
     ~SandboxView();
     void initialize(SDL_Window* window, SDL_Renderer* renderer);
@@ -288,6 +289,8 @@ public:
     std::vector<std::string> road_connectivity_lines() const;
     std::vector<std::string> income_summary_lines() const;
     std::vector<std::string> income_lines() const;
+    // Same read-only status text submitted by draw_hud; no cached authority.
+    std::string hud_status_line() const;
     std::vector<std::string> budget_warning_lines() const;
     std::vector<std::string> demolition_hint_lines() const;
     const sandbox_ui::RoadPlan& road_preview() const { return road_preview_; }
@@ -400,6 +403,8 @@ private:
     StoredGraphicsRenderer background_;
     std::unique_ptr<simulation::World> world_;
     simulation::TickDriver clock_;
+    // Start-time selection only. The saved ModelSource remains sole authority.
+    std::optional<original::Difficulty> original_requested_difficulty_;
     scene::Camera2D camera_;
     SDL_Window* window_=nullptr;
     SDL_Renderer* renderer_=nullptr;

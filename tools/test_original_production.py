@@ -13,7 +13,7 @@ _SPEC = importlib.util.spec_from_file_location(
 legacy = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(legacy)
 MODEL_SHA = legacy.MODEL_SHA
-DEVELOPMENT_REVISION = 26
+DEVELOPMENT_REVISION = 27
 INDUSTRY_CHECKPOINTS = ["mid-aux-courier", "paper-academy-arrival", "mid-luxury-courier", "house-four-luxuries",
     "industry-return", "industry-road-disconnected", "industry-recipe-ready"]
 CULTURE_ROLES = (2, 3, 4)
@@ -28,7 +28,7 @@ SERVICE_PROVIDERS = ((11, 12, 207, 30, 7), (5, 8, 208, 50, 8), (15, 19, 214, 40,
     (17, 21, 215, 45, 4), (18, 22, 217, 45, 4), (19, 23, 219, 80, 12),
     (20, 24, 211, 50, 8), (21, 25, 212, 60, 9), (22, 26, 213, 70, 10))
 SERVICE_ROLES = (0, 1, 5, 7, 8, 6, 2, 3, 4)
-PRIVATE_OUTPUT = Path(".local/original-economy/oe26/production-fixtures")
+PRIVATE_OUTPUT = Path(".local/original-economy/oe27/production-fixtures")
 RULE9_REFERENCE = Path(".local/original-economy/oe13/goods-fixtures/run-d4mm76cf")
 RULE9_REPORT_SHA = "1b5f95d6b1de09558be7f4a5859b1fa953aaa79da089f831afece692760678f2"
 RULE9_REVIEW_SHA = "c5534befba97a9ad1469bec05131d21f17fe509db101c0f4bd1e0351e742a017"
@@ -111,10 +111,66 @@ def check_geometry(scene):
         assert (kind == 40) is (12 <= house["type"] <= 17)
 
 
+def check_finance(scene):
+    # Independent arithmetic over observed actual inputs, never a grant or a
+    # second simulator. The separate raw-source reader binds these model rates.
+    u64 = (1 << 64) - 1
+    assert type(scene["difficulty"]) is int and 0 <= scene["difficulty"] < 5
+    assert type(scene["funds"]) is int and -(1 << 63) <= scene["funds"] < (1 << 63)
+    for field in ("taxes_collected", "maintenance_spent", "construction_spent"):
+        assert type(scene[field]) is int and 0 <= scene[field] <= u64
+    assert scene["funds"] + scene["construction_spent"] + scene["maintenance_spent"] == 12000 + scene["taxes_collected"]
+    finance = scene["finance"]
+    assert finance["tax_interval"] == 816 and finance["upkeep_interval"] == 400 and finance["upkeep_per_worker"] == 2
+    rates = finance["tax_rate_by_row"]
+    assert len(rates) == 15 and all(type(n) is int and 0 <= n <= 100 for n in rates)
+    bodies = {b["id"]: b for b in scene["buildings"]}
+    homes = {h["id"]: h for h in scene["houses"]}
+    assert finance["installed_upkeep"] == 2 * sum(b["workers_required"] for b in bodies.values())
+    assert all(type(b["workers_required"]) is int and b["workers_required"] >= 0 for b in bodies.values())
+    assert scene["maintenance_spent"] == sum(2 * b["workers_required"] * ((scene["tick"] - b["placed_tick"]) // 400) for b in bodies.values())
+    rows = finance["houses"]
+    assert len(rows) == len(homes) and [h["building_id"] for h in rows] == sorted(homes)
+    money = 0
+    for h in rows:
+        identity = h["building_id"]; current = homes[identity]; body = bodies[identity]
+        assert len(h["rows"]) == 15
+        events = 0; paid = 0
+        for i, bucket in enumerate(h["rows"]):
+            count, units = bucket["events"], bucket["resident_units"]
+            assert type(count) is int and type(units) is int and 0 <= count <= scene["tick"] // 816 and 0 <= units <= u64
+            assert count <= units <= count * current["occupants"]
+            if i == 8 or (body["kind"] == 6 and i >= 8) or (body["kind"] in (39, 40) and i < 9):
+                assert count == units == 0
+            events += count; paid += units * rates[i]
+        assert events <= scene["tick"] // 816
+        last = h["last_assessment"]
+        assert (last is None) is (events == 0)
+        if last is not None:
+            assert type(last["tick"]) is int and 0 < last["tick"] <= scene["tick"] and last["tick"] % 816 == 0
+            assert type(last["type"]) is int and 3 <= last["type"] <= 17 and last["type"] != 11
+            assert type(last["occupants"]) is int and 0 < last["occupants"] <= current["occupants"]
+            assert h["rows"][last["type"]-3]["events"] > 0
+            assert h["rows"][last["type"]-3]["resident_units"] >= last["occupants"]
+        assert paid == h["paid_total"] == body["taxes_paid_total"]
+        eligible = current["occupants"] > 0 and not body["on_fire"]
+        assert h["eligible"] is eligible and h["current_rate"] == rates[max(0, current["type"]-3)]
+        assert h["amount_if_assessed_now"] == (current["occupants"] * h["current_rate"] if eligible else 0)
+        money += paid
+    assert scene["taxes_collected"] == money
+    assert all(b["taxes_paid_total"] == 0 for identity, b in bodies.items() if identity not in homes)
+    inhabited = sum(h["occupants"] > 0 and not bodies[identity]["on_fire"] for identity, h in homes.items())
+    developed = sum(h["occupants"] > 0 and not bodies[identity]["on_fire"] and bodies[identity]["kind"] == 6 and 5 <= h["type"] <= 10 for identity, h in homes.items())
+    assert finance["goal"] == {"inhabited_houses": inhabited, "common_houses": developed,
+        "population": scene["population"], "positive_tax": money > 0, "nonnegative_funds": scene["funds"] >= 0,
+        "reached": inhabited >= 6 and developed >= 1 and scene["population"] >= 50 and money > 0 and scene["funds"] >= 0}
+
+
 def check_balances(scene, positive=False):
     if "development_revision" in scene:
         assert scene["development_revision"] == DEVELOPMENT_REVISION
         check_geometry(scene)
+        check_finance(scene)
     balances = scene["balances"]
     assert len(balances) == 6
     for index, balance in enumerate(balances):
@@ -283,7 +339,7 @@ def check_industry_fixture(fixture):
         scene = fixture[name]
         check_balances(scene)
         assert scene["model_sha256"] == MODEL_SHA and scene["development_revision"] == DEVELOPMENT_REVISION
-        assert scene["funds"] + scene["construction_spent"] == 12000
+        assert scene["funds"] + scene["construction_spent"] + scene["maintenance_spent"] == 12000 + scene["taxes_collected"]
     initial = fixture["initial"]
     assert initial["construction_spent"] == 3157 and initial["funds"] == 8843
     assert initial["building_count"] == 43 and initial["house_count"] == 20 and initial["road_count"] == 106 and initial["courier_count"] == 21
@@ -647,7 +703,7 @@ def check_culture_fixture(fixture):
         assert "service_availability" in scene
         check_balances(scene)
         assert scene["development_revision"] == DEVELOPMENT_REVISION and scene["model_sha256"] == MODEL_SHA
-        assert scene["construction_spent"] + scene["funds"] == 12000
+        assert scene["construction_spent"] + scene["funds"] + scene["maintenance_spent"] == 12000 + scene["taxes_collected"]
     initial = fixture["initial"]
     assert initial["construction_spent"] == 2127 and initial["funds"] == 9873
     assert initial["house_count"] == 15 and initial["road_count"] == 84 and initial["building_count"] == 29 and initial["courier_count"] == 14
@@ -924,7 +980,7 @@ def check_stages_fixture(fixture):
         scene = fixture[name]
         check_balances(scene)
         assert scene["model_sha256"] == MODEL_SHA and scene["development_revision"] == DEVELOPMENT_REVISION
-        assert scene["construction_spent"] == fixture["scene_spent"] and scene["funds"] + scene["construction_spent"] == 12000
+        assert scene["construction_spent"] == fixture["scene_spent"] and scene["funds"] + scene["construction_spent"] + scene["maintenance_spent"] == 12000 + scene["taxes_collected"]
     elite = fixture["elite_id"]
     home = lambda name: next(h for h in fixture[name]["houses"] if h["id"] == elite)
     proof = lambda name: next(h for h in fixture[name]["housing"]["houses"] if h["id"] == elite)
@@ -979,7 +1035,7 @@ def check_religion_fixture(fixture):
         scene = fixture[key]
         check_balances(scene)
         assert scene["model_sha256"] == MODEL_SHA and scene["development_revision"] == DEVELOPMENT_REVISION
-        assert scene["funds"] + scene["construction_spent"] == 12000
+        assert scene["funds"] + scene["construction_spent"] + scene["maintenance_spent"] == 12000 + scene["taxes_collected"]
     initial = fixture["initial"]
     assert initial["construction_spent"] == 1571 and initial["funds"] == 10429 and initial["population"] == 0
     assert initial["house_count"] == 11 and initial["road_count"] == 56 and initial["courier_count"] == 11
@@ -1576,15 +1632,17 @@ def main():
         midpoint, final = actual_reports
         assert midpoint["tick"] == source_report["tick"] + 10000
         assert final["tick"] == source_report["tick"] + 20000
-        assert final["funds"] == midpoint["funds"] - 2
-        assert final["construction_spent"] == midpoint["construction_spent"] + 2
-        assert final["command_sequence"] == midpoint["command_sequence"] + 1
-        assert final["road_count"] == midpoint["road_count"] + 1
+        bought = int(midpoint["funds"] >= 2)
+        assert final["funds"] == midpoint["funds"] - 2*bought + final["taxes_collected"] - midpoint["taxes_collected"] - final["maintenance_spent"] + midpoint["maintenance_spent"]
+        assert final["construction_spent"] == midpoint["construction_spent"] + 2*bought
+        assert final["command_sequence"] == midpoint["command_sequence"] + bought
+        assert final["road_count"] == midpoint["road_count"] + bought
         assert file_identity(source) == source_identity, "Process changed its source save or metadata"
         restarts.append({"checkpoint": checkpoint["tag"], "separate_os_process": True,
             "authored_model_needs": authored_needs, "food_scenario": food_scenario, "services_scenario": services_scenario,
             "ancestor_scenario": ancestor_scenario, "housing_scenario": housing_scenario, "religion_scenario": religion_scenario, "culture_scenario": culture_scenario, "industry_scenario": industry_scenario, "stages_scenario": stages_scenario, "model_sha256": model_sha,
-            "ticks_advanced": 20000, "periods": [10000, 10000], "actual_paid_road_continuation": True,
+            "ticks_advanced": 20000, "periods": [10000, 10000], "actual_paid_road_continuation": bool(bought),
+            "road_refused_due_to_debt": not bool(bought),
             "full_savedocument_equal": True, "canonical_bytes_equal": True, "provenance_equal": True,
             "balances_equal": True, "midpoint_equal": True, "source_save_and_metadata_unchanged": True})
     old = legacy.compare_legacy(baseline, binaries["openemperor-original-goods-fixture"],
@@ -1603,7 +1661,7 @@ def main():
     assert sum(row["religion_scenario"] for row in restarts) == 6
     assert sum(row["industry_scenario"] for row in restarts) == 7
     assert len(restarts) == 51 and sum(row["stages_scenario"] for row in restarts) == 8 and sum(row["ancestor_scenario"] for row in restarts) == sum(row["housing_scenario"] for row in restarts) == 6
-    report = {"status": "PASS", "evidence": "Actual paid four-luxury and five-Aux chains, native Clay/Hemp inputs, real delivered Paper Academy gate and all43 prior scenario tags plus8 housing-stage full20k process cases under the explicit active26 contract",
+    report = {"status": "PASS", "evidence": "Actual paid four-luxury and five-Aux chains, native Clay/Hemp inputs, real delivered Paper Academy gate and all43 prior scenario tags plus8 housing-stage full20k process cases under the explicit active27 finance contract",
         "original_data": str(original), "original_inventory_before": before, "original_inventory_after": after,
         "original_unchanged": True, "private_source_inventory_unchanged": True,
         "original_model_sha256": MODEL_SHA, "model_copy_byte_identical": True,

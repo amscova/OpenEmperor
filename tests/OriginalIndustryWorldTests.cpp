@@ -48,7 +48,26 @@ void bootstrap(sim::World& w,const Scene& s){int full_workers=0;for(const auto& 
     until(w,[&]{return w.workforce_supply()>=full_workers;},"Paid Water/Hut bootstrap did not yield genuine workers");
     for(const auto id:{s.paper,s.academy,s.food,s.ancestor})f::buy(w,sim::set_building_operation(id,true));
 }
+void paid_neutral_purchase_and_removal(sim::World& w,sim::Cell cell){
+    const auto before=w.snapshot();const auto installed_workers=w.workforce_required();
+    const auto neutral=buy(w,sim::CommandType::PlaceOriginalInfluenceSource,cell);
+    check(w.treasury()==before.treasury-60 && w.construction_spent_total()==before.construction_spent_total+60 &&
+          w.workforce_required()==installed_workers && w.couriers().size()==before.couriers.size(),
+          "Neutral Well purchase skipped its exact60Funds bill or added workers/actors");
+    const auto purchased=w.snapshot();f::buy(w,sim::demolish_building(neutral));
+    check(w.treasury()==purchased.treasury && w.construction_spent_total()==purchased.construction_spent_total &&
+          w.workforce_required()==installed_workers && w.couriers().size()==before.couriers.size(),
+          "Neutral Well removal invented refund, spending, workers or actors");
+    for(int y=0;y<2;++y)for(int x=0;x<2;++x)
+        check(!w.building_owner_at({cell.x+x,cell.y+y}) && w.object_at({cell.x+x,cell.y+y})==sim::Object::Empty,
+              "Neutral Well removal retained a physical owner claim");
+    valid(w);
+}
 void paid_chain_and_paper(const f::fs::path& real){Fixture f(real);auto w=f.world();const auto s=scene(w);
+    // Pay this positive control while the authored/real initial bill leaves
+    // ample funds. Remove it before the first tick so it supplies no historical
+    // desirability, workers, visits or materials to the unchanged paid chain.
+    paid_neutral_purchase_and_removal(w,{20,14});
     const auto unavailable=w.original_service_availability(s.first,orig::ServiceRole::Confucian);check(!unavailable.available_source_count&&!aux(w,s.academy,4),"Empty Academy dispatched without actual Paper");bootstrap(w,s);
     const auto empty_academy=w.original_service_availability(s.first,orig::ServiceRole::Confucian);
     check(w.building(s.academy).operating_enabled&&w.workers_assigned(s.academy)==w.workforce_required(s.academy)&&
@@ -70,7 +89,17 @@ void paid_chain_and_paper(const f::fs::path& real){Fixture f(real);auto w=f.worl
     check(source(w,s.weaver).aux_inputs_used[2]==source(w,s.weaver).completed,"Weaver skipped real RawSilk");
     auto replay=sim::World::restore_original_production_development(w.snapshot(),f.policy,f.model);for(int i=0;i<20000;++i){w.tick();replay.tick();check(w.snapshot()==replay.snapshot(),"Industry full20k Snapshot replay diverged");}valid(w);
     for(const auto id:{s.tea,s.plants[0],s.warehouse,s.paper,s.farm,s.clay}){const auto before_demolition=w.snapshot();const auto r=w.execute(sim::demolish_building(id));check(!r.accepted&&w.snapshot()==before_demolition,"Industry/plant/material owner demolition was not atomic refusal");}
-    const auto neutral=buy(w,sim::CommandType::PlaceOriginalInfluenceSource,{20,14});const auto before_neutral_demolition=w.construction_spent_total();f::buy(w,sim::demolish_building(neutral));check(w.construction_spent_total()==before_neutral_demolition,"Neutral Well removal during production invented refund or spending");valid(w);
+    if(w.treasury()>=60) paid_neutral_purchase_and_removal(w,{20,14});
+    else {
+        const auto before_purchase=w.snapshot();const sim::Command purchase{sim::CommandType::PlaceOriginalInfluenceSource,{20,14}};
+        const auto validation=w.validate(purchase);
+        check(!validation.accepted && !validation.changed && validation.reason=="Not enough money" && w.snapshot()==before_purchase,
+              "Late insufficient-funds source validation granted money, a source or other authority");
+        const auto refused=w.execute(purchase);
+        check(!refused.accepted && !refused.changed && refused.reason=="Not enough money" && w.snapshot()==before_purchase,
+              "Late insufficient-funds source purchase was not a complete atomic refusal");
+    }
+    valid(w);
 }
 void authored_plain_needs_and_original_both_stock_consumption(const f::fs::path& real){
     Fixture fixture(real,true);auto w=fixture.world();const auto s=scene(w);f::buy(w,sim::set_building_operation(s.tea,false));bootstrap(w,s);

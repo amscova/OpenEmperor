@@ -1465,3 +1465,44 @@ Workeradapter, gezeichnete Fallbackform und Anker bleiben authored.
 Originalsprites29, vollständiger Gate D27 und native/human Abnahme bleiben
 getrennt offen. OE-27 bleibt TODO; dieser Task erzeugt nur seinen eigenen
 lokalen Commit, keinen neuen Push/PR/Merge/Tag/Release.
+
+### OE-27 vor Implementierung: Schwierigkeit und begrenzte Modellsteuer
+
+Der ausdrückliche Nutzerauftrag setzt auf dem sauberen OE-26-Commit
+`bcba05334494b4f6f5afd7d4c0d2d76a13469caa` fort. Verbindlich ist vor Codeänderung
+[finance-runtime.md](../original-economy/finance-runtime.md): Rule10/Schema26/
+Revision27, fünf bereits getypte Modellschwierigkeiten, Modellrate×tatsächliche
+Bewohner bei ausdrücklich authored816t/1Funds-Normalisierung und2Funds je
+installiertem Worker/400t. Der neue statische Originalnachweis zeigt weitere
+Originalparameter; dieser Adapter behauptet deshalb keine Originalerhebung.
+Bestehende Geldzähler bleiben alleinige Authority, historische Inputs begrenzt;
+unsigned Kürzung erhält signed Debt und alle Treasurygrenzen. Die transparente,
+verlustfähige aktuelle Mission hat keinen Bonus oder gespeicherten Siegschalter.
+Regeln1–9/alte Saves/Defaults bleiben unverändert. Vollständiger Gate D wird
+wirklich geprüft; OE-28/Originalsprites29 bleiben unbegonnen.
+
+
+### OE-27 abgeschlossen: begrenzte Steuerhistorie und technischer Gate D
+
+Der vorab erklärte Finanzvertrag ist umgesetzt und mit drei frischen
+Vollbuilds sowie684 vollständigen Konfigurations-CTests geprüft. Bestehende
+Geldzähler bleiben alleinige Authority;15 begrenzte historische Eingabezeilen
+und der letzte Eingang ermöglichen modellgebundene Restoreprüfungen.
+Die originalen TaxRate-/Kapazitätsmodifikatoren bleiben an allen fünf
+Schwierigkeiten0.816t und1Funds/Rate/Bewohner sowie2Funds/Worker/400t sind
+explizite OpenEmperor-Regeln, keine vollständige Original-Steuerrekonstruktion.
+
+Zusätzlich wird die aus dem gespeicherten Deadlinewert direkt belegte letzte
+natürliche Brandperiode gebunden. Rule10 besitzt keinen FireInspector; der
+Zündtick darf Pre-Tick-Steuer erhalten, die folgenden600 Ticks einschließlich
+Ablauf nicht. Keine frühere vollständige Brandhistorie wird erfunden. Der echte
+Ein-Feld-Redfall8976→9792 ist vor Fix akzeptiert, danach abgelehnt; dieselbe
+legitime Kontrolle liefert über20k weiterhin alle fünf Ausgaben bytegleich.
+Genuine verzögerte Käufe erzeugen alle Grenzfälle ohne Authorityinjektion.
+
+Technischer Gate D ist bestanden. Vollständige Originalparität/Gesamtabschluss
+bleiben PARTIAL: Originalcollector, höhere originale Housing-Szenengrenzen,
+Originalsprites29 und native/human Abnahme sind offen. Die
+[Finanzabnahme](../original-economy/finance-validation.md) bindet tatsächliche
+Suiten, Prozess-Replays, Originalinventar und erhaltene Fehlversuche.
+OE-28 wird nicht vorgezogen; der Task erzeugt nur seinen eigenen lokalen Commit.

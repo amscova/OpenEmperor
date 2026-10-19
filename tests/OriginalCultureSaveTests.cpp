@@ -117,7 +117,7 @@ struct Fixture {
         witnesses_match(value);const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==26,"Culture save lost its strict revision26 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==27,"Culture save lost its strict revision27 identity");
         auto restored=restore(parsed);check(restored.snapshot()==before,"Culture F5/F9 changed full authority");
         save::write_save(target,document(restored),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Culture canonical rewrite mutated authority");return bytes;
@@ -223,7 +223,7 @@ void hostile(Fixture& f,const States& states) {
             {home+"drama",0},{home+"drama",97},{home+"acrobat",96},{home+"music",255},
             {evaluation+"/service_witnesses/8",nullptr},{evaluation+"/input/drama",0},
             {"/world/couriers/"+std::to_string(ci)+"/role",20},{"/world/couriers/"+std::to_string(ci)+"/role",23},
-            {"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",27}}) {
+            {"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",26},{"/world/original_production/development_revision",28}}) {
         auto bad=good;bad.at(json::json_pointer(pointer))=value;reject(bad);
     }
     for (const auto& pointer:{provider+"/building_id",trip+"/target",trip+"/transfer/courier_id",trip+"/transfer/sequence",trip+"/dispatched_tick",trip+"/arrival_tick",witness+"/provider_id"})

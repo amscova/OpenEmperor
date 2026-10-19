@@ -252,6 +252,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalInfluence.cpp
     src/simulation/WorldOriginalGoods.cpp
     src/simulation/WorldOriginalProduction.cpp
+    src/simulation/WorldOriginalFinance.cpp
     src/simulation/WorldOriginalMarket.cpp
     src/simulation/WorldOriginalHemp.cpp
     src/simulation/WorldOriginalFood.cpp
@@ -879,6 +880,22 @@ if(BUILD_TESTING)
     add_test(NAME original-production-world COMMAND openemperor-original-production-world-tests)
     set_tests_properties(original-production-world PROPERTIES TIMEOUT 60)
 
+    add_executable(openemperor-original-finance-world-tests tests/OriginalFinanceWorldTests.cpp)
+    target_link_libraries(openemperor-original-finance-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-finance-world-tests)
+    add_test(NAME original-finance-world COMMAND openemperor-original-finance-world-tests)
+    add_test(NAME original-finance-world-real COMMAND openemperor-original-finance-world-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-finance-world original-finance-world-real PROPERTIES TIMEOUT 300)
+
+    add_executable(openemperor-original-finance-save-tests tests/OriginalFinanceSaveTests.cpp)
+    target_link_libraries(openemperor-original-finance-save-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-finance-save-tests)
+    add_test(NAME original-finance-save COMMAND openemperor-original-finance-save-tests)
+    add_test(NAME original-finance-save-real COMMAND openemperor-original-finance-save-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-finance-save original-finance-save-real PROPERTIES TIMEOUT 300)
+
     add_executable(openemperor-original-production-save-tests tests/OriginalProductionSaveTests.cpp)
     target_link_libraries(openemperor-original-production-save-tests PRIVATE openemperor-recovery)
     openemperor_enable_warnings(openemperor-original-production-save-tests)
@@ -1107,6 +1124,10 @@ if(BUILD_TESTING)
         add_test(NAME original-production-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_original_production_runner.py)
         set_tests_properties(original-production-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME original-finance-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_original_finance_runner.py)
+        set_tests_properties(original-finance-runner-contract PROPERTIES TIMEOUT 30
             ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME map-corpus-runner COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s ${CMAKE_SOURCE_DIR}/tests -p test_verify_map_corpus.py)
@@ -1619,6 +1640,9 @@ openemperor_enable_warnings(openemperor-original-production-play)
 add_executable(openemperor-original-production-fixture EXCLUDE_FROM_ALL tools/OriginalProductionFixture.cpp)
 target_link_libraries(openemperor-original-production-fixture PRIVATE openemperor-persistence)
 openemperor_enable_warnings(openemperor-original-production-fixture)
+add_executable(openemperor-original-finance-fixture EXCLUDE_FROM_ALL tools/OriginalFinanceFixture.cpp)
+target_link_libraries(openemperor-original-finance-fixture PRIVATE openemperor-persistence)
+openemperor_enable_warnings(openemperor-original-finance-fixture)
 if(BUILD_TESTING)
     add_executable(openemperor-original-influence-view-tests tests/OriginalInfluenceViewTests.cpp ${bridge_fixture_sources})
     target_compile_definitions(openemperor-original-influence-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)

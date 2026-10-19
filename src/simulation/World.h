@@ -734,6 +734,8 @@ public:
     std::uint64_t taxes_collected_total() const { return taxes_collected_total_; }
     std::uint64_t construction_spent_total() const { return construction_spent_total_; }
     std::uint64_t maintenance_spent_total() const { return maintenance_spent_total_; }
+    OriginalHouseTaxStatus original_house_tax_status(BuildingId id) const;
+    OriginalGoalStatus original_goal_status() const;
     std::int64_t current_maintenance_rate() const;
     std::optional<std::uint64_t> maintenance_due_in(BuildingId id) const;
     MaintenanceProjection maintenance_projection(
@@ -942,6 +944,11 @@ private:
     void validate_original_housing_model();
     void validate_original_housing_state() const;
     void evaluate_original_houses();
+    static void validate_original_finance_snapshot(const WorldSnapshot&);
+    void validate_original_finance_model() const;
+    bool original_finance_history_valid() const;
+    void book_original_finance_tick(std::uint64_t next);
+    std::int64_t original_worker_upkeep(BuildingId id) const;
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;

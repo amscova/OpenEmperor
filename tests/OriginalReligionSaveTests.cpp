@@ -115,8 +115,8 @@ struct Fixture {
         witnesses_match(value);const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==26,
-              "Religion save did not use its own strict active revision26");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==27,
+              "Religion save did not use its own strict active revision27");
         auto copy=restore(parsed);check(copy.snapshot()==before,"Religion F5/F9 changed full World authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Religion canonical rewrite mutated saved/live authority");
@@ -243,7 +243,7 @@ void hostile(Fixture& f,const States& states) {
             {home+"confucian",0},{home+"confucian",41},{home+"confucian",96},{home+"music",40},
             {evaluation+"/service_witnesses/3",nullptr},{evaluation+"/input/confucian",0},
             {"/world/couriers/"+std::to_string(ci)+"/role",17},{"/world/couriers/"+std::to_string(ci)+"/role",20},
-            {"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",27}}) {
+            {"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",26},{"/world/original_production/development_revision",28}}) {
         auto value=good;value.at(json::json_pointer(pointer))=replacement;reject(value);
     }
     for (const auto& pointer:{provider+"/building_id",witness+"/provider_id",trip+"/target",trip+"/transfer/courier_id",trip+"/transfer/sequence",trip+"/dispatched_tick",trip+"/arrival_tick"})

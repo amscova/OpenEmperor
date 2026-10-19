@@ -17,6 +17,20 @@ namespace orig=oe::original;
 namespace f=oe_influence_fixture;
 namespace fs=std::filesystem;
 using oe::testing::economy::check;
+struct PaidCheckpoint {
+    std::int64_t funds;
+    std::uint64_t tax,upkeep,construction;
+};
+PaidCheckpoint paid_checkpoint(const sim::World& world) {
+    return {world.treasury(),world.taxes_collected_total(),world.maintenance_spent_total(),world.construction_spent_total()};
+}
+bool paid_delta(const sim::World& world,PaidCheckpoint before,std::uint64_t cost) {
+    const auto taxes=world.taxes_collected_total()-before.tax;
+    const auto upkeep=world.maintenance_spent_total()-before.upkeep;
+    check(taxes<1000000 && upkeep<1000000 && cost<1000000,"Paid UI example exceeded its explicit small arithmetic domain");
+    return world.construction_spent_total()-before.construction==cost &&
+        world.treasury()==before.funds+static_cast<std::int64_t>(taxes)-static_cast<std::int64_t>(upkeep)-static_cast<std::int64_t>(cost);
+}
 void key(oe::SandboxView& view,SDL_Keycode code) {
     SDL_Event event{};event.type=SDL_EVENT_KEY_DOWN;event.key.key=code;
     bool running=true;view.handle_event(event,running);
@@ -44,6 +58,15 @@ void click(oe::SandboxView& view,sim::Cell cell) {
     event={};event.type=SDL_EVENT_MOUSE_BUTTON_DOWN;event.button.button=SDL_BUTTON_LEFT;
     event.button.x=static_cast<float>(sx/count);event.button.y=static_cast<float>(sy/count);
     view.handle_event(event,running);event.type=SDL_EVENT_MOUSE_BUTTON_UP;view.handle_event(event,running);
+}
+void hover(oe::SandboxView& view,sim::Cell cell) {
+    double sx=0,sy=0;unsigned count=0;
+    for(int y=80;y<660;y+=4)for(int x=8;x<1090;x+=4)
+        if(view.pick({double(x),double(y)})==cell){sx+=x;sy+=y;++count;}
+    check(count>0,"Production hover cell not visible");
+    SDL_Event event{};event.type=SDL_EVENT_MOUSE_MOTION;
+    event.motion.x=static_cast<float>(sx/count);event.motion.y=static_cast<float>(sy/count);
+    bool running=true;view.handle_event(event,running);view.update(0);
 }
 void click_screen(oe::SandboxView& view,oe::scene::Point screen) {
     SDL_Event event{};event.type=SDL_EVENT_MOUSE_MOTION;
@@ -160,6 +183,17 @@ void verify_materialized_elite_fire(SDL_Window* window,SDL_Renderer* renderer,
           view->world().building_on_fire(id) && view->world().fire_remaining(id)==sim::Rules::fire_incident_ticks,
           "Materialized House did not ignite through ordinary unprotected risk ticks");
     const auto authority=view->world().snapshot();key(*view,SDLK_F5);
+    const auto house_tax=view->world().original_house_tax_status(id);
+    check(house_tax.burning && !house_tax.eligible && house_tax.amount_if_assessed_now==0 &&
+          house_tax.paid_total>0 && house_tax.last_assessment &&
+          house_tax.last_assessment->tick==2*sim::original_tax_interval_ticks &&
+          house_tax.paid_total==view->world().taxes_collected_total(),
+          "Burning Elite tax diagnosis lost actual prior payments or incorrectly taxes the current Fire state");
+    check(view->world().water_covered_households()==0 &&
+          std::none_of(view->world().buildings().begin(),view->world().buildings().end(),
+              [](const auto& building){return building.kind==sim::Object::Household;}) &&
+          view->hud_status_line().find("Your city is supplied. Add water")==std::string::npos,
+          "Actual taxed Elite-only Original city displayed the vacuous legacy supplied-city finance hint");
     view->tick_once();key(*view,SDLK_F9);
     check(view->world().snapshot()==authority && view->world().building_on_fire(id),
           "Actual burning4x4 House F5/F9 changed sole identity, geometry or fire authority");
@@ -193,6 +227,133 @@ void verify_materialized_elite_fire(SDL_Window* window,SDL_Renderer* renderer,
     view->shutdown();
     std::cout<<"Paid Elite4x4 natural fire at2000, actual flame pixels and F5/F9 PASS\n";
 }
+void verify_difficulty_views(SDL_Window* window,SDL_Renderer* renderer,const fs::path& data,const fs::path& saves) {
+    constexpr std::array names{"Very easy","Easy","Normal","Hard","Very hard"};
+    for (std::size_t n=0;n<orig::difficulty_count;++n) {
+        const auto difficulty=static_cast<orig::Difficulty>(n);
+        const auto make_session=[&]{return oe::maps::load_stored_map_session(data,"Cities/A.map",
+            oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8);};
+        const auto target=saves/("difficulty-"+std::to_string(n)+".json");
+        auto view=oe::SandboxView::create_original_production_save_fixture(make_session(),difficulty);
+        view->configure_save(data,"Cities/A.map",target);view->initialize(window,renderer);
+        const auto road=view->execute({sim::CommandType::PlaceRoad,{104,103}});
+        const auto home=view->execute({sim::CommandType::PlaceHousehold,{104,101}});
+        check(road.accepted && home.accepted && view->world().treasury()==11918,
+              "Typed-difficulty UI start did not pay its actual House and road");
+        for (int tick=0;tick<120;++tick) view->tick_once();
+        check(view->world().original_rules_model()->difficulty()==difficulty &&
+              view->world().original_economy_state()->model_source->difficulty==difficulty &&
+              view->world().total_population()==2,"Typed difficulty was ignored by actual model/immigration authority");
+        const auto summary=view->income_summary_lines();
+        check(summary.size()==3 && std::any_of(summary.begin(),summary.end(),[&](const auto& line){
+            return line.find(std::string("Difficulty ")+names[n])!=std::string::npos;}),
+            "Typed difficulty was missing from the compact actual3-row HUD");
+        key(*view,SDLK_F5);const auto saved=view->world().snapshot();
+        const auto document=oe::persistence::read_save(target);
+        check(document.world.original_economy->model_source->difficulty==difficulty,
+              "Paid difficulty start saved a different selected model");
+        view->shutdown();view.reset();
+        auto loaded=oe::SandboxView::create_original_production_save_fixture(make_session());
+        loaded->configure_save(data,"Cities/A.map",target,document);loaded->initialize(window,renderer);
+        check(loaded->world().snapshot()==saved && loaded->world().original_rules_model()->difficulty()==difficulty,
+              "Unspecified initial load silently replaced the saved difficulty withNormal");
+        loaded->shutdown();loaded.reset();
+        auto wrong=oe::SandboxView::create_original_production_save_fixture(make_session(),
+            static_cast<orig::Difficulty>((n+1)%orig::difficulty_count));
+        bool refused=false;
+        try { wrong->configure_save(data,"Cities/A.map",target,document); }
+        catch (const std::invalid_argument&) { refused=true; }
+        check(refused,"Explicit mismatched difficulty was accepted before initial load");
+    }
+    std::cout<<"Five paid typed-difficulty View starts, HUD/source/save and strict initial-load selection PASS\n";
+}
+void verify_live_finance_goal(SDL_Window* window,SDL_Renderer* renderer,const std::string& source,
+    const fs::path& capture) {
+    oe::testing::economy::Temp temp;const auto data=fs::canonical(temp.root)/"data";
+    auto model=source;
+    // This isolated goal-predicate scene uses explicitly authored zero needs.
+    // The separate main View still proves the full paid goods/service chain.
+    for (std::size_t row=0;row<3;++row) {
+        for (unsigned field=2;field<=16;++field) oe_production_fixture::set_house_field(model,row,field,0);
+        for (unsigned field=21;field<=23;++field) oe_production_fixture::set_house_field(model,row,field,0);
+        oe_production_fixture::set_house_field(model,row,1,row<2 ? 0:100);
+    }
+    fs::create_directories(data/"Model");f::write_text(data/"Model/EmperorBuildingModels.txt",model);
+    auto view=oe::SandboxView::create_original_production_save_fixture(
+        oe::maps::load_stored_map_session(data,"Cities/A.map",
+            oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8),orig::Difficulty::Normal);
+    const auto save=fs::canonical(temp.root)/"saves/goal.json";
+    view->configure_save(data,"Cities/A.map",save);view->initialize(window,renderer);
+    const auto buy=[&](sim::CommandType type,sim::Cell cell) {
+        const auto result=view->execute({type,cell});check(result.accepted && result.changed,result.reason.c_str());
+    };
+    for (int x=104;x<=120;++x) buy(sim::CommandType::PlaceRoad,{x,103});
+    for (int x=104;x<=119;x+=3) buy(sim::CommandType::PlaceHousehold,{x,101});
+    check(view->world().construction_spent_total()==514 && view->world().treasury()==11486,
+          "Live goal scene did not independently pay six80-Funds Houses and seventeen2-Funds roads");
+    for (std::uint64_t tick=0;tick+1<sim::original_tax_interval_ticks;++tick) view->tick_once();
+    const auto pending=view->world().original_goal_status();
+    check(!pending.reached && pending.inhabited_houses==6 && pending.common_houses==6 &&
+          pending.population>=50 && !pending.positive_tax && pending.nonnegative_funds,
+          "Authored live goal ignored its still-unpaid positive-tax condition");
+    const auto before_tax=view->world().snapshot();key(*view,SDLK_F5);view->tick_once();
+    const auto reached=view->world().snapshot();
+    check(view->world().original_goal_status().reached && view->world().taxes_collected_total()>0,
+          "First actual monthly household tax did not unlock the simultaneously satisfied live mission");
+    key(*view,SDLK_F9);check(view->world().snapshot()==before_tax,"F9 before monthly tax changed a cycle or cumulative authority");
+    view->tick_once();check(view->world().snapshot()==reached,"Actual816 boundary afterF9 did not replay identical finance and live goal");
+    key(*view,SDLK_F5);const auto bytes=f::read_text(save);
+    key(*view,SDLK_T);check(view->income_open(),"Actual T key did not open Original finance/mission window");
+    const auto lines=view->income_lines();std::string joined;
+    for (const auto& line:lines) { if (!joined.empty()) joined+=' ';joined+=line; }
+    for (const std::string_view expected:{"Difficulty: Normal","Debt: 0","Taxes actually received:","Upkeep actually paid:",
+            "Construction spent: 514","Next tax tick: 1632","Authored housing mission: MET",
+            "Nonburning occupied homes: 6 /6","Nonburning Common Plain+ homes: 6 /1",
+            "Positive tax received: yes","Funds >=0: yes","No bonus or win latch"})
+        check(joined.find(expected)!=std::string::npos,"Actual T panel hid a signed finance fact or current authored goal condition");
+    const auto authority=view->world().snapshot();
+    if (!capture.empty()) {
+        const auto write_capture=[&](std::string_view name,int notches) {
+            view->update(0);check(view->render(),"Actual Original finance/goal capture frame");
+            const auto output=capture.parent_path()/std::string(name);
+            std::unique_ptr<SDL_Surface,decltype(&SDL_DestroySurface)> frame(SDL_RenderReadPixels(renderer,nullptr),SDL_DestroySurface);
+            check(frame!=nullptr && SDL_SavePNG(frame.get(),output.string().c_str()),"Actual finance/goal PNG output");
+            const auto goal=view->world().original_goal_status();
+            nlohmann::json observed{{"capture",name},{"development_revision",view->world().original_production_state()->development_revision},
+                {"ticks",view->world().ticks()},{"funds",view->world().treasury()},
+                {"model_sha256",view->world().original_rules_model()->provenance().sha256},
+                {"difficulty",static_cast<unsigned>(view->world().original_rules_model()->difficulty())},
+                {"taxes",view->world().taxes_collected_total()},{"upkeep",view->world().maintenance_spent_total()},
+                {"construction",view->world().construction_spent_total()},{"goal_reached",goal.reached},
+                {"inhabited_houses",goal.inhabited_houses},{"common_plain_or_higher",goal.common_houses},
+                {"population",goal.population},{"income_lines",lines},{"actual_panel_wheel_notches",notches},
+                {"authored_zero_need_goal_fixture",true},{"original_map",false},{"original_art_restored",false},
+                {"world_unchanged",view->world().snapshot()==authority},{"human_acceptance_claimed",false}};
+            auto report=output;report.replace_extension(".observed.json");f::write_text(report,observed.dump(2)+"\n");
+            auto saved=output;saved.replace_extension(".save.json");f::write_text(saved,bytes);
+        };
+        write_capture("production.finance.png",0);
+        const auto mission=std::find_if(lines.begin(),lines.end(),[](const auto& line){return line.find("Authored housing mission:")!=std::string::npos;});
+        check(mission!=lines.end(),"Mission header absent from actual wrapped finance rows");
+        const auto row=static_cast<int>(std::distance(lines.begin(),mission));
+        const int notches=std::max(0,(row*17)/24);
+        SDL_Event scroll{};scroll.type=SDL_EVENT_MOUSE_WHEEL;scroll.wheel.y=static_cast<float>(-notches);
+        scroll.wheel.mouse_x=static_cast<float>(view->layout().panel.x+12);
+        scroll.wheel.mouse_y=static_cast<float>(view->layout().panel.y+50);bool running=true;view->handle_event(scroll,running);
+        write_capture("production.mission.png",-notches);
+    }
+    check(view->world().snapshot()==authority,"Finance and goal inspection mutated authoritative simulation state");
+    key(*view,SDLK_T);check(!view->income_open(),"T did not restore ordinary House inspection");
+    while (view->world().ticks()<2000) view->tick_once();
+    const auto lost=view->world().original_goal_status();
+    check(!lost.reached && lost.inhabited_houses==0 && lost.common_houses==0 &&
+          lost.positive_tax && lost.nonnegative_funds && view->world().taxes_collected_total()>0,
+          "Actual natural fires did not reverse the current mission or erased its true historical payments");
+    check(view->world().treasury()==sim::original_production_starting_treasury-514+
+        static_cast<std::int64_t>(view->world().taxes_collected_total()),"Mission toggling added a hidden bonus or lost signed finance accounting");
+    view->shutdown();
+    std::cout<<"Actual paid six-House authored mission,816tax/F5F9/T and natural-fire loss without bonus PASS\n";
+}
 }
 int main(int argc,char** argv) {
     SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;
@@ -203,12 +364,16 @@ int main(int argc,char** argv) {
         check(SDL_CreateWindowAndRenderer("Original production",1100,700,SDL_WINDOW_HIDDEN,
             &window,&renderer),"Production SDL window");
         oe::testing::economy::Temp temp;const auto root=fs::canonical(temp.root),data=root/"data";
-        const auto model=oe_production_fixture::authored_model_text(37);
+        auto model=oe_production_fixture::authored_model_text(37);
+        for (std::size_t row=0;row<orig::house_row_count;++row)
+            oe_production_fixture::set_house_field(model,row,static_cast<unsigned>(orig::HouseField::TaxRate),3);
         fs::create_directories(data/"Model");f::write_text(data/"Model/EmperorBuildingModels.txt",model);
         const auto session=[&]{return oe::maps::load_stored_map_session(data,"Cities/A.map",
             oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8);};
         const auto target=root/"saves/production.json";
+        verify_difficulty_views(window,renderer,data,root/"saves");
         verify_materialized_elite_fire(window,renderer,data,root/"saves/elite-fire.json");
+        verify_live_finance_goal(window,renderer,model,argc==2 ? fs::path(argv[1]):fs::path{});
         auto view=oe::SandboxView::create_original_production_save_fixture(session());
         view->configure_save(data,"Cities/A.map",target);view->initialize(window,renderer);
         check(view->world().rule_version()==10 && view->world().treasury()==12000 && view->paused(),"Production identity");
@@ -282,7 +447,7 @@ int main(int argc,char** argv) {
             for(const auto& house:view->world().original_economy_state()->houses) delivered|=house.house.ceramics>0;
         }
         check(delivered,"Actual Market arrival never updated the authoritative House stock");
-        const auto funds_before=view->world().treasury();
+        const auto funds_before=paid_checkpoint(view->world());
         for(const sim::Cell road:std::array{sim::Cell{120,104},sim::Cell{120,105},sim::Cell{120,106},
                 sim::Cell{119,106},sim::Cell{118,106}}) buy(sim::CommandType::PlaceRoad,road);
         key(*view,SDLK_N);check(view->tool()==16,"Hemp Farm keyboard tool unavailable");
@@ -296,7 +461,22 @@ int main(int argc,char** argv) {
         key(*view,SDLK_M);check(view->tool()==17,"Hemp Field keyboard tool unavailable");
         click(*view,{120,107});
         check(view->world().object_at({120,107})==sim::Object::OriginalHempField &&
-            view->world().treasury()==funds_before-54,"Field and Farm were not separately paid through normal UI commands");
+            paid_delta(view->world(),funds_before,54),"Field/Farm cost or actual tax/upkeep reconciliation changed through normal UI commands");
+        view->set_tool(5);click(*view,{118,107});
+        const auto farm_authority=view->world().snapshot();
+        const auto farm_lines=view->inspection_lines();std::string farm_details;
+        for (const auto& line:farm_lines) { if (!farm_details.empty()) farm_details+=' ';farm_details+=line; }
+        check(view->selected_building()==farm && view->world().workforce_required(*farm)==18 &&
+              farm_details.find("Maintenance: 36 every 400 ticks")!=std::string::npos,
+              "Actual Hemp Farm inspector did not quote its18 required workers at2 Funds each per400t");
+        key(*view,SDLK_9);check(view->tool()==9,"Acupuncture hover tool unavailable");
+        hover(*view,{120,107});
+        const auto prospective=view->hud_status_line();
+        check(prospective.find("upkeep 2/required worker/400t; T: installed")!=std::string::npos &&
+              prospective.find("upkeep $4/400t")==std::string::npos,
+              "Original provider hover showed a legacy fixed upkeep quote instead of the actual installed-worker rule");
+        check(view->world().snapshot()==farm_authority,"Actual inspector/hover finance queries changed simulation authority");
+        view->set_tool(5);
         bool hemp_trip=false;
         for(int i=0;i<5000 && !hemp_trip;++i) {
             view->tick_once();
@@ -526,7 +706,7 @@ int main(int argc,char** argv) {
             check(present,"Blocked Plot inspector hid actual size or concrete unreserved-growth conflict");
         }
         if (argc==2) {
-            SDL_Event scroll{};scroll.type=SDL_EVENT_MOUSE_WHEEL;scroll.wheel.y=-8.0F;
+            SDL_Event scroll{};scroll.type=SDL_EVENT_MOUSE_WHEEL;scroll.wheel.y=-12.0F;
             scroll.wheel.mouse_x=static_cast<float>(view->layout().panel.x+12);
             scroll.wheel.mouse_y=static_cast<float>(view->layout().panel.y+50);
             bool running=true;view->handle_event(scroll,running);
@@ -538,7 +718,7 @@ int main(int argc,char** argv) {
                 {"ticks",view->world().ticks()},{"funds",view->world().treasury()},
                 {"house_id",static_cast<unsigned>(elite_id)},{"actual_footprint_side",2},
                 {"future_footprint_side",4},{"future_cells_reserved",false},
-                {"actual_panel_wheel_notches",-8},
+                {"actual_panel_wheel_notches",-12},
                 {"blocker",sim::build_blocker_name(blocked.materialization_diagnostic.blocker)},
                 {"blocker_cell",nlohmann::json::array({120,94})},{"inspection_lines",blocked_lines},
                 {"original_art_restored",false},{"human_acceptance_claimed",false}};
@@ -711,6 +891,14 @@ int main(int argc,char** argv) {
         check(view->world().snapshot()==before && view->world().original_rules_model()==model_before,
             "Bad development revision published through F9");
         f::write_text(target,current);key(*view,SDLK_F9);
+        const auto same_difficulty_model=view->world().original_rules_model();
+        bad=nlohmann::json::parse(current);
+        bad["world"]["original_economy"]["model_source"]["difficulty"]=static_cast<unsigned>(orig::Difficulty::Hard);
+        f::write_text(target,bad.dump());key(*view,SDLK_F9);
+        check(view->world().snapshot()==before && view->world().original_rules_model()==same_difficulty_model &&
+              view->last_message().find("difficulty")!=std::string::npos,
+              "F9 silently changed the immutable session difficulty or partially replaced World authority");
+        f::write_text(target,current);key(*view,SDLK_F9);
         std::optional<sim::Cell> supplied;
         for(const auto& house:view->world().original_economy_state()->houses)
             if(house.building_id==elite_id && orig::is_elite(house.house.type) && house.house.water && house.house.hemp>0 && house.house.ceramics>0 && house.house.food_quality>0 &&
@@ -721,7 +909,8 @@ int main(int argc,char** argv) {
         view->set_tool(5);click(*view,*supplied);
         const auto details=view->inspection_lines();
         for (const std::string_view expected:{"4x4","Elite4x4; authored courtyard","Current row","Next row",
-                "Bronze OR Lacquer","Daoist OR Buddhist","need","Original housing art pending"})
+                "Bronze OR Lacquer","Daoist OR Buddhist","need","Original housing art pending","Tax rate",
+                "Tax paid total","Next tax tick","Last tax tick"})
             check(std::any_of(details.begin(),details.end(),[&](const auto& line){return line.find(expected)!=std::string::npos;}),
                   "House inspector hid a real condition, alternative or actual4x4 authored geometry boundary");
         check(std::count_if(details.begin(),details.end(),[](const auto& line) {
@@ -839,7 +1028,7 @@ int main(int argc,char** argv) {
                 observed["selected_house_food"]=row.amounts;
             auto output=fs::path(argv[1]);output.replace_extension(".observed.json");f::write_text(output,observed.dump(2));
             output=fs::path(argv[1]);output.replace_extension(".save.json");f::write_text(output,current);
-            SDL_Event scroll{};scroll.type=SDL_EVENT_MOUSE_WHEEL;scroll.wheel.y=-8.0F;
+            SDL_Event scroll{};scroll.type=SDL_EVENT_MOUSE_WHEEL;scroll.wheel.y=-13.0F;
             scroll.wheel.mouse_x=static_cast<float>(view->layout().panel.x+12);
             scroll.wheel.mouse_y=static_cast<float>(view->layout().panel.y+50);
             bool running=true;view->handle_event(scroll,running);view->update(0);
@@ -867,7 +1056,7 @@ int main(int argc,char** argv) {
                 {"census_capacity",diagnosis.census_capacity},{"current",row_json(diagnosis.current)},{"next",row_json(diagnosis.next)},
                 {"authored_footprint_side",diagnosis.actual_footprint_side},{"original_required_side",diagnosis.original_required_side},
                 {"geometry_deferred",diagnosis.geometry_deferred},{"hypothetical_matrix_rows",15},
-                {"inspection_lines",view->inspection_lines()},{"actual_panel_wheel_notches",-8},
+                {"inspection_lines",view->inspection_lines()},{"actual_panel_wheel_notches",-13},
                 {"world_unchanged",view->world().snapshot()==before},{"original_art_restored",false}};
             auto housing_observed_output=output;housing_observed_output.replace_extension(".observed.json");
             f::write_text(housing_observed_output,housing_observed.dump(2)+"\n");
@@ -884,7 +1073,7 @@ int main(int argc,char** argv) {
             check(requirements_okay,"Actual housing requirements capture output");
             auto requirements_observed=housing_observed;
             requirements_observed["capture"]="actual-paid-elite-housing-requirements";
-            requirements_observed["actual_panel_wheel_notches"]=-21;
+            requirements_observed["actual_panel_wheel_notches"]=-26;
             requirements_observed["additional_panel_wheel_notches"]=-13;
             requirements_observed["inspection_lines"]=view->inspection_lines();
             requirements_observed["world_unchanged"]=view->world().snapshot()==before;

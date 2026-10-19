@@ -25,8 +25,8 @@ bool below(const f::fs::path& path,const f::fs::path& root) {
 }
 void validate_output(const f::fs::path& output,const f::fs::path& data) {
     const auto repo=f::fs::canonical(f::fs::path(__FILE__).parent_path().parent_path());
-    const auto root=repo/".local/original-economy/oe26/production-fixtures";
-    check(output!=root && below(output,root),"Fixture output must be a new private OE25 subdirectory");
+    const auto root=repo/".local/original-economy/oe27/production-fixtures";
+    check(output!=root && below(output,root),"Fixture output must be a new private OE27 subdirectory");
     check(!below(output,data) && !below(data,output),"Fixture output overlaps source data");
     f::fs::path current=output.root_path();
     for (const auto& part:output.relative_path()) {
@@ -224,6 +224,29 @@ json inspect_industry(const sim::World& world) {
             {"source_reserved",b.source_reserved},{"incoming_reserved",b.incoming_reserved},{"conserved",b.conserved}});}
     return {{"sources",sources},{"managed_ore",ore},{"stocks",stocks},{"trips",trips},{"clay_trips",clay},{"balances",balances}};
 }
+json inspect_finance(const sim::World& world) {
+    json houses=json::array(),rates=json::array();
+    for (unsigned i=0;i<original::house_row_count;++i)
+        rates.push_back(world.original_rules_model()->house_rules().value(
+            static_cast<original::ModelHouse>(i),original::HouseField::TaxRate));
+    for (const auto& h:world.original_production_state()->finance.houses) {
+        json rows=json::array(),last=nullptr;
+        for (const auto& row:h.rows) rows.push_back({{"events",row.events},{"resident_units",row.resident_units}});
+        if (h.last_assessment) last={{"tick",h.last_assessment->tick},
+            {"type",static_cast<unsigned>(h.last_assessment->type)},{"occupants",h.last_assessment->occupants}};
+        const auto status=world.original_house_tax_status(h.building_id);
+        houses.push_back({{"building_id",static_cast<unsigned>(h.building_id)},
+            {"rows",rows},{"last_assessment",last},{"paid_total",world.building(h.building_id).taxes_paid_total},
+            {"current_rate",status.rate},{"eligible",status.eligible},
+            {"amount_if_assessed_now",status.amount_if_assessed_now}});
+    }
+    const auto goal=world.original_goal_status();
+    return {{"houses",houses},{"tax_rate_by_row",rates},{"tax_interval",816},{"upkeep_interval",400},
+        {"upkeep_per_worker",2},{"installed_upkeep",world.current_maintenance_rate()},
+        {"goal",{{"inhabited_houses",goal.inhabited_houses},{"common_houses",goal.common_houses},
+            {"population",goal.population},{"positive_tax",goal.positive_tax},
+            {"nonnegative_funds",goal.nonnegative_funds},{"reached",goal.reached}}}};
+}
 json inspect(const sim::World& world) {
     check(world.original_production_enabled() && world.original_production_state() &&
           world.production_balance_valid() && world.population_valid() && world.city_economy_valid() &&
@@ -274,7 +297,8 @@ json inspect(const sim::World& world) {
             {"footprint",json::array({footprint.width,footprint.height})},
             {"operating",b.operating_enabled},{"on_fire",world.building_on_fire(b.id)},
             {"placed_tick",b.placed_tick},{"cell",json::array({b.cell.x,b.cell.y})},
-            {"workers",world.workers_assigned(b.id)},{"input_clay",b.input_clay},{"output",b.output},
+            {"workers",world.workers_assigned(b.id)},{"workers_required",world.workforce_required(b.id)},
+            {"taxes_paid_total",b.taxes_paid_total},{"input_clay",b.input_clay},{"output",b.output},
             {"progress",b.progress},{"recipes_completed",b.recipes_completed},{"clay_extracted",b.clay_extracted}});
     }
     for (const auto& c:world.couriers()) {
@@ -311,6 +335,8 @@ json inspect(const sim::World& world) {
     }
     return {{"geometry",{{"width",world.width()},{"height",world.height()},{"owners",owners},{"roads",roads}}},
         {"tick",world.ticks()},{"funds",world.treasury()},{"construction_spent",world.construction_spent_total()},
+        {"taxes_collected",world.taxes_collected_total()},{"maintenance_spent",world.maintenance_spent_total()},
+        {"difficulty",static_cast<unsigned>(world.original_rules_model()->difficulty())},{"finance",inspect_finance(world)},
         {"command_sequence",world.command_sequence()},{"road_revision",snapshot.road_revision},
         {"road_count",snapshot.roads.size()},{"house_count",houses.size()},{"building_count",buildings.size()},
         {"courier_count",couriers.size()},{"population",world.total_population()},
@@ -337,9 +363,16 @@ void continuation(const f::fs::path& data,const f::fs::path& output,const std::s
     const auto initial=world.ticks();ticks(world,10000);check(world.ticks()==initial+10000,"First replay period drifted");
     save_world(data,output/(prefix+"midpoint.json"),world);
     f::write_text(output/(prefix+"midpoint-report.json"),inspect(world).dump(2)+"\n");
-    const auto before=world.snapshot();f::buy(world,{sim::CommandType::PlaceRoad,{23,19}});
-    check(world.treasury()==before.treasury-2 && world.construction_spent_total()==before.construction_spent_total+2 &&
-          world.command_sequence()==before.command_sequence+1,"Actual paid continuation command changed its contract");
+    const auto before=world.snapshot();const sim::Command road{sim::CommandType::PlaceRoad,{23,19}};
+    if(before.treasury>=sim::Rules::road_cost) {
+        f::buy(world,road);
+        check(world.treasury()==before.treasury-2 && world.construction_spent_total()==before.construction_spent_total+2 &&
+              world.command_sequence()==before.command_sequence+1,"Actual paid continuation command changed its contract");
+    } else {
+        const auto refused=world.execute(road);
+        check(!refused.accepted && refused.reason=="Not enough money" && world.snapshot()==before,
+              "Debt continuation granted a road, rescue funds or mutated a refused command");
+    }
     ticks(world,10000);check(world.ticks()==initial+20000,"Second replay period drifted");
     save_world(data,output/(prefix+"result.json"),world);
     f::write_text(output/(prefix+"result-report.json"),inspect(world).dump(2)+"\n");

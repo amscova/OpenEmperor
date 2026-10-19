@@ -53,6 +53,7 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe23/production-fixtures/run",
                        self.repo / ".local/original-economy/oe24/production-fixtures/run",
                        self.repo / ".local/original-economy/oe25/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe26/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)

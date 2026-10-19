@@ -64,7 +64,7 @@ struct Fixture {
         const auto before=world.snapshot();const auto d=document();write(d);
         const auto bytes=read_text(target);const auto j=json::parse(bytes);
         check(j.at("schema_version")==26 && j.at("rules").at("version")==10 &&
-              j.at("world").at("original_production").at("development_revision")==26,
+              j.at("world").at("original_production").at("development_revision")==27,
               "Rule10 did not use its own strict working generation");
         const auto parsed=save::read_save(target);fixture::same_document(d,parsed);
         check(parsed.source_schema_version==26 && !parsed.prepared_permissions && !parsed.prepared_original_rules_model,
@@ -139,7 +139,7 @@ void strict_json(Fixture& f) {
             {"/world/original_production/development_revision",13},
             {"/world/original_production/development_revision",14},
             {"/world/original_production/development_revision",15},
-            {"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",27},
+            {"/world/original_production/development_revision",18},{"/world/original_production/development_revision",19},{"/world/original_production/development_revision",20},{"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",26},{"/world/original_production/development_revision",28},
             {"/world/original_production/residents_admitted",UINT64_MAX},
             {"/world/original_production/pottery_handed_off",UINT64_MAX},
             {"/world/original_economy/model_source/difficulty",5},

@@ -197,6 +197,8 @@ CommandResult World::validate_original_influence_command(Command command) const 
         if (original_production_enabled() && buildings_.size()>=Rules::original_production_building_limit)
             return reject("Original production building collection limit reached");
         if (treasury_<original_influence_source_cost) return reject("Not enough money");
+        if (original_production_enabled() && construction_spent_total_>UINT64_MAX-static_cast<std::uint64_t>(original_influence_source_cost))
+            return reject("Original production construction counter exhausted");
         if (!next_building_id_ || next_building_id_>(original_production_enabled() ?
                 Rules::original_production_building_limit+original_influence_purchase_limit:original_influence_purchase_limit))
             return reject("Original influence purchase ID exhausted");

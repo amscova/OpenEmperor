@@ -74,8 +74,8 @@ struct Fixture {
         save::write_save(target,original,root.data,policy->building_mask());
         const auto bytes=f::read_text(target);const auto parsed=save::read_save(target);
         f::same_document(original,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==26,
-              "Fifteen-stage save lost strict revision26 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==27,
+              "Fifteen-stage save lost strict revision27 identity");
         const auto copy=restore(parsed);check(copy.snapshot()==before,"Elite F5/F9 changed complete World authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,
@@ -181,7 +181,7 @@ void hostile(Fixture& f) {
     };
     for (const auto& [path,value]:std::vector<std::pair<std::string,json>>{
             {"/world/original_production/development_revision",24},
-            {"/world/original_production/development_revision",25},{"/world/original_production/development_revision",27},
+            {"/world/original_production/development_revision",25},{"/world/original_production/development_revision",26},{"/world/original_production/development_revision",28},
             {"/world/buildings/0/kind",static_cast<unsigned>(sim::Object::Household)},
             {"/world/buildings/1/kind",static_cast<unsigned>(sim::Object::OriginalElitePlot)},
             {house+"first_transitions/10/kind",1},{house+"first_transitions/10/kind",2},
