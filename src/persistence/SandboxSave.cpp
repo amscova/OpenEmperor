@@ -1486,7 +1486,7 @@ json production_document_json(const SaveDocument& d) {
     projected.world.original_economy.reset();projected.world.original_influence.reset();
     projected.world.original_goods.reset();projected.world.original_production.reset();
     for (auto& building:projected.world.buildings) {
-        if (building.kind==simulation::Object::OriginalElitePlot) building.kind=simulation::Object::Household;
+        if (simulation::original_elite_house_kind(building.kind)) building.kind=simulation::Object::Household;
         else if (building.kind==simulation::Object::OriginalInfluenceSource) building.kind=simulation::Object::Well;
         else if (building.kind==simulation::Object::OriginalHempFarm) building.kind=simulation::Object::Pottery;
         else if (building.kind==simulation::Object::OriginalHempField) building.kind=simulation::Object::Well;
@@ -1612,8 +1612,8 @@ SaveDocument parse_production_document(const json& j) {
     require(buildings.is_array() && buildings.size()<=simulation::Rules::original_production_building_limit,
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalElitePlot));
-        if (kind==static_cast<unsigned>(simulation::Object::OriginalElitePlot))
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalEliteHouse));
+        if (simulation::original_elite_house_kind(static_cast<simulation::Object>(kind)))
             building["kind"]=static_cast<int>(simulation::Object::Household);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);

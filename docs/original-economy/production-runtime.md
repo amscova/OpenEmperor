@@ -29,8 +29,13 @@ Revision25 öffnet die [getrennten Hausfamilien und alle15 Bedarfszeilen](housin
 Common bleibt bei10 terminal; ein separat bezahlter experimenteller Eliteplot
 beginnt leer11 und erhält beim tatsächlichen ersten Zuzug Typ13. Confucian
 bedient jetzt ausschließlich tatsächlich bewohnte Elitehäuser mit angeliefertem
-Paper. Die ursprüngliche4×4-Elitegeometrie folgt in26; der25er Plot ist
-ausdrücklich vorläufig authored2×2. Aktueller Entwicklerstand ist Revision25.
+Paper. Der25er Vertrag verwendete vorläufige authored2×2-Geometrie.
+Revision26 materialisiert den noch leeren bezahlten Plot bei einem tatsächlichen
+Zuzugsereignis atomisch zu4×4; der [Elite-Footprintvertrag](elite-footprints-runtime.md)
+prüft vorher alle16 Claims, Infrastruktur, signed Höhe und Actor-Kanten.
+Ein Konflikt hält den Plot leer, Reparatur wartet auf den nächsten normalen
+Versuch. Dieselbe ID/HouseState bleibt erhalten; spätere Elite-Rückentwicklung
+schrumpft nicht. Aktueller Entwicklerstand ist Revision26, ohne25er-Migration.
 Veröffentlichte Regeln1–9/Schemas1–25 behalten
 ihre bisherigen Autoritäten und Bytes; normale Menü-/Recoverywege bleiben
 bis zu ihren späteren Aufgaben geschlossen.
@@ -157,7 +162,7 @@ Er beginnt pausiert und verwendet ausschließlich den eigenen Rule10-Savepfad.
 Straßen, sechs angeschlossene Häuser, Clay, Pottery, Warehouse und Market kaufen.
 Mit N eine Hemp Farm bauen; die Farm auswählen und mit M ein angrenzendes Feld
 separat bezahlen. Danach laufen lassen; F5/F9 speichert/lädt denselben Stand.
-Defaultsave ist `rule10-revision17.json`; frühere Entwicklungsrevisionen
+Defaultsave ist `rule10-revision26.json`; frühere Entwicklungsrevisionen
 werden atomar verweigert. Die Originalgrafik-/Objektkomposition ist Bestandteil der folgenden
 Präsentationsaufgaben und wird durch diesen Produktionsnachweis nicht als
 bereits abgeschlossen ausgegeben.

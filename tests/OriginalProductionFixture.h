@@ -186,7 +186,14 @@ inline PaperSupply add_paper_supply(openemperor::simulation::World& world,const 
     result.spent=world.construction_spent_total()-before;return result;
 }
 
-// Shared paid OE25 layout. All actors, stock and residents originate in normal
+// Authored top-row layout with a future4x4 Elite at0,0 and unchanged
+// paid Common count; the existing y4 road borders the materialized body.
+inline openemperor::simulation::Cell elite_row_cell(int index) {
+    return index ? openemperor::simulation::Cell{3*index+1,2}:
+                   openemperor::simulation::Cell{0,0};
+}
+
+// Shared paid OE26 layout. All actors, stock and residents originate in normal
 // commands/ticks. Keeping material producers paused initially permits a real
 // Modest13 shortage/devolution before the ordinary supply chain is resumed.
 struct HousingStagesScene {
@@ -209,7 +216,7 @@ inline HousingStagesScene add_housing_stages_scene(openemperor::simulation::Worl
     for (int y=5;y<9;++y) oe_influence_fixture::buy(world,{sim::CommandType::PlaceRoad,{20,y}});
     for (int x=0;x<24;x+=3) result.common_houses.push_back(purchase(sim::CommandType::PlaceHousehold,{x,2}));
     result.elite=purchase(sim::CommandType::PlaceOriginalElitePlot,{0,5});
-    result.water=purchase(sim::CommandType::PlaceOriginalWaterWell,{3,5});
+    result.water=purchase(sim::CommandType::PlaceOriginalWaterWell,{4,5});
     result.ancestor=purchase(sim::CommandType::PlaceOriginalAncestorShrine,{6,5});
     result.market=purchase(sim::CommandType::PlaceMarket,{9,5});
     result.clay=purchase(sim::CommandType::PlaceClaySource,{12,5});

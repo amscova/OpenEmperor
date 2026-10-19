@@ -8,6 +8,7 @@
 #include "renderer/StoredCamera.h"
 #include "renderer/WellFallbackRenderer.h"
 #include "renderer/HealthPostFallbackRenderer.h"
+#include "renderer/OriginalEliteHouseFallbackRenderer.h"
 #include "renderer/BridgeRenderer.h"
 #include "renderer/RampRenderer.h"
 #include "app/WalkerPose.h"
@@ -227,7 +228,7 @@ const char* tool_name(simulation::RulesProfile rules,int tool) {
         case 26: return "Music School: experimental direct school-to-House visits";
         case 27: return "Acrobat School: experimental direct school-to-House visits";
         case 28: return "Drama School: experimental direct school-to-House visits";
-        case 41: return "Elite plot: paid authored2x2; original4x4 geometry follows26";
+        case 41: return "Elite plot: paid2x2; free4x4 growth area needed for first residents";
 
         default: return "Select";
         }
@@ -248,7 +249,8 @@ const char* object_name(simulation::Object object) {
     case simulation::Object::ClaySource: return "Clay source";
     case simulation::Object::Pottery: return "Pottery";
     case simulation::Object::Household: return "Household";
-    case simulation::Object::OriginalElitePlot: return "Elite plot (temporary2x2)";
+    case simulation::Object::OriginalElitePlot: return "Elite plot (2x2; needs4x4)";
+    case simulation::Object::OriginalEliteHouse: return "Elite house (4x4)";
     case simulation::Object::Farm: return "Farm";
     case simulation::Object::ServicePost: return "Service post";
     case simulation::Object::Market: return "Market";
@@ -1091,7 +1093,7 @@ const assets::BuildingVisualEntry* SandboxView::building_entry(assets::BuildingV
 std::optional<assets::BuildingVisualRole> SandboxView::visual_role(simulation::Cell cell,
     simulation::Object object,bool placement_preview) const {
     if ((original_save_fixture_ && object==simulation::Object::Household) ||
-        object==simulation::Object::OriginalElitePlot) return std::nullopt;
+        simulation::original_elite_house_kind(object)) return std::nullopt;
     if (original_influence_fixture() && object==simulation::Object::OriginalInfluenceSource)
         return assets::BuildingVisualRole::Well; // Presentation only; no legacy Well authority.
     const auto role=building_visual_role(object);
@@ -2246,7 +2248,7 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
     }
     if (action==A::OriginalElitePlot) {
         cancel_gesture();tool_=41;
-        last_message_="Elite plot $80; authored2x2, original4x4 follows26; no residents granted";
+        last_message_="Elite plot $80;2x2 now,4x4 growth space unreserved; no residents granted";
         refresh_hover();return;
     }
     if (const auto* industry=industry_action(action)) {
@@ -3048,6 +3050,11 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
         return;
     }
     const auto ground=building_visual_ground(instance.cell,instance.object);
+    if (instance.object==simulation::Object::OriginalEliteHouse) {
+        hit.mesh=instance.object;hit.mesh_ground=ground;hit.footprint_side=4;
+        hit.origin={ground.x-160,ground.y-140};hit.width=320;hit.height=160;
+        append(hit);return;
+    }
     const auto role=visual_role(instance.cell,instance.object);
     const auto* entry=role && building_profile_ ? building_entry(*role):nullptr;
     if (entry && building_visuals_active() && building_sprite_) {
@@ -3107,7 +3114,9 @@ bool SandboxView::select_visual(scene::Point screen) {
         }
         if (it->mesh!=simulation::Object::Empty) {
             const auto ground=visual_hit_camera_.world_to_screen(it->mesh_ground);
-            const bool hit=it->mesh==simulation::Object::Well ?
+            const bool hit=it->mesh==simulation::Object::OriginalEliteHouse ?
+                hit_original_elite_house_fallback(screen,ground,visual_hit_camera_.zoom):
+                it->mesh==simulation::Object::Well ?
                 hit_well_fallback(screen,ground,visual_hit_camera_.zoom,it->footprint_side):
                 hit_health_post_fallback(screen,ground,visual_hit_camera_.zoom,it->footprint_side);
             if (!hit) continue;
@@ -3386,6 +3395,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             }
             if (role && !placement_preview) ++building_placeholder_fallbacks_[assets::role_index(*role)];
             const auto side=simulation::building_footprint(rules_,world_->rule_version(),object).width;
+            if (object==simulation::Object::OriginalEliteHouse)
+                return draw_original_elite_house_fallback(renderer_,center,camera_.zoom) &&
+                    draw_fire_overlay(cell,center,placement_preview) && draw_sickness(cell,center,placement_preview);
             if (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource)
                 return draw_well_fallback(renderer_,center,camera_.zoom,placement_preview,side);
             if (object==simulation::Object::HealthPost)
@@ -3933,6 +3945,15 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         const auto role=simulation::production_profile(rules_) ?
             visual_role(*hovered_,object,true):std::nullopt;
         const auto* entry=role && building_profile_ ? building_entry(*role):nullptr;
+        if (object==simulation::Object::OriginalElitePlot) {
+            // Future space is advisory only: buying the Plot claims four cells.
+            // The authoritative sixteen-cell transaction runs at immigration.
+            for (int dy=0;dy<4;++dy) for (int dx=0;dx<4;++dx) {
+                if (dx<2 && dy<2) continue;
+                const auto top=world_for({double(hovered_->x+dx),double(hovered_->y+dy)});
+                if (!draw_diamond({top.x,top.y-20},219,178,93,false)) return false;
+            }
+        }
         for (const auto cell:simulation::building_footprint_cells(rules_,world_->rule_version(),object,*hovered_)) {
             const auto top=world_for({static_cast<double>(cell.x),static_cast<double>(cell.y)});
             const bool outline=result.accepted && (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
@@ -4413,7 +4434,8 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 world_->original_production_state()->water.houses.end(),[&](const auto& row){return row.building_id==*house_id;});
             const int raw=at==world_->original_production_state()->water.houses.end() ? 0:at->normal_timer;
             lines={std::string(d.elite_family ? "Elite #":"Common #")+std::to_string(static_cast<unsigned>(*house_id))+
-                    " Type"+std::to_string(static_cast<unsigned>(h.type))+(d.elite_family ? " temp2x2":" 2x2"),
+                    " Type"+std::to_string(static_cast<unsigned>(h.type))+(d.elite_family ?
+                        d.actual_footprint_side==4 ? " 4x4":" plot2x2":" 2x2"),
                 "Residents"+std::to_string(h.occupants)+" Admit"+std::to_string(d.admission_capacity)+" Census"+std::to_string(d.census_capacity),
                 "Des"+std::to_string(d.cached_desirability)+" ["+std::to_string(d.current.low)+","+
                     std::to_string(d.current.high)+"] Ctr"+std::to_string(h.devolve_counter)+"/"+std::to_string(d.devolve_limit),
@@ -4431,7 +4453,16 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             }
             lines.push_back("Scroll: housing diagnosis");
             lines.push_back(std::string(simulation::original_housing_type_name(h.type)));
-            lines.push_back(d.elite_family ? "Authored2x2; Original4x4:26":"Common family; Original2x2");
+            lines.push_back(d.elite_family ? d.actual_footprint_side==4 ?
+                "Elite4x4; authored courtyard":"Growth4x4 unreserved":"Common family; Original2x2");
+            if (d.materialization_pending) {
+                lines.push_back(d.materialization_ready ? "Growth ready; await immigration":
+                    std::string("Growth blocked: ")+(d.materialization_diagnostic.blocker==simulation::BuildBlocker::InvalidEdge ?
+                        "No legal4x4 road entrance":simulation::build_blocker_reason(d.materialization_diagnostic.blocker)));
+                if (!d.materialization_ready && d.materialization_diagnostic.cell) lines.push_back("Growth cell "+
+                    std::to_string(d.materialization_diagnostic.cell->x)+","+
+                    std::to_string(d.materialization_diagnostic.cell->y));
+            }
             lines.push_back("Original housing art pending");
             if (d.awaiting_admission) lines.push_back("Await actual immigration");
             else if (d.common_terminal) lines.push_back("Common terminal; no Elite jump");
@@ -5568,7 +5599,7 @@ bool SandboxView::draw_hud() {
             int count=0;
             for (const auto id:placed_buildings()) if (world_->building(id).kind==wanted ||
                 (original_production_fixture() && wanted==simulation::Object::Household &&
-                 world_->building(id).kind==simulation::Object::OriginalElitePlot)) ++count;
+                 simulation::original_elite_house_kind(world_->building(id).kind))) ++count;
             const int limit=button.action==A::Well ? 4:(button.action==A::FireWatch || button.action==A::HealthPost || button.action==A::OriginalHempFarm || button.action==A::OriginalHempField) ? 2:button.action==A::Market ? 4:
                 scalable ? (button.action==A::Household ? 20:
                     (button.action==A::Clay || button.action==A::Pottery) ? 4:

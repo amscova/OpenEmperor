@@ -18,7 +18,8 @@ using GoodsContext=original_industry_goods::Context;
 std::uint64_t paid_cost(Object kind) {
     switch (kind) {
     case Object::Household:
-    case Object::OriginalElitePlot:return Rules::household_cost;
+    case Object::OriginalElitePlot:
+    case Object::OriginalEliteHouse:return Rules::household_cost;
     case Object::ClaySource:return Rules::clay_source_cost;
     case Object::Pottery:return Rules::pottery_cost;
     case Object::Warehouse:return Rules::warehouse_cost;
@@ -236,6 +237,9 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
             if (house_index>=s.original_economy->houses.size()) invalid("missing original production house");
             const auto& h=s.original_economy->houses[house_index++];
             const auto occupants=h.house.occupants;
+            if ((b.kind==Object::OriginalElitePlot && occupants) ||
+                (b.kind==Object::OriginalEliteHouse && occupants<=0))
+                invalid("Elite geometry must match empty Plot or materialized residents");
             const auto maximum=age<120 ? 0:std::min<std::uint64_t>(INT16_MAX,2*std::min<std::uint64_t>(INT16_MAX,(age-120)/40+1));
             if (h.building_id!=b.id || occupants<0 || static_cast<std::uint64_t>(occupants)>maximum)
                 invalid("original residents exceed paid house immigration history");
@@ -278,12 +282,14 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
     for (std::uint32_t id=1;id<s.next_building_id;++id) if (!seen[id]) invalid("missing paid original production purchase");
     const auto spent=spending(s.buildings,s.bridges,s.ramps.size(),s.roads_placed_total,removed.size());
     const auto model_priced_count=std::count_if(s.buildings.begin(),s.buildings.end(),[](const auto& body){return model_priced(body.kind).has_value();});
+    const auto materialized=static_cast<std::uint64_t>(std::count_if(s.buildings.begin(),s.buildings.end(),
+        [](const auto& b){return b.kind==Object::OriginalEliteHouse;}));
     if (s.construction_spent_total<spent+static_cast<std::uint64_t>(model_priced_count) ||
         s.construction_spent_total>static_cast<std::uint64_t>(original_production_starting_treasury) ||
         (!model_priced_count && spent!=s.construction_spent_total) ||
         s.treasury!=original_production_starting_treasury-static_cast<std::int64_t>(s.construction_spent_total) ||
         s.roads_removed_total>s.roads_placed_total || s.roads_placed_total-s.roads_removed_total!=s.roads.size() ||
-        s.road_revision!=s.roads_placed_total+s.roads_removed_total+s.buildings.size()+2*removed.size()+s.bridges.size()+s.ramps.size())
+        s.road_revision!=s.roads_placed_total+s.roads_removed_total+s.buildings.size()+2*removed.size()+s.bridges.size()+s.ramps.size()+materialized)
         invalid("original production finances or placement revision mismatch");
     validate_original_hemp_snapshot(s);
     validate_original_food_snapshot(s);
@@ -369,18 +375,93 @@ void World::receive_original_ceramics(BuildingId warehouse,int amount) {
     original_production_->pottery_handed_off+=static_cast<std::uint64_t>(amount);
 }
 
+OriginalEliteMaterializationStatus World::original_elite_materialization_status(BuildingId id) const {
+    OriginalEliteMaterializationStatus status;
+    if (!original_production_enabled()) return status;
+    const auto found=std::lower_bound(buildings_.begin(),buildings_.end(),id,
+        [](const auto& b,BuildingId key){return b.id<key;});
+    if (found==buildings_.end() || found->id!=id || !found->placed || found->kind!=Object::OriginalElitePlot)
+        return status;
+    status.pending=true;
+    const auto blocked=[&](BuildBlocker blocker,Cell cell) {
+        status.diagnostic={blocker,cell,{}};return status;
+    };
+    const auto& b=*found;
+    if (road_revision_==UINT64_MAX) return blocked(BuildBlocker::CounterExhausted,b.cell);
+    // Guard untrusted bounds before adding any offsets. The geometry query
+    // neither reserves cells nor advances a preparation/immigration phase.
+    if (!in_bounds(b.cell))
+        return blocked(BuildBlocker::OutsideMap,b.cell);
+    const auto foundation=permissions_ ? permissions_->cell_height(b.cell):0;
+    for (int y=0;y<4;++y) for (int x=0;x<4;++x) {
+        const Cell cell{b.cell.x+x,b.cell.y+y};
+        if (!in_bounds(cell)) return blocked(BuildBlocker::OutsideMap,cell);
+        if (bridge_at(cell) || bridge_bank_at(cell)) return blocked(BuildBlocker::ProtectedBridge,cell);
+        if (ramp_endpoint(cell)) return blocked(BuildBlocker::SandboxOccupied,cell);
+        if (fixed_passage(cell)) return blocked(BuildBlocker::ProtectedGatePassage,cell);
+        if (permissions_ && permissions_->fixed_gate(cell)) return blocked(BuildBlocker::GateSolidPart,cell);
+        if (original_road(cell)) return blocked(BuildBlocker::ProtectedOriginalRoad,cell);
+        if (permissions_ && permissions_->protected_original(cell)) return blocked(BuildBlocker::OriginalStructure,cell);
+        if (!buildable(cell)) {
+            const auto blocker=permissions_ ? permissions_->building_blocker(cell):BuildBlocker::LegacyBuildabilityRestriction;
+            return blocked(blocker==BuildBlocker::None ? BuildBlocker::LegacyBuildabilityRestriction:blocker,cell);
+        }
+        if (permissions_ && permissions_->cell_height(cell)!=foundation)
+            return blocked(BuildBlocker::UnsupportedHeightTransition,cell);
+        const bool old=x<2 && y<2;
+        if (old ? object_at(cell)!=Object::OriginalElitePlot || building_owner_at(cell)!=id:
+                  object_at(cell)!=Object::Empty || building_owner_at(cell).has_value())
+            return blocked(BuildBlocker::SandboxOccupied,cell);
+        // An actor's already begun edge remains physical authority. This is
+        // defense in depth even when its road/body already blocked the cell.
+        for (const auto& actor:couriers_) {
+            if (actor.phase==CourierPhase::IdleAtWorkshop) continue;
+            if (actor.path_vertex>=actor.path.size()) return blocked(BuildBlocker::SandboxOccupied,cell);
+            if (actor.path[actor.path_vertex]==cell ||
+                (actor.edge_progress>0 && actor.path_vertex+1<actor.path.size() && actor.path[actor.path_vertex+1]==cell))
+                return blocked(BuildBlocker::SandboxOccupied,cell);
+        }
+    }
+    constexpr std::array<Cell,4> adjacent{{{1,0},{0,1},{-1,0},{0,-1}}};
+    for (int y=0;y<4;++y) for (int x=0;x<4;++x) {
+        const Cell cell{b.cell.x+x,b.cell.y+y};
+        for (const auto delta:adjacent) {
+            const Cell road{cell.x+delta.x,cell.y+delta.y};
+            if (road_cell(road) && permission_edge_allowed(cell,road)) {
+                status.ready=true;return status;
+            }
+        }
+    }
+    return blocked(BuildBlocker::InvalidEdge,b.cell);
+}
+
 void World::admit_original_residents() {
+    bool geometry_changed=false;
     for (std::size_t i=0;i<original_economy_->houses.size();++i) {
         auto& home=original_economy_->houses[i];
         const auto capacity=original_rules_model_->house_rules().row_capacity(original::admission_capacity_row(home.house.type));
         const auto& b=building(home.building_id);
         const auto age=ticks_-b.placed_tick;
-        if (age<120 || (age-120)%40 || home.house.occupants>=capacity || building_on_fire(b.id) ||
-            building_entrances(b.id).empty()) continue;
+        if (age<120 || (age-120)%40 || home.house.occupants>=capacity || building_on_fire(b.id)) continue;
+        const bool materialize=b.kind==Object::OriginalElitePlot;
+        if (materialize ? !original_elite_materialization_status(b.id).ready:building_entrances(b.id).empty()) continue;
         const auto admitted=std::min(2,capacity-home.house.occupants);
+        if (static_cast<std::uint64_t>(admitted)>UINT64_MAX-original_production_->residents_admitted)
+            throw std::overflow_error("original admitted residents exhausted");
         if (!original_production_->housing.houses[i].first_admission_tick) {
             auto& history=original_production_->housing.houses[i];
             OriginalHousingEvaluation origin;origin.tick=ticks_;origin.input=home.house;
+            // All prospective claims, actors, signed heights, entrances and
+            // arithmetic passed above. Keep the existing identity, finance,
+            // population/stock owners, timers and every active courier path.
+            if (materialize) {
+                auto& body=mutable_building(b.id);body.kind=Object::OriginalEliteHouse;
+                for (int y=0;y<4;++y) for (int x=0;x<4;++x) {
+                    const auto at=index({body.cell.x+x,body.cell.y+y});
+                    objects_[at]=body.kind;owners_[at]=static_cast<std::uint32_t>(body.id);
+                }
+                ++road_revision_;geometry_changed=true;cached_route_.reset();
+            }
             home.house.type=original_elite_house_kind(b.kind) ? original::HouseType::ModestSiheyuan:original::HouseType::Shelter;
             history.first_admission_tick=ticks_;
             history.first_transitions[original::model_row(original::house_row(home.house.type)).value]=
@@ -390,6 +471,9 @@ void World::admit_original_residents() {
         home.original_status=3;home.access_enabled=true;
         original_production_->residents_admitted+=static_cast<std::uint64_t>(admitted);
     }
+    // Candidate routes reflect the final new bodies once. This existing cache
+    // refresh never rewrites a dispatched path, begun edge, cargo or reserve.
+    if (geometry_changed) refresh_routes();
 }
 
 void World::tick_original_production() {

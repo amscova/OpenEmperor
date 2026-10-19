@@ -42,10 +42,10 @@ struct Fixture {
     sim::BuildingId elite{},common{};
     explicit Fixture(bool hemp_need=false):abandoned_hemp_need(hemp_need) {
         for (int x=0;x<8;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
-        f::buy(world,{sim::CommandType::PlaceOriginalElitePlot,{0,2}});
-        elite=*world.building_owner_at({0,2});
-        f::buy(world,{sim::CommandType::PlaceHousehold,{3,2}});
-        common=*world.building_owner_at({3,2});
+        f::buy(world,{sim::CommandType::PlaceOriginalElitePlot,{0,0}});
+        elite=*world.building_owner_at({0,0});
+        f::buy(world,{sim::CommandType::PlaceHousehold,{4,2}});
+        common=*world.building_owner_at({4,2});
         check(world.construction_spent_total()==176 && world.treasury()==11824 &&
               world.total_population()==0 && world.couriers().empty(),
               "Separate Elite/Common purchase failed real costs or granted residents/actors");
@@ -74,8 +74,8 @@ struct Fixture {
         save::write_save(target,original,root.data,policy->building_mask());
         const auto bytes=f::read_text(target);const auto parsed=save::read_save(target);
         f::same_document(original,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==25,
-              "Fifteen-stage save lost strict revision25 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==26,
+              "Fifteen-stage save lost strict revision26 identity");
         const auto copy=restore(parsed);check(copy.snapshot()==before,"Elite F5/F9 changed complete World authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,
@@ -144,8 +144,8 @@ void late_admission_dispatch(Fixture& f) {
     f::buy(f.world,{sim::CommandType::PlaceHealthPost,{3,5}});
     const auto provider=*f.world.building_owner_at({3,5});
     until(f.world,[&]{return f.world.workers_assigned(provider)==7;});
-    f::buy(f.world,{sim::CommandType::PlaceOriginalElitePlot,{6,2}});
-    const auto late=*f.world.building_owner_at({6,2});
+    f::buy(f.world,{sim::CommandType::PlaceOriginalElitePlot,{6,0}});
+    const auto late=*f.world.building_owner_at({6,0});
     const auto first=f.world.building(late).placed_tick+120;
     f.roundtrip(f.world);
     while (f.world.ticks()<first) f.world.tick();
@@ -181,7 +181,7 @@ void hostile(Fixture& f) {
     };
     for (const auto& [path,value]:std::vector<std::pair<std::string,json>>{
             {"/world/original_production/development_revision",24},
-            {"/world/original_production/development_revision",26},
+            {"/world/original_production/development_revision",25},{"/world/original_production/development_revision",27},
             {"/world/buildings/0/kind",static_cast<unsigned>(sim::Object::Household)},
             {"/world/buildings/1/kind",static_cast<unsigned>(sim::Object::OriginalElitePlot)},
             {house+"first_transitions/10/kind",1},{house+"first_transitions/10/kind",2},

@@ -132,10 +132,15 @@ void historical_food(const WorldSnapshot& s,BuildingId id,std::uint64_t first,co
         (current.quality_witness->tick==w.tick && *current.quality_witness!=w))
         invalid("Housing Food quality witness has no possible paid Distributor arrival");
     const auto& market=by_id(s.buildings,actor->owner);const auto& target=by_id(s.buildings,id);
-    const auto gap=[](int a,int b){const auto d=std::int64_t(a)-b;return std::max<std::int64_t>(0,(d<0 ? -d:d)-1);};
+    const auto gap=[](int a,int a_size,int b,int b_size) {
+        const std::int64_t first=a,second=b;
+        return std::max({std::int64_t{0},first-(second+b_size-1),second-(first+a_size-1)});
+    };
     // Market is currently1x1; a conservative2x2 source lower bound remains
     // necessary without pretending to retain the complete road history.
-    const auto travel=static_cast<std::uint64_t>(std::max<std::int64_t>(2,gap(market.cell.x,target.cell.x)+gap(market.cell.y,target.cell.y)))*
+    const auto target_size=building_footprint(s.profile,s.rule_version,target.kind);
+    const auto travel=static_cast<std::uint64_t>(std::max<std::int64_t>(2,
+        gap(market.cell.x,2,target.cell.x,target_size.width)+gap(market.cell.y,2,target.cell.y,target_size.height)))*
         static_cast<std::uint64_t>(profile_rules(s.profile,s.rule_version).courier_edge_ticks);
     if (market.kind!=Object::Market || w.tick<=market.placed_tick || w.tick-market.placed_tick<travel || w.tick-first<travel)
         invalid("Housing Food witness predates its actual paid Market/occupied target travel");
@@ -182,6 +187,9 @@ void World::validate_original_housing_snapshot(const WorldSnapshot& s) {
     for (std::size_t i=0;i<homes.size();++i) {
         const auto& h=homes[i];const auto& row=state.houses[i];const auto& b=by_id(s.buildings,h.building_id);
         if (row.building_id!=h.building_id || !original_house_kind(b.kind)) invalid("Housing rows must match exact paid House order/family");
+        if ((b.kind==Object::OriginalElitePlot && row.first_admission_tick) ||
+            (b.kind==Object::OriginalEliteHouse && !row.first_admission_tick))
+            invalid("Elite materialization requires exactly its real first admission");
         original::HouseState empty;empty.type=empty_type(b.kind);
         if (!row.first_admission_tick) {
             if (h.house!=empty || h.original_status || h.access_enabled || h.cycle_phase || row.last_evaluation ||
@@ -280,7 +288,7 @@ void World::validate_original_housing_model() {
         for (int y=0;y<2;++y) for (int x=0;x<2;++x)
             if (!permissions_->building_allowed({source.origin.x+x,source.origin.y+y})) invalid("historical neutral source origin violates immutable permissions");
     std::map<std::uint64_t,original::DesirabilityMap> maps;
-    const auto desirability=[&](std::uint64_t tick,Cell cell) {
+    const auto desirability=[&](std::uint64_t tick,Cell cell,int side) {
         auto found=maps.find(tick);
         if (found==maps.end()) {
             struct Source {BuildingId id;Cell origin;BuildingFootprint footprint;original::ModelBuilding model;};
@@ -305,7 +313,7 @@ void World::validate_original_housing_model() {
             }
             found=maps.emplace(tick,std::move(map)).first;
         }
-        return found->second.building_value({cell.x,cell.y,2});
+        return found->second.building_value({cell.x,cell.y,side});
     };
     for (std::size_t i=0;i<original_economy_->houses.size();++i) {
         const auto& home=original_economy_->houses[i];const auto& row=original_production_->housing.houses[i];
@@ -356,7 +364,8 @@ void World::validate_original_housing_model() {
             check_population(e.input.occupants,e.tick);
             if (abandoned_needs_always_met && e.input.type==original::HouseType::EliteAbandoned && e.input.devolve_counter)
                 invalid("Housing Abandoned counter cannot accumulate when its model needs are always met");
-            if (e.input.desirability!=desirability(e.tick,b.cell)) invalid("Housing historical desire differs from actual paid sources at phase39");
+            if (e.input.desirability!=desirability(e.tick,b.cell,building_footprint(profile_,rule_version_,b.kind).width))
+                invalid("Housing historical desire differs from actual paid sources at phase39");
         };
         if (row.last_evaluation) check_evaluation(*row.last_evaluation);
         for (std::size_t r=0;r<row.first_transitions.size();++r) if (const auto& entry=row.first_transitions[r])
@@ -372,6 +381,10 @@ void World::validate_original_housing_model() {
 void World::validate_original_housing_state() const {
     for (std::size_t i=0;i<original_economy_->houses.size();++i) {
         const auto& home=original_economy_->houses[i];const auto& row=original_production_->housing.houses[i];
+        const auto kind=building(home.building_id).kind;
+        if ((kind==Object::OriginalElitePlot && row.first_admission_tick) ||
+            (kind==Object::OriginalEliteHouse && !row.first_admission_tick))
+            invalid("live Elite geometry contradicts its first admission");
         if (row.last_evaluation) {
             const auto expected=evolved(original_rules_model_->house_rules(),row.last_evaluation->input);
             if (home.house.type!=expected.type || home.house.devolve_counter!=expected.devolve_counter || home.house.desirability!=expected.desirability)
@@ -385,7 +398,9 @@ void World::evaluate_original_houses() {
     for (std::size_t i=0;i<original_economy_->houses.size();++i) {
         auto& home=original_economy_->houses[i];if (!home.house.occupants) continue;
         auto& row=original_production_->housing.houses[i];OriginalHousingEvaluation proof;
-        home.house.desirability=static_cast<std::int8_t>(original_influence_value_at(building(home.building_id).cell));
+        const auto& body=building(home.building_id);
+        home.house.desirability=static_cast<std::int8_t>(original_influence_value_at(body.cell,
+            building_footprint(profile_,rule_version_,body.kind).width));
         proof.tick=ticks_;proof.input=home.house;
         for (std::size_t r=0;r<roles.size();++r) {
             const auto w=std::find_if(original_production_->services.witnesses.begin(),original_production_->services.witnesses.end(),

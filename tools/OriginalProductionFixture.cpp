@@ -25,7 +25,7 @@ bool below(const f::fs::path& path,const f::fs::path& root) {
 }
 void validate_output(const f::fs::path& output,const f::fs::path& data) {
     const auto repo=f::fs::canonical(f::fs::path(__FILE__).parent_path().parent_path());
-    const auto root=repo/".local/original-economy/oe25/production-fixtures";
+    const auto root=repo/".local/original-economy/oe26/production-fixtures";
     check(output!=root && below(output,root),"Fixture output must be a new private OE25 subdirectory");
     check(!below(output,data) && !below(data,output),"Fixture output overlaps source data");
     f::fs::path current=output.root_path();
@@ -269,7 +269,9 @@ json inspect(const sim::World& world) {
         check(b.population==0 && b.pottery_stock==0 && b.food_stock==0 && b.food_produced==0 &&
               b.food_consumed_total==0 && b.reserved_food_incoming==0 && b.service_until_tick==0 &&
               b.health_protection_until_tick==0 && b.health_risk==0 && b.sick_until_tick==0,"New authority was mirrored into legacy stock or population");
+        const auto footprint=sim::building_footprint(world.profile(),world.rule_version(),b.kind);
         buildings.push_back({{"id",static_cast<unsigned>(b.id)},{"kind",static_cast<unsigned>(b.kind)},
+            {"footprint",json::array({footprint.width,footprint.height})},
             {"operating",b.operating_enabled},{"on_fire",world.building_on_fire(b.id)},
             {"placed_tick",b.placed_tick},{"cell",json::array({b.cell.x,b.cell.y})},
             {"workers",world.workers_assigned(b.id)},{"input_clay",b.input_clay},{"output",b.output},
@@ -301,7 +303,14 @@ json inspect(const sim::World& world) {
             {"harvested",farm.harvested}});
     }
     check(all[0].totals.produced==harvested,"Hemp mass lacks actual harvest history");
-    return {{"tick",world.ticks()},{"funds",world.treasury()},{"construction_spent",world.construction_spent_total()},
+    json owners=json::array(),roads=json::array();
+    for (int y=0;y<world.height();++y) for (int x=0;x<world.width();++x) {
+        const sim::Cell cell{x,y};
+        if (const auto owner=world.building_owner_at(cell)) owners.push_back(json::array({x,y,static_cast<unsigned>(*owner),static_cast<unsigned>(world.object_at(cell))}));
+        if (world.road_cell(cell)) roads.push_back(json::array({x,y}));
+    }
+    return {{"geometry",{{"width",world.width()},{"height",world.height()},{"owners",owners},{"roads",roads}}},
+        {"tick",world.ticks()},{"funds",world.treasury()},{"construction_spent",world.construction_spent_total()},
         {"command_sequence",world.command_sequence()},{"road_revision",snapshot.road_revision},
         {"road_count",snapshot.roads.size()},{"house_count",houses.size()},{"building_count",buildings.size()},
         {"courier_count",couriers.size()},{"population",world.total_population()},
@@ -516,7 +525,7 @@ void create_food(const f::fs::path& data,const f::fs::path& output) {
     for(const int y:{6,7})f::buy(world,{sim::CommandType::PlaceRoad,{23,y}});
     for(int x=0;x<24;++x)f::buy(world,{sim::CommandType::PlaceRoad,{x,12}});
     for(const int y:{9,10,11})f::buy(world,{sim::CommandType::PlaceRoad,{23,y}});
-    for(const int y:{3,6})for(int x=0;x<18;x+=3)f::buy(world,{sim::CommandType::PlaceHousehold,{x,y}});
+    for(const int y:{3,6})for(int x=0;x<18;x+=3)f::buy(world,{sim::CommandType::PlaceHousehold,y==1 ? oe_production_fixture::elite_row_cell(x/3):sim::Cell{x,y}});
     f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{0,13}});
     f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{5,13}});
     const auto wheat=*world.building_owner_at({0,13}),millet=*world.building_owner_at({5,13});
@@ -605,7 +614,7 @@ void create_services(const f::fs::path& data,const f::fs::path& output) {
     auto world=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(data));
     for (const int y:{5,8,12}) for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,y}});
     for (const int y:{6,7,9,10,11}) f::buy(world,{sim::CommandType::PlaceRoad,{23,y}});
-    for (const int y:{3,6}) for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,{x,y}});
+    for (const int y:{3,6}) for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,y==1 ? oe_production_fixture::elite_row_cell(x/3):sim::Cell{x,y}});
     f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{0,13}});
     f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{5,13}});
     const auto wheat=*world.building_owner_at({0,13}),millet=*world.building_owner_at({5,13});
@@ -686,7 +695,7 @@ void create_ancestor(const f::fs::path& data,const f::fs::path& output) {
     auto world=sim::World::create_original_production_development(policy,save::prepare_original_production_rules_model(data));
     for (const int y:{5,8,12}) for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,y}});
     for (const int y:{6,7,9,10,11}) f::buy(world,{sim::CommandType::PlaceRoad,{23,y}});
-    for (const int y:{3,6}) for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,{x,y}});
+    for (const int y:{3,6}) for (int x=0;x<18;x+=3) f::buy(world,{sim::CommandType::PlaceHousehold,y==1 ? oe_production_fixture::elite_row_cell(x/3):sim::Cell{x,y}});
     f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{0,13}});
     f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{5,13}});
     const auto wheat=*world.building_owner_at({0,13}),millet=*world.building_owner_at({5,13});
@@ -893,7 +902,7 @@ void create_housing(const f::fs::path& data,const f::fs::path& output) {
     const auto buy=[&](sim::CommandType type,sim::Cell cell) {f::buy(grand,{type,cell});return *grand.building_owner_at(cell);};
     for (const int y:{5,8,12}) for (int x=0;x<24;++x) f::buy(grand,{sim::CommandType::PlaceRoad,{x,y}});
     for (const int y:{6,7,9,10,11}) f::buy(grand,{sim::CommandType::PlaceRoad,{23,y}});
-    for (const int y:{3,6}) for (int x=0;x<18;x+=3)(void)buy(sim::CommandType::PlaceHousehold,{x,y});
+    for (const int y:{3,6}) for (int x=0;x<18;x+=3)(void)buy(sim::CommandType::PlaceHousehold,y==1 ? oe_production_fixture::elite_row_cell(x/3):sim::Cell{x,y});
     (void)buy(sim::CommandType::PlaceClaySource,{0,9});const auto hemp=buy(sim::CommandType::PlaceOriginalHempFarm,{4,9});
     sim::Command crop{sim::CommandType::PlaceOriginalHempField,{6,9}};crop.building_id=hemp;f::buy(grand,crop);
     (void)buy(sim::CommandType::PlacePottery,{8,9});(void)buy(sim::CommandType::PlaceWarehouse,{16,9});
@@ -919,10 +928,10 @@ void create_housing(const f::fs::path& data,const f::fs::path& output) {
         {"grand_initial",grand_initial},{"grand_final",grand_final},{"checkpoints",checkpoints}}.dump(2)+"\n");
 }
 int academy_paper(const sim::World& w,sim::BuildingId academy){for(const auto& row:w.original_production_state()->industry.auxiliary)if(row.building_id==academy)return row.amounts[4];return 0;}
-oe_production_fixture::PaperSupply process_paper_kit(sim::World& w,bool culture=false,const std::vector<sim::Cell>& homes={}){
+oe_production_fixture::PaperSupply process_paper_kit(sim::World& w,bool culture=false,const std::vector<sim::Cell>& homes={},bool elite_layout=false){
     oe_production_fixture::PaperSupplyLayout kit;kit.farm={0,17};kit.field={2,17};kit.paper={4,17};kit.warehouse={8,17};kit.extra_homes=homes;
     for(int x=0;x<=12;++x)kit.roads.push_back({x,16});for(int y=culture?9:5;y<16;++y)kit.roads.push_back({12,y});
-    const std::vector<int> columns=culture?std::vector<int>{5,8,11,14,17}:std::vector<int>{2,5};
+    const std::vector<int> columns=culture?std::vector<int>{9,12,15,18,21}:elite_layout?std::vector<int>{6,9}:std::vector<int>{2,5};
     for(const int x:columns)for(int y=0;y<4;++y)kit.roads.push_back({x,y});return oe_production_fixture::add_paper_supply(w,kit);
 }
 void create_religion(const f::fs::path& data,const f::fs::path& output) {
@@ -933,7 +942,7 @@ void create_religion(const f::fs::path& data,const f::fs::path& output) {
     const auto buy=[](sim::World& w,sim::CommandType type,sim::Cell cell) {f::buy(w,{type,cell});return *w.building_owner_at(cell);};
     auto world=sim::World::create_original_production_development(policy,model);
     for(int x=0;x<24;++x)f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
-    sim::BuildingId home{};for(int x=0;x<24;x+=3){const auto id=buy(world,x ? sim::CommandType::PlaceHousehold:sim::CommandType::PlaceOriginalElitePlot,{x,2});if(!x)home=id;}
+    sim::BuildingId home{};for(int x=0;x<24;x+=3){const auto id=buy(world,x ? sim::CommandType::PlaceHousehold:sim::CommandType::PlaceOriginalElitePlot,oe_production_fixture::elite_row_cell(x/3));if(!x)home=id;}
     std::array<sim::BuildingId,3> providers{};std::array<sim::CourierId,3> actors{};
     const auto spent_before=world.construction_spent_total();
     for(unsigned i=0;i<3;++i){providers[i]=buy(world,types[i],{10+4*static_cast<int>(i),5});for(const auto& c:world.couriers())if(c.owner==providers[i])actors[i]=c.id;}
@@ -943,7 +952,7 @@ void create_religion(const f::fs::path& data,const f::fs::path& output) {
     all_sources.push_back(buy(world,sim::CommandType::PlaceServicePost,{3,5}));
     all_sources.push_back(buy(world,sim::CommandType::PlaceOriginalAncestorShrine,{6,5}));
     all_sources.push_back(buy(world,sim::CommandType::PlaceOriginalWaterWell,{22,5}));
-    const auto supply=process_paper_kit(world,false,{{0,0},{3,0},{6,0}});check(supply.spent==568,"Religion normal Paper chain bill differs");
+    const auto supply=process_paper_kit(world,false,{{4,0},{7,0},{10,0}},true);check(supply.spent==568,"Religion normal Paper chain bill differs");
     check(world.construction_spent_total()==1571&&world.treasury()==10429&&!world.total_population(),"Religion integration must pay1571 before genuine immigration");
     const auto initial=inspect(world);for(const auto source:all_sources)f::buy(world,sim::set_building_operation(source,false));ticks(world,400);
     const auto stopped=inspect(world);check(world.total_population()==75&&world.workforce_supply()==75&&world.original_production_state()->services.trips.empty(),"Paused religious sources granted free workers or visits");
@@ -1041,9 +1050,9 @@ void create_culture(const f::fs::path& data,const f::fs::path& output) {
     const auto buy=[](sim::World& w,sim::CommandType type,sim::Cell cell){f::buy(w,{type,cell});return *w.building_owner_at(cell);};
     auto world=sim::World::create_original_production_development(policy,model);
     for(int x=0;x<24;++x)f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
-    sim::BuildingId home{};for(int x=0;x<24;x+=3){const auto id=buy(world,x ? sim::CommandType::PlaceHousehold:sim::CommandType::PlaceOriginalElitePlot,{x,2});if(!x)home=id;}
-    (void)buy(world,sim::CommandType::PlaceHousehold,{0,0});(void)buy(world,sim::CommandType::PlaceHousehold,{3,0});
-    for(int y=0;y<4;++y)f::buy(world,{sim::CommandType::PlaceRoad,{2,y}});
+    sim::BuildingId home{};for(int x=0;x<24;x+=3){const auto id=buy(world,x ? sim::CommandType::PlaceHousehold:sim::CommandType::PlaceOriginalElitePlot,oe_production_fixture::elite_row_cell(x/3));if(!x)home=id;}
+    (void)buy(world,sim::CommandType::PlaceHousehold,{4,0});(void)buy(world,sim::CommandType::PlaceHousehold,{7,0});
+    for(int y=0;y<4;++y)f::buy(world,{sim::CommandType::PlaceRoad,{6,y}});
     for(int x=0;x<=12;++x)f::buy(world,{sim::CommandType::PlaceRoad,{x,8}});
     for(int y=5;y<8;++y)f::buy(world,{sim::CommandType::PlaceRoad,{12,y}});
     std::vector<sim::BuildingId> all_sources;
@@ -1051,7 +1060,7 @@ void create_culture(const f::fs::path& data,const f::fs::path& output) {
     std::array<sim::BuildingId,3> providers{};std::array<sim::CourierId,3> actors{};const auto spent=world.construction_spent_total();
     for(unsigned i=0;i<3;++i){providers[i]=buy(world,commands[i],{4*static_cast<int>(i),9});all_sources.push_back(providers[i]);for(const auto& c:world.couriers())if(c.owner==providers[i])actors[i]=c.id;}
     check(world.construction_spent_total()-spent==180,"Actual three cultural sources did not cost180");
-    const auto supply=process_paper_kit(world,true,{{6,0},{9,0},{12,0},{15,0},{18,0}});check(supply.spent==744,"Culture normal Paper kit bill differs");
+    const auto supply=process_paper_kit(world,true,{{10,0},{13,0},{16,0},{19,0},{22,0}},true);check(supply.spent==744,"Culture normal Paper kit bill differs");
     check(world.construction_spent_total()==2127&&world.treasury()==9873&&!world.total_population()&&world.couriers().size()==14,"Culture scene must pay2127 including real Paper supply/15Houses/84Roads");
     const auto initial=inspect(world);for(const auto id:all_sources)f::buy(world,sim::set_building_operation(id,false));ticks(world,400);
     check(world.total_population()==103&&world.workforce_supply()==103&&world.original_production_state()->services.trips.empty(),"Culture scene lacks70 actual admitted Shelter workers or paused source granted visit");const auto stopped=inspect(world);
@@ -1087,10 +1096,10 @@ const sim::OriginalIndustrySource& industry_source(const sim::World& w,sim::Buil
 int industry_aux(const sim::World& w,sim::BuildingId id,unsigned material){for(const auto& row:w.original_production_state()->industry.auxiliary)if(row.building_id==id)return row.amounts[material];return 0;}
 struct IndustryScene{sim::BuildingId first{},tea{},lacquer{},silkworm{},logging{},smelter{},clay{},bronze{},lacquerware{},paper{},weaver{},farm{},field{},warehouse{},other_warehouse{},food{},market{},academy{},well{},ancestor{};std::vector<sim::BuildingId> plants;};
 IndustryScene industry_scene(sim::World& w){
-    for(const int y:{3,7,11,16})for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
-    for(const int y:{4,5,6,8,9,10,12,13,14,15})f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
+    for(const int y:{4,7,11,16})for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
+    for(const int y:{5,6,8,9,10,12,13,14,15})f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
     f::buy(w,{sim::CommandType::PlaceRoad,{14,12}});
-    IndustryScene s;for(const int y:{1,5})for(int x=0;x<24;x+=3){const auto id=industry_buy(w,x==0&&y==1 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{x,y});if(x==0&&y==1)s.first=id;}
+    IndustryScene s;for(const int y:{1,5})for(int x=0;x<24;x+=3){const auto id=industry_buy(w,x==0&&y==1 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,y==1 ? oe_production_fixture::elite_row_cell(x/3):sim::Cell{x,y});if(x==0&&y==1)s.first=id;}
     for(int x=0;x<12;x+=3)(void)industry_buy(w,sim::CommandType::PlaceHousehold,{x,9});
     s.tea=industry_buy(w,sim::CommandType::PlaceOriginalTeaCuringShed,{0,12});s.lacquer=industry_buy(w,sim::CommandType::PlaceOriginalLacquerRefinery,{4,12});s.silkworm=industry_buy(w,sim::CommandType::PlaceOriginalSilkwormShed,{8,12});
     for(const auto& [command,id,cell]:std::array{std::tuple{sim::CommandType::PlaceOriginalTeaBush,s.tea,sim::Cell{2,12}},std::tuple{sim::CommandType::PlaceOriginalLacquerTree,s.lacquer,sim::Cell{6,12}},std::tuple{sim::CommandType::PlaceOriginalMulberryTree,s.silkworm,sim::Cell{10,12}}}){sim::Command plant{command,cell};plant.building_id=id;f::buy(w,plant);s.plants.push_back(*w.building_owner_at(cell));}
@@ -1099,8 +1108,8 @@ IndustryScene industry_scene(sim::World& w){
     sim::Command field{sim::CommandType::PlaceOriginalHempField,{18,17}};field.building_id=s.farm;f::buy(w,field);s.field=*w.building_owner_at({18,17});s.warehouse=industry_buy(w,sim::CommandType::PlaceWarehouse,{20,17});
     s.food=industry_buy(w,sim::CommandType::PlaceOriginalFoodFarm,{12,8});field={sim::CommandType::PlaceOriginalWheatField,{15,8}};field.building_id=s.food;f::buy(w,field);s.market=industry_buy(w,sim::CommandType::PlaceMarket,{15,10});s.academy=industry_buy(w,sim::CommandType::PlaceOriginalConfucianAcademy,{18,8});s.well=industry_buy(w,sim::CommandType::PlaceOriginalWaterWell,{21,9});
     const bool real=w.original_rules_model()->house_rules().value(original::ModelHouse::Shelter,original::HouseField::Capacity)==7&&w.workforce_required(s.food)==22;
-    check(w.buildings().size()==43&&w.couriers().size()==21&&w.snapshot().roads.size()==107&&!w.total_population(),"Paid industry scene geometry/actors/zero population differs");
-    check(w.construction_spent_total()==static_cast<std::uint64_t>(real?3159:3188)&&w.treasury()==12000-static_cast<std::int64_t>(w.construction_spent_total()),"Real/authored industry construction bill differs");
+    check(w.buildings().size()==43&&w.couriers().size()==21&&w.snapshot().roads.size()==106&&!w.total_population(),"Paid industry scene geometry/actors/zero population differs");
+    check(w.construction_spent_total()==static_cast<std::uint64_t>(real?3157:3186)&&w.treasury()==12000-static_cast<std::int64_t>(w.construction_spent_total()),"Real/authored industry construction bill differs");
     return s;
 }
 void industry_bootstrap(sim::World& w,const IndustryScene& s){int full_workers=0;for(const auto& b:w.buildings())full_workers+=w.workforce_required(b.id);for(const auto id:{s.paper,s.academy,s.food,s.ancestor})f::buy(w,sim::set_building_operation(id,false));
@@ -1137,16 +1146,49 @@ void create_stages(const f::fs::path& data,const f::fs::path& output) {
     const auto policy=f::permissions();const auto model=save::prepare_original_production_rules_model(data);
     auto world=sim::World::create_original_production_development(policy,model);
     const auto paid=oe_production_fixture::add_housing_stages_scene(world);
+    // A genuine paid extension-cell road creates an actual failed120-tick
+    // materialization opportunity, separately replayed by a new OS process.
+    const sim::Cell growth_blocker{3,8};
+    f::buy(world,{sim::CommandType::PlaceRoad,growth_blocker});
+    const auto scene_spent=paid.spent+sim::Rules::road_cost;
     const auto initial=inspect(world);
     check(!world.total_population()&&housing_house(world,paid.elite).type==original::HouseType::EliteUnoccupied,
           "Paid Elite plot did not begin empty11");
     json checkpoints=json::array();checkpoints.push_back(checkpoint(data,output,"elite-empty",world));
     ticks(world,119);check(!world.total_population(),"Stages initial residents arrived before paid age120");
+    const auto before_attempt=world.snapshot();world.tick();
+    const auto& blocked_history=housing_history(world,paid.elite);
+    const auto blocked_status=world.original_elite_materialization_status(paid.elite);
+    const auto old_elite=std::find_if(before_attempt.original_economy->houses.begin(),before_attempt.original_economy->houses.end(),
+        [&](const auto& value){return value.building_id==paid.elite;});
+    check(old_elite!=before_attempt.original_economy->houses.end()&&world.ticks()==120&&
+          world.building(paid.elite).kind==sim::Object::OriginalElitePlot&&housing_house(world,paid.elite)==old_elite->house,
+          "Actual blocked attempt changed the existing Elite body or input");
+    check(housing_house(world,paid.elite).type==original::HouseType::EliteUnoccupied&&
+          !housing_house(world,paid.elite).occupants&&!blocked_history.first_admission_tick&&!blocked_history.last_evaluation&&
+          std::none_of(blocked_history.first_transitions.begin(),blocked_history.first_transitions.end(),[](const auto& value){return bool(value);})&&
+          blocked_status.pending&&!blocked_status.ready&&blocked_status.diagnostic.blocker==sim::BuildBlocker::SandboxOccupied&&
+          world.command_sequence()==before_attempt.command_sequence&&world.road_revision()==before_attempt.road_revision&&
+          world.treasury()==before_attempt.treasury&&world.construction_spent_total()==before_attempt.construction_spent_total&&
+          world.snapshot().next_building_id==before_attempt.next_building_id,
+          "Actual120-tick extension conflict published residents/history/geometry/finance/IDs");
+    const auto blocked=inspect(world);checkpoints.push_back(checkpoint(data,output,"elite-growth-blocked",world));
+    const auto before_repair=world.snapshot();f::buy(world,{sim::CommandType::RemoveRoad,growth_blocker});
+    check(world.ticks()==before_repair.ticks&&world.treasury()==before_repair.treasury&&
+          world.construction_spent_total()==before_repair.construction_spent_total&&
+          world.command_sequence()==before_repair.command_sequence+1&&world.road_revision()==before_repair.road_revision+1&&
+          world.original_elite_materialization_status(paid.elite).ready&&
+          housing_house(world,paid.elite).type==original::HouseType::EliteUnoccupied,
+          "Removing the genuinely paid blocker granted a refund/admission or failed to clear growth");
+    const auto repaired=inspect(world);ticks(world,39);
+    check(world.ticks()==159&&!housing_history(world,paid.elite).first_admission_tick&&
+          !housing_house(world,paid.elite).occupants,"Repair bypassed the next ordinary admission opportunity");
     world.tick();const auto& admission=housing_history(world,paid.elite).first_transitions[10];
     check(admission&&admission->kind==sim::OriginalHousingTransitionKind::Admission&&admission->admitted==2&&
-          admission->evaluation.input.type==original::HouseType::EliteUnoccupied&&
-          !admission->evaluation.input.occupants&&housing_house(world,paid.elite).type==original::HouseType::ModestSiheyuan,
-          "Genuine initial Elite event did not request13 and admit exactly2");
+          admission->evaluation.tick==160&&admission->evaluation.input.type==original::HouseType::EliteUnoccupied&&
+          !admission->evaluation.input.occupants&&housing_house(world,paid.elite).type==original::HouseType::ModestSiheyuan&&
+          world.building(paid.elite).kind==sim::Object::OriginalEliteHouse,
+          "Genuine next160-tick Elite event did not materialize4x4 and admit exactly2");
     const auto admitted=inspect(world);checkpoints.push_back(checkpoint(data,output,"elite-first-admission",world));
     const auto wait=[&](auto ready,const char* why,int limit=40000) {
         for (int i=0;i<limit&&!ready();++i) world.tick();
@@ -1197,13 +1239,13 @@ void create_stages(const f::fs::path& data,const f::fs::path& output) {
     blockers.push_back({{"house_id",static_cast<unsigned>(paid.elite)},
         {"actual_type",static_cast<unsigned>(housing_house(world,paid.elite).type)},
         {"actual_desirability",elite_diagnosis.cached_desirability},{"current_high",elite_diagnosis.current.high},
-        {"all_higher_elite_stages_claimed_reached",false},{"original_geometry_materialized",false}});
+        {"all_higher_elite_stages_claimed_reached",false},{"original_geometry_materialized",true}});
     f::write_text(output/"fixture.json",json{{"status","PASS"},{"snapshot_injection",false},
-        {"real_model_housing_stages",true},{"authored_geography",true},{"temporary_elite_geometry",json::array({2,2})},
+        {"real_model_housing_stages",true},{"authored_geography",true},{"empty_elite_plot_geometry",json::array({2,2})},{"materialized_elite_geometry",json::array({4,4})},
         {"original_elite_required_side",4},{"authored_elite_plot_price",80},
         {"home_id",static_cast<unsigned>(advanced)},{"elite_id",static_cast<unsigned>(paid.elite)},
-        {"academy_id",static_cast<unsigned>(paid.academy)},{"scene_spent",paid.spent},
-        {"initial",initial},{"admitted",admitted},{"counter49",counter49},{"abandoned",abandoned},
+        {"academy_id",static_cast<unsigned>(paid.academy)},{"scene_spent",scene_spent},
+        {"initial",initial},{"blocked",blocked},{"repaired",repaired},{"admitted",admitted},{"counter49",counter49},{"abandoned",abandoned},
         {"recovered",recovered_state},{"advanced",advanced_state},{"visited",visited},
         {"higher_stage_observations",blockers},{"paid_city_heavenly_reached",false},
         {"checkpoints",checkpoints}}.dump(2)+"\n");

@@ -301,10 +301,10 @@ void World::rebuild_original_influence_cache() {
     ++original_influence_cache_build_count_;
 }
 
-int World::original_influence_value_at(Cell origin) const {
+int World::original_influence_value_at(Cell origin,int side) const {
     if (!original_influence_enabled() || !original_influence_cache_)
         throw std::logic_error("original influence map is unavailable");
-    return original_influence_cache_->prefixes.back().building_value({origin.x,origin.y,2},0);
+    return original_influence_cache_->prefixes.back().building_value({origin.x,origin.y,side},0);
 }
 
 OriginalInfluenceProvenance World::original_influence_provenance(BuildingId household) const {
@@ -316,7 +316,8 @@ OriginalInfluenceProvenance World::original_influence_provenance(BuildingId hous
     result.difficulty=original_rules_model_->difficulty();
     result.model_sha256=original_rules_model_->provenance().sha256;
     const auto& cache=*original_influence_cache_;
-    for (int y=home.cell.y;y<home.cell.y+2;++y) for (int x=home.cell.x;x<home.cell.x+2;++x) {
+    const auto footprint=building_footprint(profile_,rule_version_,home.kind);
+    for (int y=home.cell.y;y<home.cell.y+footprint.height;++y) for (int x=home.cell.x;x<home.cell.x+footprint.width;++x) {
         const auto value=cache.prefixes.back().at(x,y);
         if (value>result.value) { result.value=value; result.selected_cell={x,y}; }
     }

@@ -4,7 +4,10 @@
 #include "core/PerformanceDiagnostics.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <cmath>
+#include <iomanip>
 #include <iostream>
+#include <memory>
 #include <tuple>
 
 namespace {
@@ -31,6 +34,9 @@ void click(oe::SandboxView& view,sim::Cell cell) {
     double sx=0,sy=0;unsigned count=0;
     for(int y=80;y<660;y+=4)for(int x=8;x<1090;x+=4)
         if(view.pick({double(x),double(y)})==cell){sx+=x;sy+=y;++count;}
+    if (!count) std::cerr<<std::setprecision(17)<<"Production cell not visible: cell=("<<cell.x<<','<<cell.y<<
+        ") ticks="<<view.world().ticks()<<" tool="<<view.tool()<<" zoom="<<view.camera().zoom<<
+        " offset=("<<view.camera().offset.x<<','<<view.camera().offset.y<<") industry="<<view.industry_page()<<'\n';
     check(count>0,"Production cell not visible");
     SDL_Event event{};event.type=SDL_EVENT_MOUSE_MOTION;
     event.motion.x=static_cast<float>(sx/count);event.motion.y=static_cast<float>(sy/count);
@@ -38,6 +44,57 @@ void click(oe::SandboxView& view,sim::Cell cell) {
     event={};event.type=SDL_EVENT_MOUSE_BUTTON_DOWN;event.button.button=SDL_BUTTON_LEFT;
     event.button.x=static_cast<float>(sx/count);event.button.y=static_cast<float>(sy/count);
     view.handle_event(event,running);event.type=SDL_EVENT_MOUSE_BUTTON_UP;view.handle_event(event,running);
+}
+void click_screen(oe::SandboxView& view,oe::scene::Point screen) {
+    SDL_Event event{};event.type=SDL_EVENT_MOUSE_MOTION;
+    event.motion.x=static_cast<float>(screen.x);event.motion.y=static_cast<float>(screen.y);
+    bool running=true;view.handle_event(event,running);view.update(0);
+    event={};event.type=SDL_EVENT_MOUSE_BUTTON_DOWN;event.button.button=SDL_BUTTON_LEFT;
+    event.button.x=static_cast<float>(screen.x);event.button.y=static_cast<float>(screen.y);
+    view.handle_event(event,running);event.type=SDL_EVENT_MOUSE_BUTTON_UP;view.handle_event(event,running);
+}
+void pan_to_offset(oe::SandboxView& view,oe::scene::Point offset) {
+    // Exercise the ordinary held-key input path while the simulation is paused.
+    SDL_Event focused{};focused.type=SDL_EVENT_WINDOW_FOCUS_GAINED;bool running=true;
+    view.handle_event(focused,running);
+    for (unsigned step=0;step<1000;++step) {
+        const auto current=view.camera().offset;
+        const double dx=offset.x-current.x,dy=offset.y-current.y;
+        if (std::abs(dx)<1e-6 && std::abs(dy)<1e-6) return;
+        oe::SandboxView::PanKeyState keys{};
+        if (std::abs(dx)>1e-6) {
+            keys.left=dx>0;keys.right=dx<0;
+            view.update(std::min(0.05,std::abs(dx)/400.0),keys);
+        } else {
+            keys.up=dy>0;keys.down=dy<0;
+            view.update(std::min(0.05,std::abs(dy)/400.0),keys);
+        }
+    }
+    check(false,"Could not position actual View camera through ordinary held-key pan");
+}
+void zoom_at(oe::SandboxView& view,oe::scene::Point screen,double zoom) {
+    check(zoom>=0.5 && zoom<=4.0,"Requested camera zoom is outside ordinary wheel limits");
+    const double initial_zoom=view.camera().zoom;
+    for (unsigned step=0;step<3;++step) {
+        if (std::abs(view.camera().zoom-zoom)<1e-9) return;
+        SDL_Event wheel{};wheel.type=SDL_EVENT_MOUSE_WHEEL;
+        // SDL carries float wheel deltas. A second real residual event removes
+        // that rounding without editing Camera2D or relaxing the target zoom.
+        wheel.wheel.y=static_cast<float>(std::log(zoom/view.camera().zoom)/std::log(1.15));
+        wheel.wheel.mouse_x=static_cast<float>(screen.x);wheel.wheel.mouse_y=static_cast<float>(screen.y);
+        bool running=true;view.handle_event(wheel,running);view.update(0);
+    }
+    if (std::abs(view.camera().zoom-zoom)>=1e-9) {
+        const auto input=view.input_diagnostic_state(screen);const auto& map=view.layout().map;
+        std::cerr<<std::setprecision(17)<<"Wheel zoom initial="<<initial_zoom<<" target="<<zoom<<
+            " observed="<<view.camera().zoom<<" raw=("<<screen.x<<','<<screen.y<<") map=("<<
+            map.x<<','<<map.y<<','<<map.w<<','<<map.h<<") help="<<view.help_open()<<
+            " budget="<<view.budget_warning_pending()<<" demolition="<<view.demolition_pending()<<
+            " road_drag="<<input.road_drag<<" ui="<<input.ui<<'\n';
+        if (input.render_position) std::cerr<<"Transformed wheel point=("<<
+            input.render_position->x<<','<<input.render_position->y<<")\n";
+    }
+    check(std::abs(view.camera().zoom-zoom)<1e-9,"Actual View wheel zoom disagrees with requested test zoom");
 }
 fs::path authored_walker_profile(const fs::path& data) {
     using namespace oe::testing::economy;
@@ -57,6 +114,85 @@ fs::path authored_walker_profile(const fs::path& data) {
 "clips":{"pos_x":["dot"],"neg_x":["dot"],"pos_y":["dot"],"neg_y":["dot"]},"idle":"dot"})");
     return path;
 }
+void verify_materialized_elite_fire(SDL_Window* window,SDL_Renderer* renderer,
+    const fs::path& data,const fs::path& save) {
+    auto view=oe::SandboxView::create_original_production_save_fixture(
+        oe::maps::load_stored_map_session(data,"Cities/A.map",
+            oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8));
+    view->configure_save(data,"Cities/A.map",save);view->initialize(window,renderer);
+    // Select the existing authored flame fallback, independent of optional art.
+    view->set_fire_visuals({});
+    const auto funds=view->world().treasury();
+    const auto road=view->execute({sim::CommandType::PlaceRoad,{118,91}});
+    const auto plot=view->execute({sim::CommandType::PlaceOriginalElitePlot,{118,92}});
+    check(road.accepted && road.changed && plot.accepted && plot.changed &&
+          view->world().treasury()==funds-82,"Small fire regression did not pay for its Plot and ordinary road");
+    const auto id=*view->world().building_owner_at({118,92});
+    for (int tick=0;tick<119;++tick) view->tick_once();
+    check(view->world().building(id).kind==sim::Object::OriginalElitePlot &&
+          view->world().household_population(id)==0 && !view->world().building_owner_at({121,95}),
+          "Small fire regression granted geometry or residents before actual immigration");
+    view->tick_once();
+    check(view->world().ticks()==120 && view->world().building(id).kind==sim::Object::OriginalEliteHouse &&
+          view->world().household_population(id)==2 && view->world().building_owner_at({121,95})==id,
+          "Small fire regression did not materialize the paid4x4 House at the actual first arrival");
+    constexpr auto ignition_tick=sim::Rules::fire_risk_step_ticks*sim::Rules::fire_risk_threshold;
+    static_assert(ignition_tick==2000);
+    for (std::uint64_t tick=view->world().ticks();tick+1<ignition_tick;++tick) view->tick_once();
+    check(view->world().ticks()==ignition_tick-1 && !view->world().building_on_fire(id) &&
+          view->world().building(id).fire_risk==sim::Rules::fire_risk_threshold-1,
+          "Natural House fire risk did not reach its real placement-relative threshold");
+    key(*view,SDLK_R);view->set_tool(5);
+    const auto& map=view->layout().map;
+    const oe::scene::Point map_center{map.x+map.w*.5,map.y+map.h*.5};
+    zoom_at(*view,map_center,1.0);
+    const auto geometry_front=sim::building_front_cell(view->world().profile(),view->world().rule_version(),
+        view->world().building(id).kind,view->world().building(id).cell);
+    check(geometry_front==sim::Cell{121,95},"Natural-fire fixture did not retain the actual4x4 front cell");
+    const oe::scene::Point world_ground{double(geometry_front.x-geometry_front.y)*40.0,
+        double(geometry_front.x+geometry_front.y-144)*20.0+20.0};
+    pan_to_offset(*view,{map_center.x-world_ground.x*view->camera().zoom,
+        map_center.y-(world_ground.y-60)*view->camera().zoom});
+    view->update(0);check(view->render(),"Unlit4x4 House regression frame");
+    check(view->fire_display_stats().fallback_draws==0,"Unlit materialized House acquired flame pixels");
+    view->tick_once();
+    check(view->world().ticks()==ignition_tick && view->world().building(id).kind==sim::Object::OriginalEliteHouse &&
+          view->world().building_on_fire(id) && view->world().fire_remaining(id)==sim::Rules::fire_incident_ticks,
+          "Materialized House did not ignite through ordinary unprotected risk ticks");
+    const auto authority=view->world().snapshot();key(*view,SDLK_F5);
+    view->tick_once();key(*view,SDLK_F9);
+    check(view->world().snapshot()==authority && view->world().building_on_fire(id),
+          "Actual burning4x4 House F5/F9 changed sole identity, geometry or fire authority");
+    view->update(0);check(view->render(),"Burning materialized4x4 House regression frame");
+    check(!view->fire_display_stats().animated && view->fire_display_stats().fallback_draws==1 &&
+          view->fire_display_stats().draws==0 && view->world().burning_buildings()==1,
+          "Materialized4x4 fallback bypassed its actual single-House flame overlay");
+    // Independent flat authored-map projection, not renderer-generated bounds.
+    const auto front=sim::building_front_cell(view->world().profile(),view->world().rule_version(),
+        view->world().building(id).kind,view->world().building(id).cell);
+    if (front!=sim::Cell{121,95} || std::abs(view->camera().zoom-1.0)>=1e-9)
+        std::cerr<<std::setprecision(17)<<"Burning House observed front=("<<front.x<<','<<front.y<<
+            ") zoom="<<view->camera().zoom<<" offset=("<<view->camera().offset.x<<','<<view->camera().offset.y<<")\n";
+    check(front==sim::Cell{121,95} && std::abs(view->camera().zoom-1.0)<1e-9,
+          "Burning House regression lost actual4x4 front geometry");
+    const auto ground=view->camera().world_to_screen({double(front.x-front.y)*40.0,
+        double(front.x+front.y-144)*20.0+20.0});
+    std::unique_ptr<SDL_Surface,decltype(&SDL_DestroySurface)> frame(
+        SDL_RenderReadPixels(renderer,nullptr),SDL_DestroySurface);
+    check(frame!=nullptr,"Burning House pixel readback");
+    unsigned orange=0;
+    for (int y=static_cast<int>(ground.y)-54;y<=static_cast<int>(ground.y)-15;++y)
+        for (int x=static_cast<int>(ground.x)-16;x<=static_cast<int>(ground.x)+16;++x) {
+            check(view->layout().map.contains(x,y),"Burning House witness ROI escaped the actual map aperture");
+            std::uint8_t r=0,g=0,b=0,a=0;
+            check(SDL_ReadSurfacePixel(frame.get(),x,y,&r,&g,&b,&a),"Burning House pixel read");
+            if (r>180 && g>60 && g<210 && b<100 && r>g+20) ++orange;
+        }
+    check(orange>40,"Actual materialized House flame had no substantial orange pixels at its authoritative front foot");
+    check(view->world().snapshot()==authority,"Burning House drawing/readback mutated World authority");
+    view->shutdown();
+    std::cout<<"Paid Elite4x4 natural fire at2000, actual flame pixels and F5/F9 PASS\n";
+}
 }
 int main(int argc,char** argv) {
     SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;
@@ -72,6 +208,7 @@ int main(int argc,char** argv) {
         const auto session=[&]{return oe::maps::load_stored_map_session(data,"Cities/A.map",
             oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8);};
         const auto target=root/"saves/production.json";
+        verify_materialized_elite_fire(window,renderer,data,root/"saves/elite-fire.json");
         auto view=oe::SandboxView::create_original_production_save_fixture(session());
         view->configure_save(data,"Cities/A.map",target);view->initialize(window,renderer);
         check(view->world().rule_version()==10 && view->world().treasury()==12000 && view->paused(),"Production identity");
@@ -357,6 +494,8 @@ int main(int argc,char** argv) {
         const auto empty_diagnosis=view->world().original_housing_diagnosis(elite_id);
         check(empty_diagnosis.actual.type==orig::HouseType::EliteUnoccupied && empty_diagnosis.awaiting_admission &&
               empty_diagnosis.elite_family && empty_diagnosis.geometry_authored_2x2 && empty_diagnosis.geometry_deferred &&
+              empty_diagnosis.actual_footprint_side==2 && empty_diagnosis.materialization_pending &&
+              empty_diagnosis.materialization_ready &&
               empty_diagnosis.original_required_side==4 && empty_diagnosis.pure_result_type==orig::HouseType::EliteUnoccupied,
               "Empty Elite diagnosis invented an Original footprint or pure first occupancy");
         const auto empty_matrix=view->world().original_housing_decision_matrix(elite_id);
@@ -365,6 +504,51 @@ int main(int argc,char** argv) {
               "Hypothetical15-row decision matrix granted an unlocked type or missing actual goods");
         const auto elite_saved=view->world().snapshot();key(*view,SDLK_F5);key(*view,SDLK_F9);
         check(view->world().snapshot()==elite_saved,"Empty paid Elite plot F5/F9 changed family or bootstrap state");
+        buy(sim::CommandType::PlaceRoad,{120,94});
+        const auto blocked=view->world().original_housing_diagnosis(elite_id);
+        check(blocked.materialization_pending && !blocked.materialization_ready &&
+              blocked.materialization_diagnostic.blocker==sim::BuildBlocker::SandboxOccupied &&
+              blocked.materialization_diagnostic.cell==sim::Cell{120,94} &&
+              view->world().building(elite_id).kind==sim::Object::OriginalElitePlot &&
+              !view->world().building_owner_at({121,95}),
+              "Paid future-growth road did not expose an exact blocker without claiming future cells");
+        key(*view,SDLK_F5);const auto blocked_saved=view->world().snapshot();key(*view,SDLK_F9);
+        check(view->world().snapshot()==blocked_saved,"Blocked2x2 Plot F5/F9 manufactured partial4x4 claims");
+        view->set_tool(5);click(*view,{118,92});
+        const auto blocked_lines=view->inspection_lines();
+        for (const std::string_view expected:{"plot2x2","Growth4x4 unreserved","Growth blocked:","Growth cell 120,94"}) {
+            const bool present=std::any_of(blocked_lines.begin(),blocked_lines.end(),
+                [&](const auto& line){return line.find(expected)!=std::string::npos;});
+            if (!present) {
+                std::cerr<<"Missing blocked Plot inspector label: "<<expected<<'\n';
+                for (const auto& line:blocked_lines) std::cerr<<'['<<line<<"]\n";
+            }
+            check(present,"Blocked Plot inspector hid actual size or concrete unreserved-growth conflict");
+        }
+        if (argc==2) {
+            SDL_Event scroll{};scroll.type=SDL_EVENT_MOUSE_WHEEL;scroll.wheel.y=-8.0F;
+            scroll.wheel.mouse_x=static_cast<float>(view->layout().panel.x+12);
+            scroll.wheel.mouse_y=static_cast<float>(view->layout().panel.y+50);
+            bool running=true;view->handle_event(scroll,running);
+            view->update(0);check(view->render(),"Blocked Plot capture frame");
+            auto output=fs::path(argv[1]).parent_path()/"production.elite-blocked.png";
+            auto* frame=SDL_RenderReadPixels(renderer,nullptr);check(frame!=nullptr,"Blocked Plot capture pixels");
+            const bool okay=SDL_SavePNG(frame,output.string().c_str());SDL_DestroySurface(frame);check(okay,"Blocked Plot capture output");
+            nlohmann::json observed{{"capture","actual-paid-road-blocked-empty-elite-plot"},
+                {"ticks",view->world().ticks()},{"funds",view->world().treasury()},
+                {"house_id",static_cast<unsigned>(elite_id)},{"actual_footprint_side",2},
+                {"future_footprint_side",4},{"future_cells_reserved",false},
+                {"actual_panel_wheel_notches",-8},
+                {"blocker",sim::build_blocker_name(blocked.materialization_diagnostic.blocker)},
+                {"blocker_cell",nlohmann::json::array({120,94})},{"inspection_lines",blocked_lines},
+                {"original_art_restored",false},{"human_acceptance_claimed",false}};
+            auto report=output;report.replace_extension(".observed.json");f::write_text(report,observed.dump(2)+"\n");
+            auto save=output;save.replace_extension(".save.json");f::write_text(save,f::read_text(target));
+        }
+        buy(sim::CommandType::RemoveRoad,{120,94});
+        check(view->world().original_housing_diagnosis(elite_id).materialization_ready &&
+              view->world().building(elite_id).kind==sim::Object::OriginalElitePlot,
+              "Real paid road repair did not unlock future growth while retaining empty Plot");
         view->set_tool(5);click(*view,{110,89});
         const auto paper_details=view->inspection_lines();
         check(view->industry_inspector_selected() && paper_details.size()<=10,
@@ -426,11 +610,19 @@ int main(int argc,char** argv) {
         const auto& histories=view->world().original_production_state()->housing.houses;
         const auto admitted=std::find_if(histories.begin(),histories.end(),[&](const auto& row){return row.building_id==elite_id;});
         check(moved.actual.type==orig::HouseType::ModestSiheyuan && moved.actual.occupants>0 &&
+              moved.actual_footprint_side==4 && !moved.geometry_authored_2x2 && !moved.geometry_deferred &&
+              !moved.materialization_pending && view->world().building(elite_id).kind==sim::Object::OriginalEliteHouse &&
               admitted!=histories.end() && admitted->first_transitions[10] &&
               admitted->first_transitions[10]->kind==sim::OriginalHousingTransitionKind::Admission &&
               admitted->first_transitions[10]->evaluation.input.type==orig::HouseType::EliteUnoccupied &&
               admitted->first_transitions[10]->admitted>0 && admitted->first_transitions[10]->admitted<=2,
               "Elite first occupancy did not record the actual11→13 paid immigration event");
+        for (int dy=0;dy<4;++dy) for (int dx=0;dx<4;++dx)
+            check(view->world().object_at({118+dx,92+dy})==sim::Object::OriginalEliteHouse &&
+                  view->world().building_owner_at({118+dx,92+dy})==elite_id,
+                  "Materialized View Elite did not own exactly its actual4x4 body");
+        const auto materialized=view->world().snapshot();key(*view,SDLK_F5);key(*view,SDLK_F9);
+        check(view->world().snapshot()==materialized,"Materialized4x4 Elite F5/F9 changed identity, stock, routes or geometry");
         bool religion_trip=false;
         for(int i=0;i<1200 && !religion_trip;++i) {
             view->tick_once();
@@ -528,10 +720,10 @@ int main(int argc,char** argv) {
         check(supplied.has_value(),"No actual two-goods House available for inspection");
         view->set_tool(5);click(*view,*supplied);
         const auto details=view->inspection_lines();
-        for (const std::string_view expected:{"temp2x2","Authored2x2; Original4x4:26","Current row","Next row",
+        for (const std::string_view expected:{"4x4","Elite4x4; authored courtyard","Current row","Next row",
                 "Bronze OR Lacquer","Daoist OR Buddhist","need","Original housing art pending"})
             check(std::any_of(details.begin(),details.end(),[&](const auto& line){return line.find(expected)!=std::string::npos;}),
-                  "House inspector hid a real condition, alternative or temporary geometry boundary");
+                  "House inspector hid a real condition, alternative or actual4x4 authored geometry boundary");
         check(std::count_if(details.begin(),details.end(),[](const auto& line) {
             return line.find("Herbalist")!=std::string::npos && line.find("Acupuncture")!=std::string::npos;
         })==1,"Medical values wrapped and displaced the default House inspector");
@@ -547,6 +739,71 @@ int main(int argc,char** argv) {
         });
         check(misses!=details.end() && std::distance(details.begin(),misses)<=10,
               "Ancestor display displaced Food demand misses from the visible default inspector");
+        // The initial whole-map fit permits zoom below0.5, which ordinary wheel
+        // input cannot restore. Establish a reachable1x baseline through the
+        // actual wheel path; resetting the camera does not promise a fixed zoom.
+        key(*view,SDLK_R);
+        const auto& map_rect=view->layout().map;
+        const oe::scene::Point map_center{map_rect.x+map_rect.w*.5,map_rect.y+map_rect.h*.5};
+        zoom_at(*view,map_center,1.0);
+        // Independent authored-map oracle: all terrain is height0, border72.
+        const auto front=sim::building_front_cell(view->world().profile(),view->world().rule_version(),
+            view->world().building(elite_id).kind,view->world().building(elite_id).cell);
+        check(front==sim::Cell{121,95},"Actual4x4 painter did not use unchanged logical front-cell convention");
+        const oe::scene::Point elite_ground{double(front.x-front.y)*40.0,double(front.x+front.y-144)*20.0+20.0};
+        // Preserve a reachable view of the selected House, not the old whole-map
+        // fit magnified about its distant center. Ordinary pan owns both moves.
+        pan_to_offset(*view,{map_center.x-elite_ground.x*view->camera().zoom,
+            map_center.y-(elite_ground.y-60)*view->camera().zoom});
+        const auto original_camera=view->camera();
+        const bool debug_was_open=view->debug_diagnostics();if (!debug_was_open) key(*view,SDLK_F1);
+        nlohmann::json visual_checks=nlohmann::json::array();
+        for (const double zoom:{0.5,1.0,2.0}) {
+            zoom_at(*view,map_center,zoom);
+            pan_to_offset(*view,{map_center.x-elite_ground.x*view->camera().zoom,
+                map_center.y-(elite_ground.y-60)*view->camera().zoom});
+            view->set_tool(5);view->update(0);check(view->render(),"Actual4x4 outer-extent picking frame");
+            for (const oe::scene::Point relative:std::array<oe::scene::Point,4>{{
+                    {-150,-60},{150,-60},{0,-130},{0,10}}}) {
+                const auto screen=view->camera().world_to_screen({elite_ground.x+relative.x,elite_ground.y+relative.y});
+                check(map_rect.contains(screen.x,screen.y),"Required outer4x4 visual sample was clipped out of playable map");
+                click_screen(*view,screen);
+                check(view->selected_building()==elite_id && !view->input_diagnostic_state().selected_landscape,
+                    "Outer4x4 rendered footprint did not select its existing BuildingId through shared visual hit geometry");
+            }
+            unsigned observed_feet=0;
+            for (const auto& row:view->walker_diagnostics()) {
+                const auto position=view->world().courier_position(row.id);
+                if (!row.live_visible || !position) continue;
+                const auto expected=view->camera().world_to_screen({(position->x-position->y)*40.0,
+                    (position->x+position->y-144)*20.0+20.0});
+                check(std::abs(row.screen_ground.x-expected.x)<1e-6 && std::abs(row.screen_ground.y-expected.y)<1e-6,
+                    "Actual shared courier feet moved away from authoritative saved path position after4x4 materialization");
+                ++observed_feet;
+            }
+            check(observed_feet>0,"No actual courier feet available during materialized4x4 View checks");
+            visual_checks.push_back({{"zoom",view->camera().zoom},{"outer_samples",4},
+                {"same_building_selected",true},{"actual_courier_feet_checked",observed_feet}});
+            if (argc==2) {
+                check(view->render(),"Actual4x4 zoom capture frame");
+                const std::string label=zoom==0.5 ? "05":zoom==1 ? "1":"2";
+                auto output=fs::path(argv[1]).parent_path()/("production.elite4x4.zoom"+label+".png");
+                auto* frame=SDL_RenderReadPixels(renderer,nullptr);check(frame!=nullptr,"4x4zoom capture pixels");
+                const bool okay=SDL_SavePNG(frame,output.string().c_str());SDL_DestroySurface(frame);check(okay,"4x4zoom capture output");
+                nlohmann::json observed{{"capture","actual-paid-materialized-elite4x4"},
+                    {"ticks",view->world().ticks()},{"house_id",static_cast<unsigned>(elite_id)},
+                    {"actual_footprint_side",4},{"front",nlohmann::json::array({front.x,front.y})},
+                    {"visual_checks",visual_checks},{"painter","unchanged logical front-cell order"},
+                    {"world_unchanged",view->world().snapshot()==before},
+                    {"original_art_restored",false},{"human_acceptance_claimed",false}};
+                auto report=output;report.replace_extension(".observed.json");f::write_text(report,observed.dump(2)+"\n");
+                auto save=output;save.replace_extension(".save.json");f::write_text(save,current);
+            }
+        }
+        zoom_at(*view,map_center,original_camera.zoom);pan_to_offset(*view,original_camera.offset);
+        if (!debug_was_open) key(*view,SDLK_F1);
+        view->set_tool(5);click(*view,*supplied);
+        check(view->world().snapshot()==before,"Camera, outer picking or4x4 diagnostics changed paid World authority");
         oe::performance::set_enabled(true);oe::performance::reset();
         for(int i=0;i<100;++i){view->update(0);check(view->render(),"Production idle frame");}
         check(view->world().snapshot()==before,"Production frame changed World");
@@ -577,6 +834,7 @@ int main(int argc,char** argv) {
                 {"selected_house_devolve_counter",h->house.devolve_counter},
                 {"model_sha256",view->world().original_rules_model()->provenance().sha256},
                 {"synthetic_model",true},{"inspection_lines",details},{"idle_frames",100},{"idle_world_unchanged",true}};
+            observed["elite4x4_visual_checks"]=visual_checks;
             for(const auto& row:view->world().original_production_state()->food.stocks) if(row.building_id==id)
                 observed["selected_house_food"]=row.amounts;
             auto output=fs::path(argv[1]);output.replace_extension(".observed.json");f::write_text(output,observed.dump(2));
@@ -607,7 +865,7 @@ int main(int argc,char** argv) {
                 {"actual_cached_desirability",diagnosis.cached_desirability},{"counter",diagnosis.actual.devolve_counter},
                 {"counter_limit",diagnosis.devolve_limit},{"admission_capacity",diagnosis.admission_capacity},
                 {"census_capacity",diagnosis.census_capacity},{"current",row_json(diagnosis.current)},{"next",row_json(diagnosis.next)},
-                {"authored_footprint_side",2},{"original_required_side",diagnosis.original_required_side},
+                {"authored_footprint_side",diagnosis.actual_footprint_side},{"original_required_side",diagnosis.original_required_side},
                 {"geometry_deferred",diagnosis.geometry_deferred},{"hypothetical_matrix_rows",15},
                 {"inspection_lines",view->inspection_lines()},{"actual_panel_wheel_notches",-8},
                 {"world_unchanged",view->world().snapshot()==before},{"original_art_restored",false}};

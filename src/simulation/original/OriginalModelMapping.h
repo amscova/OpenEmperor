@@ -123,6 +123,7 @@ struct FunctionalModelCandidate {
     case Object::Workshop:
     case Object::Household:
     case Object::OriginalElitePlot:
+    case Object::OriginalEliteHouse:
     case Object::ServicePost:
     case Object::FireWatch:
     case Object::OriginalInfluenceSource:

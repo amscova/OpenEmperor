@@ -38,7 +38,9 @@ struct OriginalHousingDiagnosis {
     std::uint8_t pure_result_counter=0,devolve_limit=0;
     bool awaiting_admission=false,common_terminal=false,elite_terminal=false;
     bool geometry_authored_2x2=true,geometry_deferred=false;
-    std::uint8_t original_required_side=2;
+    std::uint8_t actual_footprint_side=2,original_required_side=2;
+    bool materialization_pending=false,materialization_ready=false;
+    BuildDiagnostic materialization_diagnostic;
     bool operator==(const OriginalHousingDiagnosis&) const = default;
 };
 

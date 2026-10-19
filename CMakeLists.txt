@@ -124,7 +124,7 @@ add_executable(openemperor
     src/renderer/WalkerSpriteSet.cpp
     src/renderer/BuildingSprite.cpp
     src/renderer/WellFallbackRenderer.cpp
-    src/renderer/HealthPostFallbackRenderer.cpp
+    src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp
     src/renderer/RoadSpriteSet.cpp
 )
 target_include_directories(openemperor PRIVATE src)
@@ -473,13 +473,20 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-well-fallback-tests)
     add_test(NAME well-fallback-pixels COMMAND openemperor-well-fallback-tests)
     set_tests_properties(well-fallback-pixels PROPERTIES TIMEOUT 20)
+    add_executable(openemperor-original-elite-house-fallback-tests tests/OriginalEliteHouseFallbackRendererTests.cpp
+        src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
+    target_include_directories(openemperor-original-elite-house-fallback-tests PRIVATE src)
+    target_link_libraries(openemperor-original-elite-house-fallback-tests PRIVATE SDL3::SDL3)
+    openemperor_enable_warnings(openemperor-original-elite-house-fallback-tests)
+    add_test(NAME original-elite-house-fallback COMMAND openemperor-original-elite-house-fallback-tests)
+    set_tests_properties(original-elite-house-fallback PROPERTIES TIMEOUT 20)
     add_executable(openemperor-sandbox-view-tests tests/SandboxViewTests.cpp
         src/app/SandboxView.cpp src/renderer/BridgeRenderer.cpp src/renderer/RampRenderer.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/FireSpriteSet.cpp src/app/WalkerPose.cpp src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
         src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp)
     target_sources(openemperor-sandbox-view-tests PRIVATE src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-sandbox-view-tests PRIVATE openemperor-recovery SDL3::SDL3
         openemperor-version)
     openemperor_enable_warnings(openemperor-sandbox-view-tests)
@@ -489,7 +496,7 @@ if(BUILD_TESTING)
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp)
     target_sources(openemperor-original-economy-save-view-tests PRIVATE src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-original-economy-save-view-tests PRIVATE openemperor-recovery SDL3::SDL3
         openemperor-version)
     openemperor_enable_warnings(openemperor-original-economy-save-view-tests)
@@ -505,7 +512,7 @@ if(BUILD_TESTING)
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp
         src/renderer/RoadSpriteSet.cpp src/renderer/WellFallbackRenderer.cpp
-        src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-sandbox-gate-budget-view-tests PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version)
     openemperor_enable_warnings(openemperor-sandbox-gate-budget-view-tests)
@@ -537,7 +544,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-fire-overlay-pixel-tests PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version)
     openemperor_enable_warnings(openemperor-fire-overlay-pixel-tests)
@@ -548,7 +555,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-fire-inspector-view-tests PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version)
     openemperor_enable_warnings(openemperor-fire-inspector-view-tests)
@@ -561,7 +568,7 @@ if(BUILD_TESTING)
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp)
     target_sources(openemperor-menu-session-tests PRIVATE src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-menu-session-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-menu-session-tests)
     add_test(NAME menu-session-flow COMMAND openemperor-menu-session-tests)
@@ -573,7 +580,7 @@ if(BUILD_TESTING)
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp)
     target_sources(openemperor-sandbox-economy-guidance-view-tests PRIVATE src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-sandbox-economy-guidance-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-sandbox-economy-guidance-view-tests)
     add_test(NAME sandbox-economy-guidance-view COMMAND openemperor-sandbox-economy-guidance-view-tests)
@@ -586,7 +593,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-menu-map-rules-tests PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-menu-map-rules-tests)
@@ -614,7 +621,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/renderer/StoredGraphicsRenderer.cpp
         src/renderer/StoredCamera.cpp src/renderer/WalkerSpriteSet.cpp
         src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-menu-input-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-menu-input-tests)
     add_test(NAME menu-input-boundaries COMMAND openemperor-menu-input-tests)
@@ -984,6 +991,18 @@ if(BUILD_TESTING)
     add_test(NAME original-housing-stages-save COMMAND openemperor-original-housing-stages-save-tests)
     set_tests_properties(original-housing-stages-save PROPERTIES TIMEOUT 180)
 
+    add_executable(openemperor-original-elite-footprint-world-tests tests/OriginalEliteFootprintWorldTests.cpp)
+    target_link_libraries(openemperor-original-elite-footprint-world-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-elite-footprint-world-tests)
+    add_test(NAME original-elite-footprint-world COMMAND openemperor-original-elite-footprint-world-tests)
+    set_tests_properties(original-elite-footprint-world PROPERTIES TIMEOUT 300)
+
+    add_executable(openemperor-original-elite-footprint-save-tests tests/OriginalEliteFootprintSaveTests.cpp)
+    target_link_libraries(openemperor-original-elite-footprint-save-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-elite-footprint-save-tests)
+    add_test(NAME original-elite-footprint-save COMMAND openemperor-original-elite-footprint-save-tests)
+    set_tests_properties(original-elite-footprint-save PROPERTIES TIMEOUT 180)
+
     add_executable(openemperor-original-industry-world-tests tests/OriginalIndustryWorldTests.cpp)
     target_link_libraries(openemperor-original-industry-world-tests PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-original-industry-world-tests)
@@ -1229,7 +1248,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-market-walker-resource-tests PRIVATE
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-market-walker-resource-tests)
@@ -1239,7 +1258,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-service-walker-resource-tests PRIVATE
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-service-walker-resource-tests)
@@ -1249,7 +1268,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-health-walker-resource-tests PRIVATE
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-health-walker-resource-tests)
@@ -1259,7 +1278,7 @@ if(BUILD_TESTING)
         src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
         src/app/VisualSelection.cpp src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-market-walker-view-tests PRIVATE
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-market-walker-view-tests)
@@ -1269,7 +1288,7 @@ if(BUILD_TESTING)
         src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
         src/app/VisualSelection.cpp src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-service-walker-view-tests PRIVATE
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-service-walker-view-tests)
@@ -1279,7 +1298,7 @@ if(BUILD_TESTING)
         src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
         src/app/VisualSelection.cpp src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-health-walker-view-tests PRIVATE
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-health-walker-view-tests)
@@ -1290,7 +1309,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-road-ground-occlusion-tests PRIVATE
         openemperor-recovery openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-road-ground-occlusion-tests)
@@ -1389,7 +1408,7 @@ if(BUILD_TESTING)
         src/app/RoadDrag.cpp src/app/RoadTopology.cpp src/app/VisualSelection.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
         src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+        src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
     target_link_libraries(openemperor-scene-composition-tests PRIVATE openemperor-recovery
         openemperor-version SDL3::SDL3)
     openemperor_enable_warnings(openemperor-scene-composition-tests)
@@ -1452,7 +1471,7 @@ add_executable(openemperor-fire-visual-fixture EXCLUDE_FROM_ALL tools/FireVisual
     src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
     src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
 target_link_libraries(openemperor-fire-visual-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-fire-visual-fixture)
@@ -1463,7 +1482,7 @@ add_executable(openemperor-fire-inspector-fixture EXCLUDE_FROM_ALL tools/FireIns
     src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
     src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
 target_link_libraries(openemperor-fire-inspector-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-fire-inspector-fixture)
@@ -1474,7 +1493,7 @@ add_executable(openemperor-economy-start-fixture EXCLUDE_FROM_ALL tools/EconomyS
     src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
     src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
 target_link_libraries(openemperor-economy-start-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-economy-start-fixture)
@@ -1485,7 +1504,7 @@ add_executable(openemperor-market-walker-fixture EXCLUDE_FROM_ALL tools/MarketWa
     src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
     src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
 target_link_libraries(openemperor-market-walker-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-market-walker-fixture)
@@ -1496,7 +1515,7 @@ add_executable(openemperor-service-walker-fixture EXCLUDE_FROM_ALL tools/Service
     src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
     src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
 target_link_libraries(openemperor-service-walker-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-service-walker-fixture)
@@ -1507,7 +1526,7 @@ add_executable(openemperor-health-walker-fixture EXCLUDE_FROM_ALL tools/HealthWa
     src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
     src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
 target_link_libraries(openemperor-health-walker-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-health-walker-fixture)
@@ -1520,7 +1539,7 @@ add_executable(openemperor-city-v16-playthrough-fixture EXCLUDE_FROM_ALL tools/C
     src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
     src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp
     src/renderer/WalkerSpriteSet.cpp src/renderer/BuildingSprite.cpp src/renderer/RoadSpriteSet.cpp
-    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp)
+    src/renderer/WellFallbackRenderer.cpp src/renderer/HealthPostFallbackRenderer.cpp src/renderer/OriginalEliteHouseFallbackRenderer.cpp)
 target_link_libraries(openemperor-city-v16-playthrough-fixture PRIVATE
     openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-city-v16-playthrough-fixture)

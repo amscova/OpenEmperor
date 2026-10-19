@@ -1417,3 +1417,51 @@ Die vorhandenen relevanten OE-25-Prüfungen gelten für den unveränderten Code:
 tatsächlich geöffnete Softwareansichten. Große Elite-Footprints26,
 Original-Haussprites29, vollständiger Gate D und native/human Abnahme bleiben
 offen. Die Handoff-Änderungen betreffen ausschließlich Dokumentation.
+
+### OE-26: ausdrückliche Fortsetzung und Geometrievertrag am2026-10-19
+
+Der Nutzer beauftragt „las unns OE26 machen“. Die Pause ist für OE-26
+aufgehoben. Start ist der saubere, mit `origin/main` und Feature-Upstream
+abgeglichene Merge `f4447163c6dac035de45a9b1ce9ba2222e0e7546`.
+Vor Implementierung gilt der [Elite-Footprintvertrag26](../original-economy/elite-footprints-runtime.md).
+Die aktive Entwicklungsrevision wird26; keine Migration von25, keine Änderung
+der veröffentlichten Regeln1–9/Schemas1–25 oder der unveränderten policy3.
+
+Eine neue geometrische Objektidentität materialisiert den bezahlten leeren
+2×2-Eliteplot vor wirklichem Ersteinzug zu4×4, ohne neue ID, Kauf, Budget,
+Bewohner-, Stock- oder Timerkopie. Alle16 Claims und der zukünftige Eingang
+werden vorher geprüft. Einheitliche signed Höhe ist ein konservativer authored
+Guard nur dieser Transaktion. Bei Konflikt stagniert der leere Plot; spätere
+Elite-Stufenwechsel behalten4×4. Es wird weder eine Common→Elite-Konversion
+noch eine unbelegte15-stufige Größentabelle oder originale Ankerlogik erfunden.
+Hausabriss bleibt gesperrt, synchrone Vorbereitung bleibt ohne Save-Authority.
+Der Auftrag umfasst diese Aufgabe und ihren geprüften lokalen Commit;
+OE-27 wird durch diesen einzelnen Fortsetzungsauftrag nicht vorgezogen.
+
+
+### OE-26 abgeschlossen am 2026-10-19: eine geometrische Authority
+
+Plot39 ist ausschließlich leer2×2; Körper40 benötigt wirklichen Ersteinzug und
+bleibt für alle Elite12..17 bei4×4. Die exakt vorhandene BuildingId, der bezahlte
+Ursprung und HouseState bleiben erhalten. Es gibt keinen direkten Kauf40,
+Familienwechsel, freien Bewohner, zweiten Owner oder gespeichertes Sideflag.
+Der konservative signed Foundationguard gilt nur dieser authored Transaktion.
+Alle16 Claims und tatsächlichen Actor-Kanten werden vor Veröffentlichung
+geprüft. Konkurrenz wird pro Haus erneut geprüft, erfolgreiche Cacheänderungen
+werden gemeinsam vorbereitet; aktive Pfade/Cargo bleiben unangetastet.
+Genau ein aus Körper40 plus Ersteinzugsbeleg abgeleitetes autonomes
+Topologieereignis ist in beiden allgemeinen Restoreguards und im
+Produktionsledger gebunden; kein zusätzlicher Spielerbefehl wird erfunden.
+Die tatsächliche bezahlte Straße blockiert bei120, ihre reguläre Entfernung
+liefert keinen Refund/Einzug; erst160 materialisiert und bewohnt den Körper.
+Spätere Rückentwicklung erhält4×4 und die realen Bestände/Timer/Bewohner.
+
+Die technische Abnahme liest echte finale Berichte: 231
+Konfigurations-CTests,51 getrennte20k-Fortsetzungen,8 geöffnete Softwarebilder,
+72 historische Saves/Snapshots und1485 Policyfälle. Der erste Legacybuild-FAIL
+wird durch14 explizite Reportlabels behoben, alte Labelbytes bleiben exakt.
+Originale Familienseiten2/4 sind belegt; Preis80, Plotumwandlung, Zuzug,
+Workeradapter, gezeichnete Fallbackform und Anker bleiben authored.
+Originalsprites29, vollständiger Gate D27 und native/human Abnahme bleiben
+getrennt offen. OE-27 bleibt TODO; dieser Task erzeugt nur seinen eigenen
+lokalen Commit, keinen neuen Push/PR/Merge/Tag/Release.

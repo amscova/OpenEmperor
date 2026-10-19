@@ -69,7 +69,8 @@ struct Fixture {
         const bool all_categories=std::all_of(needs.begin(),needs.end(),[](int need){return need>0;});
         for (int x=0;x<30;x+=3)
             (void)buy(x==0 && all_categories ? sim::CommandType::PlaceOriginalElitePlot:
-                sim::CommandType::PlaceHousehold,{x,2},false);
+                sim::CommandType::PlaceHousehold,
+                all_categories ? (x==0 ? sim::Cell{0,0}:sim::Cell{x+1,2}):sim::Cell{x,2},false);
         if (all_categories) expected_population=68; // Nine Common7 + genuine Elite5.
         for (const auto& [command,x]:std::array{
                 std::pair{sim::CommandType::PlaceHealthPost,0},std::pair{sim::CommandType::PlaceServicePost,3},
@@ -90,7 +91,7 @@ struct Fixture {
             oe_production_fixture::PaperSupplyLayout layout;layout.farm={0,17};layout.field={2,17};
             layout.paper={4,17};layout.warehouse={8,17};
             for (int x=0;x<32;++x) layout.roads.push_back({x,16});
-            for (const int x:{6,9,12,15,18}) {layout.extra_homes.push_back({x,0});for (int y=0;y<4;++y) layout.roads.push_back({x-1,y});}
+            for (const int x:{7,10,13,16,19}) {layout.extra_homes.push_back({x,0});for (int y=0;y<4;++y) layout.roads.push_back({x-1,y});}
             paper=oe_production_fixture::add_paper_supply(world,layout);expected_population+=35;
         }
     }
@@ -116,7 +117,7 @@ struct Fixture {
         witnesses_match(value);const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==25,"Culture save lost its strict revision25 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==26,"Culture save lost its strict revision26 identity");
         auto restored=restore(parsed);check(restored.snapshot()==before,"Culture F5/F9 changed full authority");
         save::write_save(target,document(restored),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Culture canonical rewrite mutated authority");return bytes;
@@ -149,7 +150,7 @@ States lifecycle(Fixture& f) {
     });
     const auto target=f.world.original_economy_state()->houses.front().building_id;const auto& h=house(f.world,target);
     check(f.world.original_production_state()->services.witnesses.size()==9 && f.world.original_production_state()->services.trips.size()==9 &&
-          f.world.building(target).kind==sim::Object::OriginalElitePlot && orig::is_elite(h.type) &&
+          f.world.building(target).kind==sim::Object::OriginalEliteHouse && orig::is_elite(h.type) &&
           h.music && h.acrobat && h.drama && h.herbalist && h.acupuncture && h.ancestor && h.confucian && h.daoist && h.buddhist && h.water &&
           orig::needs_met(f.model->house_rules(),orig::ModelHouse::Shelter,h),"Independent school arrivals overwrote another actual service or failed authored culture needs");
     constexpr std::array roles{orig::ServiceRole::Herbalist,orig::ServiceRole::Acupuncture,orig::ServiceRole::Ancestor,
@@ -222,7 +223,7 @@ void hostile(Fixture& f,const States& states) {
             {home+"drama",0},{home+"drama",97},{home+"acrobat",96},{home+"music",255},
             {evaluation+"/service_witnesses/8",nullptr},{evaluation+"/input/drama",0},
             {"/world/couriers/"+std::to_string(ci)+"/role",20},{"/world/couriers/"+std::to_string(ci)+"/role",23},
-            {"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",26}}) {
+            {"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",27}}) {
         auto bad=good;bad.at(json::json_pointer(pointer))=value;reject(bad);
     }
     for (const auto& pointer:{provider+"/building_id",trip+"/target",trip+"/transfer/courier_id",trip+"/transfer/sequence",trip+"/dispatched_tick",trip+"/arrival_tick",witness+"/provider_id"})
