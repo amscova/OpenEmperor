@@ -51,6 +51,15 @@ Quellenpaare, echte SDL-F5/F9-Fälle sowie normale Menü-Prozessneustarts.
 Schemas1–25,72 komplexe Legacy-Saves/1485 Policyfälle und alle Originaldateien
 bleiben exakt. OE32/33 und Gate F bleiben offen; Originalgesamtparität PARTIAL.
 
+**Abschluss OE-32 am2026-10-20:** Langzeit-/Lastprüfung ohne Produktionsänderung.
+[Abnahme](../original-economy/longplay-validation.md):160 relevante
+Konfigurations-CTests PASS, echte20k/100k-Läufe, fünf Creator-/Restoreabläufe
+mit35 bytegleichen Dateipaaren, eine bezahlte82/58-Stadt mit zwei Transportnetzen und neun
+serielle Softwarebenchmarks.167/165/2-Kartencorpus,1485 Policies und alte Saves
+bleiben exakt. Der unverändert weiterlaufende Vier-Haus-Starter endet nach100k
+bei−22128Funds und116 echten Food-Versäumnissen; keine allgemeine Balancefreigabe.
+OE33 und Gate F bleiben offen; Originalgrafikparität PARTIAL, native/human NOT_RUN.
+
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
@@ -84,8 +93,8 @@ bleiben exakt. OE32/33 und Gate F bleiben offen; Originalgesamtparität PARTIAL.
 | OE-28 | PASS | 15dd6da9183617f39f711df2b2ab1598f6595cb9 | `.local/original-economy/oe28/final-validation.json` | Vier Inspectoransichten, Supply/DES/Risk-Overlays;93 gezielte CTests, zwei20k-Prozessreplays, zehn geöffnete1×/2×/4×-Softwarebilder; Authority/alte Pixel exakt; Originalsprites29 offen |
 | OE-29 | PASS | 64cbfcb7c13a4b162cfb8bab118e45ef99b09d3d | `.local/original-economy/oe29/final-validation.json` |15 belegte Typ3..17-Bilder, statische Variante0;174 gezielte CTests/12 geöffnete finale Softwarebilder; alte Pixel/Authority exakt; Vacant/Plot-Fallback, Originalszene UNKNOWN/Gesamtwirtschaft PARTIAL, native/human offen |
 | OE-30 | PASS | 324fc8fd765c4c4485d7d69e97e39530a504b95d | `.local/original-economy/oe30/final-validation.json` | Optionaler Rule10-Menüstart,87 bezahlte Commands/4 Häuser, echte Auf-/Abstiege und Warenverbrauch;711 volle CTests,6 separate20k-Prozesse,51 bytegleiche Menübilder und72 Legacy-Saves/1485 Policyfälle exakt. Gate E technisch PASS; Recovery31/Human/ganze Originalgrafik offen |
-| OE-31 | PASS | — | `.local/original-economy/oe31/final-validation.json` | Aktive modellgebundene Recovery;219 relevante Konfigurations-CTests,30 echte Recovery-Prozessfälle/3 Quellenpaare,25-Schema-Bytekorpus und72 Legacy-Saves/1485 Policyfälle exakt; Capture-/Metadaten-/Historienfehler gehärtet. Gate F/Originalgesamtparität offen |
-| OE-32 | TODO | — | — | — |
+| OE-31 | PASS | d6226ed2de02413f4d462d0b968fe13b6f3d9f69 | `.local/original-economy/oe31/final-validation.json` | Aktive modellgebundene Recovery;219 relevante Konfigurations-CTests,30 echte Recovery-Prozessfälle/3 Quellenpaare,25-Schema-Bytekorpus und72 Legacy-Saves/1485 Policyfälle exakt; Capture-/Metadaten-/Historienfehler gehärtet. Gate F/Originalgesamtparität offen |
+| OE-32 | PASS | — | `.local/original-economy/oe32/final-validation.json`, OE-00/`oe32-final-verification/` |160 relevante Konfigurations-CTests, echte20k/100k-/35 Bytepaar-Restarts, bezahlte82/58-Districts, neun serielle Benchmarks;167/165/2 und1485 Policies exakt. Fester Starter nach100k defizitär; Originalgrafik PARTIAL, Gate F/OE33 offen |
 | OE-33 | TODO | — | — | — |
 
 ## Phasen-Gates
@@ -3380,3 +3389,45 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   LSan auf diesem Host nicht unterstützt und deshalb nicht behauptet.
   Einige Originalobjektgrafiken bleiben Fallbacks; Gesamtparität PARTIAL.
   Nur lokaler OE31-Commit, kein Push/Merge/Tag/Release; OE32 unbegonnen.
+
+### OE-32 – 2026-10-20, Basisd6226ed2
+
+- **Vertrag:** [longplay-contract.md](../original-economy/longplay-contract.md)
+  vor Implementierung; aktive Rule10-Grenzen82/58 und getrennte Ledgerbudgets.
+  Keine Produktionsänderung: alle261 `src/`-Dateien, Rule10/Schema26/Policy3/
+  Entwicklungsrevision27 unverändert. Der vollständige Lastfall verwendet nach
+  belegtem Xia-/Handan-Platzmangel ausdrücklich authored Gelände und Originalmodell.
+  Zwei getrennte Transportnetze teilen weiterhin Funds und Workforce.
+- **CTests:** je50 relevante Debug/Release/ASan+UBSan PASS, danach je fünf
+  betroffene Source3-Tests in Release/Sanitizer erneut PASS:160 akzeptierte
+  Konfigurationsläufe,0 finale Fehler/Skips. Debug wurde während zweier reiner
+  QA-Dateifixes ausgeführt;106 alte Executables bleiben bytegleich, vier neue
+  Debugbinaries sind vor dem Beginn ihrer fünf Tests an Source3 gebunden.
+  Kein gleicher Gesamtquellstand über diesen Debugbatch behauptet. Finale
+  Builds warnungsfrei; ASan+UBSan mit halt-on-error/detect_leaks=0, LSan unsupported.
+- **Echte Langläufe:** fünf separate Seed-/unrestored-Creator-/Restoreabläufe,
+  15 PIDs und35 ganze Bytepaare;25 Roh-Checkpoints unabhängig geprüft.
+  Xia20k/100k und voller82/58-District20k, zusätzlich Debug/Sanitizer20k.
+  14 konfigurationsübergreifende und21 Source2/3-Paare exakt. Goods-/Food-/Cargo-/
+  Reservations-/Funds-Bilanzen erhalten; keine Bewohner-, Waren- oder Geldinjektion.
+  Originalkrankheit health-neutral, natürliche Krankheit separat in Legacy belegt.
+- **Messbefunde:** Xia100k82 Auf-/76 Abstiege,116 wirkliche Foodversäumnisse,
+  3288 Warenankünfte und−22128Funds. District20k76/75,679 Foodversäumnisse,
+  1213 Warenankünfte und−43787Funds. Keine Behauptung universeller Unrentabilität,
+  positiver Balance, lückenloser Versorgung oder Starvation-Freiheit.
+  Neun serielle Releasebenchmarks: mediane mittlere Tickdauer Legacy8,63µs,
+  Xia-Starter16,83µs und volle Stadt123,91µs; Software-Renderaufruf1,909/2,030/
+  1,672ms. Volle Stadt enthält Fallbackgrafiken; keine native FPS-/Originalparität.
+  View-/Previewarbeit, sichtbare Kapazitäten und Caches geprüft; keine Heapvollanalyse.
+- **Bestand:** vollständiger167/165/2-Corpus,1485 Policies,72 ganze alte
+  SaveDocuments/Snapshots und zehn Bridge-/elf Rampenrestartpaare exakt.
+  Zusätzlich101 repräsentative Schemas1–25-Dateien je Konfiguration exakt.
+  Alle1464 Originaldateien/819711091Bytes in SHA/Modus/mtime und alle AGENTS exakt.
+  Keine persönlichen Saves/PrefPaths verwendet. Source3-Freeze585 Pfade,
+  Digest `be00e194e2d1998744218b503b113a946f87388cb189314061b81e9649e8a365`.
+- **Beleg:** `.local/original-economy/oe32/final-validation.json`,7755Bytes,
+  SHA256 `b072c760de3046c02f0d3397cbf2e1f6ef5769aabb7220f8e9ce986fee0d8f1b`.
+  Reproduzierbare Befehle, Messgrenzen und erhaltene Vorläufe stehen in
+  [longplay-validation.md](../original-economy/longplay-validation.md).
+  OE32 technisch PASS; native/human NOT_RUN, Originalgrafikparität PARTIAL.
+  Nur lokaler Task-Commit; kein Push/Merge/Tag/Release. OE33/Gate F offen.

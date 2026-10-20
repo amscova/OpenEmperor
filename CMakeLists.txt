@@ -1691,6 +1691,49 @@ openemperor_enable_warnings(openemperor-original-roads-fixture)
 
 get_target_property(bridge_fixture_sources openemperor-city-v16-playthrough-fixture SOURCES)
 list(REMOVE_ITEM bridge_fixture_sources tools/CityV16PlaythroughFixture.cpp)
+# OE32 on-demand measurements use unchanged production simulation/View code.
+# Share these presentation objects only between the new QA executables.
+add_executable(openemperor-original-longplay-acceptance EXCLUDE_FROM_ALL
+    tests/OriginalLongplayAcceptance.cpp
+    src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+target_link_libraries(openemperor-original-longplay-acceptance PRIVATE
+    openemperor-recovery SDL3::SDL3)
+openemperor_enable_warnings(openemperor-original-longplay-acceptance)
+if(BUILD_TESTING)
+    add_executable(openemperor-original-longplay-tests tests/OriginalLongplayTests.cpp
+        src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+    target_link_libraries(openemperor-original-longplay-tests PRIVATE
+        openemperor-recovery SDL3::SDL3)
+    openemperor_enable_warnings(openemperor-original-longplay-tests)
+    add_test(NAME original-longplay-budgets-synthetic COMMAND openemperor-original-longplay-tests --synthetic)
+    add_test(NAME original-longplay-budgets-real COMMAND openemperor-original-longplay-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-longplay-budgets-synthetic original-longplay-budgets-real
+        PROPERTIES TIMEOUT 180)
+    add_library(openemperor-original-longplay-view-support STATIC ${bridge_fixture_sources})
+    target_link_libraries(openemperor-original-longplay-view-support PUBLIC
+        openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-longplay-view-support)
+    add_executable(openemperor-original-longplay-view-tests tests/OriginalLongplayViewTests.cpp)
+    target_link_libraries(openemperor-original-longplay-view-tests PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-original-longplay-view-tests)
+    add_dependencies(openemperor-original-longplay-view-tests openemperor)
+    add_executable(openemperor-original-longplay-benchmark EXCLUDE_FROM_ALL tests/OriginalLongplayBenchmark.cpp)
+    target_link_libraries(openemperor-original-longplay-benchmark PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-original-longplay-benchmark)
+    add_dependencies(openemperor-original-longplay-benchmark openemperor)
+    foreach(longplay_scenario original-starter original-districts)
+        add_test(NAME original-longplay-view-${longplay_scenario}
+            COMMAND openemperor-original-longplay-view-tests --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}"
+                --resources "${OPENEMPEROR_TEST_RESOURCE_ROOT}" --scenario ${longplay_scenario})
+        set_tests_properties(original-longplay-view-${longplay_scenario} PROPERTIES TIMEOUT 240)
+    endforeach()
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME original-longplay-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s "${CMAKE_SOURCE_DIR}/tests" -p OriginalLongplayRunnerTests.py)
+        set_tests_properties(original-longplay-runner-contract PROPERTIES TIMEOUT 30)
+    endif()
+endif()
 add_executable(openemperor-original-influence-fixture EXCLUDE_FROM_ALL tools/OriginalInfluenceFixture.cpp)
 target_link_libraries(openemperor-original-influence-fixture PRIVATE openemperor-persistence)
 openemperor_enable_warnings(openemperor-original-influence-fixture)

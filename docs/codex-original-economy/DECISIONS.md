@@ -1624,3 +1624,40 @@ eingeführt. Alte Defaults/Savebytes und sämtliche Originaldateien bleiben exak
 belegt; keine volle241er- oder Gate-F-Abnahme wird behauptet. Native/human und
 vollständige Originalgrafikparität bleiben offen. OE32/33 bleiben unbegonnen;
 nur der autorisierte lokale Task-Commit wird erstellt.
+
+### OE32 vor Implementierung: messbare Langzeit- und Lastprüfung
+
+Der Nutzer beauftragt32. Der [Vertrag](../original-economy/longplay-contract.md)
+bindet die vorhandene aktive82/58-Grenze, echte20k/100k-/Restartläufe, zwei
+bezahlte Transportdistricts und getrennte Original-Feuer-/Legacy-Krankheitsbelege.
+Keine Rule-/Schema-/Modelländerung, kein künstlicher Versorgungserfolg und
+keine universelle Heap-/Frameratebehauptung. Gate F und33 bleiben offen.
+
+### OE32: Aussagegrenzen der tatsächlichen Langläufe
+
+Der stationäre Vier-Häuser-Starter erreicht nach2000 Warmupticks und100000
+beobachteten Ticks −22128Funds;116 echte Food-Konsumversäumnisse bleiben
+ausgewiesen. Das gilt für diesen festen Aufbau ohne weitere Spielerexpansion,
+nicht als Beweis allgemein unmöglicher positiver Rule10-Finanzierung. Der
+volle82/58-Aufbau ist ein Lasttest mit allen Quellen, kein optimierter Bauplan.
+Keine Modellzahl, Geldquelle oder Spielregel wird für ein positives Ergebnis
+geändert. Originalkrankheit bleibt neutral/unsupported; der getrennte Legacy-
+Kontrollfall belegt natürliche Krankheit und Feuer ohne Snapshotinjektion.
+
+Die vorhandenen82/58- und Ledgergrenzen erhalten lediglich ein QA-Budgetformat1.
+Sichtbare Vektorkapazitäten, Prozess-RSS und Software-Renderzeiten sind begrenzte
+Messungen. Sie begründen keine vollständige Heapanalyse, native Framerate oder
+Originalgrafikparität. OE33 und Gate F werden damit nicht vorweggenommen.
+
+### OE32 abgeschlossen: technische Stabilität mit ausgewiesenen Defiziten
+
+Die [Abnahme](../original-economy/longplay-validation.md) bindet160 relevante
+Konfigurations-CTests, fünf echte Creator-/Restoreabläufe mit35 vollständigen
+Bytepaaren, neun serielle Softwarebenchmarks und den exakten167/165/2-Corpus/
+1485-Policy-/Legacy-Savevergleich. Alle261 Produktionsdateien und sämtliche
+Originaldateien bleiben exakt. Source3 bindet585 Quellpfade; die gemischte
+Debug-Testphase ist über unveränderte alte und vor Testbeginn gehashte neue
+Executables ausdrücklich nachgewiesen, nicht als unveränderter Gesamtstand
+umetikettiert. Die finanziellen und Versorgungslücken bleiben reale Messbefunde.
+OE32 ist technisch PASS; Originalgrafikparität PARTIAL, native/human NOT_RUN,
+Gate F und OE33 offen. Es folgt ausschließlich der autorisierte lokale Commit.

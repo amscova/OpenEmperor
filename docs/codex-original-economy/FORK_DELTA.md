@@ -142,3 +142,18 @@ Die neue QA erzeugt reale Konsum-/Devolutions-/Reservierungs-/Debt-Zustände, st
 Foodqualität, Bestände oder Versorgung für einen erfolgreichen Restore zu setzen.
 Die tatsächlichen Prüfungen, Legacy-Bytevergleiche und offen bleibende
 Gesamtparität stehen in [save-recovery-validation.md](../original-economy/save-recovery-validation.md).
+
+## OE-32 – beobachtete Langzeit- und Lastgrenzen
+
+Kein zusätzlicher Forkcode, kein neues Limit in der World und keine neue
+gespeicherte Authority werden übernommen. Die QA kauft die vorhandenen
+Objekte, tickt dieselbe produktive Simulation und vergleicht einen ununterbrochenen
+Creator mit einem separaten Restoreprozess. Ein gültiger authored Maximalfall
+mit unverändertem Originalmodell bleibt vom echten Xia-Langlauf getrennt.
+
+Schulden, echte Food-Konsumversäumnisse und wiederholte Hausrückstufungen werden
+als Ergebnisse erhalten. Sie öffnen keine automatische Finanzierungs- oder
+Modellfreigabe. Die Krankheit des unveränderten Legacy-Kontrollfalls ist kein
+Beleg für Originalkrankheit. Messfenster, Quellenbindung, Kapazitätsgrenzen und
+verbleibende Paritätsgrenzen stehen in
+[longplay-validation.md](../original-economy/longplay-validation.md).
