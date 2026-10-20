@@ -106,7 +106,7 @@ Push oder automatischer Schlussmerge.
 | OE-30 | PASS | 324fc8fd765c4c4485d7d69e97e39530a504b95d | `.local/original-economy/oe30/final-validation.json` | Optionaler Rule10-Menüstart,87 bezahlte Commands/4 Häuser, echte Auf-/Abstiege und Warenverbrauch;711 volle CTests,6 separate20k-Prozesse,51 bytegleiche Menübilder und72 Legacy-Saves/1485 Policyfälle exakt. Gate E technisch PASS; Recovery31/Human/ganze Originalgrafik offen |
 | OE-31 | PASS | d6226ed2de02413f4d462d0b968fe13b6f3d9f69 | `.local/original-economy/oe31/final-validation.json` | Aktive modellgebundene Recovery;219 relevante Konfigurations-CTests,30 echte Recovery-Prozessfälle/3 Quellenpaare,25-Schema-Bytekorpus und72 Legacy-Saves/1485 Policyfälle exakt; Capture-/Metadaten-/Historienfehler gehärtet. Gate F/Originalgesamtparität offen |
 | OE-32 | PASS | 2fbf27066ad277b15bcc4bbfc176bd3befb95c5e | `.local/original-economy/oe32/final-validation.json`, OE-00/`oe32-final-verification/` |160 relevante Konfigurations-CTests, echte20k/100k-/35 Bytepaar-Restarts, bezahlte82/58-Districts, neun serielle Benchmarks;167/165/2 und1485 Policies exakt. Fester Starter nach100k defizitär; Originalgrafik PARTIAL, Gate F/OE33 offen |
-| OE-33 | PASS | — | `.local/original-economy/oe33/final-validation.json`, OE-00/`oe33-final-verification/` | Technischer Vergleich/Übergabe:738 volle CTests,222 historische Forkkontrollen,675 aktuelle Git-Blobs/13 gleiche Kernquellen,21 neue Creator-/Restorepaare; alter Bestand exakt. Gesamtziel/Gate F PARTIAL; Originalgrafik/obere bezahlte Kette/Originalabläufe offen, native/human NOT_RUN. |
+| OE-33 | PASS | 5c43618570cab677fc1447039ca58fbf90d6996f | `.local/original-economy/oe33/final-validation.json`, OE-00/`oe33-final-verification/` | Technischer Vergleich/Übergabe:738 volle CTests,222 historische Forkkontrollen,675 aktuelle Git-Blobs/13 gleiche Kernquellen,21 neue Creator-/Restorepaare; alter Bestand exakt. Gesamtziel/Gate F PARTIAL; Originalgrafik/obere bezahlte Kette/Originalabläufe offen, native/human NOT_RUN. |
 
 ## Phasen-Gates
 
@@ -3494,3 +3494,19 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   nach100k−22128Funds/116 Foodversäumnisse; kein universelles Balanceurteil.
   Native/human NOT_RUN. Ein lokaler Taskcommit, kein Push/Merge/Tag/Release;
   kein weiterer nummerierter Prompt und keine als erledigt umgedeutete Lücke.
+
+### Zwischenmerge OE26–33 – ausdrücklicher Nutzerauftrag am2026-10-20
+
+Nach der OE33-Übergabe mit ausdrücklich genanntem PARTIAL-Gesamtziel fragt
+der Nutzer „jetzt mregen?“. Dies beauftragt den regulären Entwicklungsmerge
+des geprüften OE26–33-Stands nach main samt Dokumentations-Handoff und PR.
+Keine Änderung der Originalparitäts-/Gate-F-Einstufung, keine Umsetzung der
+offenen Grafik-/Originalablauflücken und kein Tag/Release. Details im
+[Merge-Handoff](../original-economy/merge-through-oe33.md).
+
+Code unverändert zur tatsächlichen738-CTest-Abnahme und21 neuen ganzen
+Neuprozesspaaren; alle585 Sourcepfade/261 Produktionsdateien und1464 Originale
+erneut geprüft. origin/main f4447163 ist unveränderter Vorfahr des geprüften
+Heads5c436185; acht Taskcommits bleiben erhalten. Dieser Handoff ändert nur
+Dokumentation, keine neue CTest-Abnahme behauptet. Exakten PR-Head und reale
+Checks vor Merge prüfen; kein Squash, Rebase, Force-Push oder Branchlöschen.

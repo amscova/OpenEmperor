@@ -1716,3 +1716,22 @@ Nur der eigene lokale OE33-Dokumentationscommit wird erstellt. Kein Tag,
 Release, Push oder Schlussmerge unter einem behaupteten Gesamt-PASS. Das Paket
 endet mit33; offene Funktionen bleiben konkret benannte Folgearbeit, keine
 neue erfundene OE34-Freigabe und keine erledigt markierten Fallbacks.
+
+### Entwicklungsmerge OE26–33 – ausdrückliche Nutzerfreigabe am2026-10-20
+
+Der Nutzer beauftragt nach dem OE33-Abschluss „jetzt mregen?“. Die bereits
+mitgeteilte Gesamtziel-/Gate-F-Einstufung PARTIAL bleibt bestehen. Dies ist
+jetzt die ausdrückliche Freigabe für Push/PR/regulären Merge des getesteten
+Entwicklungsstands nach main, kein automatischer Schlussmerge unter einem
+behaupteten Gesamt-PASS. Der bisherige auf den OE33-Berichtsauftrag begrenzte
+Push-/Merge-Ausschluss wird nur insoweit aufgehoben; Tags/Releases und jede
+unbelegte Originalparitätsbehauptung bleiben ausgeschlossen.
+
+[Handoff](../original-economy/merge-through-oe33.md): Basis f4447163,
+getesteter Stand bis5c436185, acht eigenständige OE26–33-Taskcommits plus
+Dokumentations-Handoff. Alle585 Sourcepfade bleiben identisch zur tatsächlichen
+738-Test-Abnahme, alte Saves/Policies und Originale erhalten. PR-Mergefähigkeit,
+CI/Reviews und exakte Head-SHA vor regulärem Merge prüfen. Keine Historien-
+umschreibung, kein Squash/Rebase/Force-Push, kein Branchlöschen; danach nur
+Fast-forward-Synchronisierung. Offene Funktionen/Human Acceptance werden durch
+den Entwicklungsmerge nicht als erledigt markiert.

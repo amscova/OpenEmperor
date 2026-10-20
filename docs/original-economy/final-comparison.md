@@ -341,7 +341,7 @@ zugeordnet wurden.
   spätere Paritätsbehauptungen benötigt.
 - [ ] Native menschliche visuelle Abnahme separat durchgeführt.
 
-**Keine Tags, kein Release und kein automatischer finaler Merge.** Ein
+**OE33-Abschlussentscheidung: keine Tags, kein Release und kein automatischer finaler Merge.** Ein
 abgeschlossener technischer Vergleich kann als eigener OE33-Taskcommit
 festgehalten werden, während das Gesamtziel und Gate-F-Gesamtbewertung wegen
 fehlender verpflichtender Funktionen **PARTIAL** bleiben. Fehlende Funktionen
@@ -349,6 +349,15 @@ werden dadurch weder erledigt noch in eine hypothetische spätere Version
 umgedeutet. Innerhalb des nummerierten Pakets folgt kein OE34; offene Arbeit
 braucht konkrete, getrennt belegte Folgeaufträge und dieselben
 Original-/Authoritygrenzen.
+
+## Nachfolgende ausdrückliche Mergefreigabe
+
+Nach dieser Übergabe beauftragt der Nutzer am2026-10-20 „jetzt mregen?“.
+Der [gesonderte Handoff](merge-through-oe33.md) erlaubt den regulären Merge des
+geprüften OE26–33-Entwicklungsstands nach main. Dies ersetzt den damaligen
+auf den Berichtsauftrag begrenzten Push-/Merge-Ausschluss, nicht die Bewertung
+von Originalfunktionen oder Gate F. Gesamtziel bleibt PARTIAL, native/human
+NOT_RUN; kein Tag/Release, kein Squash und kein Branchlöschen.
 
 [fork-compare]: https://github.com/amscova/OpenEmperor/compare/d861d2912337c09751cb68196f85d5a30752726e...992f90ce3071f66cff3d82b31aaa7550b018adb5
 [fork-world]: https://github.com/amscova/OpenEmperor/blob/992f90ce3071f66cff3d82b31aaa7550b018adb5/src/simulation/World.h#L222-L239

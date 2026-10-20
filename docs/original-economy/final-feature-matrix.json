@@ -19,7 +19,7 @@
     "not supported": "Feature or acceptance evidence absent; no substitute PASS."
   },
   "overall_original_goal": "PARTIAL",
-  "release_decision": "No tag/release; no automatic final merge under incomplete original goal.",
+  "release_decision": "No tag/release. Explicit user-authorized regular development merge through OE33; overall original goal and Gate F remain PARTIAL. See docs/original-economy/merge-through-oe33.md.",
   "gate_f_final_run": {
     "technical_status": "PASS",
     "ctest_executions": 738,
