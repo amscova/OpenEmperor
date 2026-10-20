@@ -1,6 +1,6 @@
 # Bounded static quarry presentation
 
-This presentation correction starts at clean HEAD `a5c2043742d7302a82b5c2176110df0e4305767b`, following the [MPWall1_S diagnosis](../rendering/mpwall1-s-quarry-placeholders.md). It replaces saved numbered quarry artwork through independently interpreted selector behavior. It does not reconstruct original quarry gameplay, extraction, complete restoration or first-draw parity.
+This presentation correction starts at clean HEAD `a5c2043742d7302a82b5c2176110df0e4305767b`. It replaces saved numbered quarry artwork through independently interpreted selector behavior. It does not reconstruct original quarry gameplay, extraction, complete restoration or first-draw parity.
 
 ## Pinned evidence
 

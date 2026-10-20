@@ -115,8 +115,7 @@ identity, placement costs, goods/services, status/link lifecycle or original
 ownership. All seven candidate mappings remain `functional=Inferred` and
 `mechanics_identity=Unknown`; none is upgraded by this research.
 
-No World footprint is resized, no source status or saved state is invented,
-and no build/restore/funding gate changes. The separate
-[OE-12 blockers](../original-economy/desirability-integration-blockers.md) remain
-binding. Full Gate-B suites, original execution and human acceptance are not
-claimed, and OE-13 is not released.
+This research changes no World footprint, source status, saved state or
+build/restore/funding gate. Admitted runtime behavior requires the separate
+[versioned contract](../original-economy/architecture-map.md).
+Static source linkage does not establish original execution or human acceptance.

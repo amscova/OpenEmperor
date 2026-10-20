@@ -5,7 +5,7 @@ This OE-22 investigation extends the bounded
 [spawn-counter](original-service-spawn-contract.md) evidence. It establishes a
 concrete initial producer of the previously opaque religion condition. It does
 not establish every archive, reset or session transition. The
-[Revision22 integration](../original-economy/religion-runtime.md) deliberately
+[The runtime integration](../original-economy/architecture-map.md#paid-sources-inventories-and-actual-arrivals) deliberately
 uses authored behavior at the two Confucian boundaries described below.
 
 The read-only executable is `Emperor.exe`, SHA-256

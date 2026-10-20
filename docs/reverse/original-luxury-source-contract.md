@@ -1,8 +1,8 @@
 # Original luxury sources and Academy materials
 
-This is the bounded source proof behind the [revision24 integration](../original-economy/luxury-runtime.md). The read-only PE32 executable has SHA256 `6373328bfc5c4886d9abc9544eb706e89e7d465b18176ea8205fe27aaee53c0e`; the model file has SHA256 `7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6`. Addresses are static VAs, not RVAs or save offsets. The Original executable was not run. Original tables, instruction listings and asset bytes remain private.
+This is the bounded source proof behind the [luxury integration](../original-economy/architecture-map.md#paid-sources-inventories-and-actual-arrivals). The read-only PE32 executable has SHA256 `6373328bfc5c4886d9abc9544eb706e89e7d465b18176ea8205fe27aaee53c0e`; the model file has SHA256 `7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6`. Addresses are static VAs, not RVAs or save offsets. The Original executable was not run. Original tables, instruction listings and asset bytes remain private.
 
-The retained private `oe24/research/luxury-source-facts.json` records234 selected byte/call/slot assertions and25 contiguous windows containing1326 instructions/4100 bytes. Independent Logging and Orchard checkers each record52 additional narrow checks with separate PE mapping. These reports verify unchanged source bytes and metadata. They establish static linkage, not gameplay, decoded-image, native or human acceptance. Current implementation results belong in [PROGRESS](../codex-original-economy/PROGRESS.md); none are asserted here.
+The retained private `oe24/research/luxury-source-facts.json` records234 selected byte/call/slot assertions and25 contiguous windows containing1326 instructions/4100 bytes. Independent Logging and Orchard checkers each record52 additional narrow checks with separate PE mapping. These reports verify unchanged source bytes and metadata. They establish static linkage, not gameplay, decoded-image, native or human acceptance. See [testing](../testing.md) for current verification commands.
 
 With the same lawful local installation, the private checks are reproduced from the repository root:
 

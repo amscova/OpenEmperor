@@ -2,11 +2,10 @@
 
 This adds static source-selection evidence to the
 [OE-03 numerical contract](original-desirability-contract.md). It does not
-implement the blocked World integration. **OE-12 and Gate B remain BLOCKED**;
-the [integration blockers](../original-economy/desirability-integration-blockers.md)
-and [progress record](../codex-original-economy/PROGRESS.md#oe-12--2026-10-16-basisdf29393--blocked)
-retain their scope. No construction, budget, source gate, saved status or restore
-permission changes follow from this research.
+implement World integration. Construction, budget, source gates, saved status
+and restore permissions require separate versioned contracts; this static
+research grants none. The current admitted integration is documented in the
+[runtime reference](../original-economy/architecture-map.md#houses-geometry-finance-and-presentation).
 
 ## Source and reproduction
 
@@ -122,8 +121,8 @@ terrain/wall admission and an identity between an authored World Object and an
 original influence source remain unverified. Model-file identity remains
 separate from instance identity.
 
-The strict [OE-12 decision and blockers](../original-economy/desirability-integration-blockers.md)
-therefore continue to apply. There is no new production cache, source purchase,
-removal path, extra funding, save migration, original-game execution or human
-acceptance result. A successful static byte check is not an OE-12 feature PASS
-or a Gate-B release.
+These findings alone authorize no production cache, source purchase, removal,
+extra funding or save migration. Those belong to the separately versioned
+[runtime contracts](../original-economy/architecture-map.md).
+A successful static byte check establishes neither original-game execution
+nor human acceptance.

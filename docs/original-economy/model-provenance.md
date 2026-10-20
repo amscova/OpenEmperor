@@ -7,7 +7,7 @@ OE-16 additionally names `ModelBuilding::HempFarm = 192` and
 The explicit active preparation validates both named rows; historical
 seven-row preparation remains unchanged. Funds conversion, field ownership,
 production timing and stock bins are separately documented authored rules in
-the [Hemp runtime contract](hemp-runtime.md). Resource0 does not prove a
+the [runtime contracts](architecture-map.md). Resource0 does not prove a
 commodity code, recipe or production period.
 
 This register identifies file columns and ordered rows. It does not make those
@@ -295,6 +295,5 @@ difficulties, source-label failures, checked arithmetic and every Object case.
 points through a separate text-point scanner, named access, and2255 checked
 transform queries across the real source fields. Missing optional dependencies
 produce explicit SKIP77; an existing malformed or different golden revision
-fails. These augment the always-on raw-reader tests, not replace them. Actual
-configurations and results are recorded in
-[PROGRESS.md](../codex-original-economy/PROGRESS.md).
+fails. These augment the always-on raw-reader tests, not replace them. See
+[testing.md](../testing.md) for current build and test instructions.
