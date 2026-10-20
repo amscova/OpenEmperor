@@ -342,6 +342,64 @@ void profile_checks(Fixture& fixture) {
     write(fixture.data/"DATA/building.555",fixture.bitmap);
     fixture.save(fixture.valid());
 }
+void append_checks(SDL_Renderer* renderer) {
+    using namespace openemperor;
+    constexpr std::array<std::uint8_t,4> background{20,30,40,255};
+    const auto image=[](std::array<std::uint8_t,4> color) {
+        assets::RgbaImage result;result.width=4;result.height=4;result.pixels.resize(64);
+        for (std::size_t at=0;at<result.pixels.size();at+=4)
+            std::copy(color.begin(),color.end(),result.pixels.begin()+static_cast<std::ptrdiff_t>(at));
+        return result;
+    };
+    assets::BuildingVisualProfile core;core.unique_images.push_back(image({0,255,0,255}));
+    assets::BuildingVisualEntry old_entry;old_entry.image_index=0;
+    BuildingSprite sprite;
+    performance::set_enabled(true);performance::reset();
+    sprite.initialize(renderer,core);
+    check(sprite.texture_count()==1 && performance::counter(performance::Counter::TextureUploads)==1,
+          "append control did not upload its core exactly once");
+    auto combined=core;
+    auto added=image({0,0,255,255});added.pixels[3]=0; // An actual transparent top-left pixel.
+    combined.unique_images.push_back(std::move(added));
+    assets::BuildingVisualEntry new_entry;new_entry.image_index=1;
+    combined.original_house_prepared=true;
+    combined.original_house_entries[1]=combined.original_house_entries[2]=new_entry;
+    sprite.append(combined);
+    check(sprite.texture_count()==2 && BuildingSprite::live_texture_count()==2 &&
+          performance::counter(performance::Counter::TextureUploads)==2,
+          "House append uploaded the existing core twice or duplicated a shared image");
+    sprite.append(combined);
+    check(sprite.texture_count()==2 && performance::counter(performance::Counter::TextureUploads)==2,
+          "an unchanged prepared pool uploaded its images again");
+    const auto pixels_unchanged=[&] {
+        check(SDL_SetRenderDrawColor(renderer,background[0],background[1],background[2],background[3]) &&
+              SDL_RenderClear(renderer) && sprite.draw({100,100},1,combined,new_entry,true),"appended preview draw");
+        check(pixel(renderer,100,100)==background && pixel(renderer,101,100)[2]>100 && pixel(renderer,101,100)[2]<255,
+              "appended texture lost transparent pixels or preview alpha");
+        check(SDL_RenderClear(renderer) && sprite.draw({100,100},1,combined,new_entry) &&
+              sprite.draw({120,100},1,combined,old_entry),"retained core and appended draw");
+        check(pixel(renderer,100,100)==background && pixel(renderer,101,100)==std::array<std::uint8_t,4>{0,0,255,255} &&
+              pixel(renderer,120,100)==std::array<std::uint8_t,4>{0,255,0,255},
+              "append changed cached alpha, retained core pixels or final alpha restoration");
+    };
+    pixels_unchanged();
+    auto over_budget=combined;over_budget.unique_images.push_back(image({255,0,0,255}));
+    rejects([&]{sprite.append(over_budget,128);},"append ignored its complete-pool RGBA budget");
+    check(sprite.texture_count()==2 && BuildingSprite::live_texture_count()==2 &&
+          performance::counter(performance::Counter::TextureUploads)==2,
+          "refused append budget allocated or removed existing textures");
+    auto broken=over_budget;
+    assets::RgbaImage truncated;truncated.width=4;truncated.height=4;
+    broken.unique_images.push_back(std::move(truncated));
+    rejects([&]{sprite.append(broken);},"partial append accepted a malformed later image");
+    check(sprite.texture_count()==2 && BuildingSprite::live_texture_count()==2 &&
+          performance::counter(performance::Counter::TextureUploads)==3,
+          "partial append did not roll back its already-created new texture while retaining the core");
+    rejects([&]{sprite.append(core);},"append accepted a shorter existing image prefix");
+    pixels_unchanged();
+    performance::set_enabled(false);sprite.shutdown();
+    check(BuildingSprite::live_texture_count()==0,"append textures leaked at shutdown");
+}
 void pixels_and_depth(Fixture& fixture) {
     using namespace openemperor;
     check(SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy") && SDL_Init(SDL_INIT_VIDEO),"SDL init");
@@ -405,6 +463,7 @@ void pixels_and_depth(Fixture& fixture) {
     check(SandboxVisualKey{100,100,SandboxVisualKind::Building,1}<
           SandboxVisualKey{100,100,SandboxVisualKind::Walker,1},"tie breaker order");
     sprite.shutdown();check(BuildingSprite::live_texture_count()==0,"texture leaked");
+    append_checks(renderer);
 
     // Independent one-cell ground contract: the decoded Type-30 base occupies
     // the final 40 rows of each image. Its logical cell center is ground, so

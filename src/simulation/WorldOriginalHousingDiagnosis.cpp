@@ -67,8 +67,9 @@ OriginalHousingDiagnosis World::original_housing_diagnosis(BuildingId id) const 
     if (found==original_economy_->houses.end() || !original_house_kind(building(id).kind))
         throw std::invalid_argument("Housing diagnosis requires an actual paid House");
     const auto& rules=original_rules_model_->house_rules();OriginalHousingDiagnosis result;
-    result.building_id=id;result.actual=found->house;result.elite_family=building(id).kind==Object::OriginalElitePlot;
-    result.cached_desirability=original_influence_value_at(building(id).cell);
+    result.building_id=id;result.actual=found->house;result.elite_family=original_elite_house_kind(building(id).kind);
+    result.actual_footprint_side=static_cast<std::uint8_t>(building_footprint(profile_,rule_version_,building(id).kind).width);
+    result.cached_desirability=original_influence_value_at(building(id).cell,result.actual_footprint_side);
     result.current_row=original::house_row(result.actual.type);result.next_row=original::next_row(result.actual.type);
     auto input=result.actual;input.desirability=static_cast<std::int8_t>(result.cached_desirability);
     result.current=row_diagnosis(rules,result.current_row,input,result.elite_family);
@@ -81,7 +82,14 @@ OriginalHousingDiagnosis World::original_housing_diagnosis(BuildingId id) const 
     result.awaiting_admission=result.actual.occupants==0;
     result.common_terminal=result.actual.type==original::HouseType::LuxuriousApartment;
     result.elite_terminal=result.actual.type==original::HouseType::HeavenlyCompound;
-    result.original_required_side=result.elite_family ? std::uint8_t{4}:std::uint8_t{2};result.geometry_deferred=result.elite_family;
+    result.original_required_side=result.elite_family ? std::uint8_t{4}:std::uint8_t{2};
+    result.geometry_authored_2x2=result.actual_footprint_side==2;
+    result.geometry_deferred=result.elite_family && result.actual_footprint_side!=4;
+    if (result.elite_family) {
+        const auto status=original_elite_materialization_status(id);
+        result.materialization_pending=status.pending;result.materialization_ready=status.ready;
+        result.materialization_diagnostic=status.diagnostic;
+    }
     return result;
 }
 

@@ -34,12 +34,14 @@ bool evaluates(const OriginalHouseState& house) {
 }
 auto order(const OriginalWaterWitness& witness) {return std::pair{witness.arrival_tick,witness.transfer.courier_id};}
 template<class Building> std::uint64_t minimum_travel(const Building& source,const Building& target) {
-    const auto gap=[](int a,int b) {
-        const auto delta=static_cast<std::int64_t>(a)-static_cast<std::int64_t>(b);
-        return std::max<std::int64_t>(0,(delta<0 ? -delta:delta)-1);
+    const auto from=building_footprint(RulesProfile::CityV16,kOriginalProductionRuleVersion,source.kind);
+    const auto to=building_footprint(RulesProfile::CityV16,kOriginalProductionRuleVersion,target.kind);
+    const auto gap=[](int a,int a_size,int b,int b_size) {
+        const std::int64_t first=a,second=b;
+        return std::max({std::int64_t{0},first-(second+b_size-1),second-(first+a_size-1)});
     };
     const auto edges=static_cast<std::uint64_t>(std::max<std::int64_t>(2,
-        gap(source.cell.x,target.cell.x)+gap(source.cell.y,target.cell.y)));
+        gap(source.cell.x,from.width,target.cell.x,to.width)+gap(source.cell.y,from.height,target.cell.y,to.height)));
     return edges*static_cast<std::uint64_t>(profile_rules(RulesProfile::CityV16,kOriginalProductionRuleVersion).courier_edge_ticks);
 }
 template<class Building,class Courier> std::uint64_t minimum_movement(const Building& start,const Courier& actor) {
@@ -47,11 +49,12 @@ template<class Building,class Courier> std::uint64_t minimum_movement(const Buil
     if (actor.path_vertex>=actor.path.size() || actor.edge_progress<0 || actor.edge_progress>=edge_ticks)
         invalid("original water movement has no physical vertex/progress");
     const auto current=actor.path[actor.path_vertex];
-    const auto gap=[](int origin,int coordinate) {
+    const auto footprint=building_footprint(RulesProfile::CityV16,kOriginalProductionRuleVersion,start.kind);
+    const auto gap=[](int origin,int size,int coordinate) {
         const auto delta=static_cast<std::int64_t>(coordinate)-static_cast<std::int64_t>(origin);
-        return delta<0 ? -delta:std::max<std::int64_t>(0,delta-1);
+        return delta<0 ? -delta:std::max<std::int64_t>(0,delta-size+1);
     };
-    const auto edges=static_cast<std::uint64_t>(gap(start.cell.x,current.x)+gap(start.cell.y,current.y));
+    const auto edges=static_cast<std::uint64_t>(gap(start.cell.x,footprint.width,current.x)+gap(start.cell.y,footprint.height,current.y));
     return edges*static_cast<std::uint64_t>(edge_ticks)+static_cast<std::uint64_t>(actor.edge_progress);
 }
 template<class Buildings,class Couriers,class Houses>

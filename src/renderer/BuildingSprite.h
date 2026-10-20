@@ -14,6 +14,10 @@ public:
     BuildingSprite& operator=(const BuildingSprite&)=delete;
     ~BuildingSprite();
     void initialize(SDL_Renderer* renderer,const assets::BuildingVisualProfile& profile);
+    // Load-time extension only. The caller retains an identical already
+    // uploaded image prefix; failure leaves all existing textures intact.
+    void append(const assets::BuildingVisualProfile& profile,
+                std::uint64_t max_final_rgba=assets::building_max_rgba_bytes);
     void shutdown();
     bool draw(scene::Point ground,double zoom,const assets::BuildingVisualProfile& profile,
               const assets::BuildingVisualEntry& entry,bool preview=false) const;

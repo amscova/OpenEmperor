@@ -32,18 +32,21 @@ bool due(const BuildingState& b,std::uint64_t tick) {
 
 std::int64_t World::current_maintenance_rate() const {
     std::int64_t rate=0;
-    // Bounded by 46 buildings, each with a maximum rate of 12.
-    for (const auto& b:buildings_) if (b.placed) rate+=maintenance_cost(profile_,b.kind);
+    // The installed collection and each prepared worker count are bounded.
+    for (const auto& b:buildings_) if (b.placed)
+        rate+=original_production_enabled() ? original_worker_upkeep(b.id):maintenance_cost(profile_,b.kind);
     return rate;
 }
 
 std::optional<std::uint64_t> World::maintenance_due_in(BuildingId id) const {
     const auto found=std::ranges::find_if(buildings_,[&](const auto& b) { return b.id==id; });
-    if (found==buildings_.end() || !found->placed || !maintenance_cost(profile_,found->kind) ||
+    if (found==buildings_.end() || !found->placed ||
+        !(original_production_enabled() ? original_worker_upkeep(found->id):maintenance_cost(profile_,found->kind)) ||
         ticks_<found->placed_tick) return std::nullopt;
     const auto age=ticks_-found->placed_tick;
-    if (age>0 && age%Rules::maintenance_interval_ticks==0) return 0;
-    return Rules::maintenance_interval_ticks-age%Rules::maintenance_interval_ticks;
+    const auto interval=original_production_enabled() ? original_worker_upkeep_interval_ticks:Rules::maintenance_interval_ticks;
+    if (age>0 && age%interval==0) return 0;
+    return interval-age%interval;
 }
 
 MaintenanceProjection World::maintenance_projection(std::uint64_t horizon) const {
@@ -54,15 +57,15 @@ MaintenanceProjection World::maintenance_projection(std::uint64_t horizon) const
     result.installed_rate=current_maintenance_rate();
     std::int64_t total=0;
     bool representable=result.horizon_end_tick.has_value();
+    const auto interval=original_production_enabled() ? original_worker_upkeep_interval_ticks:Rules::maintenance_interval_ticks;
     // Bounded building collection; no simulation, navigation or mutable cache.
     for (const auto& b:buildings_) {
-        const auto cost=b.placed ? maintenance_cost(profile_,b.kind):0;
+        const auto cost=b.placed ? (original_production_enabled() ? original_worker_upkeep(b.id):maintenance_cost(profile_,b.kind)):0;
         if (!cost) continue;
         if (ticks_<b.placed_tick) { representable=false; continue; }
         // Unlike maintenance_due_in(), an already booked bill at this tick is
         // excluded. At age zero the first bill is also one full interval away.
-        const auto distance=Rules::maintenance_interval_ticks-
-            (ticks_-b.placed_tick)%Rules::maintenance_interval_ticks;
+        const auto distance=interval-(ticks_-b.placed_tick)%interval;
         if (distance<=UINT64_MAX-ticks_) {
             const auto next=ticks_+distance;
             if (!result.next_bill_tick || next<*result.next_bill_tick) {
@@ -71,7 +74,7 @@ MaintenanceProjection World::maintenance_projection(std::uint64_t horizon) const
             } else if (next==*result.next_bill_tick) result.next_bill_cost+=cost;
         }
         if (horizon<distance) continue;
-        const auto count=1+(horizon-distance)/Rules::maintenance_interval_ticks;
+        const auto count=1+(horizon-distance)/interval;
         if (count>static_cast<std::uint64_t>((INT64_MAX-total)/cost)) {
             representable=false;
             continue;

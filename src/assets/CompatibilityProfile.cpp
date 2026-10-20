@@ -406,6 +406,40 @@ CompatibilityProfile load_compatibility_profile(const fs::path& manifest) {
                 std::string("optional HealthWorker metadata invalid: ")+exception.what();
         }
     }
+    if (document.contains("optional_original_houses")) {
+        try {
+            const auto& houses=document.at("optional_original_houses");
+            if (!houses.is_object() || houses.size()!=2 || !houses.contains("core_files") ||
+                !houses.at("core_files").is_array() || houses.at("core_files").size()!=2)
+                throw std::runtime_error("Original House metadata requires two existing core fingerprints");
+            const auto path=checked_file(result.pack_root,required_relative(houses,"profile"));
+            if (!path) throw std::runtime_error("Original House metadata resource missing or unsafe");
+            std::set<fs::path> covered;
+            for (const auto& item:houses.at("core_files")) {
+                if (!item.is_string()) throw std::runtime_error("Original House core reference is not a path");
+                const fs::path reference(item.get<std::string>());
+                if (!safe_relative(reference) || !covered.insert(reference).second ||
+                    std::none_of(result.files.begin(),result.files.end(),[&](const auto& file){return file.relative_path==reference;}))
+                    throw std::runtime_error("Original House core dependency is not independently fingerprinted");
+            }
+            const auto metadata=nlohmann::json::parse(read_bounded_text(*path));
+            if (!metadata.is_object() || metadata.value("schema_version",0)!=1 ||
+                metadata.value("mode",std::string{})!="original_house_stages" ||
+                !metadata.contains("files") || !metadata.at("files").is_array() || metadata.at("files").size()!=covered.size())
+                throw std::runtime_error("Original House metadata schema/fingerprints invalid");
+            std::set<fs::path> matched;
+            for (const auto& file:metadata.at("files")) {
+                const auto dependency=required_relative(file,"path");const auto hash=required_string(file,"sha256");
+                if (!covered.contains(dependency) || !matched.insert(dependency).second ||
+                    std::none_of(result.files.begin(),result.files.end(),[&](const auto& existing){
+                        return existing.relative_path==dependency && existing.sha256==hash;
+                    })) throw std::runtime_error("Original House dependency fingerprint differs from the known pack");
+            }
+            result.original_house_profile=*path;
+        } catch (const std::exception& exception) {
+            result.original_house_metadata_error=std::string("optional Original House metadata invalid: ")+exception.what();
+        }
+    }
     return result;
 }
 
@@ -638,6 +672,12 @@ CompatibilityResult detect_compatibility(const fs::path& data_root,
                     result.health_walker_detail=std::string("optional HealthWorker input could not be checked: ")+
                         exception.what();
                 }
+            }
+            if (!result.profile->original_house_metadata_error.empty()) {
+                result.original_house_detail=result.profile->original_house_metadata_error;
+            } else if (!result.profile->original_house_profile.empty()) {
+                result.original_house_status=CompatibilityStatus::Compatible;
+                result.original_house_detail="fingerprinted Original House metadata available; active Rule10 preparation required";
             }
             return result;
         }

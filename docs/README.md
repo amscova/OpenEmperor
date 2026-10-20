@@ -4,6 +4,7 @@
 
 - [Repository quick start](../README.md): build, launch and controls.
 - [Sandbox guide](gameplay-sandbox.md): sessions, saves, current and legacy profiles.
+- [Optional original economy starter](original-economy/paid-starter.md): paid four-house city, controls and manual saves.
 - [City systems](city-systems.md): economy, logistics, workforce, fire, quality, water and health.
 - [City-v16](city-v16.md): maintenance, debt and explicit rule versions.
 - [Testing](testing.md), [native input acceptance](testing-input-acceptance.md) and [macOS packaging](macos-packaging.md).

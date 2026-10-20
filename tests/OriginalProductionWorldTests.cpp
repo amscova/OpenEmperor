@@ -1,5 +1,5 @@
 #include "OriginalInfluenceFixture.h"
-#include "OriginalProductionFixture.h"
+#include "OriginalFinanceFixture.h"
 #include "simulation/original/OriginalRulesModel.h"
 
 #include <algorithm>
@@ -86,8 +86,10 @@ void immigration_and_paid_origin() {
     }
     check(captured && world.original_goods_balance(orig::Goods::Ceramics).stock>0 && world.pottery_completed_total()>0 &&
         world.clay_extracted_total()>0,"No complete paid Clay→Pottery→actual Warehouse arrival→Ceramics origin");
-    check(world.treasury()==11182 && world.taxes_collected_total()==0 && world.maintenance_spent_total()==0 &&
-        world.building(ids.warehouse).pottery_stock==0,"Revision14 finance changed or Warehouse double-booked Ceramics");
+    check(oe_finance_fixture::construction_funds(world)==11182 && world.taxes_collected_total()==0 &&
+        world.maintenance_spent_total()==oe_finance_fixture::expected_maintenance(world) &&
+        world.maintenance_spent_total()>0 && world.building(ids.warehouse).pottery_stock==0,
+        "Actual installed upkeep, zero-rate taxes or sole Warehouse Ceramics authority differs");
     const auto saved=world.snapshot();
     for (const auto type:{sim::CommandType::PlaceFarm,sim::CommandType::PlaceWell,sim::CommandType::PlaceFireWatch}) {
         check(!world.execute({type,{20,12}}).accepted && world.snapshot()==saved,"Future producer/service gained premature authority");

@@ -42,7 +42,7 @@ void authority(const sim::World& world) {
     check(world.production_balance_valid()&&world.population_valid()&&world.city_economy_valid()&&world.navigation_valid(),
           "Stages real production/population/navigation invariant failed");
     for (const auto& value:world.original_economy_state()->houses) {
-        const auto elite=world.building(value.building_id).kind==sim::Object::OriginalElitePlot;
+        const auto elite=sim::original_elite_house_kind(world.building(value.building_id).kind);
         check(orig::is_elite(value.house.type)==elite,"Paid House changed family through evolution");
         check(history(world,value.building_id).consumption_rows.size()==15&&
               history(world,value.building_id).first_transitions.size()==15,"Stages history lost a model row");
@@ -105,8 +105,8 @@ void all_rows_all_difficulties(const f::fs::path& real) {
         Fixture fixture(real,static_cast<orig::Difficulty>(d));auto world=fixture.world();
         for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
         f::buy(world,{sim::CommandType::PlaceHousehold,{0,2}});
-        f::buy(world,{sim::CommandType::PlaceOriginalElitePlot,{3,2}});
-        const auto common=*world.building_owner_at({0,2}),elite=*world.building_owner_at({3,2});
+        f::buy(world,{sim::CommandType::PlaceOriginalElitePlot,{3,5}});
+        const auto common=*world.building_owner_at({0,2}),elite=*world.building_owner_at({3,5});
         compare_matrix(world,common);compare_matrix(world,elite);
         check(world.original_housing_decision_matrix(elite)[8].row_capacity==0,
               "Original EliteUnoccupied zero capacity was silently repaired");
@@ -266,7 +266,7 @@ void paid_common_and_elite_lifecycle(const f::fs::path& real) {
         !world.total_population()&&house(world,paid.elite).house.type==orig::HouseType::EliteUnoccupied,
         "Paid Elite plot created free population/type/funds");
     check(sim::building_footprint(world.profile(),world.rule_version(),sim::Object::OriginalElitePlot)==sim::BuildingFootprint{2,2},
-          "OE25 temporary Elite geometry silently claimed later original4x4");
+          "Paid vacant plot must remain2x2 until atomic first admission");
     for (int t=0;t<119;++t) world.tick();
     check(!world.total_population(),"Elite or Common residents arrived before paid age120");
     world.tick();authority(world);const auto& admitted=history(world,paid.elite).first_transitions[10];
@@ -274,8 +274,15 @@ void paid_common_and_elite_lifecycle(const f::fs::path& real) {
           admitted->evaluation.input.type==orig::HouseType::EliteUnoccupied&&!admitted->evaluation.input.occupants&&
           admitted->admitted==2&&house(world,paid.elite).house.type==orig::HouseType::ModestSiheyuan&&
           house(world,paid.elite).house.occupants==2,"Actual first Elite event did not bind11->13 with actual2 admissions");
+    check(world.building(paid.elite).kind==sim::Object::OriginalEliteHouse&&
+          sim::building_footprint(world.profile(),world.rule_version(),sim::Object::OriginalEliteHouse)==sim::BuildingFootprint{4,4},
+          "Actual Elite admission did not atomically materialize its4x4 body");
+    for (int y=5;y<9;++y) for (int x=0;x<4;++x)
+        check(world.building_owner_at({x,y})==paid.elite,"Materialized Elite lost one of its16 exact owner cells");
     until(world,[&]{return house(world,paid.elite).house.type==orig::HouseType::EliteAbandoned;},
           "Actually unstocked Modest did not devolve to Abandoned on its50th failure");
+    check(world.building(paid.elite).kind==sim::Object::OriginalEliteHouse,
+          "Actual13→12 devolution shrank the Elite body");
     const auto abandoned_population=house(world,paid.elite).house.occupants;
     const auto& down=history(world,paid.elite).first_transitions[9];
     check(down&&down->kind==sim::OriginalHousingTransitionKind::Evolution&&down->evaluation.input.type==orig::HouseType::ModestSiheyuan&&

@@ -71,6 +71,8 @@ int World::household_desirability(BuildingId id) const {
     const auto& home=building(id);
     if (!home.placed || !original_house_kind(home.kind))
         throw std::invalid_argument("desirability requires a placed Household");
+    if (original_influence_enabled())
+        return original_influence_value_at(home.cell,building_footprint(profile_,rule_version_,home.kind).width);
     return household_desirability_at(home.cell);
 }
 

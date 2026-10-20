@@ -33,6 +33,13 @@
     "building": "buildings.json",
     "road": "roads.json"
   },
+  "optional_original_houses": {
+    "profile": "original-houses.json",
+    "core_files": [
+      "DATA/China_General.sg3",
+      "DATA/China_General.555"
+    ]
+  },
   "optional_fire": {
     "profile": "fire.json",
     "files": [

@@ -1467,6 +1467,53 @@ simulation::OriginalHousingState parse_production_housing(const json& j) {
     }
     return result;
 }
+json production_finance_json(const simulation::OriginalFinanceState& state) {
+    json houses=json::array();
+    for (const auto& h:state.houses) {
+        json rows=json::array();
+        for (const auto& row:h.rows)
+            rows.push_back({{"events",row.events},{"resident_units",row.resident_units}});
+        json last=nullptr;
+        if (h.last_assessment) {
+            const auto& value=*h.last_assessment;
+            last={{"tick",value.tick},{"type",static_cast<unsigned>(value.type)},
+                  {"occupants",value.occupants}};
+        }
+        houses.push_back({{"building_id",static_cast<std::uint32_t>(h.building_id)},
+            {"rows",std::move(rows)},{"last_assessment",std::move(last)}});
+    }
+    return {{"houses",std::move(houses)}};
+}
+simulation::OriginalFinanceState parse_production_finance(const json& j) {
+    simulation::OriginalFinanceState result;
+    const auto& houses=field(j,"houses");
+    require(houses.is_array() && houses.size()<=simulation::Rules::city_v10_household_limit,
+            "schema26 Finance house bound");
+    for (const auto& value:houses) {
+        simulation::OriginalFinanceHouse h;h.building_id=production_id(field(value,"building_id"));
+        require(result.houses.empty() || result.houses.back().building_id<h.building_id,
+                "schema26 Finance houses must be sorted unique");
+        const auto& rows=field(value,"rows");
+        require(rows.is_array() && rows.size()==original::house_row_count,"schema26 Finance requires fifteen rows");
+        for (std::size_t i=0;i<h.rows.size();++i) {
+            h.rows[i].events=number(field(rows[i],"events"));
+            h.rows[i].resident_units=number(field(rows[i],"resident_units"));
+        }
+        const auto& last=field(value,"last_assessment");
+        if (!last.is_null()) {
+            simulation::OriginalTaxAssessment input;
+            input.tick=number(field(last,"tick"));
+            const auto type=number(field(last,"type"),17);
+            require(type>=3 && type!=11,"schema26 Finance assessment needs an inhabited House type");
+            input.type=static_cast<original::HouseType>(type);
+            input.occupants=static_cast<std::int16_t>(number(field(last,"occupants"),INT16_MAX));
+            require(input.occupants>0,"schema26 Finance assessment needs actual residents");
+            h.last_assessment=input;
+        }
+        result.houses.push_back(h);
+    }
+    return result;
+}
 json production_document_json(const SaveDocument& d) {
     require(simulation::original_production_enabled(d.world.profile,d.world.rule_version) &&
             d.world.original_production && d.world.original_goods &&
@@ -1486,7 +1533,7 @@ json production_document_json(const SaveDocument& d) {
     projected.world.original_economy.reset();projected.world.original_influence.reset();
     projected.world.original_goods.reset();projected.world.original_production.reset();
     for (auto& building:projected.world.buildings) {
-        if (building.kind==simulation::Object::OriginalElitePlot) building.kind=simulation::Object::Household;
+        if (simulation::original_elite_house_kind(building.kind)) building.kind=simulation::Object::Household;
         else if (building.kind==simulation::Object::OriginalInfluenceSource) building.kind=simulation::Object::Well;
         else if (building.kind==simulation::Object::OriginalHempFarm) building.kind=simulation::Object::Pottery;
         else if (building.kind==simulation::Object::OriginalHempField) building.kind=simulation::Object::Well;
@@ -1554,7 +1601,8 @@ json production_document_json(const SaveDocument& d) {
         {"food",production_food_json(production.food)},
         {"services",production_services_json(production.services)},
         {"water",production_water_json(production.water)},{"housing",production_housing_json(production.housing)},
-        {"industry",production_industry_json(production.industry)}};
+        {"industry",production_industry_json(production.industry)},
+        {"finance",production_finance_json(production.finance)}};
     return result;
 }
 SaveDocument parse_production_document(const json& j) {
@@ -1568,6 +1616,7 @@ SaveDocument parse_production_document(const json& j) {
             "schema26 development revision differs from this executable");
     state.residents_admitted=number(field(production,"residents_admitted"));
     state.pottery_handed_off=number(field(production,"pottery_handed_off"));
+    state.finance=parse_production_finance(field(production,"finance"));
     const auto& farms=field(production,"hemp_farms");
     require(farms.is_array() && farms.size()<=2,"schema26 Hemp farm collection exceeds bound");
     std::uint32_t previous_farm=0;
@@ -1612,8 +1661,8 @@ SaveDocument parse_production_document(const json& j) {
     require(buildings.is_array() && buildings.size()<=simulation::Rules::original_production_building_limit,
             "schema26 building collection exceeds bound");
     for (auto& building:buildings) {
-        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalElitePlot));
-        if (kind==static_cast<unsigned>(simulation::Object::OriginalElitePlot))
+        const auto kind=number(field(building,"kind"),static_cast<unsigned>(simulation::Object::OriginalEliteHouse));
+        if (simulation::original_elite_house_kind(static_cast<simulation::Object>(kind)))
             building["kind"]=static_cast<int>(simulation::Object::Household);
         else if (kind==static_cast<unsigned>(simulation::Object::OriginalInfluenceSource))
             building["kind"]=static_cast<int>(simulation::Object::Well);

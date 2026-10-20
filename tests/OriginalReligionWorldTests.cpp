@@ -22,11 +22,11 @@ const sim::OriginalServiceTrip* trip(const sim::World& w,sim::CourierId id){for(
 const sim::OriginalServiceWitness& witness(const sim::World& w,sim::BuildingId id,orig::ServiceRole role){for(const auto& x:w.original_production_state()->services.witnesses)if(x.building_id==id&&x.role==role)return x;throw std::runtime_error("Religion lost genuine arrival witness");}
 sim::CourierId actor(const sim::World& w,sim::BuildingId owner){for(const auto& c:w.couriers())if(c.owner==owner)return c.id;throw std::runtime_error("Religion source has no real actor");}
 sim::BuildingId buy(sim::World& w,sim::CommandType c,sim::Cell p){f::buy(w,{c,p});return *w.building_owner_at(p);}
-oe_production_fixture::PaperSupply paper_kit(sim::World& w,const std::vector<sim::Cell>& homes={},bool far=false){
+oe_production_fixture::PaperSupply paper_kit(sim::World& w,const std::vector<sim::Cell>& homes={},bool far=false,bool elite_layout=false){
     oe_production_fixture::PaperSupplyLayout layout;layout.farm={0,17};layout.field={2,17};layout.paper={4,17};layout.warehouse={8,17};layout.extra_homes=homes;
     for(int x=0;x<=12;++x)layout.roads.push_back({x,16});for(int y=5;y<16;++y)layout.roads.push_back({12,y});
     if(far){for(int x=0;x<18;++x)layout.roads.push_back({x,4});for(int x=12;x<18;++x)layout.roads.push_back({x,8});}
-    else for(const int x:{2,5})for(int y=0;y<4;++y)layout.roads.push_back({x,y});
+    else for(const int x:(elite_layout ? std::array{6,9}:std::array{2,5}))for(int y=0;y<4;++y)layout.roads.push_back({x,y});
     return oe_production_fixture::add_paper_supply(w,layout);
 }
 void edit(std::string& text,unsigned field,int value){const std::string marker="3: Plain Cottage,{,";auto at=text.find(marker);check(at!=std::string::npos,"Authored Plain model row missing");at+=marker.size();for(unsigned i=0;i<field;++i){at=text.find(',',at);check(at!=std::string::npos,"Authored Plain field missing");++at;}const auto end=text.find(',',at);check(end!=std::string::npos,"Authored Plain value missing");text.replace(at,end-at,std::to_string(value));}
@@ -61,12 +61,12 @@ void ticks(sim::World& w,int n){for(int i=0;i<n;++i){w.tick();authority(w);}}
 struct Scene{sim::BuildingId home{};std::array<sim::BuildingId,3> providers{};};
 Scene scene(sim::World& w,bool prior=true){
     for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,4}});
-    Scene s;for(int x=0;x<24;x+=3){const auto id=buy(w,x ? sim::CommandType::PlaceHousehold:sim::CommandType::PlaceOriginalElitePlot,{x,2});if(!x)s.home=id;}
+    Scene s;for(int x=0;x<24;x+=3){const auto id=buy(w,x ? sim::CommandType::PlaceHousehold:sim::CommandType::PlaceOriginalElitePlot,oe_production_fixture::elite_row_cell(x/3));if(!x)s.home=id;}
     const auto before=w.construction_spent_total();
     for(unsigned i=0;i<3;++i)s.providers[i]=buy(w,commands[i],{10+4*static_cast<int>(i),5});
     check(w.construction_spent_total()-before==170,"Three paid religion sources must independently cost45+45+80=170");
     if(prior){(void)buy(w,sim::CommandType::PlaceHealthPost,{0,5});(void)buy(w,sim::CommandType::PlaceServicePost,{3,5});(void)buy(w,sim::CommandType::PlaceOriginalAncestorShrine,{6,5});(void)buy(w,sim::CommandType::PlaceOriginalWaterWell,{22,5});}
-    const auto kit=paper_kit(w,{{0,0},{3,0},{6,0}});check(kit.spent==568,"Paid religion Paper kit/home/roads cost differs");
+    const auto kit=paper_kit(w,{{4,0},{7,0},{10,0}},false,true);check(kit.spent==568,"Paid religion Paper kit/home/roads cost differs");
     check(w.construction_spent_total()==static_cast<std::uint64_t>(prior?1571:1426)&&!w.total_population(),"Religion scene bypassed normal cost/population origin");return s;
 }
 std::optional<sim::BuildingId> expected_target(const sim::World& w,const sim::CourierState& c){
@@ -129,9 +129,9 @@ void actual_religion_source_and_target_fire(const f::fs::path& real){
         const auto source=buy(w,commands[index],{20,5});
         check(sim::fire_eligible(w.building(source).kind),"Active religion source is not fire eligible");
         f::buy(w,sim::set_building_operation(source,false));ticks(w,600);
-        const auto home=buy(w,index==2 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{0,2});
-        (void)buy(w,sim::CommandType::PlaceHousehold,{3,2});
-        if(index==2)(void)paper_kit(w,{{6,2},{9,2},{12,2},{15,2},{18,2}});
+        const auto home=buy(w,index==2 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,index==2 ? sim::Cell{0,0}:sim::Cell{0,2});
+        (void)buy(w,sim::CommandType::PlaceHousehold,index==2 ? sim::Cell{4,2}:sim::Cell{3,2});
+        if(index==2)(void)paper_kit(w,{{7,2},{10,2},{13,2},{16,2},{19,2}},false,true);
         while(w.ticks()<1990)w.tick();
         f::buy(w,sim::set_building_operation(source,true));const auto id=actor(w,source);
         until(w,[&]{return w.courier(id).phase==sim::CourierPhase::ToWarehouse&&w.courier(id).edge_progress>0;},
@@ -149,9 +149,9 @@ void actual_religion_source_and_target_fire(const f::fs::path& real){
             "Burning religion source full Snapshot restore diverged");}
         auto target=fixture.world();
         for(int x=0;x<24;++x)f::buy(target,{sim::CommandType::PlaceRoad,{x,4}});
-        const auto first=buy(target,index==2 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{0,2});
-        (void)buy(target,sim::CommandType::PlaceHousehold,{3,2});
-        if(index==2)(void)paper_kit(target,{{6,2},{9,2},{12,2},{15,2},{18,2}});
+        const auto first=buy(target,index==2 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,index==2 ? sim::Cell{0,0}:sim::Cell{0,2});
+        (void)buy(target,sim::CommandType::PlaceHousehold,index==2 ? sim::Cell{4,2}:sim::Cell{3,2});
+        if(index==2)(void)paper_kit(target,{{7,2},{10,2},{13,2},{16,2},{19,2}},false,true);
         ticks(target,1000);
         const auto delayed=buy(target,commands[index],{20,5});f::buy(target,sim::set_building_operation(delayed,false));
         while(target.ticks()<1990)target.tick();
@@ -167,7 +167,7 @@ void confucian_far_body_edge_and_restore(const f::fs::path& real){
     Fixture f(real);auto w=f.world();
     for(const int y:{4,8})for(int x=18;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
     for(int y=5;y<8;++y)f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
-    (void)buy(w,sim::CommandType::PlaceOriginalElitePlot,{21,2});(void)buy(w,sim::CommandType::PlaceHousehold,{21,9});
+    (void)buy(w,sim::CommandType::PlaceOriginalElitePlot,{20,0});(void)buy(w,sim::CommandType::PlaceHousehold,{21,9});
     (void)paper_kit(w,{{0,2},{3,2},{6,2},{9,2},{12,2}},true);
     const auto academy=buy(w,commands[2],{18,5});const auto id=actor(w,academy);
     until(w,[&]{return w.courier(id).phase==sim::CourierPhase::ToWarehouse&&w.courier(id).edge_progress>0;},"Paid3x3 Confucian source never dispatched");

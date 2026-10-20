@@ -115,6 +115,7 @@ std::size_t building_limit(RulesProfile profile,Object kind) {
     case Object::OriginalHempFarm:
     case Object::OriginalHempField: return 2;
     case Object::OriginalElitePlot:
+    case Object::OriginalEliteHouse:
     case Object::Household: return Rules::city_v10_household_limit;
     case Object::ClaySource: return Rules::city_v10_clay_source_limit;
     case Object::Pottery: return Rules::city_v10_pottery_limit;
@@ -257,6 +258,7 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
     if (original_production_enabled(profile,rule_version)) {
         if (kind==Object::OriginalElitePlot) return {2,2};
+        if (kind==Object::OriginalEliteHouse) return {4,4};
         if (kind==Object::OriginalBronzeSmelter39) return {3,3};
         if (original_industry_source(kind)) return {2,2};
         if (original_industry_plant(kind)) return {1,1};
@@ -974,6 +976,7 @@ int World::workers_assigned(BuildingId id) const {
 }
 
 int World::settlement_goal_households_ready() const {
+    if (original_production_enabled()) return original_goal_status().common_houses;
     if (original_economy_enabled()) return 0;
     if (!city_profile(profile_)) return 0;
     int ready=0;
@@ -988,6 +991,7 @@ int World::settlement_goal_households_ready() const {
 }
 
 bool World::settlement_goal_reached() const {
+    if (original_production_enabled()) return original_goal_status().reached;
     if (scalable(profile_)) {
         const auto houses=static_cast<int>(std::count_if(buildings_.begin(),buildings_.end(),
             [](const BuildingState& b) { return b.placed && original_house_kind(b.kind); }));
@@ -1078,6 +1082,8 @@ bool World::population_valid() const {
             const auto& proof=original_production_->housing.houses[i];
             const auto& body=building(home.building_id);
             if (!original_house_kind(body.kind) || home.house.occupants<0) return false;
+            if ((body.kind==Object::OriginalElitePlot && proof.first_admission_tick) ||
+                (body.kind==Object::OriginalEliteHouse && !proof.first_admission_tick)) return false;
             if (!proof.first_admission_tick) {
                 if (home.house.occupants) return false;
                 continue;
@@ -1149,6 +1155,7 @@ int World::covered_households() const {
 }
 
 std::uint64_t World::household_tax_contributed(BuildingId id) const {
+    if (original_production_enabled()) return building(id).taxes_paid_total;
     if (desirability_profile(profile_)) return building(id).taxes_paid_total;
     const auto count=building(id).fulfilled_demand;
     if (profile_==RulesProfile::CityV6) {
@@ -2036,6 +2043,7 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
             if (original_production_enabled()) {
                 original_production_->house_consumption.push_back(OriginalHouseConsumptionState{b.id});
                 OriginalHousingHouse housing;housing.building_id=b.id;original_production_->housing.houses.push_back(housing);
+                OriginalFinanceHouse finance;finance.building_id=b.id;original_production_->finance.houses.push_back(finance);
                 OriginalWaterHouseState water;water.building_id=b.id;original_production_->water.houses.push_back(water);
                 original_production_->food.stocks.push_back(OriginalFoodStock{b.id});
             }
@@ -3325,6 +3333,7 @@ bool World::industry_balance_valid() const {
                     return false;
                 pottery+=static_cast<std::uint64_t>(b.pottery_stock); break;
             case Object::OriginalElitePlot:
+            case Object::OriginalEliteHouse:
                 if (!original_production_enabled()) return false;
                 [[fallthrough]];
             case Object::Household:
@@ -4056,6 +4065,12 @@ std::string World::canonical_state() const {
         out<<"|original-consumption:"<<static_cast<std::uint32_t>(row.building_id);
         for (const auto amount:row.consumed) out<<','<<amount;
     }
+    if (original_production_) for (const auto& row:original_production_->finance.houses) {
+        out<<"|original-finance:"<<static_cast<std::uint32_t>(row.building_id);
+        for (const auto& bucket:row.rows) out<<','<<bucket.events<<','<<bucket.resident_units;
+        out<<','<<bool(row.last_assessment);
+        if (row.last_assessment) out<<','<<row.last_assessment->tick<<','<<static_cast<unsigned>(row.last_assessment->type)<<','<<row.last_assessment->occupants;
+    }
     if (original_production_) {
         const auto parts=[&](const auto& values){for (const auto n:values) out<<','<<n;};
         const auto& food=original_production_->food;
@@ -4308,7 +4323,10 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         throw std::invalid_argument("demolition history requires City-v11 rule version 4");
     w.demolition_history_=s.demolition_history;
     const auto fail=[](const char* message)->void { throw std::invalid_argument(message); };
-    if (s.ticks==UINT64_MAX || s.command_sequence==UINT64_MAX || s.road_revision>s.command_sequence ||
+    const auto materialized=w.original_production_enabled() ? static_cast<std::uint64_t>(
+        std::count_if(s.buildings.begin(),s.buildings.end(),[](const auto& b){return b.kind==Object::OriginalEliteHouse;})):0;
+    if (s.ticks==UINT64_MAX || s.command_sequence==UINT64_MAX ||
+        (s.road_revision>s.command_sequence && s.road_revision-s.command_sequence>materialized) ||
         s.roads.size()>w.objects_.size() || s.command_sequence<s.roads.size())
         fail("invalid sandbox counters or road count");
     const auto put=[&](Cell cell,Object object,BuildingId owner) {
@@ -4374,7 +4392,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             if (static_cast<std::uint32_t>(b.id)==0 || (i && !(s.buildings[i-1].id<b.id)) ||
                 !b.placed || b.kind==Object::Empty || b.kind==Object::Road ||
                 b.kind==Object::Workshop ||
-                ((b.kind==Object::OriginalElitePlot || original_industry_model(b.kind) || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
+                ((original_elite_house_kind(b.kind) || original_industry_model(b.kind) || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalHempField || b.kind==Object::OriginalFoodFarm ||
                   b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField ||
                   (b.kind==Object::OriginalMusicSchool211 || b.kind==Object::OriginalAcrobatSchool212 ||
                    b.kind==Object::OriginalDramaSchool213 || b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 ||
@@ -4393,8 +4411,12 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                      (!b.operating_enabled || b.workforce_priority!=WorkforcePriority::Normal)):
                     (!b.operating_enabled || b.workforce_priority!=WorkforcePriority::Normal)))
                 fail("invalid building operation controls");
-            for (const auto cell:building_footprint_cells(s.profile,s.rule_version,b.kind,b.cell))
+            for (const auto cell:building_footprint_cells(s.profile,s.rule_version,b.kind,b.cell)) {
+                if (b.kind==Object::OriginalEliteHouse && w.permissions_ &&
+                    w.permissions_->cell_height(cell)!=w.permissions_->cell_height(b.cell))
+                    fail("saved materialized Elite House has a nonlevel foundation");
                 put(cell,b.kind,b.id);
+            }
             w.buildings_.push_back({b.id,b.kind,b.cell,b.placed,b.input_clay,b.output,
                 b.pottery_stock,b.reserved_incoming,b.progress,b.active_recipe_clay,
                 b.recipes_completed,b.placed_tick,b.demand_progress,b.fulfilled_demand,
@@ -4501,7 +4523,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             s.road_revision-s.roads_placed_total<s.roads_removed_total ||
             s.road_revision-s.roads_placed_total-s.roads_removed_total!=
                 s.buildings.size()+2*s.demolition_history.buildings+s.bridges.size()+s.ramps.size()+
-                    (w.original_influence_enabled() ? 2*s.original_influence->removed_sources.size():0) ||
+                    (w.original_influence_enabled() ? 2*s.original_influence->removed_sources.size():0)+materialized ||
             (w.demolition_supported() && (s.demolition_history.buildings>=UINT32_MAX ||
                 s.buildings.size()+s.demolition_history.buildings+1+
                     (w.original_influence_enabled() ? s.original_influence->removed_sources.size():0)!=s.next_building_id)))

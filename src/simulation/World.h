@@ -273,14 +273,16 @@ enum class Object : std::uint8_t {
     OriginalDaoistShrine215, OriginalBuddhistShrine217, OriginalConfucianAcademy219,
     OriginalMusicSchool211, OriginalAcrobatSchool212, OriginalDramaSchool213,
     OriginalLoggingShed38, OriginalBronzeSmelter39, OriginalBronzewareMaker42, OriginalLacquerwareMaker44, OriginalPaperMaker45, OriginalWeaver47, OriginalTeaCuringShed237, OriginalLacquerRefinery238, OriginalSilkwormShed239, OriginalTeaBush26, OriginalLacquerTree27, OriginalMulberryTree28,
-    OriginalElitePlot
+    OriginalElitePlot, OriginalEliteHouse
 };
 // Classification for the opt-in original production adapter. Older rule
 // admission continues to reject the appended Elite body/command identities.
-constexpr bool original_house_kind(Object kind) noexcept {
-    return kind==Object::Household || kind==Object::OriginalElitePlot;
+constexpr bool original_elite_house_kind(Object kind) noexcept {
+    return kind==Object::OriginalElitePlot || kind==Object::OriginalEliteHouse;
 }
-constexpr bool original_elite_house_kind(Object kind) noexcept {return kind==Object::OriginalElitePlot;}
+constexpr bool original_house_kind(Object kind) noexcept {
+    return kind==Object::Household || original_elite_house_kind(kind);
+}
 std::optional<original::ModelBuilding> original_influence_model(Object kind);
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
@@ -291,6 +293,10 @@ struct BuildingFootprint {
     int width=1;
     int height=1;
     bool operator==(const BuildingFootprint&) const = default;
+};
+struct OriginalEliteMaterializationStatus {
+    bool pending=false,ready=false;
+    BuildDiagnostic diagnostic;
 };
 struct OriginalInfluenceContribution {
     BuildingId building_id=static_cast<BuildingId>(0);
@@ -619,6 +625,7 @@ public:
     const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
     const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
     const std::optional<OriginalProductionState>& original_production_state() const { return original_production_; }
+    OriginalEliteMaterializationStatus original_elite_materialization_status(BuildingId house) const;
     OriginalServiceAvailability original_service_availability(BuildingId house,original::ServiceRole role) const;
     OriginalHousingDiagnosis original_housing_diagnosis(BuildingId house) const;
     std::array<OriginalHousingRowDiagnosis,original::house_row_count> original_housing_decision_matrix(BuildingId house) const;
@@ -727,6 +734,8 @@ public:
     std::uint64_t taxes_collected_total() const { return taxes_collected_total_; }
     std::uint64_t construction_spent_total() const { return construction_spent_total_; }
     std::uint64_t maintenance_spent_total() const { return maintenance_spent_total_; }
+    OriginalHouseTaxStatus original_house_tax_status(BuildingId id) const;
+    OriginalGoalStatus original_goal_status() const;
     std::int64_t current_maintenance_rate() const;
     std::optional<std::uint64_t> maintenance_due_in(BuildingId id) const;
     MaintenanceProjection maintenance_projection(
@@ -841,7 +850,7 @@ private:
     CommandResult execute_original_influence_command(Command command,bool refresh_after);
     bool original_influence_finance_valid() const;
     void rebuild_original_influence_cache();
-    int original_influence_value_at(Cell origin) const;
+    int original_influence_value_at(Cell origin,int side=2) const;
     std::size_t index(Cell cell) const;
     bool permission_edge_allowed(Cell from,Cell to) const;
     BuildBlocker ramp_land_blocker(Cell cell) const;
@@ -935,6 +944,11 @@ private:
     void validate_original_housing_model();
     void validate_original_housing_state() const;
     void evaluate_original_houses();
+    static void validate_original_finance_snapshot(const WorldSnapshot&);
+    void validate_original_finance_model() const;
+    bool original_finance_history_valid() const;
+    void book_original_finance_tick(std::uint64_t next);
+    std::int64_t original_worker_upkeep(BuildingId id) const;
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;

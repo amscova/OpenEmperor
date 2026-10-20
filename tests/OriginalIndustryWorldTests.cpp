@@ -28,10 +28,10 @@ struct Fixture{f::Root root;std::shared_ptr<const sim::MapPermissions> policy=f:
 };
 struct Scene{sim::BuildingId first{},tea{},lacquer{},silkworm{},logging{},smelter{},clay{},bronze{},lacquerware{},paper{},weaver{},farm{},field{},warehouse{},other_warehouse{},food{},market{},academy{},well{},ancestor{};std::vector<sim::BuildingId> plants;};
 Scene scene(sim::World& w){
-    for(const int y:{3,7,11,16})for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
-    for(const int y:{4,5,6,8,9,10,12,13,14,15})f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
+    for(const int y:{4,7,11,16})for(int x=0;x<24;++x)f::buy(w,{sim::CommandType::PlaceRoad,{x,y}});
+    for(const int y:{5,6,8,9,10,12,13,14,15})f::buy(w,{sim::CommandType::PlaceRoad,{23,y}});
     f::buy(w,{sim::CommandType::PlaceRoad,{14,12}});
-    Scene s;for(const int y:{1,5})for(int x=0;x<24;x+=3){const auto id=buy(w,x==0&&y==1 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,{x,y});if(x==0&&y==1)s.first=id;}
+    Scene s;for(const int y:{1,5})for(int x=0;x<24;x+=3){const auto id=buy(w,x==0&&y==1 ? sim::CommandType::PlaceOriginalElitePlot:sim::CommandType::PlaceHousehold,y==1 ? oe_production_fixture::elite_row_cell(x/3):sim::Cell{x,y});if(x==0&&y==1)s.first=id;}
     for(int x=0;x<12;x+=3)(void)buy(w,sim::CommandType::PlaceHousehold,{x,9});
     s.tea=buy(w,sim::CommandType::PlaceOriginalTeaCuringShed,{0,12});s.lacquer=buy(w,sim::CommandType::PlaceOriginalLacquerRefinery,{4,12});s.silkworm=buy(w,sim::CommandType::PlaceOriginalSilkwormShed,{8,12});
     for(const auto& [command,id,cell]:std::array{std::tuple{sim::CommandType::PlaceOriginalTeaBush,s.tea,sim::Cell{2,12}},std::tuple{sim::CommandType::PlaceOriginalLacquerTree,s.lacquer,sim::Cell{6,12}},std::tuple{sim::CommandType::PlaceOriginalMulberryTree,s.silkworm,sim::Cell{10,12}}}){sim::Command plant{command,cell};plant.building_id=id;f::buy(w,plant);s.plants.push_back(*w.building_owner_at(cell));}
@@ -40,15 +40,34 @@ Scene scene(sim::World& w){
     sim::Command field{sim::CommandType::PlaceOriginalHempField,{18,17}};field.building_id=s.farm;f::buy(w,field);s.field=*w.building_owner_at({18,17});s.warehouse=buy(w,sim::CommandType::PlaceWarehouse,{20,17});
     s.food=buy(w,sim::CommandType::PlaceOriginalFoodFarm,{12,8});field={sim::CommandType::PlaceOriginalWheatField,{15,8}};field.building_id=s.food;f::buy(w,field);s.market=buy(w,sim::CommandType::PlaceMarket,{15,10});s.academy=buy(w,sim::CommandType::PlaceOriginalConfucianAcademy,{18,8});s.well=buy(w,sim::CommandType::PlaceOriginalWaterWell,{21,9});
     const bool real=w.original_rules_model()->house_rules().value(orig::ModelHouse::Shelter,orig::HouseField::Capacity)==7&&w.workforce_required(s.food)==22;
-    check(w.buildings().size()==43&&w.couriers().size()==21&&w.snapshot().roads.size()==107&&!w.total_population(),"Paid industry scene geometry/actors/zero population differs");
-    check(w.construction_spent_total()==static_cast<std::uint64_t>(real?3159:3188)&&w.treasury()==12000-static_cast<std::int64_t>(w.construction_spent_total()),"Real/authored industry construction bill differs");
+    check(w.buildings().size()==43&&w.couriers().size()==21&&w.snapshot().roads.size()==106&&!w.total_population(),"Paid industry scene geometry/actors/zero population differs");
+    check(w.construction_spent_total()==static_cast<std::uint64_t>(real?3157:3186)&&w.treasury()==12000-static_cast<std::int64_t>(w.construction_spent_total()),"Real/authored industry construction bill differs");
     return s;
 }
 void bootstrap(sim::World& w,const Scene& s){int full_workers=0;for(const auto& b:w.buildings())full_workers+=w.workforce_required(b.id);for(const auto id:{s.paper,s.academy,s.food,s.ancestor})f::buy(w,sim::set_building_operation(id,false));
     until(w,[&]{return w.workforce_supply()>=full_workers;},"Paid Water/Hut bootstrap did not yield genuine workers");
     for(const auto id:{s.paper,s.academy,s.food,s.ancestor})f::buy(w,sim::set_building_operation(id,true));
 }
+void paid_neutral_purchase_and_removal(sim::World& w,sim::Cell cell){
+    const auto before=w.snapshot();const auto installed_workers=w.workforce_required();
+    const auto neutral=buy(w,sim::CommandType::PlaceOriginalInfluenceSource,cell);
+    check(w.treasury()==before.treasury-60 && w.construction_spent_total()==before.construction_spent_total+60 &&
+          w.workforce_required()==installed_workers && w.couriers().size()==before.couriers.size(),
+          "Neutral Well purchase skipped its exact60Funds bill or added workers/actors");
+    const auto purchased=w.snapshot();f::buy(w,sim::demolish_building(neutral));
+    check(w.treasury()==purchased.treasury && w.construction_spent_total()==purchased.construction_spent_total &&
+          w.workforce_required()==installed_workers && w.couriers().size()==before.couriers.size(),
+          "Neutral Well removal invented refund, spending, workers or actors");
+    for(int y=0;y<2;++y)for(int x=0;x<2;++x)
+        check(!w.building_owner_at({cell.x+x,cell.y+y}) && w.object_at({cell.x+x,cell.y+y})==sim::Object::Empty,
+              "Neutral Well removal retained a physical owner claim");
+    valid(w);
+}
 void paid_chain_and_paper(const f::fs::path& real){Fixture f(real);auto w=f.world();const auto s=scene(w);
+    // Pay this positive control while the authored/real initial bill leaves
+    // ample funds. Remove it before the first tick so it supplies no historical
+    // desirability, workers, visits or materials to the unchanged paid chain.
+    paid_neutral_purchase_and_removal(w,{20,14});
     const auto unavailable=w.original_service_availability(s.first,orig::ServiceRole::Confucian);check(!unavailable.available_source_count&&!aux(w,s.academy,4),"Empty Academy dispatched without actual Paper");bootstrap(w,s);
     const auto empty_academy=w.original_service_availability(s.first,orig::ServiceRole::Confucian);
     check(w.building(s.academy).operating_enabled&&w.workers_assigned(s.academy)==w.workforce_required(s.academy)&&
@@ -70,13 +89,23 @@ void paid_chain_and_paper(const f::fs::path& real){Fixture f(real);auto w=f.worl
     check(source(w,s.weaver).aux_inputs_used[2]==source(w,s.weaver).completed,"Weaver skipped real RawSilk");
     auto replay=sim::World::restore_original_production_development(w.snapshot(),f.policy,f.model);for(int i=0;i<20000;++i){w.tick();replay.tick();check(w.snapshot()==replay.snapshot(),"Industry full20k Snapshot replay diverged");}valid(w);
     for(const auto id:{s.tea,s.plants[0],s.warehouse,s.paper,s.farm,s.clay}){const auto before_demolition=w.snapshot();const auto r=w.execute(sim::demolish_building(id));check(!r.accepted&&w.snapshot()==before_demolition,"Industry/plant/material owner demolition was not atomic refusal");}
-    const auto neutral=buy(w,sim::CommandType::PlaceOriginalInfluenceSource,{20,14});const auto before_neutral_demolition=w.construction_spent_total();f::buy(w,sim::demolish_building(neutral));check(w.construction_spent_total()==before_neutral_demolition,"Neutral Well removal during production invented refund or spending");valid(w);
+    if(w.treasury()>=60) paid_neutral_purchase_and_removal(w,{20,14});
+    else {
+        const auto before_purchase=w.snapshot();const sim::Command purchase{sim::CommandType::PlaceOriginalInfluenceSource,{20,14}};
+        const auto validation=w.validate(purchase);
+        check(!validation.accepted && !validation.changed && validation.reason=="Not enough money" && w.snapshot()==before_purchase,
+              "Late insufficient-funds source validation granted money, a source or other authority");
+        const auto refused=w.execute(purchase);
+        check(!refused.accepted && !refused.changed && refused.reason=="Not enough money" && w.snapshot()==before_purchase,
+              "Late insufficient-funds source purchase was not a complete atomic refusal");
+    }
+    valid(w);
 }
 void authored_plain_needs_and_original_both_stock_consumption(const f::fs::path& real){
     Fixture fixture(real,true);auto w=fixture.world();const auto s=scene(w);f::buy(w,sim::set_building_operation(s.tea,false));bootstrap(w,s);
     sim::BuildingId selected{};
-    until(w,[&]{for(const auto& row:w.original_economy_state()->houses){const auto& h=row.house;if(h.water&&h.food_quality>=20&&h.ancestor&&h.silk&&(h.bronzeware||h.lacquerware)){selected=row.building_id;return true;}}return false;},"Authored Plain negative never received actual other prerequisites");
-    check(!home(w,selected).tea&&home(w,selected).type==orig::HouseType::Hut&&!orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,home(w,selected)),"Missing actual Tea passed explicitly authored PlainNeed1");
+    until(w,[&]{for(const auto& row:w.original_economy_state()->houses){const auto& h=row.house;if(w.building(row.building_id).kind==sim::Object::Household&&h.water&&h.food_quality>=20&&h.ancestor&&h.silk&&(h.bronzeware||h.lacquerware)){selected=row.building_id;return true;}}return false;},"Authored Common Plain negative never received actual other prerequisites");
+    check(w.building(selected).kind==sim::Object::Household&&!home(w,selected).tea&&home(w,selected).type==orig::HouseType::Hut&&!orig::needs_met(fixture.model->house_rules(),orig::ModelHouse::PlainCottage,home(w,selected)),"Missing actual Tea passed explicitly authored PlainNeed1");
     f::buy(w,sim::set_building_operation(s.tea,true));
     until(w,[&]{for(const auto& row:w.original_production_state()->housing.houses)if(row.first_transitions[2]){
         const auto& input=row.first_transitions[2]->evaluation.input;

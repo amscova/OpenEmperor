@@ -1,5 +1,12 @@
 # Hausstufen und getrennte Elitefamilie in Revision25
 
+Historischer Vertrag und tatsächliche Abnahme der Revision25. Seit Revision26
+ersetzt der [Elite-Footprintvertrag](elite-footprints-runtime.md) ausschließlich
+die vorläufige2×2-Geometrie vor Erstbezug durch atomare4×4-Materialisierung.
+Die untenstehenden25er Messwerte und Tests bleiben historische Belege.
+Revision25-Saves werden nicht migriert; die numerischen15 Hauszeilen und
+getrennten Familien bleiben erhalten. Original-Haussprites bleiben OE-29.
+
 Vor Implementierung am2026-10-18 auf OE24
 7360f84e40c6cd558d3cf87de41c8b713645840f festgelegter Vertrag. Der Nutzer
 setzt ausdrücklich mit OE25 fort und hebt damit die Pause nach24 auf.

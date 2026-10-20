@@ -23,7 +23,8 @@ struct AutosaveResult {
 class AutosaveController {
 public:
     AutosaveController(std::filesystem::path app_root,std::filesystem::path data_root,
-                       bool enabled,std::uintmax_t budget=persistence::recovery_storage_budget_bytes);
+                       bool enabled,std::uintmax_t budget=persistence::recovery_storage_budget_bytes,
+                       persistence::RecoveryAccess access=persistence::RecoveryAccess::LegacyOnly);
     AutosaveResult begin(const persistence::SaveDocument& document,
                          const std::vector<std::uint8_t>& buildable,
                          std::optional<persistence::RecoveryParent> parent=std::nullopt,
@@ -31,6 +32,7 @@ public:
     AutosaveResult poll(const persistence::SaveDocument& document,
                         const std::vector<std::uint8_t>& buildable,bool safe,
                         persistence::RecoveryWriteFaults faults={});
+    AutosaveResult capture_failed(std::uint64_t tick,const std::string& error);
     bool enabled() const { return enabled_; }
     bool active() const { return !history_id_.empty(); }
     const std::string& history_id() const { return history_id_; }
@@ -44,6 +46,7 @@ public:
 private:
     std::filesystem::path app_root_,data_root_;
     std::uintmax_t budget_;
+    persistence::RecoveryAccess access_;
     std::unique_ptr<persistence::RecoveryStore> store_;
     bool enabled_=true;
     std::string history_id_,last_error_;

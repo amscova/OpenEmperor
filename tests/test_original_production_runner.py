@@ -52,6 +52,8 @@ class ProductionRunnerTests(unittest.TestCase):
                        self.repo / ".local/original-economy/oe22/production-fixtures/run",
                        self.repo / ".local/original-economy/oe23/production-fixtures/run",
                        self.repo / ".local/original-economy/oe24/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe25/production-fixtures/run",
+                       self.repo / ".local/original-economy/oe26/production-fixtures/run",
                        self.repo / ".local/original-economy/oe13/goods-fixtures/run"):
             with self.subTest(output=output), self.assertRaises(RuntimeError):
                 self.create(output)
@@ -746,7 +748,7 @@ class ProductionRunnerTests(unittest.TestCase):
     def religion_scene():
         # Synthetic report-parser data, not evidence of a running paid World.
         scene = ProductionRunnerTests.ancestor_scene()
-        next(b for b in scene["buildings"] if b["id"] == 1)["kind"] = 39
+        next(b for b in scene["buildings"] if b["id"] == 1)["kind"] = 40
         scene["houses"][0]["type"] = 13
         for index, (kind, model, cost, workers, actor_role, timer_role) in enumerate((
                 (21, 215, 45, 4, 17, 7), (22, 217, 45, 4, 18, 8), (23, 219, 80, 12, 19, 6))):
@@ -937,6 +939,56 @@ class ProductionRunnerTests(unittest.TestCase):
                 runner.check_availability(bad)
 
 
+
+    def test_pending_elite_attempt_cannot_hide_admission_resources_or_preparation(self):
+        scene = {"buildings": [{"id": 1, "kind": 39, "footprint": [2, 2]}],
+                 "houses": [{"id": 1, "type": 11, "occupants": 0, "status": 0, "access_enabled": False,
+                    "water": False, "food_quality": 0, "service_timers": [0]*9, "consumed": [0]*6,
+                    **{key: 0 for key in ("hemp", "ceramics", "tea", "silk", "bronzeware", "lacquerware")}}],
+                 "housing": {"houses": [{"id": 1, "first_admission_tick": None, "last_evaluation": None,
+                    "first_transitions": [None]*15,
+                    "consumption_rows": [{"events": 0, "consumed": [0]*6} for _ in range(15)]}]}}
+        runner.check_pending_elite(scene, 1)
+        for mutation in (
+                lambda value: value["buildings"][0].update(kind=40),
+                lambda value: value["buildings"][0].update(footprint=[4, 4]),
+                lambda value: value["houses"][0].update(type=13),
+                lambda value: value["houses"][0].update(occupants=2),
+                lambda value: value["houses"][0].update(access_enabled=True),
+                lambda value: value["houses"][0].update(water=True),
+                lambda value: value["houses"][0].update(hemp=1),
+                lambda value: value["houses"][0]["service_timers"].__setitem__(6, 40),
+                lambda value: value["housing"]["houses"][0].update(first_admission_tick=120),
+                lambda value: value["housing"]["houses"][0].update(last_evaluation={}),
+                lambda value: value["housing"]["houses"][0]["first_transitions"].__setitem__(10, {"kind": 0}),
+                lambda value: value["housing"]["houses"][0]["consumption_rows"][0].update(events=1)):
+            wrong = copy.deepcopy(scene)
+            mutation(wrong)
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                runner.check_pending_elite(wrong, 1)
+
+    def test_actual_footprints_rebuild_all16_claims_without_overlap_or_shrink(self):
+        scene = {"geometry": {"width": 12, "height": 10, "owners": [], "roads": [[4, 0]]},
+                 "road_count": 1, "buildings": [{"id": 1, "kind": 40, "cell": [0, 0], "footprint": [4, 4]}],
+                 "houses": [{"id": 1, "type": 13}]}
+        scene["geometry"]["owners"] = [[x, y, 1, 40] for y in range(4) for x in range(4)]
+        runner.check_geometry(scene)
+        abandoned = copy.deepcopy(scene)
+        abandoned["houses"][0]["type"] = 12
+        runner.check_geometry(abandoned)
+        for mutation in (
+                lambda value: value["geometry"]["owners"].pop(),
+                lambda value: value["geometry"]["owners"].append([0, 0, 1, 40]),
+                lambda value: value["geometry"]["owners"][0].__setitem__(2, 2),
+                lambda value: value["buildings"][0].update(footprint=[2, 2]),
+                lambda value: value["buildings"][0].update(kind=39),
+                lambda value: value["houses"][0].update(type=11),
+                lambda value: value["geometry"]["roads"].__setitem__(0, [3, 3]),
+                lambda value: value["buildings"][0].update(cell=[9, 0])):
+            wrong = copy.deepcopy(scene)
+            mutation(wrong)
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                runner.check_geometry(wrong)
 
     def test_original_15_row_domains_and_admission_records_are_strict(self):
         scene = self.housing_scene()

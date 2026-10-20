@@ -11,6 +11,7 @@
 #include "simulation/RoadConnectivity.h"
 #include "persistence/SandboxSave.h"
 #include "app/SandboxUiLayout.h"
+#include "app/OriginalHouseInspection.h"
 #include "app/RoadDrag.h"
 #include "app/RoadTopology.h"
 #include "app/VisualSelection.h"
@@ -26,6 +27,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -62,6 +64,12 @@ public:
     explicit SandboxView(maps::StoredMapSession session, bool demo,
                          simulation::RulesProfile rules=simulation::RulesProfile::LogisticsV1,
                          std::uint32_t rule_version=0);
+    // Explicit optional original-economy entry. Older development rules remain
+    // fixture-only; ordinary constructors never select original rules.
+    static std::unique_ptr<SandboxView> create_original_production(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
 #if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
     // Explicit development fixtures; no shipped application entry point.
     static std::unique_ptr<SandboxView> create_original_economy_save_fixture(
@@ -71,7 +79,8 @@ public:
     static std::unique_ptr<SandboxView> create_original_goods_save_fixture(
         maps::StoredMapSession session);
     static std::unique_ptr<SandboxView> create_original_production_save_fixture(
-        maps::StoredMapSession session);
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt);
 #endif
     ~SandboxView();
     void initialize(SDL_Window* window, SDL_Renderer* renderer);
@@ -180,6 +189,30 @@ public:
     HealthWalkerDisplayStats health_walker_display_stats() const;
     void set_building_visuals(const std::filesystem::path& manifest,
                               VisualProfileSource source=VisualProfileSource::Custom);
+    void set_original_house_visuals(const std::filesystem::path& manifest,
+                                   VisualProfileSource source=VisualProfileSource::Builtin,
+                                   std::string fallback_reason={});
+    struct OriginalHouseDisplayStats {
+        bool configured=false,active=false;
+        VisualProfileSource source=VisualProfileSource::Fallback;
+        std::string fallback_reason,preparation_error;
+        std::size_t additional_assets=0;
+        std::uint64_t additional_bytes=0;
+        std::array<bool,16> configured_types{};
+        std::array<std::uint64_t,16> drawn_instances{},authored_fallbacks{};
+    };
+    OriginalHouseDisplayStats original_house_display_stats() const;
+    struct OriginalHouseVisualDiagnostic {
+        bool applicable=false,configured=false,active=false;
+        std::uint16_t house_type=0;
+        std::uint8_t actual_side=0;
+        std::optional<assets::AssetId> asset;
+        std::uint16_t image_width=0,image_height=0;
+        double ground_x=0,ground_y=0;
+        scene::Point ground{},image_origin{}; // Unscaled world coordinates.
+        std::string selection,evidence,fallback_reason;
+    };
+    OriginalHouseVisualDiagnostic original_house_visual_diagnostic(simulation::BuildingId id) const;
     void set_road_visuals(const std::filesystem::path& manifest,
                           VisualProfileSource source=VisualProfileSource::Custom);
     // Optional presentation; an incomplete clip selects the complete marker fallback.
@@ -261,6 +294,7 @@ public:
     std::vector<WalkerDiagnostic> walker_diagnostics() const;
     std::uint64_t io_generation() const { return io_generation_; }
     std::uint64_t save_generation() const { return save_generation_; }
+    std::uint64_t load_generation() const { return load_generation_; }
     bool dirty() const { return world_ && (world_->ticks()!=saved_tick_ ||
         world_->command_sequence()!=saved_command_); }
     void set_managed(bool managed) { managed_=managed; }
@@ -280,14 +314,46 @@ public:
     std::uint64_t desirability_preview_build_count() const { return desirability_preview_build_count_; }
     const sandbox_ui::Layout& layout() const { return layout_; }
     std::optional<simulation::BuildingId> selected_building() const;
+    sandbox_ui::Rect diagnostic_operation_toggle_rect() const { return operation_toggle_rect(); }
     std::optional<simulation::Cell> hovered_cell() const { return hovered_; }
     std::vector<std::string> inspection_lines() const;
+    using OriginalHouseSection=original_house_ui::Section;
+    using OriginalHouseOverlay=original_house_ui::Overlay;
+    // Rule10 presentation state only; neither choice enters a save.
+    bool original_house_inspector_active() const;
+    OriginalHouseSection original_house_section() const { return original_house_section_; }
+    OriginalHouseOverlay original_house_overlay() const { return original_house_overlay_; }
+    std::vector<std::string> original_house_section_lines() const;
+    sandbox_ui::Rect original_house_section_rect(OriginalHouseSection section) const;
+    sandbox_ui::Rect original_house_overlay_rect() const;
+    sandbox_ui::Rect original_house_content_rect() const;
+    int original_house_scroll() const { return original_house_scroll_; }
+    std::string original_house_overlay_legend() const;
+    struct OriginalHouseOverlayRecord {
+        simulation::BuildingId building_id=static_cast<simulation::BuildingId>(0);
+        simulation::Cell origin{};
+        simulation::BuildingFootprint footprint{};
+        original_house_ui::Status status=original_house_ui::Status::Unknown;
+        char symbol='?';
+        int value=0;
+        scene::Point screen_ground{};
+        std::size_t visible_cells=0;
+        bool marker_visible=false;
+    };
+    struct OriginalHouseOverlayStats { std::size_t houses=0,cells=0,markers=0; };
+    OriginalHouseOverlayStats original_house_overlay_stats() const { return original_house_overlay_stats_; }
+    std::span<const OriginalHouseOverlayRecord> original_house_overlay_records() const {
+        return std::span<const OriginalHouseOverlayRecord>(original_house_overlay_records_).first(
+            original_house_overlay_stats_.houses);
+    }
     // Explicit F1/G diagnosis only. Inspecting this cache never runs routing.
     const simulation::RoadConnectivityReport* road_connectivity_report() const;
     std::uint64_t road_connectivity_check_count() const { return road_connectivity_check_count_; }
     std::vector<std::string> road_connectivity_lines() const;
     std::vector<std::string> income_summary_lines() const;
     std::vector<std::string> income_lines() const;
+    // Same read-only status text submitted by draw_hud; no cached authority.
+    std::string hud_status_line() const;
     std::vector<std::string> budget_warning_lines() const;
     std::vector<std::string> demolition_hint_lines() const;
     const sandbox_ui::RoadPlan& road_preview() const { return road_preview_; }
@@ -304,6 +370,12 @@ private:
     int building_list_y() const;
     int demolition_hint_extra_height() const;
     std::vector<std::string> wrap_panel_lines(const std::vector<std::string>& lines) const;
+    void select_original_house_section(OriginalHouseSection section);
+    void cycle_original_house_overlay();
+    int original_house_scroll_limit() const;
+    bool draw_original_house_panel();
+    bool draw_original_house_overlay();
+    bool draw_original_house_overlay_legend();
     void request_road_connectivity_diagnosis();
     enum class OperationAction { Toggle, PriorityHigh, PriorityNormal, PriorityLow };
     struct DrawInstance {
@@ -383,7 +455,22 @@ private:
                                                   simulation::Object kind) const;
     int walker_marker_shift(simulation::Position position,simulation::CourierId id) const;
     std::optional<std::uint64_t> session_texture_headroom(bool include_walkers,
-                                                        bool include_fire) const;
+                                                        bool include_fire,
+                                                        bool include_buildings=true) const;
+    struct OriginalHouseVisualSelection {
+        bool applicable=false;
+        std::uint16_t house_type=0;
+        std::uint8_t actual_side=0;
+        const assets::BuildingVisualEntry* entry=nullptr;
+    };
+    OriginalHouseVisualSelection original_house_visual_selection(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview=false) const;
+    assets::BuildingVisualProfile core_building_visual_profile() const;
+    bool append_requested_original_house_visuals(assets::BuildingVisualProfile& profile,
+        VisualProfileSource core_source,const std::filesystem::path& manifest,
+        VisualProfileSource source,std::string& reason,std::string& error) const;
+    void publish_building_visual_profile(assets::BuildingVisualProfile profile);
+    void prepare_original_house_visuals();
     void remove_fire_inspector_extension();
     void prepare_fire_inspector_extension();
     void remove_market_walker_extension();
@@ -400,6 +487,9 @@ private:
     StoredGraphicsRenderer background_;
     std::unique_ptr<simulation::World> world_;
     simulation::TickDriver clock_;
+    // Start-time selection only. The saved ModelSource remains sole authority.
+    std::optional<original::Difficulty> original_requested_difficulty_;
+    bool original_paid_starter_=false;
     scene::Camera2D camera_;
     SDL_Window* window_=nullptr;
     SDL_Renderer* renderer_=nullptr;
@@ -456,6 +546,14 @@ private:
     bool debug_open_=false;
     bool help_open_=false;
     bool income_open_=false;
+    OriginalHouseSection original_house_section_=OriginalHouseSection::State;
+    OriginalHouseOverlay original_house_overlay_=OriginalHouseOverlay::Off;
+    int original_house_scroll_=0;
+    std::optional<OriginalHouseSection> pressed_original_house_section_;
+    bool pressed_original_house_overlay_=false;
+    bool original_house_panel_pressed_=false;
+    std::array<OriginalHouseOverlayRecord,simulation::Rules::city_v10_household_limit> original_house_overlay_records_{};
+    OriginalHouseOverlayStats original_house_overlay_stats_;
     bool water_overlay_=false;
     bool health_overlay_=false;
     bool service_overlay_=false;
@@ -494,7 +592,7 @@ private:
     bool original_production_fixture() const {
         return original_save_fixture_ && simulation::original_production_enabled(rules_,requested_rule_version_);
     }
-    bool original_save_fixture_=false; // Explicit developer adapter only; never World/save authority.
+    bool original_save_fixture_=false; // Explicit original entry/legacy fixture; never saved authority.
     // Retained only through initialization, when immutable map permissions are
     // prepared. Rendering and navigation never consult the original raw map.
     maps::ParsedEmperorMap original_map_;
@@ -536,6 +634,12 @@ private:
     VisualProfileSource building_source_=VisualProfileSource::Fallback;
     std::optional<assets::BuildingVisualProfile> building_profile_;
     std::unique_ptr<BuildingSprite> building_sprite_;
+    std::size_t building_core_image_count_=0;
+    std::filesystem::path original_house_manifest_;
+    VisualProfileSource original_house_source_=VisualProfileSource::Fallback;
+    std::string original_house_fallback_reason_="No original House profile selected";
+    std::string original_house_preparation_error_;
+    std::array<std::uint64_t,16> original_house_drawn_instances_{},original_house_authored_fallbacks_{};
     bool building_enabled_=true;
     std::array<std::uint64_t,assets::building_role_count> building_drawn_instances_{};
     std::array<std::uint64_t,assets::building_role_count> building_placeholder_fallbacks_{};
@@ -559,6 +663,7 @@ private:
     std::optional<persistence::SaveDocument> initial_save_;
     std::vector<std::uint8_t> buildable_mask_;
     std::uint64_t io_generation_=0;
+    std::uint64_t load_generation_=0; // Successful active-original loads; view-local only.
     std::uint64_t save_generation_=0, saved_tick_=0, saved_command_=0;
     bool managed_=false, menu_requested_=false, menu_pressed_=false;
     std::optional<simulation::BuildingId> pending_demolition_;

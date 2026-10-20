@@ -66,7 +66,8 @@ struct Fixture {
         for (int x=0;x<24;++x) f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
         for (int x=0;x<24;x+=3)
             (void)buy(x==0 && confucian_need>0 ? sim::CommandType::PlaceOriginalElitePlot:
-                sim::CommandType::PlaceHousehold,{x,2},false);
+                sim::CommandType::PlaceHousehold,
+                confucian_need>0 ? (x==0 ? sim::Cell{0,0}:sim::Cell{x+1,2}):sim::Cell{x,2},false);
         if (confucian_need>0) expected_population=54; // Seven Common7 + genuine Elite5.
         for (const auto& [command,x]:std::array{
                 std::pair{sim::CommandType::PlaceHealthPost,0},std::pair{sim::CommandType::PlaceServicePost,3},
@@ -89,7 +90,7 @@ struct Fixture {
             layout.paper={4,17};layout.warehouse={8,17};
             for (int x=0;x<24;++x) layout.roads.push_back({x,16});
             for (int y=5;y<16;++y) layout.roads.push_back({23,y});
-            for (const int x:{6,9,12}) {layout.extra_homes.push_back({x,0});for (int y=0;y<4;++y) layout.roads.push_back({x-1,y});}
+            for (const int x:{7,10,13}) {layout.extra_homes.push_back({x,0});for (int y=0;y<4;++y) layout.roads.push_back({x-1,y});}
             paper=oe_production_fixture::add_paper_supply(world,layout);expected_population+=21;
         }
     }
@@ -114,8 +115,8 @@ struct Fixture {
         witnesses_match(value);const auto before=value.snapshot();const auto doc=document(value);
         save::write_save(target,doc,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(doc,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==25,
-              "Religion save did not use its own strict active revision25");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==27,
+              "Religion save did not use its own strict active revision27");
         auto copy=restore(parsed);check(copy.snapshot()==before,"Religion F5/F9 changed full World authority");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Religion canonical rewrite mutated saved/live authority");
@@ -165,7 +166,7 @@ States lifecycle(Fixture& f) {
           "Six paused outgoing category visitors did not complete exactly six own actual visits");
     const auto target=f.world.original_economy_state()->houses.front().building_id;
     const auto& supplied=house(f.world,target);
-    check(f.world.building(target).kind==sim::Object::OriginalElitePlot && orig::is_elite(supplied.type) &&
+    check(f.world.building(target).kind==sim::Object::OriginalEliteHouse && orig::is_elite(supplied.type) &&
           supplied.herbalist && supplied.acupuncture && supplied.ancestor && supplied.confucian && supplied.daoist && supplied.buddhist &&
           orig::needs_met(f.model->house_rules(),orig::ModelHouse::Shelter,supplied),
           "Real independent religious arrivals failed their authored Confucian/OR requirement");
@@ -242,7 +243,7 @@ void hostile(Fixture& f,const States& states) {
             {home+"confucian",0},{home+"confucian",41},{home+"confucian",96},{home+"music",40},
             {evaluation+"/service_witnesses/3",nullptr},{evaluation+"/input/confucian",0},
             {"/world/couriers/"+std::to_string(ci)+"/role",17},{"/world/couriers/"+std::to_string(ci)+"/role",20},
-            {"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",26}}) {
+            {"/world/original_production/development_revision",21},{"/world/original_production/development_revision",22},{"/world/original_production/development_revision",23},{"/world/original_production/development_revision",24},{"/world/original_production/development_revision",25},{"/world/original_production/development_revision",26},{"/world/original_production/development_revision",28}}) {
         auto value=good;value.at(json::json_pointer(pointer))=replacement;reject(value);
     }
     for (const auto& pointer:{provider+"/building_id",witness+"/provider_id",trip+"/target",trip+"/transfer/courier_id",trip+"/transfer/sequence",trip+"/dispatched_tick",trip+"/arrival_tick"})
@@ -347,7 +348,7 @@ void academy_shortest_body_route() {
     for (const sim::Cell cell:std::array{sim::Cell{3,5},sim::Cell{4,5},sim::Cell{3,6},sim::Cell{3,7},sim::Cell{3,8},sim::Cell{4,8}})
         f::buy(f.world,{sim::CommandType::PlaceRoad,cell});
     const auto target=f.buy(sim::CommandType::PlaceOriginalElitePlot,{5,5},false);
-    (void)f.buy(sim::CommandType::PlaceHousehold,{5,8},false);
+    (void)f.buy(sim::CommandType::PlaceHousehold,{5,9},false);
     const auto academy=f.buy(sim::CommandType::PlaceOriginalConfucianAcademy,{0,5});
     f.confucian=academy;
     oe_production_fixture::PaperSupplyLayout layout;layout.farm={10,12};layout.field={12,12};layout.paper={15,12};layout.warehouse={18,12};

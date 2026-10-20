@@ -1,6 +1,6 @@
 # PROGRESS – bei jeder Codex-Aufgabe aktualisieren
 
-**Status-Vokabular:** `TODO`, `IN_PROGRESS`, `PASS`, `FAIL`, `BLOCKED`, `NOT_RUN`. Belege zu jedem PASS echte Tests.
+**Taskstatus:** `TODO`, `IN_PROGRESS`, `PASS`, `FAIL`, `BLOCKED`, `NOT_RUN`. Belege zu jedem PASS echte Tests. Gesamtziel und Phasen-Gate können zusätzlich `PARTIAL` sein, wenn verpflichtende Funktionen trotz bestandener technischer Prüfung fehlen.
 
 Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei der **nächsten** Aufgabe die vorige SHA in dieser Datei nachtragen, weil ein Commit seine eigene SHA nicht enthalten kann.
 
@@ -14,6 +14,62 @@ pausiert und unbegonnen.
 Commit und Merge des gesamten geprüften Standes bis OE-25. Diese Freigabe
 umfasst Push und Pull Request nach `main`; die Aufgabenpause vor OE-26 bleibt
 bestehen. Dies ist keine Endabnahme von OE-26–33 oder Gate D–F.
+
+**Abschluss am2026-10-19:** OE-26 ist vollständig umgesetzt und technisch geprüft.
+Vertrag: `docs/original-economy/elite-footprints-runtime.md`.
+
+**Abschluss OE-27 am2026-10-19:** Fünf gebundene Difficulties, modellabhängige
+Haussteuer, installierter Unterhalt und aktuelle Wohnmission sind umgesetzt.
+[Finanzabnahme](../original-economy/finance-validation.md): 684 finale CTests PASS;
+Gate D technisch PASS, Gesamt-Originalparität weiterhin PARTIAL. Als Nächstes
+folgt OE-28. Original-Haussprites29 bleiben offen.
+
+**Abschluss OE-28 am2026-10-20:** Vier Inspectoransichten und begrenzte
+Overlays sind umgesetzt;93 gezielte Konfigurations-CTests technisch PASS. Vorabvertrag:
+[housing-inspector-runtime.md](../original-economy/housing-inspector-runtime.md).
+Rule10/Schema26/Policy3/Revision27 bleiben unverändert.
+
+**Abschluss OE-29 am2026-10-20:**15 belegte native Hausgrafiken für Typ3..17,
+explizite statische Variante0 und benannte Vacant-/Plot-Fallbacks.
+[Abnahme](../original-economy/original-house-visuals-validation.md):174 gezielte
+CTests PASS; alle alten Inspector-/Sandbox-Pixel exakt. Gate E bleibt OE30.
+
+**Abschluss OE-30 am2026-10-20:** Optionaler Original-Menüstart mit fünf
+Difficulties, bezahltem Vier-Haus-Starter oder leerer Stadt und manuellen
+Rule10-Saves. [Abnahme](../original-economy/paid-starter-validation.md):711 volle
+CTests PASS, echte Auf-/Abstiege und separate20k-Prozessreplays, normaler
+Menü-Build-/F5/F9-/Restartablauf und geöffnete1×/2×/4×-Bilder. Gate E technisch
+PASS; Originalgrafik-/Gesamtparität weiterhin PARTIAL, Human/native NOT_RUN.
+Recovery31 und alle späteren Aufgaben bleiben unbegonnen.
+
+**Abschluss OE-31 am2026-10-20:** Optionale aktive Original-Recovery ist
+modellgebunden und gegen feindliche Saves/Metadaten, gemischte Historien,
+Zeit-/Sequenzfehler und fehlende Live-Capturequelle gehärtet.
+[Abnahme](../original-economy/save-recovery-validation.md):219 relevante
+Konfigurations-CTests PASS,30 tatsächliche Recovery-Restarts und drei separate
+Quellenpaare, echte SDL-F5/F9-Fälle sowie normale Menü-Prozessneustarts.
+Schemas1–25,72 komplexe Legacy-Saves/1485 Policyfälle und alle Originaldateien
+bleiben exakt. OE32/33 und Gate F bleiben offen; Originalgesamtparität PARTIAL.
+
+**Abschluss OE-32 am2026-10-20:** Langzeit-/Lastprüfung ohne Produktionsänderung.
+[Abnahme](../original-economy/longplay-validation.md):160 relevante
+Konfigurations-CTests PASS, echte20k/100k-Läufe, fünf Creator-/Restoreabläufe
+mit35 bytegleichen Dateipaaren, eine bezahlte82/58-Stadt mit zwei Transportnetzen und neun
+serielle Softwarebenchmarks.167/165/2-Kartencorpus,1485 Policies und alte Saves
+bleiben exakt. Der unverändert weiterlaufende Vier-Haus-Starter endet nach100k
+bei−22128Funds und116 echten Food-Versäumnissen; keine allgemeine Balancefreigabe.
+OE33 und Gate F bleiben offen; Originalgrafikparität PARTIAL, native/human NOT_RUN.
+
+**Abschluss OE-33 am2026-10-20:** [Endmatrix](../original-economy/final-comparison.md)
+mit28 Funktionen und allen33 vorherigen Task-SHAs. Der aktuelle Fork992f90
+enthält bereits die frühen Rule7–9-Grundlagen; der ursprüngliche Vergleich
+mit d861d29 bleibt historisch. [Finale QA](../original-economy/final-validation.md):
+738 volle CTests,222 Kontrollfälle gegen den alten Pin und21 neue ganze
+Neuprozesspaare bestanden. Source-/Original-/Save-/Policybestand exakt.
+Technischer Berichtsabschluss PASS; **Gesamtziel und Gate F PARTIAL**, keine
+vollständige Originalgrafik-/Originalablauf- oder obere bezahlte Kettenfreigabe.
+Native/human NOT_RUN. Das nummerierte Paket endet mit33; kein Tag/Release,
+Push oder automatischer Schlussmerge.
 
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
@@ -43,14 +99,14 @@ bestehen. Dies ist keine Endabnahme von OE-26–33 oder Gate D–F.
 | OE-23 | PASS | 95967cec1e691a50e9a771a59940deda2230807b | `.local/original-economy/oe23/validation/`, `oe23/production-fixtures/final/` | Revision23: bezahlte211/212/213, neun getrennte Timer, reine Verfügbarkeit/Ankunft-Diagnose und echte Quellenbrände;159 Konfigurations-CTests,36 separate20k-Fortsetzungen. Originale Venue-/Performer-Kette weiterhin ausdrücklich experimentell; Gate D TODO |
 | OE-24 | PASS | 7360f84e40c6cd558d3cf87de41c8b713645840f | `.local/original-economy/oe24/validation2/`, `oe24/production-fixtures/final2/` | Revision24: vier bezahlte Luxusketten, fünf getrennte Vorprodukte und echter Paper→Academy-Materialpfad; 168 Konfigurations-CTests, 43 separate20k-Replays, beide Software-SDL-Ansichten geöffnet. Historische Nutzerpause danach, am2026-10-18 aufgehoben; Gate D TODO |
 | OE-25 | PASS | 9bac35b5626834b42d35d52c23b11eb039b14f21 | `.local/original-economy/oe25/validation3/`, `oe25/production-fixtures/final3/` | Revision25:15 Zeilen, bezahlte getrennte Elitefamilie, echte13→12→13 und Common6;177 relevante CTests/50 getrennte20k-Replays/4 geöffnete Softwarebilder;4×4-Geometrie26/Originalsprites29/Gate D27 offen |
-| OE-26 | TODO | — | — | — |
-| OE-27 | TODO | — | — | — |
-| OE-28 | TODO | — | — | — |
-| OE-29 | TODO | — | — | — |
-| OE-30 | TODO | — | — | — |
-| OE-31 | TODO | — | — | — |
-| OE-32 | TODO | — | — | — |
-| OE-33 | TODO | — | — | — |
+| OE-26 | PASS | bcba05334494b4f6f5afd7d4c0d2d76a13469caa | `.local/original-economy/oe26/validation2/`, `oe26/production-fixtures/final2/` | Revision26: atomare leere2×2→4×4-Elitegeometrie, echte Blockade/Reparatur/Einzug160, neun Konflikte/strikter Restore;231 CTests/51 separate20k-Replays/8 geöffnete Softwarebilder,72 Legacy-Saves/1485 Policyfälle exakt; Gate D27/Originalsprites29 offen |
+| OE-27 | PASS | eb40408a57038d775dfa79d3c8e9f1bbf189f80d | `.local/original-economy/oe27/gate-d/final4/`, `oe27/validation/final-validation.json` | Revision27: fünf Difficulties, Modellsteuer/Workerunterhalt, signed Debt und verlustfähige Mission; 684 volle CTests, 101 getrennte20k-Fortsetzungen, zehn geöffnete Softwarebilder, Legacy exakt; Gate D technisch PASS, Originalparität PARTIAL |
+| OE-28 | PASS | 15dd6da9183617f39f711df2b2ab1598f6595cb9 | `.local/original-economy/oe28/final-validation.json` | Vier Inspectoransichten, Supply/DES/Risk-Overlays;93 gezielte CTests, zwei20k-Prozessreplays, zehn geöffnete1×/2×/4×-Softwarebilder; Authority/alte Pixel exakt; Originalsprites29 offen |
+| OE-29 | PASS | 64cbfcb7c13a4b162cfb8bab118e45ef99b09d3d | `.local/original-economy/oe29/final-validation.json` |15 belegte Typ3..17-Bilder, statische Variante0;174 gezielte CTests/12 geöffnete finale Softwarebilder; alte Pixel/Authority exakt; Vacant/Plot-Fallback, Originalszene UNKNOWN/Gesamtwirtschaft PARTIAL, native/human offen |
+| OE-30 | PASS | 324fc8fd765c4c4485d7d69e97e39530a504b95d | `.local/original-economy/oe30/final-validation.json` | Optionaler Rule10-Menüstart,87 bezahlte Commands/4 Häuser, echte Auf-/Abstiege und Warenverbrauch;711 volle CTests,6 separate20k-Prozesse,51 bytegleiche Menübilder und72 Legacy-Saves/1485 Policyfälle exakt. Gate E technisch PASS; Recovery31/Human/ganze Originalgrafik offen |
+| OE-31 | PASS | d6226ed2de02413f4d462d0b968fe13b6f3d9f69 | `.local/original-economy/oe31/final-validation.json` | Aktive modellgebundene Recovery;219 relevante Konfigurations-CTests,30 echte Recovery-Prozessfälle/3 Quellenpaare,25-Schema-Bytekorpus und72 Legacy-Saves/1485 Policyfälle exakt; Capture-/Metadaten-/Historienfehler gehärtet. Gate F/Originalgesamtparität offen |
+| OE-32 | PASS | 2fbf27066ad277b15bcc4bbfc176bd3befb95c5e | `.local/original-economy/oe32/final-validation.json`, OE-00/`oe32-final-verification/` |160 relevante Konfigurations-CTests, echte20k/100k-/35 Bytepaar-Restarts, bezahlte82/58-Districts, neun serielle Benchmarks;167/165/2 und1485 Policies exakt. Fester Starter nach100k defizitär; Originalgrafik PARTIAL, Gate F/OE33 offen |
+| OE-33 | PASS | 5c43618570cab677fc1447039ca58fbf90d6996f | `.local/original-economy/oe33/final-validation.json`, OE-00/`oe33-final-verification/` | Technischer Vergleich/Übergabe:738 volle CTests,222 historische Forkkontrollen,675 aktuelle Git-Blobs/13 gleiche Kernquellen,21 neue Creator-/Restorepaare; alter Bestand exakt. Gesamtziel/Gate F PARTIAL; Originalgrafik/obere bezahlte Kette/Originalabläufe offen, native/human NOT_RUN. |
 
 ## Phasen-Gates
 
@@ -59,9 +115,9 @@ bestehen. Dies ist keine Endabnahme von OE-26–33 oder Gate D–F.
 | A | PASS | OE-07: gepinnter Vier-Modul-Vergleich/74 Vektoren, Parser-/Quellenbindung/Negativfälle,507 CTests in drei Konfigurationen und exakter Legacy-Replay; begrenzte Kernabnahme, keine Gesamt-Originalparität |
 | B | PASS | OE-08–12: ausdrücklich freigegebener Rule8-/Schema24-Nachfolger; vollständige Gate-Suites und finale gezielte Wiederholungen in Debug/Release/ASan+UBSan, bezahlte20-Haus-/Quellen-/Reload-Szene und exakter Legacyvergleich; technische begrenzte Abnahme, native/human NOT_RUN |
 | C | PASS | OE-13–19: tatsächliche bezahlte Ceramics-/Hemp-/Food-Lieferung, Konsum und medizinische Ankunft;606 vollständige Konfigurations-CTests,12 getrennte20k-Prozessfortsetzungen, unabhängige Raw-Audits und unveränderter Legacyvertrag. Begrenzte technische Abnahme; Originalart/native/human nicht abgenommen |
-| D | TODO | — |
-| E | TODO | — |
-| F | TODO | — |
+| D | PASS | OE-20–27: bezahlte Housing-/Waren-/Serviceketten,15 typisierte Hauszeilen und atomare Elite4×4-Geometrie; fünf Modellschwierigkeiten/Steuer, strikter Restore; drei frische Vollbuilds und684 vollständige CTests, separate20k-Prozesse und Legacyvergleich. Begrenzte technische Abnahme; höhere Originalstufen, Originalcollector/-sprites und native/human bleiben offen, Gesamtparität PARTIAL |
+| E | PASS | OE-28–30: optionaler produktiver Rule10-Menüstart und bezahlter Vier-Haus-Kreislauf,711 vollständige CTests/3 Konfigurationen, tatsächliche Auf-/Abstiege/Ankünfte/Verbrauch/F5F9/Neuprozess-/20k-Bytebeweise, geöffnete1×/2×/4×-Softwarebilder; ältere72 Saves/1485 Policies exakt. Technisch begrenzte Abnahme, native/human NOT_RUN, Originalparität PARTIAL und Recovery31 offen |
+| F | PARTIAL | OE31–33: Recovery/feindliche Daten,738 neue volle Konfigurations-CTests, echte neue20k/100k-/21-Bytepaar-Neuprozessläufe,167/165/2 und1485 Policies,72 ganze Saves/Snapshots und101 Schema1–25-Dateien je Konfiguration exakt. Technische QA PASS; vollständige Originalobjekte/-figuren und obere bezahlte Originalkette fehlen, deshalb kein Gesamt-/Release-PASS. |
 
 ## Fortlaufendes Testprotokoll
 
@@ -3010,3 +3066,447 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
 - Aufgaben26–33 und Gates D–F bleiben offen. Vorläufige Elite2×2, originale
   Elite4×4 in26, Original-Haussprites29, native/human NOT_RUN sowie die
   dokumentierten höheren Housing-Szenenblocker werden nicht hochgestuft.
+
+
+## OE-26 – atomare große Elite-Footprints
+
+- **PASS am 2026-10-19**, Basis `f4447163c6dac035de45a9b1ce9ba2222e0e7546`. Aktiv bleibt ausschließlich
+  Rule10/Schema26/policy3 mit `development_revision=26`. Revision25 und
+  Zukunftsrevisionen werden atomar verweigert; keine Migration, keine Änderung
+  der veröffentlichten Regeln1–9/Schemas1–25. Der vor Implementierung erklärte
+  [Vertrag26](../original-economy/elite-footprints-runtime.md) bleibt maßgeblich.
+  Die eigene Commit-SHA steht nach dem Commit in der Antwort; dieser Commit
+  kann seine eigene SHA nicht enthalten. OE-27 bleibt TODO/unbegonnen.
+- `OriginalElitePlot=39` ist ein bezahlter leerer authored2×2-Körper;
+  `OriginalEliteHouse=40` ist sein materialisierter4×4-Körper. Alle16 Claims,
+  immutable Terrain-/Original-/Gate-/Roadberechtigungen, Bridge-Deck/Bänke,
+  Rampenendpunkte, signed Foundationhöhe und aktuelle/begonnene Actor-Kanten
+  werden vor der ersten Änderung geprüft. Erst wirklicher Einzug erlaubt11→13.
+  ID, Ursprung, Bauzeit, Fundsbuchung, HouseState, Waren, Bewohner, Timer und
+  laufende Pfade bleiben erhalten. Spätere12..17-Wechsel schrumpfen nicht;
+  Common bleibt2×2. Kein zusätzlicher Kauf, Flächenkapazitätsfaktor oder Saveflag.
+- Neun unabhängige Konfliktklassen, Ränder und signed Höhenextreme, zukünftiger
+  4×4-Eingang, wiederholte Stagnation, wirkliche bezahlte Reparatur, gesperrter
+  Abriss und Restart vor/nach Materialisierung sind geprüft. Zwei getrennte
+  gleichzeitige Erfolge invalidieren den normalen Routencache gemeinsam;
+  konkurrierende Erweiterungen werden in stabiler Hausreihenfolge neu geprüft.
+  Bereits begonnene beladene Transporte behalten vollständige Pfade, Fortschritt,
+  Cargo, Reservierungen und Rezepte. Sechs direkte Mature-Restore-Policyfälle
+  und positive/negative autonome Zählerkontrollen sichern die16 Claims ab.
+- Strikter Restore verlangt Plot↔kein Ersteinzug und Körper40↔wirklichen
+  Erstbezug mit positiven Bewohnern. Genau ein abgeleitetes autonomes
+  Topologieereignis pro Körper40 ist sowohl im Produktionsledger als auch in
+  beiden allgemeinen Restoreprüfungen gebunden; kein erfundener Spielerbefehl.
+  DES/Provenance, historische Eingaben, Wasser-/Food-/Servicereisegrenzen lesen
+  die echte damalige/aktuelle Körpergröße. Keine neue Family-/Side-Authority.
+- Tatsächliche Originalmodell-/Normal-Szene bezahlt1729Funds;
+  Rest10271. Die wirklich bezahlte Straße[3,8] blockiert
+  bei120 einen echten Erweiterungsversuch: Typ11/leer, vier Claims und gesamte
+  Househistorie bleiben unverändert. Normales RemoveRoad bei120 gibt keinen
+  Refund/Einzug; erst bei160 werden16 Claims/Typ13 und zwei Bewohner gemeinsam
+  veröffentlicht. Counter49 bei2641, echte50.Fehlauswertung
+  13→12 bei2692; tatsächliche Waren erlauben12→13 bei
+  6517. Alle späteren Zustände behalten4×4. Die bezahlten
+  höheren Szenenstände sind konkret: Haus7: Typ6, Bewohner31, DES6/High14; Haus9: Typ13, Bewohner5, DES10/High50. Kein Heavenly-PASS.
+- Authored4×4-Fallback, Frontzelle, äußerer Pickbereich und Walkerfüße folgen
+  denselben echten Körper-/Pfadkoordinaten. Inspector benennt tatsächliche
+  Größe und konkreten unreservierten Erweiterungsblocker; Vorschau bleibt rein.
+  Natürlicher Brand bei2000, echte Flammenpixel und F5/F9 sind geprüft.
+  Keine Originalgrafik wird gestreckt; ursprünglicher Anker/Resize-Lifecycle,
+  Zuzug120/40/+2, Preis80 und Workeradapter bleiben getrennt benannt.
+- Finale Quelle548Dateien:
+  `e1a1eee1cc5cb6a603a2ecd61abee305e837f161df87282234e8a2ec3f467c3f`; Freeze-SHA `6b48dc861688bd1a11a2bcaaf1073eaa45e82c2b32d9622f8ddf8ec658e3e747`.
+  Drei frische warnungsfreie inkrementelle Werror-Builds, **3×77
+  CTests PASS = 231**,0Fail/Skip; Debug491.716s,
+  Release32.123s, ASan+UBSan182.923s, keine
+  Sanitizerdiagnose. `bash -n tools/play_original_economy.sh` ebenfalls PASS.
+  Unabhängig181Binarypfade/
+  39Archive an Builds/JUnit/Livebytes gebunden.
+- Frische3×74 Kernvergleiche,
+  25 tatsächliche strenge Sanitizerprozesse und
+  28 Postexport-Pythonverträge PASS.
+  15 numerische Kern-/Parser-/Vorbereitungsdateien bleiben bytegleich;
+  der einzige Metadatenzusatz ist der ausdrückliche unmapped-Körper40, keine
+  erfundene ModelBuilding-/Spriteidentität. `core-parity.json` SHA
+  `9f123ddeee3419c97a4a6d1bacf893814e1886c1f835ab9250e9c88391fcfea4`. Kein vollständiger Cleanbuild-/Gate-D-PASS.
+- Tatsächlich68 eindeutige
+  C++-PIDs:10 aktive Creates,51 getrennte20k-
+  Fortsetzungen,3 historische Creates/4 historische Resumes. Der Reader prüft
+  9020103 Assertions,260 ganzeSchema26-
+  Dokumente/255 Rohprojektionen,
+  jede Owner-/Roadgeometrie und echte Pfade. **102 ganze Savepaare und102 ganze
+  Reportpaare** am10k-Mittelpunkt/20k-Ende exakt. Auch echte geblockte120er
+  Ausgangszustände bleiben im neuen Prozess20k lang geblockt. Regeln7/8/9:
+  17Save-/
+  16Report-Literalpaare unverändert.
+  655Dateien/139114847Bytes gebunden.
+- Frischer vollständiger Legacy-`verify` unter
+  `oe00/oe26-final2-verification`:
+  **72 SaveDocuments/Snapshots und1485 Policyfälle bytegleich**,167 vollständige
+  Manager/165 vorbereitete Maps/2 bekannte Konflikte.13 wirkliche Legacytargets
+  frisch gebaut; Originalbytes und Metadaten unverändert. Sechs echte CLI-
+  Ausgaberefusals bleiben gebunden; keine Ausgabe unter Originaldaten.
+- Echte Fehlversuche bleiben erhalten: early1-Ctestregex kompiliert nicht und
+  führte0 Tests aus; early2-release-tests: 63/77 PASS, early3-release: 73/77 PASS, early4-release: 76/77 PASS, early5-release: 76/77 PASS. Die ausgelassene zweite
+  City-Topologiegleichung, kollidierende ältere2×2-Fixtures, konkrete
+  Counter-/Prerequisiteannahmen sowie UI-Zoom-/Kamera-/Front-/Pickingproben
+  wurden eng korrigiert. Die76/77-Kamerafehler sind keine Spiel-/Original-
+  Grafikabnahme; kein Bedarf, Tick oder Assert wurde zum Grünwerden entfernt.
+  Erster Legacy-verify stoppt vor Vergleich an14 fehlenden Enumfällen im
+  Playthrough-Report. Explizite neue Labels bewahren alle alten Labelbytes;
+  keine Warnung abgeschaltet. Alter FAIL/final1-Stand bleiben erhalten;
+  sämtliche finalen Belege stammen aus `oe26/validation2` und `oe26/production-fixtures/final2`.
+  Der erste private Guardlauf scheitert vor jedem C++-Aufruf am fehlenden
+  Symlink-Elternverzeichnis. Die getrennte Wiederholung erzeugt sechs echte
+  Refusals; initialer FAIL, Logs und erfolgreiche Fortsetzung bleiben erhalten.
+- Acht finale Software-SDL-PNGs PID79725 tatsächlich geöffnet:
+  Spiel/Industry/Housing/Bedarfe, blockierter Plot und4×4 bei0,5×/1×/2×.
+  24 Bild-/Beobachtungs-/Saveartefakte, echte Maus-/Tastaturkäufe, F5/F9,
+  Scroll-/Außenpickgrenzen und100 Idleframes ohne World-/Navigations-/Asset-
+  Arbeit sind gebunden. Original-Haussprites29 und native/human NOT_RUN bleiben
+  offen; Software-/synthetische Fixtures sind keine menschliche Spielabnahme.
+  Der bestehende dichte F1-Debugtext überlagert den oberen Kartenbereich der
+  drei Zoomcaptures; die drei sauberen Spiel-/Housing-/Bedarfsbilder zeigen
+  denselben Hof ohne diese Überlagerung.
+- Historischer statischer OE25-Originalnachweis (kein neuer26-Researchlauf): 26Fenster/
+  1651Instruktionen/
+  4751Bytes/
+  52Bindings; EXE/Modelbytes, mtime und Modus
+  aktuell unverändert. Kein Original-EXE-Lauf. Originalfamilienseiten2/4 und
+  erhaltende Setteroperation sind belegt; die bezahlte Plotmaterialisierung
+  und ihr Foundationguard bleiben ausdrücklich authored. Root-Abschluss
+  `oe26/validation2/final-validation.json` SHA `69de365223f9d645ef816cf8d017221c0cbe95d287da36876263d65b936516ab`.
+  Gate D folgt nach27; OE-27 wird hier nicht begonnen. Kein neuer Push/PR/Merge,
+  Tag oder Release durch diesen Task.
+
+
+## OE-27 – Schwierigkeit, modellabhängige Steuer und Wohnmission
+
+- **PASS am2026-10-19**, sauberer Start auf
+  `bcba05334494b4f6f5afd7d4c0d2d76a13469caa`. Rule10/Schema26/policy3 bleibt;
+  `development_revision=27` verweigert26 und28 ohne Migration. Regeln1–9,
+  Schemas1–25 und Defaults bleiben exakt. Eigene Commit-SHA in der Antwort;
+  OE-28 bleibt TODO/unbegonnen. Der vorab festgelegte
+  [Runtimevertrag](../original-economy/finance-runtime.md) und die
+  [vollständige Finanzabnahme](../original-economy/finance-validation.md)
+  dokumentieren Umsetzung und Grenzen.
+- Fünf typisierte Modellschwierigkeiten, tatsächliche Bewohner×vorbereitete
+  HouseField18-Rate, Steuer vor installiertem Workerunterhalt vor Tickmutation.
+  Kadenz816t, Funds-Normalisierung und2Funds/Worker/400t sind authored.
+  Nullrate bleibt0; leer/Pre-Tick-Feuer zahlt nichts. Keine Kopie von Rate,
+  Difficulty, aktueller Population oder Geldsumme im neuen15-Zeilen-Ledger.
+  Modellgebundene Historie, letzter Eingang und echte Installationsalter
+  rekonstruieren Steuern/Unterhalt und die vollständige signed Geldgleichung.
+  uint64/INT64_MIN, atomare Refusals und echte spätere Bauausgaben>12000 geprüft.
+- Die aktuelle authored Mission verlangt gleichzeitig6 nicht brennende
+  bewohnte Häuser,1 Common ab Plain,50 Bewohner, positive echte Steuer und
+  Funds>=0; ohne Bonus/Latch/Pause. Initialer Load übernimmt gespeicherte
+  Difficulty; expliziter Konflikt und abweichendes F9 werden verweigert.
+  HUD/T/Inspector zeigen tatsächliche Funds, Tax, Workerunterhalt und Bedingungen.
+- Neue statische Forschung:6 Fenster,329 Instruktionen,1094 gegen PE geprüfte
+  Bytes und19 Bindings,75 vorbereitete Housezeilen. Bewohner×Modellrate ist
+  belegt; Original-TaxOffice/DES/Rundung/Erhebungsaufruf bleiben ungeklärt.
+  Keine Original-EXE-Ausführung. Die tatsächlichen fünf TaxRate-/Kapazitäts-
+  Modifikatoren sind0, ohne erfundene weitere Multiplikatoren.
+- Final4: **drei wirklich frische vollständige Werror-Builds**, je937 normale
+  und384 zusätzliche Ninja-Kanten,25 ausgeschlossene Targets,201 Executables
+  und13 Archive. Tatsächliche Befehle sind in den Buildberichten gespeichert:
+  `python3.15 -B .local/original-economy/oe27/validation/run_gate_d.py
+  <debug|release|sanitizer> build --run-id final4 --build-jobs 3`, anschließend
+  derselbe Treiber mit `test --test-jobs 3` für Debug bzw2 für die anderen.
+  **Je228 vollständige CTests PASS =684,0Fail/Skip**, keine Compilerwarnung
+  oder Sanitizer-Diagnose. Tatsächliche CTest-Zeiten: Debug1216.998s,
+  Release147.936s, ASan/UBSan553.038s. Unveränderter unabhängiger Validator
+  bindet603 Executables/39 Archive, Python3.15, Flags, Cache und Raw-JUnit.
+  Abschließendes `sh -n tools/play_original_economy.sh` ebenfalls PASS.
+- Alle Nebenprüfungen nach dem Produktionsfix tatsächlich neu ausgeführt:
+  `run-final-sequence-final4.py --execute`.3×74 Paritätsfälle,25 strenge
+  Sanitizerprozesse und28 Postexport-Pythonverträge PASS. Alle16 numerischen
+  Originaldateien und Probevektoren bytegleich. `core-parity.json` SHA256
+  `bb42da371d165d0b52ee4c71d0720e7a190df407e2eaaf4b8887e6d773ea9221`.
+- Produktionsketten:68 echte C++-Prozesse, davon51 getrennte20k-Resumes,
+  260 vollständige Rohsaves/255 Projektionen; je102 vollständige Save- und
+  Reportpaare exakt. Finanzrunner:55 echte C++-Prozesse, davon50 getrennte20k-
+  Resumes;135 Rohdokumente,100 wiederholte und20 Inprozess-Artefaktpaare exakt.
+  Fünf Originalmodellfälle erreichen das Ziel bei1224; Normal hat181 Bewohner,
+  Tax178, Unterhalt204, Bau1083 und Funds10891. Keine Budget-/Stockinjektion.
+- Legacy unter `oe00/oe27-final4-verification`:72 SaveDocuments/Snapshots und
+  1485 Policyfälle literal identisch;167 vollständige Manager/165 vorbereitete
+  Karten/dieselben2 Konflikte. Regeln7/8/9 behalten17 Save-/16 Reportpaare.
+  Zehn finale Software-SDL-Bilder PID52591 tatsächlich geöffnet,30 Begleit-
+  artefakte gebunden; alle PNGs bytegleich zum vorherigen gültigen Rendering.
+  Sechs CLI-Ausgaberefusals und zehn Play-Optionsfälle PASS. Software-/authored
+  Szenen sind keine native/human oder Originalgrafik-Abnahme.
+- Tatsächliche final3-FAILs bleiben erhalten: alle drei Suiten226PASS/2Industrie-
+  FAIL/0Skip. Der späte60Funds-Testkauf ignorierte echten Unterhaltsschuldenstand;
+  früher bezahlter Kauf/Abriss und spätere atomare Kaufverweigerung erhalten
+  beide Nachweise. Güterketten und vollständiger20k-Replay bleiben unverändert.
+- Unabhängiger echter Red-Nachweis: einziger geänderter Steuerzeitpunkt
+  8976→9792 in einem echten10000er Save wurde trotz belegter Brandperiode
+  9740–10340 akzeptiert. Neuer Financeguard bindet die letzte natürliche
+  Brandperiode; echte verzögerte Käufe prüfen Zündung/Innen/Ablauf/nach Ablauf.
+  Exakte alte Eingaben am neuen Release: Kontrolle+20k PASS und alle fünf
+  vollständigen Ausgaben bytegleich; identische Manipulation vor Fortsetzung
+  verweigert. Deshalb sämtliche final4-Builds/Suiten/Nebenläufe neu und frisch.
+  Vorbereitete reine Test-Korrekturhelfer wurden nicht ausgeführt/gezählt.
+- Initiale Compiler-/Runner-/Archivindex-/private Reportschemafehler,
+  supersedierte final1/2 und die synthetische riesige Nullraten-Gegenprobe
+  bleiben benannt. Eine spätere Scope-Klarstellung im privaten alten Report
+  hatte dessen Fingerprint verändert; exakt12.765 ursprüngliche Bytes wurden
+  mit dem eingefrorenen SHA3100831a… wiedergewonnen. Beide Fassungen und
+  Recoveryprovenance sind gebunden, keine historische Ausführung neu behauptet.
+- Finale Quelle556 Dateien:
+  `4f98327153c9d2cff94ee13ca8d21be0e9943342542d7517fcaee5057839baf1`.
+  Unveränderte Installation1464 Dateien/819711091 Bytes samt Modi/mtime.
+  Abschluss `oe27/validation/final-validation.json`, SHA256
+  `c8028074f2a8e3d05dd7181db49ce0e84045c0201951ad64bab9ffbab1ec9bcc`.
+  **Gate D technisch PASS**, Gesamt-Originalparität PARTIAL; bekannte höhere
+  Originalstufen, Collector, Original-Haussprites29 und native/human bleiben
+  offen. Nur eigener lokaler OE27-Commit, kein neuer Push/PR/Merge/Tag/Release.
+
+## OE-28 – Original-House-Inspector und begrenzte Overlays
+
+- Nutzerfortsetzung2026-10-20 am sauberen OE27-HEAD
+  `eb40408a57038d775dfa79d3c8e9f1bbf189f80d`; vorheriger SHA oben nachgetragen.
+  [Vertrag](../original-economy/housing-inspector-runtime.md) vor Codeänderung,
+  Rule10/Schema26/Policy3/Revision27 und alte Authority unverändert.
+- Vier sichtbare Houseansichten State/Needs/Goods/Visits; Maus/Pages/Scroll,
+  eigener F10-Modus Off/Supply/DES/Risk, höchstens20 Häuser/320 Ownerzellen.
+  Worlddiagnosen statt zweiter Simulation, reale Timer/Besuche getrennt von
+  Quellenexistenz; Modellbedarf/relative numerische Prozentwerte, Quality,
+  aktuelle Blocker, Scheduler-Slots und bestehende Taxdetails sichtbar.
+  Hauslieferung/Konsum und Stadtproduktion/Reservierung/Fracht sauber getrennt.
+- Gegenüber der hypothetischen Forkansicht keine Mindestbewohner-/Qualitäts-
+  oder Wiederbesuchsannahmen; keine neuen Forkimports. Die bestehende
+  World-/Produktionsauthority und gekürzte Transferhistorie bleiben unverändert.
+- Drei frische gezielte Builds und93 CTests PASS,0 Fehler/Skips/Warnungen;
+  tatsächliche Befehle und Zeiten in `.local/original-economy/oe28/` und
+  [Abnahme](../original-economy/housing-inspector-validation.md). Neue Tests:
+  `original-house-inspection`, `original-house-inspection-real`,
+  `original-house-inspector-view`. Kein vorgezogener vollständiger Gate E.
+- Tatsächlicher SDL-Negativfall: verfügbare Quelle ohne Ankunft/Timer bleibt X.
+  Bezahlte positive Common-/Elite-/Food-/Waren-/Besuchsfälle; F5/F9,
+  Maus/Keyboard/Help/F3/Fokus/Release/Resize/HiDPI/F2/F6/F8 bestehen.
+  100 wechselnde UI-Frames halten sämtliche zwölf Arbeit-/Authorityzähler0
+  und alle Snapshot-/Cache-/Texturwerte exakt. Viewentscheidungen bleiben
+  aus Saves ausgeschlossen und starten in einer neuen Sitzung State/Off.
+- 22 PNGs mit echten Begleitsaves erzeugt, zehn1×/2×/4×-Bilder geöffnet.
+  Beide alten Sandbox-Software-BMPs bytegleich; unveränderte City16-Tests grün.
+  Zwei getrennte20k-Prozesse liefern vier volle SaveDocuments und vier
+  Berichte bytegleich zur OE27-Kontrolle. Keine neue vollständige72/167-
+  Corpusabnahme behauptet. Original1464 Dateien mit Bytes/Modi/mtime erhalten.
+- Der finale Report bindet560 Sourcepfade; erste Warnungs-/SDL-Testversuche
+  bleiben erhalten, ihre konkreten Korrekturen stehen in der Abnahme.
+  **OE-28 technisch PASS**. Gesamtparität PARTIAL, native/human NOT_RUN,
+  Originalsprites29 und Gate E30 bleiben offen. Nur eigener lokaler Commit;
+  kein neuer Push/PR/Merge/Tag/Release.
+
+## OE-29 – belegte native Hausbilder und sichere Stufenabbildung
+
+- Sauberer Start15dd6da, getrennte Originalsetter-/SG3-/Frontanker-Evidenz vor
+  Zuordnung.15 native Typ3..17-Bilder als metadata-only optionale Ergänzung;
+  tatsächlicher Worldtyp und Körperseite wählen nach Upgrade/Downgrade/F9.
+  Vacant2 bleibt wegen Constructor-/Settermehrdeutigkeit Fallback, leerer
+  Eliteplot2×2 übernimmt kein Original4×4-Bild. Statische Variante0 ist benannt.
+- Bestehende Legacy13 Rollen/12 Bilder und0/1/2-Stufen unverändert; ein
+  physischer Pool, atomarer Append ohne doppelte Core-Uploads und alte Budgets.
+  Gemeinsame bestehende Registrierung, kein zweiter Bildindexübersetzer.
+  Typ→Gruppe separat gegen kohärente Vertauschung geschützt. Benutzerdefinierte
+  Art ist ausdrücklich custom, unbekannte Daten aktivieren keine Builtinidentität.
+- 174 finale CTests in drei frischen Konfigurationen PASS,0 Fehler/Skips/Warnungen.
+  Bezahlte Common2→3→4→5/Elite11→13→12→13; native Pixel/Alpha/Picking/Culling/UI,
+  Walkerfüße, gleicher bezahlter Rule10-Rampenkontext, authored Foreground,
+  F4/F6/F7/Snapshot/F5F9.100 reine Frames halten alle zwölf Zähler0.
+- 114 neue PNGs samt Schema26-Saves, zwölf finale Releasebilder tatsächlich
+  geöffnet; Originalexport30 Bilder/sechs geöffnete Blätter separat. Alle22
+  alten House-Inspector-PNGs und zwei Sandbox-BMPs je Konfiguration bytegleich.
+  Keine neue volle Corpus-/20k-Abnahme; alte OE28-Artefakte unverändert.
+- Die anfängliche57/58-Inaktive-Copyregression wurde mit unverändertem Test
+  korrigiert; sämtliche finalen Läufe binden denselben eingefrorenen564-Datei-
+  Stand.127 Authorityquelldateien, alle Original1464 Dateien/Bytes/Modi/mtime
+  und Rule10/Schema26/Policy3/Revision27 unverändert. Exakte Befehle/Resultate
+  und Fehlversuche in der verlinkten Abnahme und privaten Reports erhalten.
+- **OE-29 technisch PASS**, ursprüngliche individuelle Variante/ganze Szene
+  UNKNOWN, Gesamt-Originalwirtschaft PARTIAL, native/human NOT_RUN. Gate E
+  gehört zu30; OE30 bleibt TODO. Nur eigener lokaler Task-Commit.
+
+### OE-30 – 2026-10-20, Basis64cbfcb7
+
+- Optionaler Menüeintrag O, fünf session-only Difficulties, Paid4/Empty und
+  ausdrücklicher manueller Rule10-Load; alte New-Sandbox-Defaults, SettingsV1,
+  Actionnummern/Koordinaten und Original7–9-Sperren unverändert. F5/F9 bleibt
+  sichtbar manuell; keine Original-AutosaveController oder Recoveryfreigabe.
+- Der authored Plan sucht legalen ebenen24×13-Platz und kauft ausschließlich87
+  normale Commands beiTick0. Reale Xia/Normal:1404 bezahlt,10596 Funds,
+  0 Einwohner/Bestände. Vier Häuser steigen bei3559 auf; Hemp13/Ceramics4
+  verbraucht. Tatsächliche Straßenreparatur kostet8 und erzeugt neue Ankunft4319;
+  Ancestor-Ausfall ergibt belegte bewohnte5→4-Rückentwicklung6721, Erholung6823.
+  Erlaubter neutraler Quellenabriss ohne Refund und atomische Hausabrissverweigerung,
+  Pausen/Unterhalt und unabhängiger Workerprioritäts-/ID-Oracle geprüft.
+- **Debug237/237, Release237/237, ASan+UBSan237/237 PASS**, insgesamt711 volle
+  finale CTests,0 Fehler/Skips; vorher tatsächliche Inventare, finale Builds
+  ohne Warnungen. Identischer571-Datei-Freeze über alle finalen Läufe. Der
+  Apple-arm-Host verweigert detect_leaks=1 tatsächlich; Memory-ASan und UBSan
+  laufen mit halt-on-error/detect_leaks=0. Kein Leakdetektor-PASS behauptet.
+- Sechs echte separate Creator-/Resumeprozesse setzen6823→26823 fort:
+  15 ganze Restartdateipaare und32 Rohdateien über drei Konfigurationen exakt.
+  Endfunds1500/Population167, alle Waren-/Food-/Cargo-/Reservationsbilanzen erhalten.
+  Weitere sechs produktive Menüprozesse prüfen normale SDL-Clicks/TickDriver,
+  Road-Build/Remove/Repair, tatsächlichen Courier, F5/F9 und160-Tick-Neuprozess-
+  Fortsetzung.51 finale Softwarebilder bytegleich, elf Releasebilder unabhängig
+  geöffnet; Root öffnete zusätzlich sieben Bilder. Neun Zusatzprozesse prüfen
+  Minimum900×600/VeryHard-Prozesssave; neun Pfadschutzproben korrekt verweigert.
+- Neuer ausführbarer Baselinevergleich unter
+  `.local/original-economy/oe00/oe30-final-verification/`:72 SaveDocuments/
+  Snapshots,1485 Policyfälle und167/165/2-Corpus exakt, elf Rampen-/zehn Bridge-
+  Neuprozesspaare.127 alte Authorityquellen und1464 Originaldateien/819711091Byte
+  in SHA/Modus/mtime unverändert. Frühere Testannahmen und Fehlversuche sind
+  ehrlich im privaten Log und [Abnahmebericht](../original-economy/paid-starter-validation.md)
+  erhalten; dafür keine Runtime oder Assertions gelockert.
+- Finalreport `.local/original-economy/oe30/final-validation.json`, SHA256
+  `7294e0ad54030cbca9547136488221cd1c69c63ba384cbfca6cfda4c9109c94d`.
+  **OE30/Gate E technisch PASS**; Rule10/Schema26/Policy3/Revision27 erhalten.
+  Nicht-Haus-Art/Originalparität PARTIAL, native/human NOT_RUN; Recovery31 und
+  spätere Prompts unbegonnen. Nur ein lokaler eigener Commit, kein Push/Merge.
+
+### OE-31 – 2026-10-20, Basis324fc8fd
+
+- **Vertrag:** [save-recovery-contract.md](../original-economy/save-recovery-contract.md)
+  vor Sourceänderung erklärt; Rule10/Schema26/Policy3/Revision27 unverändert,
+  Default-Recovery und Frozen7–9 bleiben gesperrt. Kein weiterer Forkimport.
+- **Umsetzung:** ausdrücklicher Recoveryzugang, Common-/Elite-Summary, identische
+  Quellen/Version/Difficulty, begrenzte Metadaten und atomare Historien/Branches.
+  Drei reale Red/Green-Probes belegen Mixed-Difficulty, rückwärtige Zeit und
+  unlesbares Sequenzende; gute Geschwister bleiben nutzbar. Eine vierte Probe
+  belegt Capturethrow/Frame-Repeat bei fehlender Livequelle, nun mit sichtbarem
+  Fehler und1200t Backoff einschließlich F9-/Toggle-/Commit-Zwischenzuständen.
+- **Tests:**63 relevante CTests je Debug/Release/ASan+UBSan bestanden; nach dem
+  letzten App-/Controllerfix alle zehn betroffenen Suites je Konfiguration erneut
+  bestanden, zusammen219 akzeptierte Konfigurationsläufe/0 finale Fehler/0 Skips.
+  Je authored/real2577 Saveverweigerungen plus neun echte verdiente Zustände und
+  separate authored4×4-Elite;30 Recovery-Neuprozessfälle mit exakten1/51/408t-
+  Weiterläufen, drei private Quellenpaare, echte SDL-F5/F9 und Menü-Restarts.
+- **Alte Verträge:**25 repräsentative Schemas mit101 ganzen Dateien je Konfiguration
+  bytegleich zu vorab eingefrorenen OE30-Archiven;1–3-Normalisierung bleibt alt.
+  Zusätzlich72 SaveDocuments/Snapshots,1485 Policies und167/165/2 unverändert.
+  Keine Savecodec-/World-/Map-/Rendereränderung. Alle1464 Originaldateien mit
+  SHA/Modus/mtime exakt;819711091Bytes. Keine persönlichen PrefPaths/alten Saves.
+- **Beleg:** `.local/original-economy/oe31/final-validation.json`,21458Bytes,
+  SHA256 `8c479748c8c908c6194aeff0be0fd81fdd656220447a8a362b62320d15ed90ad`;
+  Details einschließlich aller erhaltenen roten/unterbrochenen Vorläufe stehen in
+  [save-recovery-validation.md](../original-economy/save-recovery-validation.md).
+  Finaler577-Pfad-Freeze3 `aa5262d4f5db57a87ba6afecde402dac796617b8d932a97a0dc4ea00ad123b7e`.
+- **Grenzen:** keine volle241er-/Gate-F-/100k-Abnahme; native/human NOT_RUN,
+  LSan auf diesem Host nicht unterstützt und deshalb nicht behauptet.
+  Einige Originalobjektgrafiken bleiben Fallbacks; Gesamtparität PARTIAL.
+  Nur lokaler OE31-Commit, kein Push/Merge/Tag/Release; OE32 unbegonnen.
+
+### OE-32 – 2026-10-20, Basisd6226ed2
+
+- **Vertrag:** [longplay-contract.md](../original-economy/longplay-contract.md)
+  vor Implementierung; aktive Rule10-Grenzen82/58 und getrennte Ledgerbudgets.
+  Keine Produktionsänderung: alle261 `src/`-Dateien, Rule10/Schema26/Policy3/
+  Entwicklungsrevision27 unverändert. Der vollständige Lastfall verwendet nach
+  belegtem Xia-/Handan-Platzmangel ausdrücklich authored Gelände und Originalmodell.
+  Zwei getrennte Transportnetze teilen weiterhin Funds und Workforce.
+- **CTests:** je50 relevante Debug/Release/ASan+UBSan PASS, danach je fünf
+  betroffene Source3-Tests in Release/Sanitizer erneut PASS:160 akzeptierte
+  Konfigurationsläufe,0 finale Fehler/Skips. Debug wurde während zweier reiner
+  QA-Dateifixes ausgeführt;106 alte Executables bleiben bytegleich, vier neue
+  Debugbinaries sind vor dem Beginn ihrer fünf Tests an Source3 gebunden.
+  Kein gleicher Gesamtquellstand über diesen Debugbatch behauptet. Finale
+  Builds warnungsfrei; ASan+UBSan mit halt-on-error/detect_leaks=0, LSan unsupported.
+- **Echte Langläufe:** fünf separate Seed-/unrestored-Creator-/Restoreabläufe,
+  15 PIDs und35 ganze Bytepaare;25 Roh-Checkpoints unabhängig geprüft.
+  Xia20k/100k und voller82/58-District20k, zusätzlich Debug/Sanitizer20k.
+  14 konfigurationsübergreifende und21 Source2/3-Paare exakt. Goods-/Food-/Cargo-/
+  Reservations-/Funds-Bilanzen erhalten; keine Bewohner-, Waren- oder Geldinjektion.
+  Originalkrankheit health-neutral, natürliche Krankheit separat in Legacy belegt.
+- **Messbefunde:** Xia100k82 Auf-/76 Abstiege,116 wirkliche Foodversäumnisse,
+  3288 Warenankünfte und−22128Funds. District20k76/75,679 Foodversäumnisse,
+  1213 Warenankünfte und−43787Funds. Keine Behauptung universeller Unrentabilität,
+  positiver Balance, lückenloser Versorgung oder Starvation-Freiheit.
+  Neun serielle Releasebenchmarks: mediane mittlere Tickdauer Legacy8,63µs,
+  Xia-Starter16,83µs und volle Stadt123,91µs; Software-Renderaufruf1,909/2,030/
+  1,672ms. Volle Stadt enthält Fallbackgrafiken; keine native FPS-/Originalparität.
+  View-/Previewarbeit, sichtbare Kapazitäten und Caches geprüft; keine Heapvollanalyse.
+- **Bestand:** vollständiger167/165/2-Corpus,1485 Policies,72 ganze alte
+  SaveDocuments/Snapshots und zehn Bridge-/elf Rampenrestartpaare exakt.
+  Zusätzlich101 repräsentative Schemas1–25-Dateien je Konfiguration exakt.
+  Alle1464 Originaldateien/819711091Bytes in SHA/Modus/mtime und alle AGENTS exakt.
+  Keine persönlichen Saves/PrefPaths verwendet. Source3-Freeze585 Pfade,
+  Digest `be00e194e2d1998744218b503b113a946f87388cb189314061b81e9649e8a365`.
+- **Beleg:** `.local/original-economy/oe32/final-validation.json`,7755Bytes,
+  SHA256 `b072c760de3046c02f0d3397cbf2e1f6ef5769aabb7220f8e9ce986fee0d8f1b`.
+  Reproduzierbare Befehle, Messgrenzen und erhaltene Vorläufe stehen in
+  [longplay-validation.md](../original-economy/longplay-validation.md).
+  OE32 technisch PASS; native/human NOT_RUN, Originalgrafikparität PARTIAL.
+  Nur lokaler Task-Commit; kein Push/Merge/Tag/Release. OE33/Gate F offen.
+
+### OE-33 – 2026-10-20, Basis2fbf2706
+
+- **Vergleich:**28 Funktionen mit den vier vorgeschriebenen Klassen;
+  fünf begrenzt verifizierte Originalmechaniken,15 authored Integrationen,
+  sechs teilweise integrierte Bereiche und zwei nicht unterstützte Nachweise/
+  Funktionen. Aktueller Fork992f90 hat53 zusätzliche Commits zum alten Pin,
+  enthält Frozen7–9 und hat den alten Read-only-Adapter entfernt.675 aktuelle
+  Git-Blobs und13 ausgewählte identische Kern-/Ledgerquellen unabhängig geprüft.
+  Kein Windowsbuild, Forkimport oder pauschaler Read-only-Vergleich zum Live-Fork.
+- **Vollständige aktuelle Builds:** drei neue Ninja-Builds ohne Warnungen,
+  echte246er-Inventare vor CTest; Debug246/246, Release246/246, ASan+UBSan246/246,
+  zusammen738 Konfigurationsausführungen/0 Fehler/0 Skips. Quellen über jeden
+  tatsächlichen Build-/Testprozess identisch. Debug2245,070s, Release179,248s,
+  Sanitizer720,006s Prozesszeit, keine Performancebenchmarks. LSan unsupported;
+  ASan/UBSan halt-on-error mit detect_leaks=0, kein Leakdetektor-PASS.
+- **Neue positive Laufbelege:** tatsächliche Xia20k/100k und authored82/58-
+  District20k, neun separate Seed-/unrestored-Creator-/Restoreprozesse,21 ganze
+  Bytepaare und15 geprüfte Roh-Checkpoints. Alle42 Paar-Dateien zusätzlich
+  unabhängig nach Größe/Hash/literal geprüft. Drei deterministische Endberichte
+  exakt zu OE32. Unveränderte Originaldaten, normale bezahlte Commands/Ticks;
+  keine gratis Funds/Stocks/Worker oder vorgetäuschte Originalkrankheit.
+- **Refreeze:**167 Karten/165 vorbereitet/2 alte Konflikte,1485 Policyfälle,
+  72 ganze alte SaveDocuments und72 Snapshots sowie zehn Bridge-/elf Ramp-
+  Restartpaare exakt. Zusätzlich101 ganze Schema1–25-Dateien je Konfiguration
+  gegen den erhaltenen OE31-/OE32-Referenzbestand exakt. Keine neue Baseline
+  oder Normalisierung. Gegen den historischen Fork d861d29 erneut74×3 Fälle,
+  also222 Kontrollen, samt echter Modelldatei und tatsächlichen Archivhashes PASS.
+- **Bestand:**585 Source-/Test-/Tool-/Resourcepfade einschließlich261
+  Produktionsdateien bytegleich; Inventardigest
+  `be00e194e2d1998744218b503b113a946f87388cb189314061b81e9649e8a365`.
+  Alle1464 Originaldateien/819711091Bytes in SHA/Modus/mtime und AGENTS exakt.
+  Keine persönlichen Saves/PrefPaths. Nur Vergleichs-/Übergabedokumente geändert.
+- **Erhaltene Vorfehler:** private Sammelauswertung nahm fälschlich den
+  Unterordner frozen-after/corpus an; tatsächliche CLI schreibt direkt nach
+  frozen-after. Separater strenger Vergleich prüft dieselben101 Bytes/Hashes.
+  Ein20k-Vorlauf wurde korrekt vom unveränderten OE32-Ausgabeschutz vor
+  Gameplay verweigert; neue erlaubte OE32-Unterpfade bestehen. Beide
+  Fehlaufrufe/Assertions bleiben rot erhalten und zählen nicht als PASS.
+  Keine Produktions-/Testassertion oder Schutzgrenze gelockert.
+- **Beleg:** `.local/original-economy/oe33/final-validation.json`,10073Bytes,
+  SHA256 `5a918e36819c13ae6fddecedb9ae0355ec3d5166f4bd04d2c0127a2169fa7c02`.
+  [Prüfprotokoll](../original-economy/final-validation.md),
+  [Endvergleich](../original-economy/final-comparison.md) und
+  [Spielercheck](../original-economy/player-handoff.md) enthalten Quellen,
+  Commitlinks, konkrete Reproduktion, Messwerte und die offene menschliche Liste.
+- **Entscheidung:** OE33 technischer Bericht PASS; Gesamtziel/Gate F PARTIAL.
+  Nicht-Haus-/Plot-/Actor-Grafiken, originale Performer-/Venue-/Krankheitsabläufe
+  und der vollständige bezahlte obere Durchstieg bleiben offen. Fester Starter
+  nach100k−22128Funds/116 Foodversäumnisse; kein universelles Balanceurteil.
+  Native/human NOT_RUN. Ein lokaler Taskcommit, kein Push/Merge/Tag/Release;
+  kein weiterer nummerierter Prompt und keine als erledigt umgedeutete Lücke.
+
+### Zwischenmerge OE26–33 – ausdrücklicher Nutzerauftrag am2026-10-20
+
+Nach der OE33-Übergabe mit ausdrücklich genanntem PARTIAL-Gesamtziel fragt
+der Nutzer „jetzt mregen?“. Dies beauftragt den regulären Entwicklungsmerge
+des geprüften OE26–33-Stands nach main samt Dokumentations-Handoff und PR.
+Keine Änderung der Originalparitäts-/Gate-F-Einstufung, keine Umsetzung der
+offenen Grafik-/Originalablauflücken und kein Tag/Release. Details im
+[Merge-Handoff](../original-economy/merge-through-oe33.md).
+
+Code unverändert zur tatsächlichen738-CTest-Abnahme und21 neuen ganzen
+Neuprozesspaaren; alle585 Sourcepfade/261 Produktionsdateien und1464 Originale
+erneut geprüft. origin/main f4447163 ist unveränderter Vorfahr des geprüften
+Heads5c436185; acht Taskcommits bleiben erhalten. Dieser Handoff ändert nur
+Dokumentation, keine neue CTest-Abnahme behauptet. Exakten PR-Head und reale
+Checks vor Merge prüfen; kein Squash, Rebase, Force-Push oder Branchlöschen.

@@ -85,8 +85,8 @@ struct Fixture {
         actual_timers(value);const auto before=value.snapshot();const auto d=document(value);
         save::write_save(target,d,root.data,policy->building_mask());const auto bytes=f::read_text(target);
         const auto parsed=save::read_save(target);f::same_document(d,parsed);
-        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==25,
-              "Medical save lost its explicit revision25 identity");
+        check(parsed.source_schema_version==26 && parsed.world.original_production->development_revision==27,
+              "Medical save lost its explicit revision27 identity");
         auto copy=restore(parsed);check(copy.snapshot()==before,"Medical F5/F9 changed the complete snapshot");
         save::write_save(target,document(copy),root.data,policy->building_mask());
         check(f::read_text(target)==bytes && value.snapshot()==before,"Medical rewrite changed bytes or active authority");
@@ -310,7 +310,7 @@ void hostile(Fixture& f,const States& states) {
             {"ancestor",96},{"buddhist",96}}) {
         auto value=good;value.at(json::json_pointer(house_base+suffix))=replacement;reject(value);
     }
-    for (const auto revision:{18,19,20,21,22,23,24,26}) {
+    for (const auto revision:{18,19,20,21,22,23,24,25,26,28}) {
         auto value=good;value["world"]["original_production"]["development_revision"]=revision;reject(value);
     }
     for (int fault=0;fault<6;++fault) {

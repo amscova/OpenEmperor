@@ -1,19 +1,21 @@
 # DECISIONS – verbindliches Architektur- und Evidenzregister
 
-Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten Implementierungsergebnisse. Codex ergänzt nach jedem Task Belege und Review-Status.
+Die Tabelle fasst den aktiven Stand nach OE32 am2026-10-20 zusammen.
+Die anschließenden datierten Verträge und früheren Blocker bleiben unveränderte
+historische Entscheidungsbelege; die OE33-Endabnahme folgt am Dateiende.
 
-| ID | Anfangsentscheidung | Status / Beweisbedarf |
+| ID | Entscheidung | Aktiver Status / Aussagegrenze |
 |---|---|---|
-| D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig testen | plan |
-| D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | OE-11: explizites unveränderliches Sessionmodell, einmalige typisierte Vorbereitung; Live-SHA/Größe bei Save/Restore; kein Modellzugriff im Tick |
-| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-13: Rule7/Schema23 und Rule8/Schema24 eingefroren; ausdrücklich angenommener Nachfolger Rule9/Schema25 ausschließlich Entwickler-Opt-in, policy3 unverändert; echte Waren0/unsupported, keine Standardprofil-/Menüfreigabe |
-| D-04 | Alte Save-Schemas 1–24 unverändert und keine Auto-Migration | zwingende Invariante;72 vollständige OE-00-Saves/Snapshots und separat eingefrorene7/23-/8/24-Bytes nach OE-13 exakt |
-| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08/12/13: explizite begrenzte Capability-Gates auch für Rule8/9; bezahlte Befehle/Restore und exakter Legacy-Replay bestanden |
-| D-06 | Original-Model-IDs nur nach eindeutiger Quelle als VERIFIED führen | einzelne IDs offen |
-| D-07 | Originalspiel-Simulationsschritte nicht automatisch mit 20Hz World-Ticks gleichsetzen | OE-10: authored Mappingversion1 bindet 1 Tick/Phase an Rule7/Schema23; 51/16/12-Counterstruktur beobachtet, elapsed-Kalenderepoche0 getrennt vom Originaljahr; tatsächliche Prüfungen im Fortschritt |
-| D-08 | 15 House-Zeilen sind nicht gleich dem aktuellen World-Level 0..2 | eigene Authority erforderlich |
-| D-09 | Goods inklusive Alternativen nur mit Realproducer/RealCourier/Conservation | OE-13: reines Buchhaltungsfundament technisch geprüft, reale Waren0/unsupported; positive World-Produktion/Transport/Verbrauch bleiben OE-14/15/17 |
-| D-10 | Versions-Gates bis zu einer echten paid Hut->Plain-Cottage-Szene nicht im Standardmenü anbieten | ab OE-21 nachweisen |
+| D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig vergleichen | Aktueller Fork992f90 geprüft,13 ausgewählte gemeinsame Kern-/Ledgerdateien bytegleich; keine Windowsintegration oder neuen Forkimporte |
+| D-02 | Original Model-Datei read-only/mit Hash einbinden | Immutable Sessionmodell; OriginalRulesModel bei Create/Restore gebunden, Live-SHA/Größe bei Save/Restore geprüft; kein Modell-I/O im Tick |
+| D-03 | Explizit versioniertes Originalprofil | Aktiv Rule10/Schema26/Policy3/Entwicklungsrevision27 als optionaler Menüstand; Regeln1–9 und Schemas1–25 eingefroren, normale Defaults unverändert |
+| D-04 | Alte Savebytes und Versionen erhalten | Ganze Schemas1–25-Dateien und72 komplexe Legacy-Saves/Snapshots separat bytegeprüft; keine automatische Entwicklungsrevision- oder Legacy-Migration |
+| D-05 | Vorhandene Road-/Bridge-/Ramp-Authority erhalten | Dieselbe World/Navigation und unveränderte Schutz-/Restoreverträge; Sprite- oder Modellwahl eröffnet keine Wege oder Bauflächen |
+| D-06 | Original-IDs nur nach eindeutiger Quelle als verifiziert führen | Begrenzte Modell-/Regel- und Hausbildzuordnungen3–17 belegt; Nicht-Haus-Grafiken, Varianten und mehrere Originalabläufe weiterhin offen |
+| D-07 | Originalzyklen nicht automatisch mit20Hz gleichsetzen | Mappingversion1 mit einem Worldtick pro Phase ist ausdrücklich authored; beobachtete51/16/12-Struktur bleibt von einer Originalkalenderepoche getrennt |
+| D-08 |15 House-Zeilen sind eigene Authority | Getrennter typisierter Common-/Elite-HouseState, atomare4×4-Materialisierung; alle Modellzeilen testbar, bezahlter kompletter oberer Durchlauf nicht demonstriert |
+| D-09 | Waren nur mit realer Herkunft/Ankunft/Conservation | Sechs bezahlte Warenketten, eigene physische Stocks/Cargo/Reservations und tatsächlicher Konsum; Rezepte/Transportadaption authored, höhere Originalbedarfe nicht pauschal als bezahlt erreicht behauptet |
+| D-10 | Endspielerzugang erst nach echtem bezahlten Aufstieg | Seit OE30 ausdrücklich optionaler Menüstart mit bezahltem Vier-Haus-Starter und tatsächlicher früher Hausentwicklung; Gesamt-Originalziel weiterhin PARTIAL |
 
 ## Neue Entscheidungen
 
@@ -1417,3 +1419,319 @@ Die vorhandenen relevanten OE-25-Prüfungen gelten für den unveränderten Code:
 tatsächlich geöffnete Softwareansichten. Große Elite-Footprints26,
 Original-Haussprites29, vollständiger Gate D und native/human Abnahme bleiben
 offen. Die Handoff-Änderungen betreffen ausschließlich Dokumentation.
+
+### OE-26: ausdrückliche Fortsetzung und Geometrievertrag am2026-10-19
+
+Der Nutzer beauftragt „las unns OE26 machen“. Die Pause ist für OE-26
+aufgehoben. Start ist der saubere, mit `origin/main` und Feature-Upstream
+abgeglichene Merge `f4447163c6dac035de45a9b1ce9ba2222e0e7546`.
+Vor Implementierung gilt der [Elite-Footprintvertrag26](../original-economy/elite-footprints-runtime.md).
+Die aktive Entwicklungsrevision wird26; keine Migration von25, keine Änderung
+der veröffentlichten Regeln1–9/Schemas1–25 oder der unveränderten policy3.
+
+Eine neue geometrische Objektidentität materialisiert den bezahlten leeren
+2×2-Eliteplot vor wirklichem Ersteinzug zu4×4, ohne neue ID, Kauf, Budget,
+Bewohner-, Stock- oder Timerkopie. Alle16 Claims und der zukünftige Eingang
+werden vorher geprüft. Einheitliche signed Höhe ist ein konservativer authored
+Guard nur dieser Transaktion. Bei Konflikt stagniert der leere Plot; spätere
+Elite-Stufenwechsel behalten4×4. Es wird weder eine Common→Elite-Konversion
+noch eine unbelegte15-stufige Größentabelle oder originale Ankerlogik erfunden.
+Hausabriss bleibt gesperrt, synchrone Vorbereitung bleibt ohne Save-Authority.
+Der Auftrag umfasst diese Aufgabe und ihren geprüften lokalen Commit;
+OE-27 wird durch diesen einzelnen Fortsetzungsauftrag nicht vorgezogen.
+
+
+### OE-26 abgeschlossen am 2026-10-19: eine geometrische Authority
+
+Plot39 ist ausschließlich leer2×2; Körper40 benötigt wirklichen Ersteinzug und
+bleibt für alle Elite12..17 bei4×4. Die exakt vorhandene BuildingId, der bezahlte
+Ursprung und HouseState bleiben erhalten. Es gibt keinen direkten Kauf40,
+Familienwechsel, freien Bewohner, zweiten Owner oder gespeichertes Sideflag.
+Der konservative signed Foundationguard gilt nur dieser authored Transaktion.
+Alle16 Claims und tatsächlichen Actor-Kanten werden vor Veröffentlichung
+geprüft. Konkurrenz wird pro Haus erneut geprüft, erfolgreiche Cacheänderungen
+werden gemeinsam vorbereitet; aktive Pfade/Cargo bleiben unangetastet.
+Genau ein aus Körper40 plus Ersteinzugsbeleg abgeleitetes autonomes
+Topologieereignis ist in beiden allgemeinen Restoreguards und im
+Produktionsledger gebunden; kein zusätzlicher Spielerbefehl wird erfunden.
+Die tatsächliche bezahlte Straße blockiert bei120, ihre reguläre Entfernung
+liefert keinen Refund/Einzug; erst160 materialisiert und bewohnt den Körper.
+Spätere Rückentwicklung erhält4×4 und die realen Bestände/Timer/Bewohner.
+
+Die technische Abnahme liest echte finale Berichte: 231
+Konfigurations-CTests,51 getrennte20k-Fortsetzungen,8 geöffnete Softwarebilder,
+72 historische Saves/Snapshots und1485 Policyfälle. Der erste Legacybuild-FAIL
+wird durch14 explizite Reportlabels behoben, alte Labelbytes bleiben exakt.
+Originale Familienseiten2/4 sind belegt; Preis80, Plotumwandlung, Zuzug,
+Workeradapter, gezeichnete Fallbackform und Anker bleiben authored.
+Originalsprites29, vollständiger Gate D27 und native/human Abnahme bleiben
+getrennt offen. OE-27 bleibt TODO; dieser Task erzeugt nur seinen eigenen
+lokalen Commit, keinen neuen Push/PR/Merge/Tag/Release.
+
+### OE-27 vor Implementierung: Schwierigkeit und begrenzte Modellsteuer
+
+Der ausdrückliche Nutzerauftrag setzt auf dem sauberen OE-26-Commit
+`bcba05334494b4f6f5afd7d4c0d2d76a13469caa` fort. Verbindlich ist vor Codeänderung
+[finance-runtime.md](../original-economy/finance-runtime.md): Rule10/Schema26/
+Revision27, fünf bereits getypte Modellschwierigkeiten, Modellrate×tatsächliche
+Bewohner bei ausdrücklich authored816t/1Funds-Normalisierung und2Funds je
+installiertem Worker/400t. Der neue statische Originalnachweis zeigt weitere
+Originalparameter; dieser Adapter behauptet deshalb keine Originalerhebung.
+Bestehende Geldzähler bleiben alleinige Authority, historische Inputs begrenzt;
+unsigned Kürzung erhält signed Debt und alle Treasurygrenzen. Die transparente,
+verlustfähige aktuelle Mission hat keinen Bonus oder gespeicherten Siegschalter.
+Regeln1–9/alte Saves/Defaults bleiben unverändert. Vollständiger Gate D wird
+wirklich geprüft; OE-28/Originalsprites29 bleiben unbegonnen.
+
+
+### OE-27 abgeschlossen: begrenzte Steuerhistorie und technischer Gate D
+
+Der vorab erklärte Finanzvertrag ist umgesetzt und mit drei frischen
+Vollbuilds sowie684 vollständigen Konfigurations-CTests geprüft. Bestehende
+Geldzähler bleiben alleinige Authority;15 begrenzte historische Eingabezeilen
+und der letzte Eingang ermöglichen modellgebundene Restoreprüfungen.
+Die originalen TaxRate-/Kapazitätsmodifikatoren bleiben an allen fünf
+Schwierigkeiten0.816t und1Funds/Rate/Bewohner sowie2Funds/Worker/400t sind
+explizite OpenEmperor-Regeln, keine vollständige Original-Steuerrekonstruktion.
+
+Zusätzlich wird die aus dem gespeicherten Deadlinewert direkt belegte letzte
+natürliche Brandperiode gebunden. Rule10 besitzt keinen FireInspector; der
+Zündtick darf Pre-Tick-Steuer erhalten, die folgenden600 Ticks einschließlich
+Ablauf nicht. Keine frühere vollständige Brandhistorie wird erfunden. Der echte
+Ein-Feld-Redfall8976→9792 ist vor Fix akzeptiert, danach abgelehnt; dieselbe
+legitime Kontrolle liefert über20k weiterhin alle fünf Ausgaben bytegleich.
+Genuine verzögerte Käufe erzeugen alle Grenzfälle ohne Authorityinjektion.
+
+Technischer Gate D ist bestanden. Vollständige Originalparität/Gesamtabschluss
+bleiben PARTIAL: Originalcollector, höhere originale Housing-Szenengrenzen,
+Originalsprites29 und native/human Abnahme sind offen. Die
+[Finanzabnahme](../original-economy/finance-validation.md) bindet tatsächliche
+Suiten, Prozess-Replays, Originalinventar und erhaltene Fehlversuche.
+OE-28 wird nicht vorgezogen; der Task erzeugt nur seinen eigenen lokalen Commit.
+
+### OE-28 vor Implementierung: ursprüngliche Hausdiagnose als reine UI
+
+Der ausdrückliche Nutzerauftrag setzt am sauberen OE-27-Commit
+`eb40408a57038d775dfa79d3c8e9f1bbf189f80d` fort. Verbindlich ist vor den
+Sourceänderungen [housing-inspector-runtime.md](../original-economy/housing-inspector-runtime.md).
+Vier Inspectoransichten und drei begrenzte Overlays lesen ausschließlich
+bestehende const-World-Diagnosen/Produktionsbelege. Quellenexistenz zählt nie
+als tatsächliche Versorgung. Hauslieferung, Stadtproduktion, Reservierung,
+Fracht und Konsum werden mit ihrer jeweiligen Bezugsgröße getrennt.
+Keine gespeicherte Authority ändert sich: Rule10/Schema26/Policy3/Revision27,
+alte Inspector-/Input-/Saveverträge und Defaults bleiben erhalten. Native/human
+Abnahme und Originalsprites29 bleiben offen; Gate E folgt erst nach30.
+
+### OE-28 abgeschlossen: Diagnose bleibt ohne gespeicherte Authority
+
+Der vorab erklärte UI-Vertrag ist technisch umgesetzt und geprüft. Vier
+Hausansichten und die höchstens20-Haus-Overlays verwenden bestehende
+World-Diagnosen, echte Ankunfts-/Food-/Konsumbelege und die getypten Scheduler-
+Slots. Relative numerische Bedarfprozente sind ausdrücklich Anzeige, keine
+originalen gespeicherten Versorgungsquoten. Neue Sitzungen starten State/Off;
+F9 erhält die laufenden Viewentscheidungen ohne sie zu speichern.
+93 gezielte Konfigurations-CTests, zwei reale20k-Prozessreplays, zehn geöffnete
+Softwarebilder und bytegleiche alte Vergleichspixel belegen die begrenzte
+[technische Abnahme](../original-economy/housing-inspector-validation.md).
+Rule10/Schema26/Policy3/Revision27 und sämtliche ältere Authority bleiben
+unverändert. Keine neue volle Corpus-/Originalparitäts-/native/human-Abnahme;
+Originalsprites29 bleiben offen, Gate E gehört zu30. Nur lokaler Task-Commit.
+
+### OE-29 vor Implementierung: belegte Hausbilder als optionale Präsentation
+
+Der Nutzer setzt am sauberen OE28-Commit
+`15dd6da9183617f39f711df2b2ab1598f6595cb9` ausdrücklich mit29 fort.
+Der [vorab erklärte Vertrag](../original-economy/original-house-visuals-runtime.md)
+bindet nur belegte Originaltype-/Footprint-/Asset-/Ankerkombinationen. Die
+bisherigen1512/1516/1520 bleiben unveränderte Legacy-Vorschauen. Fehlende
+Identitäten oder inkompatible temporäre Körper behalten benannte Fallbacks,
+keine geratene Stufe oder gestreckte Originalgrafik. Aktive-only Vorbereitung
+teilt den bestehenden physischen Bild-/Texturpool innerhalb alter Budgets;
+World-/Save-/Versionauthority bleibt Rule10/Schema26/Policy3/Revision27.
+Die konkrete Originalzuordnung wird vor ihrer Implementierung durch den neuen
+Quellennachweis gebunden. Gate E folgt30, Gesamtparität und native/human werden
+nicht aus Softwarebildern abgeleitet. Nur lokaler eigener Task-Commit.
+
+### OE-29 abgeschlossen: nachgewiesene Typfamilien, statische Repräsentation
+
+Der Originalsetter518de0 und die native Marker-/Body-/Type30-Kette belegen
+15 Typ3..17-Bilder und ihre Frontanker. Variante0 ist eine explizite statische
+Darstellungswahl, keine neue gespeicherte Variantenauthority. Vacant2 und der
+temporäre2×2-Eliteplot behalten klar benannte Fallbacks. Der optionale native
+Bildpool und tatsächliche Worldtyp ersetzen keine Regeln/Savefelder; alte
+House-Levelprofile bleiben unverändert.
+
+Die [technische Abnahme](../original-economy/original-house-visuals-validation.md)
+bindet174 finale CTests,114 neue Softwarebilder und zwölf tatsächlich geöffnete
+finale Aufnahmen an denselben564-Datei-Stand. Der unveränderte Produktionstest
+fand den Inaktive-Copyumbruch; ohne vorbereitetes Profil ist die alte Zeile
+wieder exakt. Alle22 bisherigen Inspector-PNGs und zwei Sandbox-BMPs sind je
+Konfiguration bytegleich. Original1464 Dateien und127 Authorityquelldateien
+bleiben exakt; keine neue volle Corpus-/20k-/native/human-Abnahme. Gesamtparität
+bleibt PARTIAL und ganze Originalgrafik-/Variantenparität UNKNOWN. Gate E folgt30,
+der nächste Starterprompt bleibt unbegonnen. Nur lokaler Task-Commit.
+
+### OE-30 vor Implementierung: optionaler bezahlter Normalstart
+
+Der Nutzer setzt ausdrücklich mit30 fort. Der
+[Startervertrag](../original-economy/paid-starter-contract.md) öffnet nur den
+vorhandenen Rule10-Stand, verwendet normale bezahlte Commands und unveränderte
+Model-/Save-/Permissionauthority. Neue Menüentscheidungen bleiben session-only;
+alte Defaults und Settings bleiben erhalten. F5/F9 und expliziter manueller
+Original-Restore gehören zu30, Original-Recovery bleibt sichtbar bis31 gesperrt.
+Gate E verlangt vollständige drei Konfigurationssuites und echte Ablaufbelege;
+gesonderte menschliche Abnahme und vollständige Objektgrafikparität bleiben offen.
+
+### OE-30 abgeschlossen: bezahlte bedienbare Originalwirtschaft
+
+Der erklärte Vertrag ist umgesetzt: session-only Menü-O mit fünf Difficulties,
+Paid4/Empty und explizitem manuellem Rule10-Restore. Alte Defaults,7–9-Gates,
+SettingsV1, Versions-/Modell-/Map-/Revisionsprüfungen und Recoverygrenzen bleiben
+erhalten.87 normale Commands kaufen den Starter ohne Zeit/Bestands-/Einwohnergabe.
+Die echte Xia/Normal-Kette entwickelt vier Häuser, verbraucht beide Güter,
+belegt Ancestor-Ausfall und Erholung sowie reguläre Reparatur und Unterhalt.
+
+Die [Abnahme](../original-economy/paid-starter-validation.md) bindet711 volle
+CTests, echte separate20k-/Menü-/F5F9-/Restartprozesse und bytegleiche/geöffnete
+Softwarebilder an denselben571-Datei-Stand.72 Legacy-Saves/1485 Policyfälle und
+alle1464 Originaldateien bleiben exakt. Gate E ist technisch PASS; vollständige
+Originalgrafik-/Gesamtparität bleiben PARTIAL, Human/native und der auf diesem
+Host nicht unterstützte Leakdetektor werden nicht als PASS behauptet.
+OE31 und spätere Aufgaben bleiben unbegonnen. Nur lokaler Task-Commit.
+
+### OE31 vor Implementierung: enger aktiver Recoveryzugang
+
+Der Nutzer beauftragt ausdrücklich31. Der
+[Vertrag](../original-economy/save-recovery-contract.md) öffnet Original-Recovery
+nur über einen neuen ausdrücklichen Zugang für Rule10/Schema26/Revision27;
+Default-Recovery,7–9-Gates, alte Serialisierung und generischer Restore bleiben
+erhalten. Aktive Originalhistories binden wirkliche Map-/Modell-/Worldidentität;
+F9-Erfolg beginnt eine neue Historie. Adversariale Tests und tatsächliche
+Event-/Recovery-/Neuprozessbelege härten diesen Vertrag. Änderungen an gespeicherter
+Authority werden nicht vorgenommen; Gate F und spätere Aufgaben bleiben offen.
+
+### OE31 abgeschlossen: strikte Recovery ohne neue gespeicherte Authority
+
+Der erklärte Zugang ist umgesetzt; die [Abnahme](../original-economy/save-recovery-validation.md)
+bindet219 erfolgreiche Konfigurations-CTests und tatsächliche Prozess-/SDL-
+Weiterläufe. Die vier beobachteten Fehlerklassen (Historienidentität, Zeitfolge,
+Sequenzende und Captureausnahme) werden gezielt behandelt. Ungültige Punkte
+isolieren sich, gültige Branches bleiben möglich und Capturefehler erhalten die
+aktive Historie mit1200t Backoff. Anfangs fehlgeschlagene Recovery-Captures bleiben
+sichtbar ohne erfundene Historie; nach Quellenrückkehr ist reguläres erneutes
+Einschalten möglich. Es wird keine zusätzliche Retry-State-Machine oder Migration
+eingeführt. Alte Defaults/Savebytes und sämtliche Originaldateien bleiben exakt.
+
+63er-Grundbatch und zehn betroffene Nachprüfungen je Konfiguration sind getrennt
+belegt; keine volle241er- oder Gate-F-Abnahme wird behauptet. Native/human und
+vollständige Originalgrafikparität bleiben offen. OE32/33 bleiben unbegonnen;
+nur der autorisierte lokale Task-Commit wird erstellt.
+
+### OE32 vor Implementierung: messbare Langzeit- und Lastprüfung
+
+Der Nutzer beauftragt32. Der [Vertrag](../original-economy/longplay-contract.md)
+bindet die vorhandene aktive82/58-Grenze, echte20k/100k-/Restartläufe, zwei
+bezahlte Transportdistricts und getrennte Original-Feuer-/Legacy-Krankheitsbelege.
+Keine Rule-/Schema-/Modelländerung, kein künstlicher Versorgungserfolg und
+keine universelle Heap-/Frameratebehauptung. Gate F und33 bleiben offen.
+
+### OE32: Aussagegrenzen der tatsächlichen Langläufe
+
+Der stationäre Vier-Häuser-Starter erreicht nach2000 Warmupticks und100000
+beobachteten Ticks −22128Funds;116 echte Food-Konsumversäumnisse bleiben
+ausgewiesen. Das gilt für diesen festen Aufbau ohne weitere Spielerexpansion,
+nicht als Beweis allgemein unmöglicher positiver Rule10-Finanzierung. Der
+volle82/58-Aufbau ist ein Lasttest mit allen Quellen, kein optimierter Bauplan.
+Keine Modellzahl, Geldquelle oder Spielregel wird für ein positives Ergebnis
+geändert. Originalkrankheit bleibt neutral/unsupported; der getrennte Legacy-
+Kontrollfall belegt natürliche Krankheit und Feuer ohne Snapshotinjektion.
+
+Die vorhandenen82/58- und Ledgergrenzen erhalten lediglich ein QA-Budgetformat1.
+Sichtbare Vektorkapazitäten, Prozess-RSS und Software-Renderzeiten sind begrenzte
+Messungen. Sie begründen keine vollständige Heapanalyse, native Framerate oder
+Originalgrafikparität. OE33 und Gate F werden damit nicht vorweggenommen.
+
+### OE32 abgeschlossen: technische Stabilität mit ausgewiesenen Defiziten
+
+Die [Abnahme](../original-economy/longplay-validation.md) bindet160 relevante
+Konfigurations-CTests, fünf echte Creator-/Restoreabläufe mit35 vollständigen
+Bytepaaren, neun serielle Softwarebenchmarks und den exakten167/165/2-Corpus/
+1485-Policy-/Legacy-Savevergleich. Alle261 Produktionsdateien und sämtliche
+Originaldateien bleiben exakt. Source3 bindet585 Quellpfade; die gemischte
+Debug-Testphase ist über unveränderte alte und vor Testbeginn gehashte neue
+Executables ausdrücklich nachgewiesen, nicht als unveränderter Gesamtstand
+umetikettiert. Die finanziellen und Versorgungslücken bleiben reale Messbefunde.
+OE32 ist technisch PASS; Originalgrafikparität PARTIAL, native/human NOT_RUN,
+Gate F und OE33 offen. Es folgt ausschließlich der autorisierte lokale Commit.
+
+### OE33 vor Abschlussprüfung: aktueller Fork und getrennte Freigaben
+
+Der Nutzer beauftragt OE33 auf dem sauberen Stand
+`2fbf27066ad277b15bcc4bbfc176bd3befb95c5e`. Der live abgefragte Fork
+`amscova/windows-port` steht auf
+`992f90ce3071f66cff3d82b31aaa7550b018adb5`, nicht mehr auf dem historischen
+OE00-/OE07-Vergleich `d861d2912337c09751cb68196f85d5a30752726e`. Der neue
+Stand hat frühe Rule7–9-Grundlagen übernommen; er wird fair als aktuelle
+Referenz behandelt. Alte74-Vektor-Resultate bleiben explizit historisch.
+Keine fremden Produktionsdateien werden übernommen, kein Windows-Build.
+
+OE33 verändert ausschließlich Vergleichs-/Übergabedokumentation. Alle585
+Source-/Test-/Tool-/Resourcepfade,261 Produktionsdateien und1464 Originaldateien
+werden vorab eingefroren. Neue volle246er-Suites je Debug/Release/ASan+UBSan,
+aktuelle Quellenidentitäten und alte Save-/Policy-/Fingerprintbytes sind zu
+prüfen. Ein abgeschlossener technischer Vergleich ist vom Gesamtziel zu trennen:
+fehlende Originalobjektgrafiken, unbelegte Originalabläufe und nicht vollständig
+bezahlte obere Hausstufen bedeuten Gesamtziel und Gate F PARTIAL. Native/Human
+bleibt NOT_RUN. Der Abschluss darf weder Release-/Originalparität noch einen
+pauschalen Sieg über den inzwischen weiterentwickelten Fork behaupten.
+
+Nach bestandener technischer Berichtsabnahme folgt ein lokaler OE33-Commit.
+Keine Tags, Releases, Veröffentlichung oder automatischer Schlussmerge auf
+Basis eines PARTIAL-Gesamtziels. Die historischen Freigaben für bereits geprüfte
+Zwischenstände bleiben davon unberührt.
+
+### OE33 abgeschlossen: technischer Bericht PASS, Originalziel PARTIAL
+
+Die [Endmatrix](../original-economy/final-comparison.md) und ihr
+[Prüfprotokoll](../original-economy/final-validation.md) binden738 neue volle
+CTests ohne Fehler/Skips,222 neue Kontrollfälle gegen den historischen Forkpin,
+675 aktuelle Git-Blobs/13 identische Kerndateien sowie vollständige alte
+Save-/Policy-/Fingerprintvergleiche. Drei neue bezahlte20k-/100k-/District-
+Neuprozessabläufe ergeben21 ganze Bytepaare, drei Endberichte sind identisch
+zu OE32. Alle585 Sourcepfade,261 Produktionsdateien, AGENTS und1464 Originale
+bleiben exakt. Beide vorbereitenden privaten Aufruffehler bleiben erhalten;
+kein fehlgeschlagener Aufruf wurde als PASS gezählt oder eine Schutzgrenze
+geändert. Der private Abschluss10073Bytes hat SHA256
+`5a918e36819c13ae6fddecedb9ae0355ec3d5166f4bd04d2c0127a2169fa7c02`.
+
+Dieser Vergleichs-/Übergabeauftrag ist technisch abgeschlossen. Das gemeinsame
+Originalziel und Gate F bleiben PARTIAL, weil verpflichtende Objekt-/Actor-
+Grafiken, vollständige obere bezahlte Hausentwicklung und mehrere Original-
+Abläufe fehlen. Authored Rezepte, Immigration/Worker, Schule→Haus und Zeit-
+/Finanzintegration werden nicht zu Originalparität umetikettiert. Negative
+Balance-/Versorgungsbefunde bleiben erhalten; keine globale Unrentabilität
+behauptet. Native/Human bleibt NOT_RUN, keine Wartebedingung für diesen Bericht.
+
+Nur der eigene lokale OE33-Dokumentationscommit wird erstellt. Kein Tag,
+Release, Push oder Schlussmerge unter einem behaupteten Gesamt-PASS. Das Paket
+endet mit33; offene Funktionen bleiben konkret benannte Folgearbeit, keine
+neue erfundene OE34-Freigabe und keine erledigt markierten Fallbacks.
+
+### Entwicklungsmerge OE26–33 – ausdrückliche Nutzerfreigabe am2026-10-20
+
+Der Nutzer beauftragt nach dem OE33-Abschluss „jetzt mregen?“. Die bereits
+mitgeteilte Gesamtziel-/Gate-F-Einstufung PARTIAL bleibt bestehen. Dies ist
+jetzt die ausdrückliche Freigabe für Push/PR/regulären Merge des getesteten
+Entwicklungsstands nach main, kein automatischer Schlussmerge unter einem
+behaupteten Gesamt-PASS. Der bisherige auf den OE33-Berichtsauftrag begrenzte
+Push-/Merge-Ausschluss wird nur insoweit aufgehoben; Tags/Releases und jede
+unbelegte Originalparitätsbehauptung bleiben ausgeschlossen.
+
+[Handoff](../original-economy/merge-through-oe33.md): Basis f4447163,
+getesteter Stand bis5c436185, acht eigenständige OE26–33-Taskcommits plus
+Dokumentations-Handoff. Alle585 Sourcepfade bleiben identisch zur tatsächlichen
+738-Test-Abnahme, alte Saves/Policies und Originale erhalten. PR-Mergefähigkeit,
+CI/Reviews und exakte Head-SHA vor regulärem Merge prüfen. Keine Historien-
+umschreibung, kein Squash/Rebase/Force-Push, kein Branchlöschen; danach nur
+Fast-forward-Synchronisierung. Offene Funktionen/Human Acceptance werden durch
+den Entwicklungsmerge nicht als erledigt markiert.
