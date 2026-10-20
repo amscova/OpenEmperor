@@ -1,19 +1,21 @@
 # DECISIONS – verbindliches Architektur- und Evidenzregister
 
-Dieser Stand enthält zunächst **Planungsentscheidungen**, keine bestätigten Implementierungsergebnisse. Codex ergänzt nach jedem Task Belege und Review-Status.
+Die Tabelle fasst den aktiven Stand nach OE32 am2026-10-20 zusammen.
+Die anschließenden datierten Verträge und früheren Blocker bleiben unveränderte
+historische Entscheidungsbelege; die OE33-Endabnahme folgt am Dateiende.
 
-| ID | Anfangsentscheidung | Status / Beweisbedarf |
+| ID | Entscheidung | Aktiver Status / Aussagegrenze |
 |---|---|---|
-| D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig testen | plan |
-| D-02 | Original Model-Datei bei Rule7 read-only/mit Hash einbinden | OE-11: explizites unveränderliches Sessionmodell, einmalige typisierte Vorbereitung; Live-SHA/Größe bei Save/Restore; kein Modellzugriff im Tick |
-| D-03 | City-v16 Rule7 / MapPermissions policy3 / Schema23 als geplanter, opt-in Weg | OE-13: Rule7/Schema23 und Rule8/Schema24 eingefroren; ausdrücklich angenommener Nachfolger Rule9/Schema25 ausschließlich Entwickler-Opt-in, policy3 unverändert; echte Waren0/unsupported, keine Standardprofil-/Menüfreigabe |
-| D-04 | Alte Save-Schemas 1–24 unverändert und keine Auto-Migration | zwingende Invariante;72 vollständige OE-00-Saves/Snapshots und separat eingefrorene7/23-/8/24-Bytes nach OE-13 exakt |
-| D-05 | Brücken/Rampen Rule6 von Rule7 weiter benutzen, ihre Authority aber nicht ändern | OE-08/12/13: explizite begrenzte Capability-Gates auch für Rule8/9; bezahlte Befehle/Restore und exakter Legacy-Replay bestanden |
-| D-06 | Original-Model-IDs nur nach eindeutiger Quelle als VERIFIED führen | einzelne IDs offen |
-| D-07 | Originalspiel-Simulationsschritte nicht automatisch mit 20Hz World-Ticks gleichsetzen | OE-10: authored Mappingversion1 bindet 1 Tick/Phase an Rule7/Schema23; 51/16/12-Counterstruktur beobachtet, elapsed-Kalenderepoche0 getrennt vom Originaljahr; tatsächliche Prüfungen im Fortschritt |
-| D-08 | 15 House-Zeilen sind nicht gleich dem aktuellen World-Level 0..2 | eigene Authority erforderlich |
-| D-09 | Goods inklusive Alternativen nur mit Realproducer/RealCourier/Conservation | OE-13: reines Buchhaltungsfundament technisch geprüft, reale Waren0/unsupported; positive World-Produktion/Transport/Verbrauch bleiben OE-14/15/17 |
-| D-10 | Versions-Gates bis zu einer echten paid Hut->Plain-Cottage-Szene nicht im Standardmenü anbieten | ab OE-21 nachweisen |
+| D-01 | Kein globaler Merge des `amscova/windows-port` Forks; selektiv unabhängig vergleichen | Aktueller Fork992f90 geprüft,13 ausgewählte gemeinsame Kern-/Ledgerdateien bytegleich; keine Windowsintegration oder neuen Forkimporte |
+| D-02 | Original Model-Datei read-only/mit Hash einbinden | Immutable Sessionmodell; OriginalRulesModel bei Create/Restore gebunden, Live-SHA/Größe bei Save/Restore geprüft; kein Modell-I/O im Tick |
+| D-03 | Explizit versioniertes Originalprofil | Aktiv Rule10/Schema26/Policy3/Entwicklungsrevision27 als optionaler Menüstand; Regeln1–9 und Schemas1–25 eingefroren, normale Defaults unverändert |
+| D-04 | Alte Savebytes und Versionen erhalten | Ganze Schemas1–25-Dateien und72 komplexe Legacy-Saves/Snapshots separat bytegeprüft; keine automatische Entwicklungsrevision- oder Legacy-Migration |
+| D-05 | Vorhandene Road-/Bridge-/Ramp-Authority erhalten | Dieselbe World/Navigation und unveränderte Schutz-/Restoreverträge; Sprite- oder Modellwahl eröffnet keine Wege oder Bauflächen |
+| D-06 | Original-IDs nur nach eindeutiger Quelle als verifiziert führen | Begrenzte Modell-/Regel- und Hausbildzuordnungen3–17 belegt; Nicht-Haus-Grafiken, Varianten und mehrere Originalabläufe weiterhin offen |
+| D-07 | Originalzyklen nicht automatisch mit20Hz gleichsetzen | Mappingversion1 mit einem Worldtick pro Phase ist ausdrücklich authored; beobachtete51/16/12-Struktur bleibt von einer Originalkalenderepoche getrennt |
+| D-08 |15 House-Zeilen sind eigene Authority | Getrennter typisierter Common-/Elite-HouseState, atomare4×4-Materialisierung; alle Modellzeilen testbar, bezahlter kompletter oberer Durchlauf nicht demonstriert |
+| D-09 | Waren nur mit realer Herkunft/Ankunft/Conservation | Sechs bezahlte Warenketten, eigene physische Stocks/Cargo/Reservations und tatsächlicher Konsum; Rezepte/Transportadaption authored, höhere Originalbedarfe nicht pauschal als bezahlt erreicht behauptet |
+| D-10 | Endspielerzugang erst nach echtem bezahlten Aufstieg | Seit OE30 ausdrücklich optionaler Menüstart mit bezahltem Vier-Haus-Starter und tatsächlicher früher Hausentwicklung; Gesamt-Originalziel weiterhin PARTIAL |
 
 ## Neue Entscheidungen
 
@@ -1661,3 +1663,56 @@ Executables ausdrücklich nachgewiesen, nicht als unveränderter Gesamtstand
 umetikettiert. Die finanziellen und Versorgungslücken bleiben reale Messbefunde.
 OE32 ist technisch PASS; Originalgrafikparität PARTIAL, native/human NOT_RUN,
 Gate F und OE33 offen. Es folgt ausschließlich der autorisierte lokale Commit.
+
+### OE33 vor Abschlussprüfung: aktueller Fork und getrennte Freigaben
+
+Der Nutzer beauftragt OE33 auf dem sauberen Stand
+`2fbf27066ad277b15bcc4bbfc176bd3befb95c5e`. Der live abgefragte Fork
+`amscova/windows-port` steht auf
+`992f90ce3071f66cff3d82b31aaa7550b018adb5`, nicht mehr auf dem historischen
+OE00-/OE07-Vergleich `d861d2912337c09751cb68196f85d5a30752726e`. Der neue
+Stand hat frühe Rule7–9-Grundlagen übernommen; er wird fair als aktuelle
+Referenz behandelt. Alte74-Vektor-Resultate bleiben explizit historisch.
+Keine fremden Produktionsdateien werden übernommen, kein Windows-Build.
+
+OE33 verändert ausschließlich Vergleichs-/Übergabedokumentation. Alle585
+Source-/Test-/Tool-/Resourcepfade,261 Produktionsdateien und1464 Originaldateien
+werden vorab eingefroren. Neue volle246er-Suites je Debug/Release/ASan+UBSan,
+aktuelle Quellenidentitäten und alte Save-/Policy-/Fingerprintbytes sind zu
+prüfen. Ein abgeschlossener technischer Vergleich ist vom Gesamtziel zu trennen:
+fehlende Originalobjektgrafiken, unbelegte Originalabläufe und nicht vollständig
+bezahlte obere Hausstufen bedeuten Gesamtziel und Gate F PARTIAL. Native/Human
+bleibt NOT_RUN. Der Abschluss darf weder Release-/Originalparität noch einen
+pauschalen Sieg über den inzwischen weiterentwickelten Fork behaupten.
+
+Nach bestandener technischer Berichtsabnahme folgt ein lokaler OE33-Commit.
+Keine Tags, Releases, Veröffentlichung oder automatischer Schlussmerge auf
+Basis eines PARTIAL-Gesamtziels. Die historischen Freigaben für bereits geprüfte
+Zwischenstände bleiben davon unberührt.
+
+### OE33 abgeschlossen: technischer Bericht PASS, Originalziel PARTIAL
+
+Die [Endmatrix](../original-economy/final-comparison.md) und ihr
+[Prüfprotokoll](../original-economy/final-validation.md) binden738 neue volle
+CTests ohne Fehler/Skips,222 neue Kontrollfälle gegen den historischen Forkpin,
+675 aktuelle Git-Blobs/13 identische Kerndateien sowie vollständige alte
+Save-/Policy-/Fingerprintvergleiche. Drei neue bezahlte20k-/100k-/District-
+Neuprozessabläufe ergeben21 ganze Bytepaare, drei Endberichte sind identisch
+zu OE32. Alle585 Sourcepfade,261 Produktionsdateien, AGENTS und1464 Originale
+bleiben exakt. Beide vorbereitenden privaten Aufruffehler bleiben erhalten;
+kein fehlgeschlagener Aufruf wurde als PASS gezählt oder eine Schutzgrenze
+geändert. Der private Abschluss10073Bytes hat SHA256
+`5a918e36819c13ae6fddecedb9ae0355ec3d5166f4bd04d2c0127a2169fa7c02`.
+
+Dieser Vergleichs-/Übergabeauftrag ist technisch abgeschlossen. Das gemeinsame
+Originalziel und Gate F bleiben PARTIAL, weil verpflichtende Objekt-/Actor-
+Grafiken, vollständige obere bezahlte Hausentwicklung und mehrere Original-
+Abläufe fehlen. Authored Rezepte, Immigration/Worker, Schule→Haus und Zeit-
+/Finanzintegration werden nicht zu Originalparität umetikettiert. Negative
+Balance-/Versorgungsbefunde bleiben erhalten; keine globale Unrentabilität
+behauptet. Native/Human bleibt NOT_RUN, keine Wartebedingung für diesen Bericht.
+
+Nur der eigene lokale OE33-Dokumentationscommit wird erstellt. Kein Tag,
+Release, Push oder Schlussmerge unter einem behaupteten Gesamt-PASS. Das Paket
+endet mit33; offene Funktionen bleiben konkret benannte Folgearbeit, keine
+neue erfundene OE34-Freigabe und keine erledigt markierten Fallbacks.

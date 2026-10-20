@@ -1,6 +1,6 @@
 # PROGRESS – bei jeder Codex-Aufgabe aktualisieren
 
-**Status-Vokabular:** `TODO`, `IN_PROGRESS`, `PASS`, `FAIL`, `BLOCKED`, `NOT_RUN`. Belege zu jedem PASS echte Tests.
+**Taskstatus:** `TODO`, `IN_PROGRESS`, `PASS`, `FAIL`, `BLOCKED`, `NOT_RUN`. Belege zu jedem PASS echte Tests. Gesamtziel und Phasen-Gate können zusätzlich `PARTIAL` sein, wenn verpflichtende Funktionen trotz bestandener technischer Prüfung fehlen.
 
 Codex: Einen Task-Commit erzeugen, danach den SHA in der **Antwort** nennen. Bei der **nächsten** Aufgabe die vorige SHA in dieser Datei nachtragen, weil ein Commit seine eigene SHA nicht enthalten kann.
 
@@ -60,6 +60,17 @@ bleiben exakt. Der unverändert weiterlaufende Vier-Haus-Starter endet nach100k
 bei−22128Funds und116 echten Food-Versäumnissen; keine allgemeine Balancefreigabe.
 OE33 und Gate F bleiben offen; Originalgrafikparität PARTIAL, native/human NOT_RUN.
 
+**Abschluss OE-33 am2026-10-20:** [Endmatrix](../original-economy/final-comparison.md)
+mit28 Funktionen und allen33 vorherigen Task-SHAs. Der aktuelle Fork992f90
+enthält bereits die frühen Rule7–9-Grundlagen; der ursprüngliche Vergleich
+mit d861d29 bleibt historisch. [Finale QA](../original-economy/final-validation.md):
+738 volle CTests,222 Kontrollfälle gegen den alten Pin und21 neue ganze
+Neuprozesspaare bestanden. Source-/Original-/Save-/Policybestand exakt.
+Technischer Berichtsabschluss PASS; **Gesamtziel und Gate F PARTIAL**, keine
+vollständige Originalgrafik-/Originalablauf- oder obere bezahlte Kettenfreigabe.
+Native/human NOT_RUN. Das nummerierte Paket endet mit33; kein Tag/Release,
+Push oder automatischer Schlussmerge.
+
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
@@ -94,8 +105,8 @@ OE33 und Gate F bleiben offen; Originalgrafikparität PARTIAL, native/human NOT_
 | OE-29 | PASS | 64cbfcb7c13a4b162cfb8bab118e45ef99b09d3d | `.local/original-economy/oe29/final-validation.json` |15 belegte Typ3..17-Bilder, statische Variante0;174 gezielte CTests/12 geöffnete finale Softwarebilder; alte Pixel/Authority exakt; Vacant/Plot-Fallback, Originalszene UNKNOWN/Gesamtwirtschaft PARTIAL, native/human offen |
 | OE-30 | PASS | 324fc8fd765c4c4485d7d69e97e39530a504b95d | `.local/original-economy/oe30/final-validation.json` | Optionaler Rule10-Menüstart,87 bezahlte Commands/4 Häuser, echte Auf-/Abstiege und Warenverbrauch;711 volle CTests,6 separate20k-Prozesse,51 bytegleiche Menübilder und72 Legacy-Saves/1485 Policyfälle exakt. Gate E technisch PASS; Recovery31/Human/ganze Originalgrafik offen |
 | OE-31 | PASS | d6226ed2de02413f4d462d0b968fe13b6f3d9f69 | `.local/original-economy/oe31/final-validation.json` | Aktive modellgebundene Recovery;219 relevante Konfigurations-CTests,30 echte Recovery-Prozessfälle/3 Quellenpaare,25-Schema-Bytekorpus und72 Legacy-Saves/1485 Policyfälle exakt; Capture-/Metadaten-/Historienfehler gehärtet. Gate F/Originalgesamtparität offen |
-| OE-32 | PASS | — | `.local/original-economy/oe32/final-validation.json`, OE-00/`oe32-final-verification/` |160 relevante Konfigurations-CTests, echte20k/100k-/35 Bytepaar-Restarts, bezahlte82/58-Districts, neun serielle Benchmarks;167/165/2 und1485 Policies exakt. Fester Starter nach100k defizitär; Originalgrafik PARTIAL, Gate F/OE33 offen |
-| OE-33 | TODO | — | — | — |
+| OE-32 | PASS | 2fbf27066ad277b15bcc4bbfc176bd3befb95c5e | `.local/original-economy/oe32/final-validation.json`, OE-00/`oe32-final-verification/` |160 relevante Konfigurations-CTests, echte20k/100k-/35 Bytepaar-Restarts, bezahlte82/58-Districts, neun serielle Benchmarks;167/165/2 und1485 Policies exakt. Fester Starter nach100k defizitär; Originalgrafik PARTIAL, Gate F/OE33 offen |
+| OE-33 | PASS | — | `.local/original-economy/oe33/final-validation.json`, OE-00/`oe33-final-verification/` | Technischer Vergleich/Übergabe:738 volle CTests,222 historische Forkkontrollen,675 aktuelle Git-Blobs/13 gleiche Kernquellen,21 neue Creator-/Restorepaare; alter Bestand exakt. Gesamtziel/Gate F PARTIAL; Originalgrafik/obere bezahlte Kette/Originalabläufe offen, native/human NOT_RUN. |
 
 ## Phasen-Gates
 
@@ -106,7 +117,7 @@ OE33 und Gate F bleiben offen; Originalgrafikparität PARTIAL, native/human NOT_
 | C | PASS | OE-13–19: tatsächliche bezahlte Ceramics-/Hemp-/Food-Lieferung, Konsum und medizinische Ankunft;606 vollständige Konfigurations-CTests,12 getrennte20k-Prozessfortsetzungen, unabhängige Raw-Audits und unveränderter Legacyvertrag. Begrenzte technische Abnahme; Originalart/native/human nicht abgenommen |
 | D | PASS | OE-20–27: bezahlte Housing-/Waren-/Serviceketten,15 typisierte Hauszeilen und atomare Elite4×4-Geometrie; fünf Modellschwierigkeiten/Steuer, strikter Restore; drei frische Vollbuilds und684 vollständige CTests, separate20k-Prozesse und Legacyvergleich. Begrenzte technische Abnahme; höhere Originalstufen, Originalcollector/-sprites und native/human bleiben offen, Gesamtparität PARTIAL |
 | E | PASS | OE-28–30: optionaler produktiver Rule10-Menüstart und bezahlter Vier-Haus-Kreislauf,711 vollständige CTests/3 Konfigurationen, tatsächliche Auf-/Abstiege/Ankünfte/Verbrauch/F5F9/Neuprozess-/20k-Bytebeweise, geöffnete1×/2×/4×-Softwarebilder; ältere72 Saves/1485 Policies exakt. Technisch begrenzte Abnahme, native/human NOT_RUN, Originalparität PARTIAL und Recovery31 offen |
-| F | TODO | — |
+| F | PARTIAL | OE31–33: Recovery/feindliche Daten,738 neue volle Konfigurations-CTests, echte neue20k/100k-/21-Bytepaar-Neuprozessläufe,167/165/2 und1485 Policies,72 ganze Saves/Snapshots und101 Schema1–25-Dateien je Konfiguration exakt. Technische QA PASS; vollständige Originalobjekte/-figuren und obere bezahlte Originalkette fehlen, deshalb kein Gesamt-/Release-PASS. |
 
 ## Fortlaufendes Testprotokoll
 
@@ -3431,3 +3442,55 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   [longplay-validation.md](../original-economy/longplay-validation.md).
   OE32 technisch PASS; native/human NOT_RUN, Originalgrafikparität PARTIAL.
   Nur lokaler Task-Commit; kein Push/Merge/Tag/Release. OE33/Gate F offen.
+
+### OE-33 – 2026-10-20, Basis2fbf2706
+
+- **Vergleich:**28 Funktionen mit den vier vorgeschriebenen Klassen;
+  fünf begrenzt verifizierte Originalmechaniken,15 authored Integrationen,
+  sechs teilweise integrierte Bereiche und zwei nicht unterstützte Nachweise/
+  Funktionen. Aktueller Fork992f90 hat53 zusätzliche Commits zum alten Pin,
+  enthält Frozen7–9 und hat den alten Read-only-Adapter entfernt.675 aktuelle
+  Git-Blobs und13 ausgewählte identische Kern-/Ledgerquellen unabhängig geprüft.
+  Kein Windowsbuild, Forkimport oder pauschaler Read-only-Vergleich zum Live-Fork.
+- **Vollständige aktuelle Builds:** drei neue Ninja-Builds ohne Warnungen,
+  echte246er-Inventare vor CTest; Debug246/246, Release246/246, ASan+UBSan246/246,
+  zusammen738 Konfigurationsausführungen/0 Fehler/0 Skips. Quellen über jeden
+  tatsächlichen Build-/Testprozess identisch. Debug2245,070s, Release179,248s,
+  Sanitizer720,006s Prozesszeit, keine Performancebenchmarks. LSan unsupported;
+  ASan/UBSan halt-on-error mit detect_leaks=0, kein Leakdetektor-PASS.
+- **Neue positive Laufbelege:** tatsächliche Xia20k/100k und authored82/58-
+  District20k, neun separate Seed-/unrestored-Creator-/Restoreprozesse,21 ganze
+  Bytepaare und15 geprüfte Roh-Checkpoints. Alle42 Paar-Dateien zusätzlich
+  unabhängig nach Größe/Hash/literal geprüft. Drei deterministische Endberichte
+  exakt zu OE32. Unveränderte Originaldaten, normale bezahlte Commands/Ticks;
+  keine gratis Funds/Stocks/Worker oder vorgetäuschte Originalkrankheit.
+- **Refreeze:**167 Karten/165 vorbereitet/2 alte Konflikte,1485 Policyfälle,
+  72 ganze alte SaveDocuments und72 Snapshots sowie zehn Bridge-/elf Ramp-
+  Restartpaare exakt. Zusätzlich101 ganze Schema1–25-Dateien je Konfiguration
+  gegen den erhaltenen OE31-/OE32-Referenzbestand exakt. Keine neue Baseline
+  oder Normalisierung. Gegen den historischen Fork d861d29 erneut74×3 Fälle,
+  also222 Kontrollen, samt echter Modelldatei und tatsächlichen Archivhashes PASS.
+- **Bestand:**585 Source-/Test-/Tool-/Resourcepfade einschließlich261
+  Produktionsdateien bytegleich; Inventardigest
+  `be00e194e2d1998744218b503b113a946f87388cb189314061b81e9649e8a365`.
+  Alle1464 Originaldateien/819711091Bytes in SHA/Modus/mtime und AGENTS exakt.
+  Keine persönlichen Saves/PrefPaths. Nur Vergleichs-/Übergabedokumente geändert.
+- **Erhaltene Vorfehler:** private Sammelauswertung nahm fälschlich den
+  Unterordner frozen-after/corpus an; tatsächliche CLI schreibt direkt nach
+  frozen-after. Separater strenger Vergleich prüft dieselben101 Bytes/Hashes.
+  Ein20k-Vorlauf wurde korrekt vom unveränderten OE32-Ausgabeschutz vor
+  Gameplay verweigert; neue erlaubte OE32-Unterpfade bestehen. Beide
+  Fehlaufrufe/Assertions bleiben rot erhalten und zählen nicht als PASS.
+  Keine Produktions-/Testassertion oder Schutzgrenze gelockert.
+- **Beleg:** `.local/original-economy/oe33/final-validation.json`,10073Bytes,
+  SHA256 `5a918e36819c13ae6fddecedb9ae0355ec3d5166f4bd04d2c0127a2169fa7c02`.
+  [Prüfprotokoll](../original-economy/final-validation.md),
+  [Endvergleich](../original-economy/final-comparison.md) und
+  [Spielercheck](../original-economy/player-handoff.md) enthalten Quellen,
+  Commitlinks, konkrete Reproduktion, Messwerte und die offene menschliche Liste.
+- **Entscheidung:** OE33 technischer Bericht PASS; Gesamtziel/Gate F PARTIAL.
+  Nicht-Haus-/Plot-/Actor-Grafiken, originale Performer-/Venue-/Krankheitsabläufe
+  und der vollständige bezahlte obere Durchstieg bleiben offen. Fester Starter
+  nach100k−22128Funds/116 Foodversäumnisse; kein universelles Balanceurteil.
+  Native/human NOT_RUN. Ein lokaler Taskcommit, kein Push/Merge/Tag/Release;
+  kein weiterer nummerierter Prompt und keine als erledigt umgedeutete Lücke.

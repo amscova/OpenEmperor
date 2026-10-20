@@ -1,5 +1,13 @@
 # FORK_DELTA – OE-00 live geprüft, Windows ausgenommen
 
+**Aktueller OE33-Vergleich vom2026-10-20:**
+[final-comparison.md](../original-economy/final-comparison.md) vergleicht
+OpenEmperor `2fbf270` mit Fork `992f90ce3071f66cff3d82b31aaa7550b018adb5`.
+Der Fork hat inzwischen die frühen Rule7–9-Grundlagen übernommen. Der folgende
+OE00-Bericht und die anschließenden Tasknotizen bleiben historische Belege;
+ihre Beschreibung als isolierter Read-only-Prototyp gilt nicht pauschal für
+den heutigen Fork.
+
 Stand 2026-10-16: lokaler Upstream
 `fef111deff4cedd3d3fa48663556d41b2e4b31a6` gegen live bestätigten
 `amscova/OpenEmperor`-Branch `windows-port`
@@ -157,3 +165,34 @@ Modellfreigabe. Die Krankheit des unveränderten Legacy-Kontrollfalls ist kein
 Beleg für Originalkrankheit. Messfenster, Quellenbindung, Kapazitätsgrenzen und
 verbleibende Paritätsgrenzen stehen in
 [longplay-validation.md](../original-economy/longplay-validation.md).
+
+## OE-33 – aktueller Fork statt veralteter Ausgangsvergleich
+
+Die unabhängige Bestandsaufnahme prüft675 Git-Blobs des aktuellen
+`windows-port`-Heads `992f90ce3071f66cff3d82b31aaa7550b018adb5`. Dreizehn
+Regelkern-/Ledgerdateien sind bytegleich zum lokalen Stand. Der Fork enthält
+Modellbindung, Scheduler, bezahlte Well72-Quellen und das begrenzte Rule9-/
+Schema25-Buchhaltungsfundament. Positive Warenbestände und produktiver
+Original-Menüstart bleiben dort gesperrt. Der alte `OriginalHousingView` ist
+im aktuellen Tree entfernt; dessen74-Vektor-Vergleich bleibt ausdrücklich an
+den historischen `d861d291` gebunden.
+
+Die neue aktive Rule10-Wirtschaft ergänzt bezahlte Produktions-/Transport-/
+Konsum-/Housingkreisläufe, getrennte Timer, Geometrie, UI und Recovery über
+dieselbe World und Navigation. Das ist ein belegbarer Integrationsunterschied,
+keine pauschale Originalparität. Nicht-Haus-Grafiken, Original-Performer-/Venue-
+Kette, Originalkrankheit und ein vollständig belegter bezahlter Durchstieg durch
+alle15 Hausstufen bleiben offen. Gesamtziel/Gate F sind PARTIAL; ein technischer
+Berichtsabschluss ersetzt diese fehlenden Funktionen nicht. Keine zusätzlichen
+Forkdateien, Windowsanpassungen, Modelle oder Originalbytes werden importiert.
+Die [Matrix](../original-economy/final-comparison.md) und der
+[Abnahmebeleg](../original-economy/final-validation.md) führen aktuelle und
+historische Prüfungen getrennt auf.
+
+Die finale aktuelle Abnahme umfasst738 vollständige Konfigurations-CTests,
+222 neue historische Pin-Kontrollen,21 neue ganze Creator-/Restorepaare und
+exakte alte Savedoc-/Schema-/Policy-/Fingerprintbestände. Der Quellen- und
+Originalfreeze bleibt identisch; der Endbeleg hat SHA256
+`5a918e36819c13ae6fddecedb9ae0355ec3d5166f4bd04d2c0127a2169fa7c02`.
+Dies schließt den technischen Vergleich ab, nicht die ausdrücklich offenen
+Originalfunktionen oder Human Acceptance. Keine neuen Forkimporte.

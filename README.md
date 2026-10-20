@@ -2,7 +2,7 @@
 
 OpenEmperor is a clean-room reimplementation of _Emperor: Rise of the Middle Kingdom_, currently targeting native macOS on Apple Silicon. It reads the original game files supplied by the player; original assets and decoded images are never bundled.
 
-The current development version is **0.1.0-alpha.2**. It offers an OpenEmperor-authored city sandbox, not the original campaigns, economy or savegame compatibility. See [known issues](KNOWN_ISSUES.md) for the remaining limits and [documentation](docs/README.md) for the maintained guides.
+The current development version is **0.1.0-alpha.2**. It offers an OpenEmperor-authored city sandbox and an optional model-driven original-economy experiment. Original campaigns and original savegames are unsupported; complete gameplay and visual parity remain **PARTIAL**. See [known issues](KNOWN_ISSUES.md) and [documentation](docs/README.md).
 
 ## Build and run
 
@@ -18,12 +18,13 @@ Reuse the same build directory for subsequent builds. On first launch, select an
 
 The general menu default remains City-v11 rule 3. Selecting City-v16 starts rule 4 with original ground roads; Bridges rule 5 and Ramps rule 6 are explicit choices. Loading an existing save preserves its profile and rule version.
 
-**Original economy** (menu shortcut **O**) offers the optional Rule10
-experiment with model-driven house evolution. Choose a difficulty and either
-an empty city or the paid four-house starter, then press **Start** and **Space**.
-It supports manual **F5/F9** saves and optional recovery using the Autosave
-setting. House graphics use verified original assets where supported; several other objects still use
-fallbacks. See the [starter guide](docs/original-economy/paid-starter.md).
+**Original economy** (menu shortcut **O**) offers the optional Rule10 experiment.
+Choose **Cities/Xia.map**, **Normal** and **Paid four-house starter**, then
+**Start sandbox** and **Space**. Production, deliveries and house evolution run
+in the real city; manual **F5/F9** and optional recovery are supported.
+Verified House-stage sprites coexist with non-house fallbacks and authored
+rules. Follow the [short player check](docs/original-economy/player-handoff.md)
+or see the [final feature comparison](docs/original-economy/final-comparison.md).
 
 Start City-v16 directly:
 
@@ -57,7 +58,7 @@ The city includes Food and Pottery production, Markets, Service visits, populati
 
 - **Space** pauses or resumes; **.** advances one paused tick.
 - **WASD/arrows** pan; the mouse wheel zooms; **Z** cycles 1x/2x/4x; **R** refits.
-- **F5/F9** save/load; **Escape/Menu** retains a menu-managed session for Resume.
+- **F5/F9** save/load; **Escape/Menu** retains a menu-managed session for **Enter Continue**.
 - **Help** lists the current profile's building tools and controls.
 - **F1** shows diagnostics; **F6** compares road materials. These controls change presentation only.
 
