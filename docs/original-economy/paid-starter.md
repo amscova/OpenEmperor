@@ -26,9 +26,13 @@ Schule→Haus-Besuch, keine rekonstruierte originale Veranstaltungs-/Performer-K
 **F5** speichert außerhalb der Originaldaten. **F9** lädt diesen Stand pausiert.
 Nach einem Neustart öffnet **Load save** den ausdrücklich ausgewählten manuellen
 Originalstand. Difficulty und Modellquelle müssen zu ihm passen. Alte
-Entwicklungsrevisionen werden verweigert. Für diesen Modus ist Recovery noch
-nicht freigeschaltet; die bisherige Autosavepräferenz anderer Profile bleibt
-erhalten. **Escape** führt ins Menü, **Resume** zurück zur laufenden Stadt.
+Entwicklungsrevisionen werden verweigert. **Autosave** steuert auch hier die
+optionale Recovery: ein geschützter Startpunkt und bis zu fünf Checkpoints im
+Abstand von60 simulierten Sekunden. **Load save → Show recovery history → Open
+selected** öffnet einen Punkt pausiert in einer eigenen Historie; seine Quelldatei
+bleibt erhalten. Erfolgreiches F9 beginnt ebenfalls eine neue Historie. Das Menü
+zeigt Schreibfehler, falls Recovery nicht angelegt werden kann; manuelle Saves
+bleiben separat. **Escape** führt ins Menü, **Resume** zurück zur laufenden Stadt.
 
 Unterhalt fällt auch für pausierte Gebäude an. Vier Häuser erfüllen das
 Wohnziel noch nicht; für das Ziel sind mindestens sechs erforderlich. Weitere

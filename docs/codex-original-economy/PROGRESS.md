@@ -42,6 +42,15 @@ Menü-Build-/F5/F9-/Restartablauf und geöffnete1×/2×/4×-Bilder. Gate E techn
 PASS; Originalgrafik-/Gesamtparität weiterhin PARTIAL, Human/native NOT_RUN.
 Recovery31 und alle späteren Aufgaben bleiben unbegonnen.
 
+**Abschluss OE-31 am2026-10-20:** Optionale aktive Original-Recovery ist
+modellgebunden und gegen feindliche Saves/Metadaten, gemischte Historien,
+Zeit-/Sequenzfehler und fehlende Live-Capturequelle gehärtet.
+[Abnahme](../original-economy/save-recovery-validation.md):219 relevante
+Konfigurations-CTests PASS,30 tatsächliche Recovery-Restarts und drei separate
+Quellenpaare, echte SDL-F5/F9-Fälle sowie normale Menü-Prozessneustarts.
+Schemas1–25,72 komplexe Legacy-Saves/1485 Policyfälle und alle Originaldateien
+bleiben exakt. OE32/33 und Gate F bleiben offen; Originalgesamtparität PARTIAL.
+
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
@@ -74,8 +83,8 @@ Recovery31 und alle späteren Aufgaben bleiben unbegonnen.
 | OE-27 | PASS | eb40408a57038d775dfa79d3c8e9f1bbf189f80d | `.local/original-economy/oe27/gate-d/final4/`, `oe27/validation/final-validation.json` | Revision27: fünf Difficulties, Modellsteuer/Workerunterhalt, signed Debt und verlustfähige Mission; 684 volle CTests, 101 getrennte20k-Fortsetzungen, zehn geöffnete Softwarebilder, Legacy exakt; Gate D technisch PASS, Originalparität PARTIAL |
 | OE-28 | PASS | 15dd6da9183617f39f711df2b2ab1598f6595cb9 | `.local/original-economy/oe28/final-validation.json` | Vier Inspectoransichten, Supply/DES/Risk-Overlays;93 gezielte CTests, zwei20k-Prozessreplays, zehn geöffnete1×/2×/4×-Softwarebilder; Authority/alte Pixel exakt; Originalsprites29 offen |
 | OE-29 | PASS | 64cbfcb7c13a4b162cfb8bab118e45ef99b09d3d | `.local/original-economy/oe29/final-validation.json` |15 belegte Typ3..17-Bilder, statische Variante0;174 gezielte CTests/12 geöffnete finale Softwarebilder; alte Pixel/Authority exakt; Vacant/Plot-Fallback, Originalszene UNKNOWN/Gesamtwirtschaft PARTIAL, native/human offen |
-| OE-30 | PASS | — | `.local/original-economy/oe30/final-validation.json` | Optionaler Rule10-Menüstart,87 bezahlte Commands/4 Häuser, echte Auf-/Abstiege und Warenverbrauch;711 volle CTests,6 separate20k-Prozesse,51 bytegleiche Menübilder und72 Legacy-Saves/1485 Policyfälle exakt. Gate E technisch PASS; Recovery31/Human/ganze Originalgrafik offen |
-| OE-31 | TODO | — | — | — |
+| OE-30 | PASS | 324fc8fd765c4c4485d7d69e97e39530a504b95d | `.local/original-economy/oe30/final-validation.json` | Optionaler Rule10-Menüstart,87 bezahlte Commands/4 Häuser, echte Auf-/Abstiege und Warenverbrauch;711 volle CTests,6 separate20k-Prozesse,51 bytegleiche Menübilder und72 Legacy-Saves/1485 Policyfälle exakt. Gate E technisch PASS; Recovery31/Human/ganze Originalgrafik offen |
+| OE-31 | PASS | — | `.local/original-economy/oe31/final-validation.json` | Aktive modellgebundene Recovery;219 relevante Konfigurations-CTests,30 echte Recovery-Prozessfälle/3 Quellenpaare,25-Schema-Bytekorpus und72 Legacy-Saves/1485 Policyfälle exakt; Capture-/Metadaten-/Historienfehler gehärtet. Gate F/Originalgesamtparität offen |
 | OE-32 | TODO | — | — | — |
 | OE-33 | TODO | — | — | — |
 
@@ -3339,3 +3348,35 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   **OE30/Gate E technisch PASS**; Rule10/Schema26/Policy3/Revision27 erhalten.
   Nicht-Haus-Art/Originalparität PARTIAL, native/human NOT_RUN; Recovery31 und
   spätere Prompts unbegonnen. Nur ein lokaler eigener Commit, kein Push/Merge.
+
+### OE-31 – 2026-10-20, Basis324fc8fd
+
+- **Vertrag:** [save-recovery-contract.md](../original-economy/save-recovery-contract.md)
+  vor Sourceänderung erklärt; Rule10/Schema26/Policy3/Revision27 unverändert,
+  Default-Recovery und Frozen7–9 bleiben gesperrt. Kein weiterer Forkimport.
+- **Umsetzung:** ausdrücklicher Recoveryzugang, Common-/Elite-Summary, identische
+  Quellen/Version/Difficulty, begrenzte Metadaten und atomare Historien/Branches.
+  Drei reale Red/Green-Probes belegen Mixed-Difficulty, rückwärtige Zeit und
+  unlesbares Sequenzende; gute Geschwister bleiben nutzbar. Eine vierte Probe
+  belegt Capturethrow/Frame-Repeat bei fehlender Livequelle, nun mit sichtbarem
+  Fehler und1200t Backoff einschließlich F9-/Toggle-/Commit-Zwischenzuständen.
+- **Tests:**63 relevante CTests je Debug/Release/ASan+UBSan bestanden; nach dem
+  letzten App-/Controllerfix alle zehn betroffenen Suites je Konfiguration erneut
+  bestanden, zusammen219 akzeptierte Konfigurationsläufe/0 finale Fehler/0 Skips.
+  Je authored/real2577 Saveverweigerungen plus neun echte verdiente Zustände und
+  separate authored4×4-Elite;30 Recovery-Neuprozessfälle mit exakten1/51/408t-
+  Weiterläufen, drei private Quellenpaare, echte SDL-F5/F9 und Menü-Restarts.
+- **Alte Verträge:**25 repräsentative Schemas mit101 ganzen Dateien je Konfiguration
+  bytegleich zu vorab eingefrorenen OE30-Archiven;1–3-Normalisierung bleibt alt.
+  Zusätzlich72 SaveDocuments/Snapshots,1485 Policies und167/165/2 unverändert.
+  Keine Savecodec-/World-/Map-/Rendereränderung. Alle1464 Originaldateien mit
+  SHA/Modus/mtime exakt;819711091Bytes. Keine persönlichen PrefPaths/alten Saves.
+- **Beleg:** `.local/original-economy/oe31/final-validation.json`,21458Bytes,
+  SHA256 `8c479748c8c908c6194aeff0be0fd81fdd656220447a8a362b62320d15ed90ad`;
+  Details einschließlich aller erhaltenen roten/unterbrochenen Vorläufe stehen in
+  [save-recovery-validation.md](../original-economy/save-recovery-validation.md).
+  Finaler577-Pfad-Freeze3 `aa5262d4f5db57a87ba6afecde402dac796617b8d932a97a0dc4ea00ad123b7e`.
+- **Grenzen:** keine volle241er-/Gate-F-/100k-Abnahme; native/human NOT_RUN,
+  LSan auf diesem Host nicht unterstützt und deshalb nicht behauptet.
+  Einige Originalobjektgrafiken bleiben Fallbacks; Gesamtparität PARTIAL.
+  Nur lokaler OE31-Commit, kein Push/Merge/Tag/Release; OE32 unbegonnen.

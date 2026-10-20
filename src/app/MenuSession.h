@@ -41,6 +41,7 @@ public:
     bool original_setup() const { return original_new_game_; }
     original::Difficulty original_difficulty() const { return original_difficulty_; }
     bool original_paid_starter() const { return original_paid_starter_; }
+    std::string recovery_history_id() const { return autosave_ ? autosave_->history_id():std::string{}; }
     struct DiagnosticButtonHit {
         int action;
         bool enabled;
@@ -69,6 +70,8 @@ private:
     void perform(int action);
     void persist_settings();
     void record_save();
+    void record_load();
+    AutosaveResult begin_original_autosave(std::optional<persistence::RecoveryParent> parent=std::nullopt);
     void report_autosave(const AutosaveResult& result);
     void activate_button(int action);
     void rebuild_buttons();
@@ -84,6 +87,7 @@ private:
     std::unique_ptr<DialogAdapter> dialog_;
     std::shared_ptr<Inbox> inbox_=std::make_shared<Inbox>();
     std::uint64_t dialog_generation_=0,seen_save_generation_=0;
+    std::uint64_t seen_load_generation_=0;
     DialogKind dialog_kind_=DialogKind::None;
     State state_=State::DataSetup,return_state_=State::MainMenu;
     State confirm_return_state_=State::MainMenu;

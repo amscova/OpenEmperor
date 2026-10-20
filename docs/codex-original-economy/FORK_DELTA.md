@@ -129,3 +129,16 @@ strikte Original-Restorefunktion. Es wird kein Forkcode übernommen und keine
 neue gespeicherte Authority eingeführt. Die belegten Abläufe und verbleibenden
 Original-/Grafik-/Recoverygrenzen stehen in
 [paid-starter-validation.md](../original-economy/paid-starter-validation.md).
+
+## OE-31 – strikte aktive Save-/Recoverykette
+
+Kein weiterer Forkcode und keine neue Entwicklungsentscheidung werden importiert.
+Recovery verwendet dieselbe produktive World, die bestehende modellgebundene
+Original-Restorefunktion und normale bezahlte Befehle/Ticks. Ein ausdrücklich
+geöffneter aktiver Rule10-Stand erhält optional den vorhandenen Autosaveablauf;
+Frozen7–9 und generischer Legacy-Restore behalten ihre Grenzen.
+
+Die neue QA erzeugt reale Konsum-/Devolutions-/Reservierungs-/Debt-Zustände, statt
+Foodqualität, Bestände oder Versorgung für einen erfolgreichen Restore zu setzen.
+Die tatsächlichen Prüfungen, Legacy-Bytevergleiche und offen bleibende
+Gesamtparität stehen in [save-recovery-validation.md](../original-economy/save-recovery-validation.md).

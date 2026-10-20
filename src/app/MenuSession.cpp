@@ -21,7 +21,9 @@ enum Action { ChooseFolder=1, NewGame, LoadGame, Resume, DataFolder, Quit,
     OriginalNewGame, OriginalDifficulty, OriginalStarter,
     MapSelectBase=1000, SaveSelectBase=2000, RecoverySelectBase=3000 };
 constexpr const char* difficulty_names[]={"Very Easy","Easy","Normal","Hard","Very Hard"};
-constexpr const char* original_manual_saves="F5/F9 manual saves; Original recovery unavailable";
+std::string original_save_status(bool enabled) {
+    return enabled ? "F5/F9 saves | Autosave ON (60s simulated)":"F5/F9 saves | Autosave OFF";
+}
 constexpr simulation::RulesProfile profiles[]={simulation::RulesProfile::LogisticsV1,
     simulation::RulesProfile::ProductionV2,simulation::RulesProfile::HouseholdV3,
     simulation::RulesProfile::SettlementV4,simulation::RulesProfile::IndustryV5,
@@ -144,7 +146,8 @@ void MenuSession::refresh_saves() {
         message_="Manual save list could not be read: "+std::string(e.what());
     }
     try {
-        persistence::RecoveryStore store(app_root_,settings_.data_root);
+        persistence::RecoveryStore store(app_root_,settings_.data_root,
+            persistence::recovery_storage_budget_bytes,persistence::RecoveryAccess::OriginalProduction);
         recoveries_=store.catalog();
         for (const auto& history:recoveries_.histories) {
             if (!history.error.empty()) {
@@ -227,10 +230,32 @@ void MenuSession::finish_loading() {
             simulation::RulesProfile::CityV16:settings_.profile;
         std::optional<persistence::SaveDocument> document;
         fs::path save_path=pending_save_path_;
-        const bool recovery_load=pending_recovery_parent_.has_value();
+        bool recovery_load=pending_recovery_parent_.has_value();
         if (!save_path.empty()) {
             persistence::validate_save_target(save_path,settings_.data_root);
             document=persistence::read_save(save_path);
+            // A managed checkpoint selected through the file chooser is still a
+            // recovery source. Give it a new manual target so F5 cannot overwrite it.
+            if (!recovery_load && simulation::original_production_enabled(
+                    document->world.profile,document->world.rule_version)) {
+                const auto resolved=fs::canonical(save_path);
+                const auto recovery_root=fs::weakly_canonical(app_root_/"recovery");
+                const auto relative=resolved.lexically_relative(recovery_root);
+                if (!relative.empty() && *relative.begin()!="..") {
+                    persistence::RecoveryStore store(app_root_,settings_.data_root,
+                        persistence::recovery_storage_budget_bytes,persistence::RecoveryAccess::OriginalProduction);
+                    const auto catalog=store.catalog();
+                    for (const auto& history:catalog.histories) {
+                        if (!history.error.empty()) continue;
+                        for (const auto& entry:history.entries)
+                            if (entry.loadable() && fs::canonical(entry.path)==resolved)
+                                pending_recovery_parent_=persistence::RecoveryParent{entry.history_id,entry.sequence};
+                    }
+                    if (!pending_recovery_parent_)
+                        throw std::runtime_error("Selected recovery checkpoint is unavailable or is not owned by a valid history");
+                    recovery_load=true;
+                }
+            }
             if (upgrade_copy_) document=upgrade_target_version_==4 ?
                 persistence::upgrade_city_v11_v3_to_v4(*document):
                 persistence::upgrade_city_v11_v2_to_v3(*document);
@@ -247,8 +272,6 @@ void MenuSession::finish_loading() {
         }
         const bool original=document ? simulation::original_production_enabled(profile,document->world.rule_version):
             original_new_game_;
-        if (original && recovery_load)
-            throw std::runtime_error("Original economy recovery is unavailable; open a manual Rule10 save instead");
         const auto version=document ? document->world.rule_version:original ? simulation::kOriginalProductionRuleVersion:
             ramps_new_game_ && profile==simulation::RulesProfile::CityV16 ? 6U:bridges_new_game_ && profile==simulation::RulesProfile::CityV16 ? 5U:simulation::current_rule_version(profile);
         auto view=original ? SandboxView::create_original_production(std::move(loaded),
@@ -282,11 +305,10 @@ void MenuSession::finish_loading() {
         if (upgrade_copy_)
             persistence::write_save(save_path,*upgraded_document,settings_.data_root,
                                     view->buildable_mask());
-        if (original) {
-            candidate_autosave_.reset();
-            view->set_recovery_status(original_manual_saves);
-        } else candidate_autosave_=std::make_unique<AutosaveController>(app_root_,settings_.data_root,
-                                                                      settings_.autosave_enabled);
+        candidate_autosave_=std::make_unique<AutosaveController>(app_root_,settings_.data_root,
+            settings_.autosave_enabled,persistence::recovery_storage_budget_bytes,
+            original ? persistence::RecoveryAccess::OriginalProduction:persistence::RecoveryAccess::LegacyOnly);
+        if (original && !settings_.autosave_enabled) view->set_recovery_status("Autosave off");
         candidate_=std::move(view); candidate_map_=map; candidate_profile_=profile;
         candidate_sets_last_save_=!pending_save_path_.empty() && !recovery_load;
         const bool upgraded=upgrade_copy_;
@@ -310,10 +332,11 @@ void MenuSession::commit_candidate() {
     starting_map_check_.reset();
     if (sandbox_) { sandbox_->shutdown(); sandbox_.reset(); }
     sandbox_=std::move(candidate_); seen_save_generation_=sandbox_->save_generation();
+    seen_load_generation_=sandbox_->load_generation();
     autosave_=std::move(candidate_autosave_);
     if (autosave_) {
-        const auto result=autosave_->begin(sandbox_->capture_save_document(),
-                                           sandbox_->buildable_mask(),pending_recovery_parent_);
+        const auto result=sandbox_->world().original_production_enabled() ? begin_original_autosave(pending_recovery_parent_):
+            autosave_->begin(sandbox_->capture_save_document(),sandbox_->buildable_mask(),pending_recovery_parent_);
         if (result.kind!=AutosaveResult::Kind::None) {
             sandbox_->set_recovery_status(result.message+" ("+
                 std::to_string(result.duration.count())+" ms)");
@@ -326,7 +349,8 @@ void MenuSession::commit_candidate() {
     candidate_sets_last_save_=false; pending_recovery_parent_.reset();
     persist_settings();
     set_state(State::Playing);
-    if (sandbox_->world().original_production_enabled()) message_=original_manual_saves;
+    if (sandbox_->world().original_production_enabled() && autosave_ && autosave_->last_error().empty())
+        message_=original_save_status(settings_.autosave_enabled);
 }
 void MenuSession::confirm_or(AfterConfirm next) {
     if (sandbox_ && (sandbox_->dirty() || next==AfterConfirm::ChangeData)) {
@@ -342,12 +366,32 @@ void MenuSession::record_save() {
     if (!sandbox_) return;
     settings_.last_save=sandbox_->save_path();
     message_="Saved tick "+std::to_string(sandbox_->world().ticks());
-    if (sandbox_->world().original_production_enabled()) message_+="; "+std::string(original_manual_saves);
+    if (sandbox_->world().original_production_enabled()) message_+="; "+original_save_status(settings_.autosave_enabled);
     if (!settings_reset_required_) {
         try { write_settings(app_root_,settings_); }
         catch (const std::exception& e) { message_+="; preferences update failed: "+std::string(e.what()); }
     } else message_+="; preferences not saved until reset";
     seen_save_generation_=sandbox_->save_generation();
+}
+void MenuSession::record_load() {
+    seen_load_generation_=sandbox_->load_generation();
+    if (!sandbox_->world().original_production_enabled()) return;
+    autosave_=std::make_unique<AutosaveController>(app_root_,settings_.data_root,
+        settings_.autosave_enabled,persistence::recovery_storage_budget_bytes,
+        persistence::RecoveryAccess::OriginalProduction);
+    const auto result=begin_original_autosave();
+    report_autosave(result);
+    if (!settings_.autosave_enabled) sandbox_->set_recovery_status("Autosave off");
+    if (result.kind!=AutosaveResult::Kind::Failed)
+        message_="Loaded original save; "+original_save_status(settings_.autosave_enabled);
+}
+AutosaveResult MenuSession::begin_original_autosave(std::optional<persistence::RecoveryParent> parent) {
+    if (!autosave_->enabled()) return {};
+    try {
+        return autosave_->begin(sandbox_->capture_save_document(),sandbox_->buildable_mask(),std::move(parent));
+    } catch (const std::exception& error) {
+        return autosave_->capture_failed(sandbox_->world().ticks(),error.what());
+    }
 }
 void MenuSession::report_autosave(const AutosaveResult& result) {
     if (!sandbox_ || result.kind==AutosaveResult::Kind::None) return;
@@ -380,7 +424,7 @@ void MenuSession::perform(int action) {
             original_new_game_=false;advanced_visuals_open_=false;set_state(State::NewSandbox);break;
         case OriginalNewGame:
             original_new_game_=true;advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_=original_manual_saves;break;
+            message_=original_save_status(settings_.autosave_enabled);break;
         case OriginalDifficulty:
             if (state_==State::NewSandbox && original_new_game_) {
                 original_difficulty_=static_cast<original::Difficulty>(
@@ -396,22 +440,27 @@ void MenuSession::perform(int action) {
         case LoadGame:
             original_new_game_=false;advanced_visuals_open_=false;
             refresh_saves();set_state(State::LoadSandbox);break;
-        case ToggleAutosave:
-            if (sandbox_ && sandbox_->world().original_production_enabled()) {
-                message_=original_manual_saves;break;
-            }
+        case ToggleAutosave: {
+            AutosaveResult result;
             settings_.autosave_enabled=!settings_.autosave_enabled;
             persist_settings();
             if (sandbox_) {
                 autosave_=std::make_unique<AutosaveController>(app_root_,settings_.data_root,
-                                                               settings_.autosave_enabled);
-                if (settings_.autosave_enabled)
-                    report_autosave(autosave_->begin(sandbox_->capture_save_document(),
+                    settings_.autosave_enabled,persistence::recovery_storage_budget_bytes,
+                    sandbox_->world().original_production_enabled() ? persistence::RecoveryAccess::OriginalProduction:
+                        persistence::RecoveryAccess::LegacyOnly);
+                if (settings_.autosave_enabled) {
+                    if (sandbox_->world().original_production_enabled()) {
+                        result=begin_original_autosave();report_autosave(result);
+                    } else report_autosave(autosave_->begin(sandbox_->capture_save_document(),
                                                      sandbox_->buildable_mask()));
+                }
                 else sandbox_->set_recovery_status("Autosave off");
             }
-            message_=settings_.autosave_enabled?"Autosave enabled":"Autosave disabled";
+            if (!sandbox_ || !sandbox_->world().original_production_enabled() || result.kind!=AutosaveResult::Kind::Failed)
+                message_=settings_.autosave_enabled?"Autosave enabled":"Autosave disabled";
             rebuild_buttons(); break;
+        }
         case ToggleSaveView:
             recovery_view_=!recovery_view_;save_index_=0;save_scroll_=0;rebuild_buttons();break;
         case Resume: if (sandbox_) set_state(State::Playing); break;
@@ -472,7 +521,8 @@ void MenuSession::perform(int action) {
             break;
         case ConfirmDeleteRecovery:
             if (save_index_<recovery_entries_.size()) {
-                persistence::RecoveryStore store(app_root_,settings_.data_root);
+                persistence::RecoveryStore store(app_root_,settings_.data_root,
+                    persistence::recovery_storage_budget_bytes,persistence::RecoveryAccess::OriginalProduction);
                 store.delete_history(recovery_entries_[save_index_].history_id);
             }
             refresh_saves();recovery_view_=true;set_state(State::LoadSandbox);
@@ -678,14 +728,22 @@ void MenuSession::advance() {
         pressed_action_=-1; rebuild_buttons();
     }
     if (sandbox_ && sandbox_->save_generation()!=seen_save_generation_) record_save();
+    if (sandbox_ && sandbox_->load_generation()!=seen_load_generation_) record_load();
     finish_loading();
 }
 void MenuSession::update(double seconds) {
     if (state_==State::Playing && sandbox_) {
         sandbox_->update(seconds);
-        if (autosave_ && autosave_->due(sandbox_->world().ticks()) && sandbox_->recovery_safe_point())
-            report_autosave(autosave_->poll(sandbox_->capture_save_document(),
+        if (autosave_ && autosave_->due(sandbox_->world().ticks()) && sandbox_->recovery_safe_point()) {
+            if (sandbox_->world().original_production_enabled()) {
+                try {
+                    report_autosave(autosave_->poll(sandbox_->capture_save_document(),sandbox_->buildable_mask(),true));
+                } catch (const std::exception& error) {
+                    report_autosave(autosave_->capture_failed(sandbox_->world().ticks(),error.what()));
+                }
+            } else report_autosave(autosave_->poll(sandbox_->capture_save_document(),
                                             sandbox_->buildable_mask(),true));
+        }
     }
 }
 void MenuSession::rebuild_buttons() {
@@ -708,8 +766,7 @@ void MenuSession::rebuild_buttons() {
         add(Quit,"Quit",40,sandbox_?280:235,210);
         add(OriginalNewGame,"O Original economy",280,145,280);
         if (sandbox_ && sandbox_->world().original_production_enabled()) {
-            add(ToggleAutosave,"F5/F9 manual saves",280,280,280);
-            buttons_.back().enabled=false;
+            add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",280,280,280);
         } else add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",
                    510,sandbox_?280:235,180);
         if (settings_reset_required_) add(ResetSettings,"Reset preferences",280,235,210);
@@ -839,7 +896,7 @@ bool MenuSession::render() {
             (sandbox_->dirty()?" (unsaved)":" (saved)"))) return false;
         if (sandbox_ && sandbox_->world().original_production_enabled() &&
             (!label(280,195,"Original: manual F5/F9") ||
-             !label(280,211,"Recovery unavailable"))) return false;
+             !label(280,211,settings_.autosave_enabled?"Recovery every 60s simulated":"Recovery: Autosave OFF"))) return false;
     } else if (state_==State::NewSandbox && original_new_game_ && map_index_<catalog_.entries.size()) {
         const auto& e=catalog_.entries[map_index_];
         const auto columns=static_cast<std::size_t>(std::max(16,(width-80)/8));
@@ -869,7 +926,7 @@ bool MenuSession::render() {
             if (!detail.empty() && y==183 && line.size()>3) line=line.substr(0,line.size()-3)+"...";
             if (!label(40,y,line)) return false;
         }
-        if (!label(40,286,"F5/F9 manual saves; recovery unavailable.") ||
+        if (!label(40,286,original_save_status(settings_.autosave_enabled)) ||
             !label(40,350,"Arrows: map | D: difficulty | P: setup | Enter: start")) return false;
     } else if (state_==State::NewSandbox && map_index_<catalog_.entries.size()) {
         const auto& e=catalog_.entries[map_index_];
@@ -945,7 +1002,7 @@ bool MenuSession::render() {
                 " | schema "+std::to_string(e.schema)+" rule "+std::to_string(e.rule_version))) return false;
             if (e.error.empty() && e.schema==26 && e.rule_version==simulation::kOriginalProductionRuleVersion &&
                 (!label(40,211,"Original economy: saved difficulty is kept") ||
-                 !label(40,227,"F5/F9 manual saves; recovery unavailable"))) return false;
+                 !label(40,227,"F5/F9 saves; optional recovery"))) return false;
         }
         if (!label(40,345,compatibility_.compatible() ?
             "Visuals: Compatible preview detected":"Visuals: Diagnostic fallback")) return false;

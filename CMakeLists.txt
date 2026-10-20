@@ -344,6 +344,13 @@ target_link_libraries(openemperor-original-starter-acceptance PRIVATE
     openemperor-persistence SDL3::SDL3)
 openemperor_enable_warnings(openemperor-original-starter-acceptance)
 
+add_executable(openemperor-original-recovery-acceptance EXCLUDE_FROM_ALL
+    tools/OriginalRecoveryAcceptance.cpp
+    src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+target_link_libraries(openemperor-original-recovery-acceptance PRIVATE
+    openemperor-recovery SDL3::SDL3)
+openemperor_enable_warnings(openemperor-original-recovery-acceptance)
+
 add_executable(openemperor-map-inspect tools/map-inspector/main.cpp)
 target_link_libraries(openemperor-map-inspect PRIVATE openemperor-maps nlohmann_json::nlohmann_json)
 openemperor_enable_warnings(openemperor-map-inspect)
@@ -369,6 +376,15 @@ if(BUILD_TESTING)
     set_tests_properties(original-paid-starter-synthetic original-paid-starter-real PROPERTIES TIMEOUT 180)
 endif()
 if(BUILD_TESTING)
+    add_executable(openemperor-original-save-adversarial-tests tests/OriginalSaveAdversarialTests.cpp
+        src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+    target_link_libraries(openemperor-original-save-adversarial-tests PRIVATE
+        openemperor-persistence SDL3::SDL3)
+    openemperor_enable_warnings(openemperor-original-save-adversarial-tests)
+    add_test(NAME original-save-adversarial-synthetic COMMAND openemperor-original-save-adversarial-tests)
+    add_test(NAME original-save-adversarial-real COMMAND openemperor-original-save-adversarial-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-save-adversarial-synthetic original-save-adversarial-real PROPERTIES TIMEOUT 240)
     add_executable(openemperor-original-model-data-tests tests/OriginalModelDataTests.cpp)
     target_link_libraries(openemperor-original-model-data-tests PRIVATE
         openemperor-original-model OpenSSL::Crypto)
@@ -715,6 +731,11 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-recovery-tests)
     add_test(NAME autosave-recovery-history COMMAND openemperor-recovery-tests)
     set_tests_properties(autosave-recovery-history PROPERTIES TIMEOUT 60)
+    add_executable(openemperor-original-recovery-tests tests/OriginalRecoveryTests.cpp)
+    target_link_libraries(openemperor-original-recovery-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-original-recovery-tests)
+    add_test(NAME original-recovery-capability COMMAND openemperor-original-recovery-tests)
+    set_tests_properties(original-recovery-capability PROPERTIES TIMEOUT 180)
     add_executable(openemperor-sandbox-routing-tests tests/SandboxRoutingTests.cpp)
     target_link_libraries(openemperor-sandbox-routing-tests PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-sandbox-routing-tests)
@@ -1725,6 +1746,13 @@ if(BUILD_TESTING)
     # The paid Elite/nine-service sequence runs about twice the prior ticks;
     # unchanged Debug navigation assertions measured 75.5s in isolation.
     set_tests_properties(original-production-view PROPERTIES TIMEOUT 120)
+
+    add_executable(openemperor-original-recovery-view-tests tests/OriginalRecoveryViewTests.cpp ${bridge_fixture_sources})
+    target_link_libraries(openemperor-original-recovery-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-recovery-view-tests)
+    add_test(NAME original-recovery-view COMMAND openemperor-original-recovery-view-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-recovery-view PROPERTIES TIMEOUT 240)
 
     add_executable(openemperor-original-house-inspector-view-tests tests/OriginalHouseInspectorViewTests.cpp ${bridge_fixture_sources})
     target_compile_definitions(openemperor-original-house-inspector-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)

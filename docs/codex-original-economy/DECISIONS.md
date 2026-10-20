@@ -1596,3 +1596,31 @@ alle1464 Originaldateien bleiben exakt. Gate E ist technisch PASS; vollständige
 Originalgrafik-/Gesamtparität bleiben PARTIAL, Human/native und der auf diesem
 Host nicht unterstützte Leakdetektor werden nicht als PASS behauptet.
 OE31 und spätere Aufgaben bleiben unbegonnen. Nur lokaler Task-Commit.
+
+### OE31 vor Implementierung: enger aktiver Recoveryzugang
+
+Der Nutzer beauftragt ausdrücklich31. Der
+[Vertrag](../original-economy/save-recovery-contract.md) öffnet Original-Recovery
+nur über einen neuen ausdrücklichen Zugang für Rule10/Schema26/Revision27;
+Default-Recovery,7–9-Gates, alte Serialisierung und generischer Restore bleiben
+erhalten. Aktive Originalhistories binden wirkliche Map-/Modell-/Worldidentität;
+F9-Erfolg beginnt eine neue Historie. Adversariale Tests und tatsächliche
+Event-/Recovery-/Neuprozessbelege härten diesen Vertrag. Änderungen an gespeicherter
+Authority werden nicht vorgenommen; Gate F und spätere Aufgaben bleiben offen.
+
+### OE31 abgeschlossen: strikte Recovery ohne neue gespeicherte Authority
+
+Der erklärte Zugang ist umgesetzt; die [Abnahme](../original-economy/save-recovery-validation.md)
+bindet219 erfolgreiche Konfigurations-CTests und tatsächliche Prozess-/SDL-
+Weiterläufe. Die vier beobachteten Fehlerklassen (Historienidentität, Zeitfolge,
+Sequenzende und Captureausnahme) werden gezielt behandelt. Ungültige Punkte
+isolieren sich, gültige Branches bleiben möglich und Capturefehler erhalten die
+aktive Historie mit1200t Backoff. Anfangs fehlgeschlagene Recovery-Captures bleiben
+sichtbar ohne erfundene Historie; nach Quellenrückkehr ist reguläres erneutes
+Einschalten möglich. Es wird keine zusätzliche Retry-State-Machine oder Migration
+eingeführt. Alte Defaults/Savebytes und sämtliche Originaldateien bleiben exakt.
+
+63er-Grundbatch und zehn betroffene Nachprüfungen je Konfiguration sind getrennt
+belegt; keine volle241er- oder Gate-F-Abnahme wird behauptet. Native/human und
+vollständige Originalgrafikparität bleiben offen. OE32/33 bleiben unbegonnen;
+nur der autorisierte lokale Task-Commit wird erstellt.

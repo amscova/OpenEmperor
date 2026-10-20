@@ -51,11 +51,14 @@ void no_symlinks(const fs::path& path) {
 void output_paths(const fs::path& data,const fs::path& resources,const fs::path& app,const fs::path& out) {
     no_symlinks(app);no_symlinks(out);
     const auto source_tree=fs::canonical(fs::absolute(__FILE__)).parent_path().parent_path();
-    const auto allowed=fs::weakly_canonical(source_tree/".local/original-economy/oe30");
     const auto save_root=fs::weakly_canonical(app),output_root=fs::weakly_canonical(out);
-    require(contains(allowed,save_root) && save_root!=allowed &&
-        contains(allowed,output_root) && output_root!=allowed,
-        "Acceptance SAVE_DIR and OUTPUT_DIR must be below the repository .local/original-economy/oe30");
+    bool allowed=false;
+    for (const char* task:{"oe30","oe31"}) {
+        const auto directory=fs::weakly_canonical(source_tree/".local/original-economy"/task);
+        allowed|=contains(directory,save_root) && save_root!=directory &&
+            contains(directory,output_root) && output_root!=directory;
+    }
+    require(allowed,"Acceptance outputs must be below one repository OE30/OE31 private task directory");
     require(!contains(save_root,output_root) && !contains(output_root,save_root),
         "Acceptance SAVE_DIR and OUTPUT_DIR must be separate disjoint directories");
     for (const auto& input:{fs::canonical(data),fs::canonical(resources)})
@@ -269,18 +272,24 @@ struct Harness {
         for (const int z:{1,2,4}) {zoom(z,anchor);capture(name+".zoom"+std::to_string(z));}
         zoom(1,anchor);
     }
-    void check_manual_boundary() {
+    void check_recovery_controls() {
         require(menu->settings().profile==sim::RulesProfile::CityV11 && menu->settings().prepared_starter &&
             menu->settings().autosave_enabled,"Original entry changed legacy settings defaults");
-        require(menu->message().find("Original recovery unavailable")!=std::string::npos,
-            "Original manual-save boundary is not visible");
-        require(oe::persistence::RecoveryStore(app,data).catalog().histories.empty(),
-            "Original mode created a legacy recovery history");
+        require(menu->message().find("Autosave ON")!=std::string::npos,
+            "Original recovery setting is not visible");
+        const auto catalog=oe::persistence::RecoveryStore(app,data,
+            oe::persistence::recovery_storage_budget_bytes,
+            oe::persistence::RecoveryAccess::OriginalProduction).catalog();
+        const auto current=std::find_if(catalog.histories.begin(),catalog.histories.end(),[&](const auto& h){
+            return h.history_id==menu->recovery_history_id();
+        });
+        require(current!=catalog.histories.end() && current->error.empty() && !current->entries.empty(),
+            "Original mode did not publish its valid active recovery history");
     }
     void finish_loading() {
         require(menu->state()==Menu::State::Loading,"Actual menu did not defer loading");
         require(menu->render(),"Cannot render Loading screen");menu->advance();
-        (void)view();focus();check_manual_boundary();
+        (void)view();focus();check_recovery_controls();
         require(view().world().rule_version()==10 && view().world().original_production_enabled(),
             "Actual optional menu entry did not select active Rule10");
     }
@@ -393,7 +402,7 @@ void create(const fs::path& data,const fs::path& resources,const fs::path& app,c
     oe::persistence::write_save(h.out/"reference-continuation.save.json",future,h.data,h.view().buildable_mask());
     h.key(SDLK_F9);same_document(saved,h.view().capture_save_document());
     require(h.view().paused() && bytes(save)==literal,"Actual F9 changed its source save or did not pause");
-    h.capture("starter.f9-restored");h.check_manual_boundary();
+    h.capture("starter.f9-restored");h.check_recovery_controls();
     auto report=common_report(h,"create");report["save"]=save.generic_string();
     report["f5_full_document_equal"]=true;report["f9_full_document_equal"]=true;
     report["manual_save_bytes_unchanged"]=true;report["reference_continuation_ticks"]=continuation_ticks;
@@ -423,7 +432,7 @@ void resume(const fs::path& data,const fs::path& resources,const fs::path& app,c
     h.ticks(continuation_ticks);same_document(future,h.view().capture_save_document());
     h.capture("restart.exact-continuation");h.key(SDLK_F9);
     same_document(saved,h.view().capture_save_document());require(bytes(save)==literal,"Restart/F9 modified supplied save bytes");
-    h.check_manual_boundary();auto report=common_report(h,"resume");
+    h.check_recovery_controls();auto report=common_report(h,"resume");
     report["save"]=save.generic_string();report["new_process_full_document_equal"]=true;
     report["continuation_full_document_equal"]=true;report["f9_full_document_equal"]=true;
     report["manual_save_bytes_unchanged"]=true;report["reference_continuation_ticks"]=continuation_ticks;

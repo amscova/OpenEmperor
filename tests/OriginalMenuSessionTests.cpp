@@ -4,6 +4,7 @@
 #include "simulation/original/OriginalRulesModel.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
+#include <map>
 
 namespace {
 namespace oe=openemperor;
@@ -84,12 +85,25 @@ std::size_t house_count(const sim::World& world) {
     return static_cast<std::size_t>(std::count_if(world.buildings().begin(),world.buildings().end(),
         [](const auto& b){return b.placed && sim::original_house_kind(b.kind);}));
 }
-void check_manual_only(const Menu& menu,const fs::path& app,std::size_t prior_histories=0) {
+oe::persistence::RecoveryCatalog recovery_catalog(const Menu& menu,const fs::path& app) {
+    return oe::persistence::RecoveryStore(app,menu.settings().data_root,
+        oe::persistence::recovery_storage_budget_bytes,
+        oe::persistence::RecoveryAccess::OriginalProduction).catalog();
+}
+void check_original_recovery(const Menu& menu,const fs::path& app) {
     check(menu.settings().autosave_enabled,"Original mode overwrote the legacy autosave preference");
-    check(menu.message().find("Original recovery unavailable")!=std::string::npos,
-        "Original mode did not explain its manual-save boundary");
-    check(oe::persistence::RecoveryStore(app,menu.settings().data_root).catalog().histories.size()==prior_histories,
-        "Original mode created a normal recovery history");
+    check(menu.message().find("Autosave ON")!=std::string::npos,
+        "Original mode did not explain its enabled recovery");
+    const auto catalog=recovery_catalog(menu,app);
+    const auto found=std::find_if(catalog.histories.begin(),catalog.histories.end(),[&](const auto& h){
+        return h.history_id==menu.recovery_history_id();
+    });
+    check(found!=catalog.histories.end() && found->error.empty() && !found->entries.empty(),
+        "Original mode did not publish its valid active recovery history");
+    check(std::count_if(found->entries.begin(),found->entries.end(),[](const auto& e){return e.start_point;})==1,
+        "Active Original recovery did not retain exactly one protected start point");
+    for(const auto& e:found->entries)check(e.loadable() && e.rule_version==10 && e.schema==26,
+        "Active Original history published an invalid or wrong-generation checkpoint");
 }
 void external_load(Menu& menu,Dialog& dialog,SDL_Window* window,SDL_Renderer* renderer,const fs::path& save) {
     if (menu.state()==Menu::State::Playing) key(menu,SDLK_ESCAPE);
@@ -110,6 +124,77 @@ void check_bounds(const Menu& menu,const std::string& label,float width=600,floa
     check(r && r->x>=0 && r->y>=0 && r->x+r->w<=width && r->y+r->h<=height-42,
         "Original control exceeds the actual minimum-size menu aperture or footer");
 }
+std::map<fs::path,std::string> recovery_files(const fs::path& root) {
+    std::map<fs::path,std::string> result;
+    if (fs::exists(root)) for (const auto& entry:fs::recursive_directory_iterator(root))
+        if (entry.is_regular_file()) result.emplace(entry.path().lexically_relative(root),oe_influence_fixture::read_text(entry.path()));
+    return result;
+}
+void capture_failure_recovery(SDL_Window* window,SDL_Renderer* renderer) {
+    oe::testing::economy::Temp source;const auto data=source.root/"data",app=source.root/"capture-app";
+    oe_production_fixture::write_model(data);seed_preferences(app,data);
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    enter_original(menu,window,renderer);start(menu);key(menu,SDLK_F5);
+    const auto manual=menu.settings().last_save;const auto manual_bytes=oe_influence_fixture::read_text(manual);
+    const auto saved=oe::persistence::read_save(manual);
+    const auto model=data/"Model/EmperorBuildingModels.txt",held=source.root/"held-private-model.txt";
+    while (menu.sandbox()->world().ticks()<1250) menu.sandbox()->tick_once();
+    const auto before=menu.sandbox()->world().snapshot();const auto id=menu.recovery_history_id();
+    const auto previous=recovery_files(app/"recovery");fs::rename(model,held);
+    menu.update(0);
+    check(menu.message().find("Autosave failed")!=std::string::npos &&
+          menu.sandbox()->hud_status_line().find("Autosave failed")!=std::string::npos,
+          "Original capture failure did not produce a visible optional-recovery error");
+    check(menu.sandbox()->world().snapshot()==before && menu.recovery_history_id()==id &&
+          recovery_files(app/"recovery")==previous && oe_influence_fixture::read_text(manual)==manual_bytes,
+          "Failed Original capture changed World, history, manual save or checkpoint bytes");
+    oe::performance::set_enabled(true);oe::performance::reset();
+    for (int i=0;i<100;++i) {menu.update(0);menu.advance();}
+    for (std::size_t i=0;i<static_cast<std::size_t>(oe::performance::Counter::Count);++i)
+        check(oe::performance::counter(static_cast<oe::performance::Counter>(i))==0,
+              "Original capture failure retried source work on idle frames");
+    oe::performance::set_enabled(false);
+    fs::rename(held,model);
+    while (menu.sandbox()->world().ticks()<2449) menu.sandbox()->tick_once();
+    menu.update(0);check(recovery_files(app/"recovery")==previous,"Original capture failure did not retain its1200t backoff");
+    menu.sandbox()->tick_once();menu.update(0);
+    const auto recovered=recovery_catalog(menu,app);
+    const auto found=std::find_if(recovered.histories.begin(),recovered.histories.end(),[&](const auto& h){return h.history_id==id;});
+    check(found!=recovered.histories.end() && found->entries.size()==2 && found->entries.front().tick==2450 &&
+          found->entries.front().loadable() && menu.recovery_history_id()==id,
+          "Original autosave did not resume its existing history at the next normal deadline");
+    // F9 restores with the source available; only the optional Recovery begin loses it.
+    SDL_Event event{};event.type=SDL_EVENT_KEY_DOWN;event.key.key=SDLK_F9;route(menu,event);
+    check(menu.sandbox()->world().snapshot()==saved.world,"Actual F9 did not restore before the Recovery begin probe");
+    const auto restored=menu.sandbox()->world().snapshot();const auto before_begin=recovery_files(app/"recovery");
+    fs::rename(model,held);menu.advance();
+    check(menu.state()==Menu::State::Playing && menu.sandbox()->world().snapshot()==restored &&
+          menu.recovery_history_id().empty() && recovery_files(app/"recovery")==before_begin &&
+          menu.message().find("Autosave failed")!=std::string::npos && oe_influence_fixture::read_text(manual)==manual_bytes,
+          "F9 Recovery-capture failure escaped, changed restored authority or damaged earlier sources");
+    for (int i=0;i<10;++i) {menu.update(0);menu.advance();}
+    key(menu,SDLK_ESCAPE);click(menu,window,renderer,"Autosave: ON");
+    check(!menu.settings().autosave_enabled && menu.recovery_history_id().empty(),
+          "Original autosave OFF attempted a source capture");
+    click(menu,window,renderer,"Autosave: OFF");
+    check(menu.settings().autosave_enabled && menu.recovery_history_id().empty() &&
+          menu.message().find("Autosave failed")!=std::string::npos &&
+          menu.sandbox()->hud_status_line().find("Autosave failed")!=std::string::npos &&
+          menu.sandbox()->world().snapshot()==restored && recovery_files(app/"recovery")==before_begin,
+          "Original Toggle ON hid its capture failure or changed prior authority/files");
+    fs::rename(held,model);click(menu,window,renderer,"Autosave: ON");click(menu,window,renderer,"Autosave: OFF");
+    check(!menu.recovery_history_id().empty(),"Original recovery could not be explicitly restarted after source return");
+    // A real dirty-city confirmation also separates successful candidate creation from Recovery begin.
+    menu.sandbox()->tick_once();enter_original(menu,window,renderer);start(menu);
+    check(menu.state()==Menu::State::ConfirmLeave,"Capture-begin candidate probe lacks actual dirty-city confirmation");
+    const auto before_commit=recovery_files(app/"recovery");fs::rename(model,held);
+    click(menu,window,renderer,"Discard Changes");
+    check(menu.state()==Menu::State::Playing && menu.sandbox()->world().ticks()==0 && house_count(menu.sandbox()->world())==4 &&
+          menu.recovery_history_id().empty() && menu.message().find("Autosave failed")!=std::string::npos &&
+          recovery_files(app/"recovery")==before_commit && oe_influence_fixture::read_text(manual)==manual_bytes,
+          "Optional Recovery capture failure prevented candidate commit or changed prior files");
+    fs::rename(held,model);menu.shutdown();
+}
 void process_write(const fs::path& root,SDL_Window* window,SDL_Renderer* renderer) {
     check(!fs::exists(root),"Process-save evidence root must be fresh");
     oe::testing::economy::Temp source;fs::create_directories(root);
@@ -122,7 +207,7 @@ void process_write(const fs::path& root,SDL_Window* window,SDL_Renderer* rendere
         "Process writer did not buy the actual four-house starter through the menu");
     for (int i=0;i<400;++i) menu.sandbox()->tick_once();
     key(menu,SDLK_F5);const auto saved=oe::persistence::read_save(menu.settings().last_save);
-    same(saved,menu.sandbox()->capture_save_document());expect_legacy_preferences(menu);check_manual_only(menu,app);
+    same(saved,menu.sandbox()->capture_save_document());expect_legacy_preferences(menu);check_original_recovery(menu,app);
     check(saved.world.original_economy->model_source->difficulty==orig::Difficulty::VeryHard,
         "Process writer lost its explicitly chosen difficulty");
     std::cout<<"Actual menu process saved tick "<<saved.world.ticks<<" at "<<menu.settings().last_save<<'\n';
@@ -138,7 +223,7 @@ void process_load(const fs::path& root,SDL_Window* window,SDL_Renderer* renderer
         "Fresh process inherited a saved Original setup selection");
     external_load(menu,*callbacks,window,renderer,save);
     check(menu.state()==Menu::State::Playing && menu.sandbox()->paused(),"New process did not open its manual Original save paused");
-    same(saved,menu.sandbox()->capture_save_document());expect_legacy_preferences(menu);check_manual_only(menu,app);
+    same(saved,menu.sandbox()->capture_save_document());expect_legacy_preferences(menu);check_original_recovery(menu,app);
     check(menu.sandbox()->world().original_rules_model()->difficulty()==orig::Difficulty::VeryHard &&
         house_count(menu.sandbox()->world())==4,"Restart changed saved difficulty or repeated/lost starter purchases");
     for (int i=0;i<20;++i) menu.sandbox()->tick_once();
@@ -160,6 +245,7 @@ int main(int argc,char** argv) {
             process_load(fs::absolute(argv[2]),window,renderer);
         } else {
             check(argc==1 || (argc==3 && std::string_view(argv[1])=="--capture"),"Unknown Original menu test arguments");
+            capture_failure_recovery(window,renderer);
             const fs::path captures=argc==3 ? fs::absolute(argv[2]):fs::path{};
             oe::testing::economy::Temp temp;const auto root=fs::canonical(temp.root),data=root/"data",app=root/"app";
             oe_production_fixture::write_model(data);seed_preferences(app,data);
@@ -197,14 +283,22 @@ int main(int argc,char** argv) {
                 check(world.rule_version()==10 && world.original_production_enabled() && world.ticks()==0 &&
                     world.treasury()==12000 && world.buildings().empty() && world.total_population()==0 &&
                     world.original_rules_model()->difficulty()==wanted,"New empty Original city used wrong rules, funds or difficulty");
-                expect_legacy_preferences(menu);check_manual_only(menu,app);
+                expect_legacy_preferences(menu);check_original_recovery(menu,app);
                 key(menu,SDLK_F5);manual=menu.settings().last_save;const auto saved=menu.sandbox()->capture_save_document();
+                const auto before_f9_history=menu.recovery_history_id();
+                const auto before_f9_count=recovery_catalog(menu,app).histories.size();
                 menu.sandbox()->tick_once();key(menu,SDLK_F9);same(saved,menu.sandbox()->capture_save_document());
+                check(menu.recovery_history_id()!=before_f9_history &&
+                    recovery_catalog(menu,app).histories.size()==before_f9_count+1,
+                    "Successful Original F9 did not branch its recovery without deleting the previous history");
                 key(menu,SDLK_ESCAPE);check(menu.state()==Menu::State::MainMenu,"Escape did not retain Original session in menu");
-                const auto auto_point=button_point(menu,window,renderer,"F5/F9 manual saves");
-                const auto disabled=menu.diagnostic_button_hit(auto_point.x,auto_point.y);
-                check(disabled && !disabled->enabled,"Original menu exposed an active global autosave switch");
-                mouse(menu,auto_point,true);mouse(menu,auto_point,false);menu.advance();expect_legacy_preferences(menu);
+                const auto auto_point=button_point(menu,window,renderer,"Autosave: ON");
+                const auto enabled=menu.diagnostic_button_hit(auto_point.x,auto_point.y);
+                check(enabled && enabled->enabled,"Original menu hid its autosave choice");
+                mouse(menu,auto_point,true);mouse(menu,auto_point,false);menu.advance();
+                check(!menu.settings().autosave_enabled && menu.recovery_history_id().empty(),
+                    "Original autosave OFF retained an active writer");
+                click(menu,window,renderer,"Autosave: OFF");expect_legacy_preferences(menu);
                 enter_original(menu,window,renderer);key(menu,SDLK_D);
             }
             // Selecting old New Sandbox remains the old profile and prepared starter.
@@ -234,17 +328,68 @@ int main(int argc,char** argv) {
             check(menu.state()==Menu::State::Playing && house_count(menu.sandbox()->world())==4 &&
                 menu.sandbox()->world().ticks()==0 && menu.sandbox()->world().total_population()==0 &&
                 menu.sandbox()->world().construction_spent_total()>0,"Confirmed menu start did not buy four empty Houses at tick0");
-            expect_legacy_preferences(menu);check_manual_only(menu,app,1);
+            expect_legacy_preferences(menu);check_original_recovery(menu,app);
             capture(menu,renderer,captures,"menu.original.paid");
             key(menu,SDLK_F5);const auto paid_save=menu.settings().last_save;
             const auto paid_bytes=oe_influence_fixture::read_text(paid_save);
             const auto paid_document=menu.sandbox()->capture_save_document();
-            // Even crossing the ordinary autosave deadline remains manual-only.
+            // Crossing the ordinary safe deadline publishes one checkpoint.
+            const auto paid_history=menu.recovery_history_id();
+            const auto before_periodic=recovery_catalog(menu,app).histories.size();
             for (int i=0;i<1201;++i) menu.sandbox()->tick_once();
-            menu.update(0);key(menu,SDLK_F9);same(paid_document,menu.sandbox()->capture_save_document());
-            check(oe::persistence::RecoveryStore(app,data).catalog().histories.size()==1,
-                "Original mode created recovery entries beyond the single retained legacy-city history");
+            menu.update(0);
+            const auto periodic=recovery_catalog(menu,app);
+            const auto current=std::find_if(periodic.histories.begin(),periodic.histories.end(),[&](const auto& h){return h.history_id==paid_history;});
+            check(current!=periodic.histories.end() && current->entries.size()==2 &&
+                current->entries.front().tick==1201 && !current->entries.front().start_point,
+                "Original safe1200t deadline did not create exactly one actual checkpoint");
+            key(menu,SDLK_F9);same(paid_document,menu.sandbox()->capture_save_document());
+            check(recovery_catalog(menu,app).histories.size()==before_periodic+1 && menu.recovery_history_id()!=paid_history,
+                "Original F9 overwrote its previous active checkpoint history");
             check(oe_influence_fixture::read_text(paid_save)==paid_bytes,"F9 changed the manual paid source save");
+            // The normal Recovery menu loads a protected source into a new branch.
+            const auto selected_history=menu.recovery_history_id();
+            const auto selection_catalog=recovery_catalog(menu,app);
+            const auto selection=std::find_if(selection_catalog.histories.begin(),selection_catalog.histories.end(),
+                [&](const auto& h){return h.history_id==selected_history;});
+            check(selection!=selection_catalog.histories.end(),"Missing selected Original recovery history");
+            const auto recovery_source=selection->entries.front();
+            const auto recovery_bytes=oe_influence_fixture::read_text(recovery_source.path);
+            key(menu,SDLK_ESCAPE);key(menu,SDLK_L);
+            click(menu,window,renderer,"Show recovery history");
+            click(menu,window,renderer,"Open selected");finish_load(menu);
+            check(menu.state()==Menu::State::Playing && menu.sandbox()->paused(),
+                "Recovery menu did not restore a paused Original city");
+            same(paid_document,menu.sandbox()->capture_save_document());
+            const auto branch_catalog=recovery_catalog(menu,app);
+            const auto branch=std::find_if(branch_catalog.histories.begin(),branch_catalog.histories.end(),
+                [&](const auto& h){return h.history_id==menu.recovery_history_id();});
+            check(branch!=branch_catalog.histories.end() && branch->parent &&
+                branch->parent->history_id==recovery_source.history_id && branch->parent->sequence==recovery_source.sequence,
+                "Recovery selection did not create a separate real-parent branch");
+            key(menu,SDLK_F5);
+            check(menu.settings().last_save!=recovery_source.path &&
+                oe_influence_fixture::read_text(recovery_source.path)==recovery_bytes,
+                "F5 after Recovery menu load overwrote its source checkpoint");
+            // Opening the same owned checkpoint through the file chooser has the same protection.
+            external_load(menu,*callbacks,window,renderer,recovery_source.path);
+            check(menu.state()==Menu::State::Playing,"File chooser could not open a valid owned Original recovery point");
+            key(menu,SDLK_F5);
+            check(menu.settings().last_save!=recovery_source.path &&
+                oe_influence_fixture::read_text(recovery_source.path)==recovery_bytes,
+                "File chooser/F5 treated a managed checkpoint as a writable manual target");
+            const auto failed_history=menu.recovery_history_id();
+            const auto before_failed=menu.sandbox()->capture_save_document();
+            const auto before_failed_world=menu.sandbox()->world().snapshot();
+            const auto before_failed_generation=menu.sandbox()->load_generation();
+            fs::rename(model_path,model_path.string()+".missing");key(menu,SDLK_F9);
+            check(menu.sandbox()->world().snapshot()==before_failed_world,
+                "Failed F9 with absent model changed the retained complete World");
+            check(menu.recovery_history_id()==failed_history &&
+                menu.sandbox()->load_generation()==before_failed_generation,
+                "Failed F9 replaced a valid World or recovery history");
+            fs::rename(model_path.string()+".missing",model_path);
+            same(before_failed,menu.sandbox()->capture_save_document());
             const auto pure=menu.sandbox()->world().snapshot();
             oe::performance::set_enabled(true);oe::performance::reset();
             for (int i=0;i<100;++i) {menu.update(0);check(menu.render(),"Draw pure Original menu-managed frame");menu.advance();}

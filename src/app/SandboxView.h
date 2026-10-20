@@ -294,6 +294,7 @@ public:
     std::vector<WalkerDiagnostic> walker_diagnostics() const;
     std::uint64_t io_generation() const { return io_generation_; }
     std::uint64_t save_generation() const { return save_generation_; }
+    std::uint64_t load_generation() const { return load_generation_; }
     bool dirty() const { return world_ && (world_->ticks()!=saved_tick_ ||
         world_->command_sequence()!=saved_command_); }
     void set_managed(bool managed) { managed_=managed; }
@@ -662,6 +663,7 @@ private:
     std::optional<persistence::SaveDocument> initial_save_;
     std::vector<std::uint8_t> buildable_mask_;
     std::uint64_t io_generation_=0;
+    std::uint64_t load_generation_=0; // Successful active-original loads; view-local only.
     std::uint64_t save_generation_=0, saved_tick_=0, saved_command_=0;
     bool managed_=false, menu_requested_=false, menu_pressed_=false;
     std::optional<simulation::BuildingId> pending_demolition_;

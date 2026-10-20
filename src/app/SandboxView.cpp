@@ -493,7 +493,7 @@ persistence::SaveDocument SandboxView::capture_save_document() const {
 }
 
 bool SandboxView::recovery_safe_point() const {
-    return !original_influence_fixture() && world_ && !budget_warning_ && !pending_demolition_ && !road_start_ && !bridge_start_ && !ramp_start_ && !map_pressed_ && !ui_pressed_ &&
+    return (!original_influence_fixture() || original_production_fixture()) && world_ && !budget_warning_ && !pending_demolition_ && !road_start_ && !bridge_start_ && !ramp_start_ && !map_pressed_ && !ui_pressed_ &&
         !pending_command_ && !pending_road_;
 }
 
@@ -546,6 +546,7 @@ void SandboxView::load_now() {
             (rules_==simulation::RulesProfile::ProductionV2 ?
                 "; save schema 1 migrated to rules 2 in memory":
                 "; save schema 1 migrated in memory") : "");
+    if (original_production_fixture()) ++load_generation_;
 }
 
 void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {

@@ -395,7 +395,7 @@ int main(int argc,char** argv) {
                 !view->layout().map.contains(button->rect.x+2,button->rect.y+2),"Hemp action was hidden or overlapped playable map input");
         }
         check(std::string(SDL_GetWindowTitle(window)).find("save schema 26")!=std::string::npos,"Production title");
-        check(!view->recovery_safe_point(),"Development production exposed recovery");
+        check(view->recovery_safe_point(),"Active original production did not expose its safe recovery point");
         const auto buy=[&](sim::CommandType type,sim::Cell cell) {
             const auto result=view->execute({type,cell});check(result.accepted && result.changed,result.reason.c_str());
         };

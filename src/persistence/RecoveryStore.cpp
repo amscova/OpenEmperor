@@ -11,6 +11,7 @@
 #include <limits>
 #include <random>
 #include <regex>
+#include <set>
 #include <stdexcept>
 
 namespace openemperor::persistence {
@@ -63,6 +64,16 @@ std::string new_history_id() {
 }
 int population(const SaveDocument& document) {
     int result=0;
+    if (simulation::original_production_enabled(document.world.profile,document.world.rule_version)) {
+        require(document.world.original_economy.has_value(),"original recovery population authority is missing");
+        for (const auto& house:document.world.original_economy->houses) {
+            const auto occupants=house.house.occupants;
+            require(occupants>=0 && occupants<=std::numeric_limits<int>::max()-result,
+                    "original recovery population overflow");
+            result+=occupants;
+        }
+        return result;
+    }
     for (const auto& building:document.world.buildings)
         if (building.placed && building.kind==simulation::Object::Household) {
             if (building.population>std::numeric_limits<int>::max()-result)
@@ -125,6 +136,15 @@ RecoveryEntry parse_entry(const json& value,const fs::path& dir,const std::strin
     require(value.contains("population") && value.at("population").is_number_integer() &&
             value.contains("treasury") && value.at("treasury").is_number_integer(),
             "invalid recovery summary values");
+    if (result.profile==simulation::city_v16_profile_name && result.rule_version==simulation::kOriginalProductionRuleVersion) {
+        const auto& people=value.at("population");const auto& funds=value.at("treasury");
+        require(!people.is_number_unsigned() || people.get<std::uint64_t>()<=static_cast<std::uint64_t>(std::numeric_limits<int>::max()),
+                "original recovery population exceeds int");
+        require(people.get<std::int64_t>()>=0 && people.get<std::int64_t>()<=std::numeric_limits<int>::max(),
+                "invalid original recovery population");
+        require(!funds.is_number_unsigned() || funds.get<std::uint64_t>()<=static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()),
+                "original recovery treasury exceeds signed range");
+    }
     result.population=value.at("population").get<int>();
     result.treasury=value.at("treasury").get<std::int64_t>();
     result.created_local=string_field("created_local",64);
@@ -136,6 +156,7 @@ struct Metadata {
     std::uint64_t next_sequence=1;
     std::vector<RecoveryEntry> entries;
 };
+json metadata_json(const Metadata& metadata);
 Metadata parse_metadata(const fs::path& file) {
     std::error_code ec;
     require(!fs::is_symlink(file,ec) && !ec && fs::is_regular_file(file,ec) && !ec,
@@ -144,7 +165,19 @@ Metadata parse_metadata(const fs::path& file) {
     require(!ec && size>0 && size<=max_metadata_bytes,"recovery metadata size is invalid");
     std::ifstream input(file,std::ios::binary);
     require(input.good(),"recovery metadata cannot be read");
-    const auto value=json::parse(input);
+    std::vector<std::set<std::string>> keys;bool duplicate_key=false;
+    const auto value=json::parse(input,[&](int depth,json::parse_event_t event,json& parsed) {
+        if (event==json::parse_event_t::object_start || event==json::parse_event_t::array_start)
+            require(depth<=32,"recovery metadata nesting exceeds bounded depth");
+        if (event==json::parse_event_t::object_start) keys.emplace_back();
+        else if (event==json::parse_event_t::key) {
+            require(!keys.empty(),"invalid recovery JSON object nesting");
+            if (!keys.back().insert(parsed.get<std::string>()).second) duplicate_key=true;
+        } else if (event==json::parse_event_t::object_end) {
+            require(!keys.empty(),"invalid recovery JSON object nesting");keys.pop_back();
+        }
+        return true;
+    });
     require(value.is_object() && value.contains("version") && value.at("version").is_number_unsigned() &&
             value.at("version").get<std::uint32_t>()==metadata_version,
             "unknown recovery metadata version");
@@ -173,6 +206,12 @@ Metadata parse_metadata(const fs::path& file) {
                 std::find(filenames.begin(),filenames.end(),entry.filename)==filenames.end(),
                 "duplicate recovery checkpoint metadata");
         sequences.push_back(entry.sequence);filenames.push_back(entry.filename);
+    }
+    if (std::any_of(result.entries.begin(),result.entries.end(),[](const auto& entry) {
+        return entry.profile==simulation::city_v16_profile_name&&entry.rule_version==simulation::kOriginalProductionRuleVersion;
+    })) {
+        require(!duplicate_key,"original recovery metadata contains a duplicate key");
+        require(value==metadata_json(result),"original recovery metadata contains missing, additional or noncanonical fields");
     }
     return result;
 }
@@ -224,6 +263,15 @@ RecoveryEntry make_entry(const std::string& history,const std::optional<Recovery
     return e;
 }
 void validate_policy_readback(const SaveDocument& saved,const SaveDocument& source) {
+    if (simulation::original_production_enabled(source.world.profile,source.world.rule_version)) {
+        require(saved.source_schema_version==26 && saved.world==source.world &&
+                saved.map_relative==source.map_relative && saved.map_sha256==source.map_sha256 &&
+                saved.buildable_sha256==source.buildable_sha256 &&
+                saved.map_permissions_policy_version==source.map_permissions_policy_version &&
+                saved.map_permissions_sha256==source.map_permissions_sha256 && !saved.migrated_from_schema1,
+                "original recovery read-back differs from schema26 world or source policy");
+        return;
+    }
     if (source.world.profile!=simulation::RulesProfile::CityV16 ||
         (source.world.rule_version<3 || source.world.rule_version>6)) return;
     const auto expected_schema=source.world.rule_version==3 ? 19U:source.world.rule_version==4 ? 20U:source.world.rule_version==5 ? 21U:22U;
@@ -236,23 +284,116 @@ void validate_policy_readback(const SaveDocument& saved,const SaveDocument& sour
                 source.world.rule_version==4 ? "recovery read-back differs from schema20 world or map policy":
                 "recovery read-back differs from schema21 world or map policy");
 }
-void validate_entry_document(RecoveryEntry& entry) {
-    try {
-        std::error_code ec;
-        require(!fs::is_symlink(entry.path,ec) && !ec,"unsafe recovery checkpoint symlink");
-        auto doc=read_save(entry.path);
-        require(doc.world.ticks==entry.tick && doc.map_relative.generic_string()==entry.map &&
-                simulation::rules_profile_name(doc.world.profile)==entry.profile &&
-                doc.world.rule_version==entry.rule_version && doc.source_schema_version==entry.schema &&
-                population(doc)==entry.population && doc.world.treasury==entry.treasury,
-                "recovery metadata does not match checkpoint");
-    } catch (const std::exception& error) { entry.error=error.what(); }
+bool validate_recovery_access(const SaveDocument& document,RecoveryAccess access) {
+    if (!simulation::original_economy_enabled(document.world.profile,document.world.rule_version)) return false;
+    require(access==RecoveryAccess::OriginalProduction &&
+            simulation::original_production_enabled(document.world.profile,document.world.rule_version),
+            "schema23 development saves are unavailable in normal recovery histories");
+    require((document.source_schema_version==0 || document.source_schema_version==26) &&
+            document.world.original_production && document.world.original_production->development_revision==
+                simulation::kOriginalProductionDevelopmentRevision &&
+            document.world.original_economy && document.world.original_economy->model_source,
+            "original recovery requires active Rule10/schema26/development revision27 and its model source");
+    return true;
+}
+using OriginalSourceCheck=std::optional<original::ModelFingerprintResult>;
+void validate_original_source(const SaveDocument& document,const fs::path& root,OriginalSourceCheck& checked) {
+    if (!checked) checked=original::inspect_model_source(root);
+    require(checked->fingerprint.has_value(),"original recovery model source is unavailable");
+    const auto& source=*document.world.original_economy->model_source;
+    require(source.format_version==original::model_schema_version &&
+            static_cast<std::size_t>(source.difficulty)<original::difficulty_count &&
+            source.sha256==checked->fingerprint->sha256 && source.byte_count==checked->fingerprint->byte_count,
+            "original recovery model source identity differs from the current installation");
+}
+SaveDocument checked_entry(const RecoveryEntry& entry,RecoveryAccess access,const fs::path& root,
+                           OriginalSourceCheck& model) {
+    std::error_code ec;
+    require(!fs::is_symlink(entry.path,ec) && !ec,"unsafe recovery checkpoint symlink");
+    auto doc=read_save(entry.path);
+    if (validate_recovery_access(doc,access)) validate_original_source(doc,root,model);
+    require(doc.world.ticks==entry.tick && doc.map_relative.generic_string()==entry.map &&
+            simulation::rules_profile_name(doc.world.profile)==entry.profile &&
+            doc.world.rule_version==entry.rule_version && doc.source_schema_version==entry.schema &&
+            population(doc)==entry.population && doc.world.treasury==entry.treasury,
+            "recovery metadata does not match checkpoint");
+    return doc;
+}
+void validate_entry_document(RecoveryEntry& entry,RecoveryAccess access,const fs::path& root,OriginalSourceCheck& model) {
+    try {(void)checked_entry(entry,access,root,model);}
+    catch (const std::exception& error) {entry.error=error.what();}
+}
+bool has_original_entry(const Metadata& metadata) {
+    return std::any_of(metadata.entries.begin(),metadata.entries.end(),[](const auto& entry) {
+        return entry.profile==simulation::city_v16_profile_name &&
+            simulation::original_economy_enabled(simulation::RulesProfile::CityV16,entry.rule_version);
+    });
+}
+void validate_original_sequence(const Metadata& metadata) {
+    std::vector<std::uint64_t> periodic;
+    for (const auto& entry:metadata.entries) if (!entry.start_point) periodic.push_back(entry.sequence);
+    std::sort(periodic.begin(),periodic.end());
+    require(metadata.next_sequence==(periodic.empty()?1:periodic.back()+1),
+            "original recovery next sequence does not follow its checkpoints");
+    require(periodic.size()==std::min<std::uint64_t>(metadata.next_sequence-1,recovery_checkpoint_limit),
+            "original recovery checkpoint sequence is incomplete");
+    for (std::size_t i=0;i<periodic.size();++i)
+        require(periodic[i]==metadata.next_sequence-static_cast<std::uint64_t>(periodic.size())+i,
+                "original recovery checkpoint sequence contains a gap");
+}
+void same_original_identity(const SaveDocument& a,const SaveDocument& b) {
+    require(simulation::original_production_enabled(a.world.profile,a.world.rule_version) &&
+            simulation::original_production_enabled(b.world.profile,b.world.rule_version) &&
+            a.world.original_production->development_revision==b.world.original_production->development_revision &&
+            a.map_relative==b.map_relative && a.map_sha256==b.map_sha256 && a.buildable_sha256==b.buildable_sha256 &&
+            a.map_permissions_policy_version==b.map_permissions_policy_version &&
+            a.map_permissions_sha256==b.map_permissions_sha256 &&
+            a.world.original_economy->model_source==b.world.original_economy->model_source,
+            "original recovery history source, map, model, difficulty or version differs");
+}
+struct OriginalHistoryState {
+    std::optional<SaveDocument> first;
+    std::uint64_t last_tick=0;
+};
+OriginalHistoryState inspect_original_entries(std::vector<RecoveryEntry>& entries,RecoveryAccess access,
+                                             const fs::path& root,OriginalSourceCheck& model) {
+    std::vector<std::size_t> order(entries.size());
+    for (std::size_t i=0;i<order.size();++i) order[i]=i;
+    std::sort(order.begin(),order.end(),[&](auto a,auto b) {return entries[a].sequence<entries[b].sequence;});
+    OriginalHistoryState state;
+    for (const auto index:order) {
+        auto& entry=entries[index];
+        try {
+            auto document=checked_entry(entry,access,root,model);
+            require(validate_recovery_access(document,access),"legacy checkpoint is inside an original recovery history");
+            if (state.first) {
+                same_original_identity(*state.first,document);
+                require(document.world.ticks>=state.last_tick,"original recovery checkpoint moves simulation time backwards");
+            }
+            state.last_tick=document.world.ticks;
+            if (!state.first) state.first=std::move(document);
+        } catch (const std::exception& error) {entry.error=error.what();}
+    }
+    return state;
+}
+void validate_original_history(const Metadata& metadata,const SaveDocument& document,RecoveryAccess access,
+                               const fs::path& root) {
+    require(validate_recovery_access(document,access),"legacy documents cannot append to an original recovery history");
+    validate_original_sequence(metadata);
+    require(metadata.next_sequence<std::numeric_limits<std::uint64_t>::max(),"original recovery sequence is exhausted");
+    OriginalSourceCheck model;
+    auto entries=metadata.entries;
+    const auto state=inspect_original_entries(entries,access,root,model);
+    for (const auto& entry:entries) require(entry.loadable(),entry.error);
+    require(state.first.has_value(),"original recovery history has no valid checkpoint");
+    same_original_identity(*state.first,document);
+    require(document.world.ticks>=state.last_tick,"original recovery checkpoint moves simulation time backwards");
 }
 }
 
-RecoveryStore::RecoveryStore(fs::path app_root,fs::path data_root,std::uintmax_t budget)
+RecoveryStore::RecoveryStore(fs::path app_root,fs::path data_root,std::uintmax_t budget,RecoveryAccess access)
     : app_root_(std::move(app_root)),data_root_(std::move(data_root)),
-      recovery_root_(app_root_/"recovery"),budget_(budget) {
+      recovery_root_(app_root_/"recovery"),budget_(budget),access_(access) {
     require(budget_>0,"recovery storage budget must be positive");
     ensure_directory_safe(app_root_,data_root_,recovery_root_);
     std::error_code ec;
@@ -265,9 +406,25 @@ std::string RecoveryStore::create_history(const SaveDocument& document,
                                            const std::vector<std::uint8_t>& buildable,
                                            std::optional<RecoveryParent> parent,
                                            RecoveryWriteFaults faults) {
-    require(!simulation::original_economy_enabled(document.world.profile,document.world.rule_version),
-            "schema23 development saves are unavailable in normal recovery histories");
+    const bool original=validate_recovery_access(document,access_);
     if (parent) require(valid_id(parent->history_id),"invalid recovery parent history ID");
+    if (original && parent) {
+        const auto dir=recovery_root_/parent->history_id;
+        require(!fs::is_symlink(dir) && fs::is_directory(dir),"original recovery parent history is missing or unsafe");
+        auto metadata=parse_metadata(dir/"history.json");
+        require(metadata.history==parent->history_id,"original recovery parent history ID differs");
+        validate_original_sequence(metadata);
+        OriginalSourceCheck model;
+        (void)inspect_original_entries(metadata.entries,access_,data_root_,model);
+        const auto selected=std::find_if(metadata.entries.begin(),metadata.entries.end(),[&](const auto& entry) {
+            return entry.sequence==parent->sequence;
+        });
+        require(selected!=metadata.entries.end(),"original recovery parent checkpoint is missing");
+        require(selected->loadable(),"original recovery parent checkpoint is unavailable: "+selected->error);
+        const auto source=checked_entry(*selected,access_,data_root_,model);
+        same_original_identity(source,document);
+        require(source.world==document.world,"original recovery branch differs from its selected checkpoint");
+    }
     require(storage_usage(recovery_root_)<budget_,"recovery storage budget is full");
     std::string history;
     fs::path dir;
@@ -307,14 +464,14 @@ RecoveryEntry RecoveryStore::write_checkpoint(const std::string& history,
                                                const SaveDocument& document,
                                                const std::vector<std::uint8_t>& buildable,
                                                RecoveryWriteFaults faults) {
-    require(!simulation::original_economy_enabled(document.world.profile,document.world.rule_version),
-            "schema23 development saves are unavailable in normal recovery histories");
+    const bool original=validate_recovery_access(document,access_);
     require(valid_id(history),"invalid recovery history ID");
     ensure_directory_safe(app_root_,data_root_,recovery_root_);
     const auto dir=recovery_root_/history;
     require(!fs::is_symlink(dir) && fs::is_directory(dir),"recovery history directory is unsafe");
     auto metadata=parse_metadata(dir/"history.json");
     require(metadata.history==history,"recovery history directory and metadata disagree");
+    if (original || has_original_entry(metadata)) validate_original_history(metadata,document,access_,data_root_);
     require(storage_usage(recovery_root_)<budget_,"recovery storage budget is full");
     const auto sequence=metadata.next_sequence;
     std::random_device random;
@@ -392,14 +549,18 @@ RecoveryCatalog RecoveryStore::catalog() const {
     std::sort(dirs.begin(),dirs.end(),std::greater<>());
     const auto available=max_histories-result.histories.size();
     if (dirs.size()>available) { dirs.resize(available);result.truncated=true; }
+    OriginalSourceCheck original_model;
     for (const auto& dir:dirs) {
         RecoveryHistory history; history.history_id=dir.filename().string();
         try {
             require(valid_id(history.history_id),"invalid recovery history directory name");
             auto metadata=parse_metadata(dir/"history.json");
             require(metadata.history==history.history_id,"recovery history directory and metadata disagree");
+            const bool original=has_original_entry(metadata);
+            if (original) validate_original_sequence(metadata);
             history.parent=metadata.parent; history.entries=std::move(metadata.entries);
-            for (auto& entry:history.entries) validate_entry_document(entry);
+            if (original) (void)inspect_original_entries(history.entries,access_,data_root_,original_model);
+            else for (auto& entry:history.entries) validate_entry_document(entry,access_,data_root_,original_model);
             std::sort(history.entries.begin(),history.entries.end(),[](const auto& a,const auto& b) {
                 if (a.start_point!=b.start_point) return !a.start_point;
                 return a.sequence>b.sequence;
