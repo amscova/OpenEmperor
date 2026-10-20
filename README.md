@@ -18,6 +18,13 @@ Reuse the same build directory for subsequent builds. On first launch, select an
 
 The general menu default remains City-v11 rule 3. Selecting City-v16 starts rule 4 with original ground roads; Bridges rule 5 and Ramps rule 6 are explicit choices. Loading an existing save preserves its profile and rule version.
 
+**Original economy** (menu shortcut **O**) offers the optional Rule10
+experiment with model-driven house evolution. Choose a difficulty and either
+an empty city or the paid four-house starter, then press **Start** and **Space**.
+It uses manual **F5/F9** saves; automatic recovery is pending. House graphics
+use verified original assets where supported; several other objects still use
+fallbacks. See the [starter guide](docs/original-economy/paid-starter.md).
+
 Start City-v16 directly:
 
 ```sh

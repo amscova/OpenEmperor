@@ -116,3 +116,16 @@ ebenso der temporäre2×2-Eliteplot gegenüber dem originalen4×4-Bild. Bild- un
 Ankeridentität sind Präsentationsbelege, keine zusätzliche World-, Bau-,
 Höhen-, Save- oder Navigationsauthority. Quellen und offene Grenzen stehen in
 [original-house-visuals.md](../reverse/original-house-visuals.md).
+
+## OE-30 – bezahlter produktiver Einstieg
+
+Der optionale Menüstart verwendet die bereits aktive Rule10-Simulation und
+die normale Command-/Navigator-/Arrival-/Savekette. Ein neuer authored Bauplan
+kauft vier leere Häuser und die bestehenden Quellen beiTick0; Modellwerte,
+Bestände, Versorgung und Evolution werden nicht in einem zweiten Forkmodell
+gesetzt. Erst tatsächliche Ticks erzeugen Bewohner, Waren, Konsum und Besuche.
+Manuelles F5/F9 und ausdrücklich gewähltes Rule10-Laden verwenden die bestehende
+strikte Original-Restorefunktion. Es wird kein Forkcode übernommen und keine
+neue gespeicherte Authority eingeführt. Die belegten Abläufe und verbleibenden
+Original-/Grafik-/Recoverygrenzen stehen in
+[paid-starter-validation.md](../original-economy/paid-starter-validation.md).

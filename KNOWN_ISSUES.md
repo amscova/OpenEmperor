@@ -2,6 +2,8 @@
 
 Only current limitations and outstanding acceptance checks are listed here.
 
+- **Optional original economy:** Rule10 uses manual F5/F9 saves; automatic recovery is pending. The paid starter needs a legal empty level24×13 area. Several non-house objects still use presentation fallbacks, and original venue/performer behavior remains experimental. See [the starter guide](docs/original-economy/paid-starter.md).
+
 - **Human acceptance:** the Xia/Handan checklist remains incomplete for pointer selection, road dragging, modal focus/resize handling and external-display interaction. Human original-map/Road and full-city long-play acceptance remain unverified. Scripted checks do not close these acceptance items. See [the input checklist](docs/testing-input-acceptance.md), [multi-map acceptance](docs/map-playability-acceptance.md), [original roads](docs/original-roads.md) and [bounded technical long-play](docs/city-v16-longplay-stability.md).
 
 - **Player population report:** the exact reported18-House/60-resident state and current Service8/Pottery11 causes remain unresolved without an explicitly authorized player SaveDocument. Scenario A was NOT RUN. The separate reconstructed Service outage/recovery does not establish the player's cause. See [population and workforce evidence](docs/city-v16-longplay-stability.md).

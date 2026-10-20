@@ -1568,3 +1568,31 @@ Konfiguration bytegleich. Original1464 Dateien und127 Authorityquelldateien
 bleiben exakt; keine neue volle Corpus-/20k-/native/human-Abnahme. Gesamtparität
 bleibt PARTIAL und ganze Originalgrafik-/Variantenparität UNKNOWN. Gate E folgt30,
 der nächste Starterprompt bleibt unbegonnen. Nur lokaler Task-Commit.
+
+### OE-30 vor Implementierung: optionaler bezahlter Normalstart
+
+Der Nutzer setzt ausdrücklich mit30 fort. Der
+[Startervertrag](../original-economy/paid-starter-contract.md) öffnet nur den
+vorhandenen Rule10-Stand, verwendet normale bezahlte Commands und unveränderte
+Model-/Save-/Permissionauthority. Neue Menüentscheidungen bleiben session-only;
+alte Defaults und Settings bleiben erhalten. F5/F9 und expliziter manueller
+Original-Restore gehören zu30, Original-Recovery bleibt sichtbar bis31 gesperrt.
+Gate E verlangt vollständige drei Konfigurationssuites und echte Ablaufbelege;
+gesonderte menschliche Abnahme und vollständige Objektgrafikparität bleiben offen.
+
+### OE-30 abgeschlossen: bezahlte bedienbare Originalwirtschaft
+
+Der erklärte Vertrag ist umgesetzt: session-only Menü-O mit fünf Difficulties,
+Paid4/Empty und explizitem manuellem Rule10-Restore. Alte Defaults,7–9-Gates,
+SettingsV1, Versions-/Modell-/Map-/Revisionsprüfungen und Recoverygrenzen bleiben
+erhalten.87 normale Commands kaufen den Starter ohne Zeit/Bestands-/Einwohnergabe.
+Die echte Xia/Normal-Kette entwickelt vier Häuser, verbraucht beide Güter,
+belegt Ancestor-Ausfall und Erholung sowie reguläre Reparatur und Unterhalt.
+
+Die [Abnahme](../original-economy/paid-starter-validation.md) bindet711 volle
+CTests, echte separate20k-/Menü-/F5F9-/Restartprozesse und bytegleiche/geöffnete
+Softwarebilder an denselben571-Datei-Stand.72 Legacy-Saves/1485 Policyfälle und
+alle1464 Originaldateien bleiben exakt. Gate E ist technisch PASS; vollständige
+Originalgrafik-/Gesamtparität bleiben PARTIAL, Human/native und der auf diesem
+Host nicht unterstützte Leakdetektor werden nicht als PASS behauptet.
+OE31 und spätere Aufgaben bleiben unbegonnen. Nur lokaler Task-Commit.

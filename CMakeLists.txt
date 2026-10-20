@@ -262,6 +262,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalFood.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
+target_sources(openemperor-simulation PRIVATE src/simulation/OriginalEconomyStarter.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
 # Read-only model parser shared by bounded preparation and source fingerprints.
@@ -336,6 +337,13 @@ target_link_libraries(openemperor-recovery PUBLIC openemperor-persistence)
 openemperor_enable_warnings(openemperor-recovery)
 target_link_libraries(openemperor PRIVATE openemperor-recovery Threads::Threads)
 
+add_executable(openemperor-original-starter-acceptance EXCLUDE_FROM_ALL
+    tools/OriginalStarterAcceptance.cpp
+    src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+target_link_libraries(openemperor-original-starter-acceptance PRIVATE
+    openemperor-persistence SDL3::SDL3)
+openemperor_enable_warnings(openemperor-original-starter-acceptance)
+
 add_executable(openemperor-map-inspect tools/map-inspector/main.cpp)
 target_link_libraries(openemperor-map-inspect PRIVATE openemperor-maps nlohmann_json::nlohmann_json)
 openemperor_enable_warnings(openemperor-map-inspect)
@@ -349,6 +357,17 @@ target_link_libraries(openemperor-assets PRIVATE openemperor-sg3)
 openemperor_enable_warnings(openemperor-assets)
 
 include(CTest)
+if(BUILD_TESTING)
+    add_executable(openemperor-original-starter-tests tests/OriginalStarterTests.cpp
+        src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+    target_link_libraries(openemperor-original-starter-tests PRIVATE
+        openemperor-persistence SDL3::SDL3)
+    openemperor_enable_warnings(openemperor-original-starter-tests)
+    add_test(NAME original-paid-starter-synthetic COMMAND openemperor-original-starter-tests --synthetic)
+    add_test(NAME original-paid-starter-real COMMAND openemperor-original-starter-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-paid-starter-synthetic original-paid-starter-real PROPERTIES TIMEOUT 180)
+endif()
 if(BUILD_TESTING)
     add_executable(openemperor-original-model-data-tests tests/OriginalModelDataTests.cpp)
     target_link_libraries(openemperor-original-model-data-tests PRIVATE
@@ -578,6 +597,20 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-menu-session-tests)
     add_test(NAME menu-session-flow COMMAND openemperor-menu-session-tests)
     set_tests_properties(menu-session-flow PROPERTIES TIMEOUT 30)
+    get_target_property(original_menu_test_sources openemperor-menu-session-tests SOURCES)
+    list(REMOVE_ITEM original_menu_test_sources tests/MenuSessionTests.cpp)
+    add_executable(openemperor-original-menu-session-tests
+        tests/OriginalMenuSessionTests.cpp ${original_menu_test_sources})
+    add_executable(openemperor-original-starter-menu-acceptance EXCLUDE_FROM_ALL
+        tools/OriginalStarterMenuAcceptance.cpp ${original_menu_test_sources})
+    target_link_libraries(openemperor-original-starter-menu-acceptance PRIVATE
+        openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
+    openemperor_enable_warnings(openemperor-original-starter-menu-acceptance)
+    target_link_libraries(openemperor-original-menu-session-tests PRIVATE
+        openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
+    openemperor_enable_warnings(openemperor-original-menu-session-tests)
+    add_test(NAME original-menu-session-flow COMMAND openemperor-original-menu-session-tests)
+    set_tests_properties(original-menu-session-flow PROPERTIES TIMEOUT 120)
     add_executable(openemperor-sandbox-economy-guidance-view-tests tests/SandboxEconomyGuidanceViewTests.cpp
         src/app/MenuSession.cpp src/app/MenuStorage.cpp src/app/MenuDialog.cpp src/app/MapRulesPreflight.cpp
         src/app/ResourceLocator.cpp src/app/VisualSelection.cpp

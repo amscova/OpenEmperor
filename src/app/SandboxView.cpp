@@ -15,6 +15,7 @@
 #include "app/SandboxVisualOrder.h"
 #include "core/Version.h"
 #include "simulation/CityStartGuidance.h"
+#include "simulation/OriginalEconomyStarter.h"
 #include "simulation/original/OriginalRulesModel.h"
 #include "simulation/OriginalIndustryGoodsContext.h"
 #include "simulation/OriginalHousingDiagnosis.h"
@@ -423,14 +424,20 @@ std::unique_ptr<SandboxView> SandboxView::create_original_goods_save_fixture(
 }
 std::unique_ptr<SandboxView> SandboxView::create_original_production_save_fixture(
         maps::StoredMapSession session,std::optional<original::Difficulty> difficulty) {
+    return create_original_production(std::move(session),difficulty);
+}
+#endif
+
+std::unique_ptr<SandboxView> SandboxView::create_original_production(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
     if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
         throw std::invalid_argument("Invalid original production difficulty");
     auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
         simulation::RulesProfile::CityV16,simulation::kOriginalProductionRuleVersion,true));
     result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
     return result;
 }
-#endif
 
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version,bool original_save_fixture)
@@ -443,7 +450,9 @@ SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::Ru
     if (!simulation::rule_version_supported(rules_,requested_rule_version_))
         throw std::invalid_argument("unsupported sandbox rule version");
     if (simulation::original_economy_enabled(rules_,requested_rule_version_) && !original_save_fixture_)
-        throw std::invalid_argument("Rule 7 original economy runtime is not available yet; "
+        throw std::invalid_argument(requested_rule_version_==simulation::kOriginalProductionRuleVersion ?
+            "Original economy requires its explicit optional entry" :
+            "Rule 7 original economy runtime is not available yet; "
             "use --sandbox-original-economy-check for developer diagnostics");
     if (original_save_fixture_ && (demo_ ||
         !simulation::original_economy_enabled(rules_,requested_rule_version_)))
@@ -540,6 +549,7 @@ void SandboxView::load_now() {
 }
 
 void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
+    const bool fresh=!initial_save_;
     window_=window;
     renderer_=renderer;
     update_layout(false);
@@ -629,6 +639,11 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         world_=std::make_unique<simulation::World>(std::move(permissions),rules_,active_version);
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,
         buildable_mask_,rules_,active_version);
+    if (fresh && original_paid_starter_) {
+        const auto receipt=simulation::place_original_economy_starter(*world_);
+        last_message_="Paid 4-house starter: "+std::to_string(receipt.construction_spent)+
+            " spent; empty stocks; Space to run; manual F5 save";
+    }
     if(authored_terrain_sides_enabled_) {
         if(!world_->ramps_supported())throw std::invalid_argument("Authored terrain sides require explicit City-v16 rule6");
         authored_terrain_sides_.prepare(background_.plan(),geometry_,*world_->map_permissions());
@@ -639,7 +654,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
     prepare_original_house_visuals();
     reset_camera();
     if (demo_) place_demo();
-    if (initial_save_ == std::nullopt && !demo_) {
+    if (initial_save_ == std::nullopt && !demo_ && !(fresh && original_paid_starter_)) {
         saved_tick_=world_->ticks(); saved_command_=world_->command_sequence();
     }
     if (!builtin_errors.empty()) last_message_=builtin_errors.front();

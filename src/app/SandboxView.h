@@ -64,6 +64,12 @@ public:
     explicit SandboxView(maps::StoredMapSession session, bool demo,
                          simulation::RulesProfile rules=simulation::RulesProfile::LogisticsV1,
                          std::uint32_t rule_version=0);
+    // Explicit optional original-economy entry. Older development rules remain
+    // fixture-only; ordinary constructors never select original rules.
+    static std::unique_ptr<SandboxView> create_original_production(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
 #if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
     // Explicit development fixtures; no shipped application entry point.
     static std::unique_ptr<SandboxView> create_original_economy_save_fixture(
@@ -307,6 +313,7 @@ public:
     std::uint64_t desirability_preview_build_count() const { return desirability_preview_build_count_; }
     const sandbox_ui::Layout& layout() const { return layout_; }
     std::optional<simulation::BuildingId> selected_building() const;
+    sandbox_ui::Rect diagnostic_operation_toggle_rect() const { return operation_toggle_rect(); }
     std::optional<simulation::Cell> hovered_cell() const { return hovered_; }
     std::vector<std::string> inspection_lines() const;
     using OriginalHouseSection=original_house_ui::Section;
@@ -481,6 +488,7 @@ private:
     simulation::TickDriver clock_;
     // Start-time selection only. The saved ModelSource remains sole authority.
     std::optional<original::Difficulty> original_requested_difficulty_;
+    bool original_paid_starter_=false;
     scene::Camera2D camera_;
     SDL_Window* window_=nullptr;
     SDL_Renderer* renderer_=nullptr;
@@ -583,7 +591,7 @@ private:
     bool original_production_fixture() const {
         return original_save_fixture_ && simulation::original_production_enabled(rules_,requested_rule_version_);
     }
-    bool original_save_fixture_=false; // Explicit developer adapter only; never World/save authority.
+    bool original_save_fixture_=false; // Explicit original entry/legacy fixture; never saved authority.
     // Retained only through initialization, when immutable map permissions are
     // prepared. Rendering and navigation never consult the original raw map.
     maps::ParsedEmperorMap original_map_;

@@ -38,6 +38,9 @@ public:
     VisualSelection visual_selection() const;
     const maps::MapRulesResult& map_rules_result() const { return map_preflight_.result(); }
     bool map_rules_can_start() const;
+    bool original_setup() const { return original_new_game_; }
+    original::Difficulty original_difficulty() const { return original_difficulty_; }
+    bool original_paid_starter() const { return original_paid_starter_; }
     struct DiagnosticButtonHit {
         int action;
         bool enabled;
@@ -45,6 +48,7 @@ public:
     };
     std::optional<SDL_FPoint> diagnostic_render_point(float window_x,float window_y) const;
     std::optional<DiagnosticButtonHit> diagnostic_button_hit(float window_x,float window_y) const;
+    std::optional<SDL_FRect> diagnostic_button_rect(const std::string& label) const;
     int diagnostic_pressed_action() const { return pressed_action_; }
     int diagnostic_pending_action() const { return pending_action_.value_or(-1); }
 private:
@@ -87,6 +91,9 @@ private:
     Settings settings_;
     bool ramps_new_game_=false; // Explicit rule6 setup, never a saved default or migration.
     bool bridges_new_game_=false; // Explicit setup choice, never a default/save upgrade.
+    bool original_new_game_=false; // Session-only opt-in; never a RulesProfile/settings default.
+    original::Difficulty original_difficulty_=original::Difficulty::Normal;
+    bool original_paid_starter_=true;
     MapRulesPreflight map_preflight_;
     std::optional<maps::MapRulesResult> starting_map_check_;
     assets::CompatibilityResult compatibility_;

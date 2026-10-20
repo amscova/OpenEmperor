@@ -34,6 +34,14 @@ explizite statische Variante0 und benannte Vacant-/Plot-Fallbacks.
 [Abnahme](../original-economy/original-house-visuals-validation.md):174 gezielte
 CTests PASS; alle alten Inspector-/Sandbox-Pixel exakt. Gate E bleibt OE30.
 
+**Abschluss OE-30 am2026-10-20:** Optionaler Original-Menüstart mit fünf
+Difficulties, bezahltem Vier-Haus-Starter oder leerer Stadt und manuellen
+Rule10-Saves. [Abnahme](../original-economy/paid-starter-validation.md):711 volle
+CTests PASS, echte Auf-/Abstiege und separate20k-Prozessreplays, normaler
+Menü-Build-/F5/F9-/Restartablauf und geöffnete1×/2×/4×-Bilder. Gate E technisch
+PASS; Originalgrafik-/Gesamtparität weiterhin PARTIAL, Human/native NOT_RUN.
+Recovery31 und alle späteren Aufgaben bleiben unbegonnen.
+
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
 | OE-00 | PASS | 05470049fa4acfdf2d0104f5a25384c9277073ac | `.local/original-economy/oe00/{reference,verification,validation}/` | 45 relevante CTests,13 Harness-Tests,12 Fork-Untertests;72 Saves/Snapshots und1485 Policyfälle wiederholt identisch; keine Simulation geändert |
@@ -65,8 +73,8 @@ CTests PASS; alle alten Inspector-/Sandbox-Pixel exakt. Gate E bleibt OE30.
 | OE-26 | PASS | bcba05334494b4f6f5afd7d4c0d2d76a13469caa | `.local/original-economy/oe26/validation2/`, `oe26/production-fixtures/final2/` | Revision26: atomare leere2×2→4×4-Elitegeometrie, echte Blockade/Reparatur/Einzug160, neun Konflikte/strikter Restore;231 CTests/51 separate20k-Replays/8 geöffnete Softwarebilder,72 Legacy-Saves/1485 Policyfälle exakt; Gate D27/Originalsprites29 offen |
 | OE-27 | PASS | eb40408a57038d775dfa79d3c8e9f1bbf189f80d | `.local/original-economy/oe27/gate-d/final4/`, `oe27/validation/final-validation.json` | Revision27: fünf Difficulties, Modellsteuer/Workerunterhalt, signed Debt und verlustfähige Mission; 684 volle CTests, 101 getrennte20k-Fortsetzungen, zehn geöffnete Softwarebilder, Legacy exakt; Gate D technisch PASS, Originalparität PARTIAL |
 | OE-28 | PASS | 15dd6da9183617f39f711df2b2ab1598f6595cb9 | `.local/original-economy/oe28/final-validation.json` | Vier Inspectoransichten, Supply/DES/Risk-Overlays;93 gezielte CTests, zwei20k-Prozessreplays, zehn geöffnete1×/2×/4×-Softwarebilder; Authority/alte Pixel exakt; Originalsprites29 offen |
-| OE-29 | PASS | — | `.local/original-economy/oe29/final-validation.json` |15 belegte Typ3..17-Bilder, statische Variante0;174 gezielte CTests/12 geöffnete finale Softwarebilder; alte Pixel/Authority exakt; Vacant/Plot-Fallback, Originalszene UNKNOWN/Gesamtwirtschaft PARTIAL, native/human offen |
-| OE-30 | TODO | — | — | — |
+| OE-29 | PASS | 64cbfcb7c13a4b162cfb8bab118e45ef99b09d3d | `.local/original-economy/oe29/final-validation.json` |15 belegte Typ3..17-Bilder, statische Variante0;174 gezielte CTests/12 geöffnete finale Softwarebilder; alte Pixel/Authority exakt; Vacant/Plot-Fallback, Originalszene UNKNOWN/Gesamtwirtschaft PARTIAL, native/human offen |
+| OE-30 | PASS | — | `.local/original-economy/oe30/final-validation.json` | Optionaler Rule10-Menüstart,87 bezahlte Commands/4 Häuser, echte Auf-/Abstiege und Warenverbrauch;711 volle CTests,6 separate20k-Prozesse,51 bytegleiche Menübilder und72 Legacy-Saves/1485 Policyfälle exakt. Gate E technisch PASS; Recovery31/Human/ganze Originalgrafik offen |
 | OE-31 | TODO | — | — | — |
 | OE-32 | TODO | — | — | — |
 | OE-33 | TODO | — | — | — |
@@ -79,7 +87,7 @@ CTests PASS; alle alten Inspector-/Sandbox-Pixel exakt. Gate E bleibt OE30.
 | B | PASS | OE-08–12: ausdrücklich freigegebener Rule8-/Schema24-Nachfolger; vollständige Gate-Suites und finale gezielte Wiederholungen in Debug/Release/ASan+UBSan, bezahlte20-Haus-/Quellen-/Reload-Szene und exakter Legacyvergleich; technische begrenzte Abnahme, native/human NOT_RUN |
 | C | PASS | OE-13–19: tatsächliche bezahlte Ceramics-/Hemp-/Food-Lieferung, Konsum und medizinische Ankunft;606 vollständige Konfigurations-CTests,12 getrennte20k-Prozessfortsetzungen, unabhängige Raw-Audits und unveränderter Legacyvertrag. Begrenzte technische Abnahme; Originalart/native/human nicht abgenommen |
 | D | PASS | OE-20–27: bezahlte Housing-/Waren-/Serviceketten,15 typisierte Hauszeilen und atomare Elite4×4-Geometrie; fünf Modellschwierigkeiten/Steuer, strikter Restore; drei frische Vollbuilds und684 vollständige CTests, separate20k-Prozesse und Legacyvergleich. Begrenzte technische Abnahme; höhere Originalstufen, Originalcollector/-sprites und native/human bleiben offen, Gesamtparität PARTIAL |
-| E | TODO | — |
+| E | PASS | OE-28–30: optionaler produktiver Rule10-Menüstart und bezahlter Vier-Haus-Kreislauf,711 vollständige CTests/3 Konfigurationen, tatsächliche Auf-/Abstiege/Ankünfte/Verbrauch/F5F9/Neuprozess-/20k-Bytebeweise, geöffnete1×/2×/4×-Softwarebilder; ältere72 Saves/1485 Policies exakt. Technisch begrenzte Abnahme, native/human NOT_RUN, Originalparität PARTIAL und Recovery31 offen |
 | F | TODO | — |
 
 ## Fortlaufendes Testprotokoll
@@ -3292,3 +3300,42 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
 - **OE-29 technisch PASS**, ursprüngliche individuelle Variante/ganze Szene
   UNKNOWN, Gesamt-Originalwirtschaft PARTIAL, native/human NOT_RUN. Gate E
   gehört zu30; OE30 bleibt TODO. Nur eigener lokaler Task-Commit.
+
+### OE-30 – 2026-10-20, Basis64cbfcb7
+
+- Optionaler Menüeintrag O, fünf session-only Difficulties, Paid4/Empty und
+  ausdrücklicher manueller Rule10-Load; alte New-Sandbox-Defaults, SettingsV1,
+  Actionnummern/Koordinaten und Original7–9-Sperren unverändert. F5/F9 bleibt
+  sichtbar manuell; keine Original-AutosaveController oder Recoveryfreigabe.
+- Der authored Plan sucht legalen ebenen24×13-Platz und kauft ausschließlich87
+  normale Commands beiTick0. Reale Xia/Normal:1404 bezahlt,10596 Funds,
+  0 Einwohner/Bestände. Vier Häuser steigen bei3559 auf; Hemp13/Ceramics4
+  verbraucht. Tatsächliche Straßenreparatur kostet8 und erzeugt neue Ankunft4319;
+  Ancestor-Ausfall ergibt belegte bewohnte5→4-Rückentwicklung6721, Erholung6823.
+  Erlaubter neutraler Quellenabriss ohne Refund und atomische Hausabrissverweigerung,
+  Pausen/Unterhalt und unabhängiger Workerprioritäts-/ID-Oracle geprüft.
+- **Debug237/237, Release237/237, ASan+UBSan237/237 PASS**, insgesamt711 volle
+  finale CTests,0 Fehler/Skips; vorher tatsächliche Inventare, finale Builds
+  ohne Warnungen. Identischer571-Datei-Freeze über alle finalen Läufe. Der
+  Apple-arm-Host verweigert detect_leaks=1 tatsächlich; Memory-ASan und UBSan
+  laufen mit halt-on-error/detect_leaks=0. Kein Leakdetektor-PASS behauptet.
+- Sechs echte separate Creator-/Resumeprozesse setzen6823→26823 fort:
+  15 ganze Restartdateipaare und32 Rohdateien über drei Konfigurationen exakt.
+  Endfunds1500/Population167, alle Waren-/Food-/Cargo-/Reservationsbilanzen erhalten.
+  Weitere sechs produktive Menüprozesse prüfen normale SDL-Clicks/TickDriver,
+  Road-Build/Remove/Repair, tatsächlichen Courier, F5/F9 und160-Tick-Neuprozess-
+  Fortsetzung.51 finale Softwarebilder bytegleich, elf Releasebilder unabhängig
+  geöffnet; Root öffnete zusätzlich sieben Bilder. Neun Zusatzprozesse prüfen
+  Minimum900×600/VeryHard-Prozesssave; neun Pfadschutzproben korrekt verweigert.
+- Neuer ausführbarer Baselinevergleich unter
+  `.local/original-economy/oe00/oe30-final-verification/`:72 SaveDocuments/
+  Snapshots,1485 Policyfälle und167/165/2-Corpus exakt, elf Rampen-/zehn Bridge-
+  Neuprozesspaare.127 alte Authorityquellen und1464 Originaldateien/819711091Byte
+  in SHA/Modus/mtime unverändert. Frühere Testannahmen und Fehlversuche sind
+  ehrlich im privaten Log und [Abnahmebericht](../original-economy/paid-starter-validation.md)
+  erhalten; dafür keine Runtime oder Assertions gelockert.
+- Finalreport `.local/original-economy/oe30/final-validation.json`, SHA256
+  `7294e0ad54030cbca9547136488221cd1c69c63ba384cbfca6cfda4c9109c94d`.
+  **OE30/Gate E technisch PASS**; Rule10/Schema26/Policy3/Revision27 erhalten.
+  Nicht-Haus-Art/Originalparität PARTIAL, native/human NOT_RUN; Recovery31 und
+  spätere Prompts unbegonnen. Nur ein lokaler eigener Commit, kein Push/Merge.
