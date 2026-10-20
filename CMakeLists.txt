@@ -896,6 +896,14 @@ if(BUILD_TESTING)
         --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
     set_tests_properties(original-finance-save original-finance-save-real PROPERTIES TIMEOUT 300)
 
+    add_executable(openemperor-original-house-inspection-tests tests/OriginalHouseInspectionTests.cpp)
+    target_link_libraries(openemperor-original-house-inspection-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-original-house-inspection-tests)
+    add_test(NAME original-house-inspection COMMAND openemperor-original-house-inspection-tests)
+    add_test(NAME original-house-inspection-real COMMAND openemperor-original-house-inspection-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-house-inspection original-house-inspection-real PROPERTIES TIMEOUT 60)
+
     add_executable(openemperor-original-production-save-tests tests/OriginalProductionSaveTests.cpp)
     target_link_libraries(openemperor-original-production-save-tests PRIVATE openemperor-recovery)
     openemperor_enable_warnings(openemperor-original-production-save-tests)
@@ -1664,6 +1672,13 @@ if(BUILD_TESTING)
     # The paid Elite/nine-service sequence runs about twice the prior ticks;
     # unchanged Debug navigation assertions measured 75.5s in isolation.
     set_tests_properties(original-production-view PROPERTIES TIMEOUT 120)
+
+    add_executable(openemperor-original-house-inspector-view-tests tests/OriginalHouseInspectorViewTests.cpp ${bridge_fixture_sources})
+    target_compile_definitions(openemperor-original-house-inspector-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    target_link_libraries(openemperor-original-house-inspector-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-house-inspector-view-tests)
+    add_test(NAME original-house-inspector-view COMMAND openemperor-original-house-inspector-view-tests)
+    set_tests_properties(original-house-inspector-view PROPERTIES TIMEOUT 120)
 endif()
 add_executable(openemperor-city-v16-bridges-fixture EXCLUDE_FROM_ALL
     tools/CityV16BridgesFixture.cpp ${bridge_fixture_sources})

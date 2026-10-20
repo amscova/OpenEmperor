@@ -88,3 +88,16 @@ und Digest ohne Zahlentabelle.
 Wiederbesuche bleiben Diagnoseannahmen. Der Forkvergleich übernimmt daraus
 keine Gameplay-Authority. Gate-A-/Build-/CTest-/Legacy-Resultate und deren
 konkrete Grenzen stehen in [PROGRESS](PROGRESS.md).
+
+## OE-28 – tatsächliche Hausdiagnose statt hypothetischer Forkansicht
+
+Der Original-House-Inspector liest den aktiven Rule10-Nachfolger über die
+bestehende World-Diagnose und erhaltene Waren-/Food-/Besuchsbelege. Er setzt
+keine Mindestbewohner, keine Foodqualität und keine stetigen Wiederbesuche.
+Vier sitzungslokale Ansichten trennen Modellbedarf, reale Bestände,
+Stadtproduktion/Reservierung/Fracht, Hauslieferung/Konsum und tatsächliche
+Timer von bloßer Quellenverfügbarkeit. Die begrenzten Supply-/DES-/Risk-
+Overlays führen keine Forksimulation oder eigene Entwicklungsentscheidung aus.
+Details und tatsächliche Prüfläufe stehen in
+[housing-inspector-runtime.md](../original-economy/housing-inspector-runtime.md)
+und [PROGRESS](PROGRESS.md). Es wird kein weiterer Forkcode importiert.

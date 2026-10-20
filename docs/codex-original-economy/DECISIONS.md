@@ -1506,3 +1506,31 @@ Originalsprites29 und native/human Abnahme sind offen. Die
 [Finanzabnahme](../original-economy/finance-validation.md) bindet tatsächliche
 Suiten, Prozess-Replays, Originalinventar und erhaltene Fehlversuche.
 OE-28 wird nicht vorgezogen; der Task erzeugt nur seinen eigenen lokalen Commit.
+
+### OE-28 vor Implementierung: ursprüngliche Hausdiagnose als reine UI
+
+Der ausdrückliche Nutzerauftrag setzt am sauberen OE-27-Commit
+`eb40408a57038d775dfa79d3c8e9f1bbf189f80d` fort. Verbindlich ist vor den
+Sourceänderungen [housing-inspector-runtime.md](../original-economy/housing-inspector-runtime.md).
+Vier Inspectoransichten und drei begrenzte Overlays lesen ausschließlich
+bestehende const-World-Diagnosen/Produktionsbelege. Quellenexistenz zählt nie
+als tatsächliche Versorgung. Hauslieferung, Stadtproduktion, Reservierung,
+Fracht und Konsum werden mit ihrer jeweiligen Bezugsgröße getrennt.
+Keine gespeicherte Authority ändert sich: Rule10/Schema26/Policy3/Revision27,
+alte Inspector-/Input-/Saveverträge und Defaults bleiben erhalten. Native/human
+Abnahme und Originalsprites29 bleiben offen; Gate E folgt erst nach30.
+
+### OE-28 abgeschlossen: Diagnose bleibt ohne gespeicherte Authority
+
+Der vorab erklärte UI-Vertrag ist technisch umgesetzt und geprüft. Vier
+Hausansichten und die höchstens20-Haus-Overlays verwenden bestehende
+World-Diagnosen, echte Ankunfts-/Food-/Konsumbelege und die getypten Scheduler-
+Slots. Relative numerische Bedarfprozente sind ausdrücklich Anzeige, keine
+originalen gespeicherten Versorgungsquoten. Neue Sitzungen starten State/Off;
+F9 erhält die laufenden Viewentscheidungen ohne sie zu speichern.
+93 gezielte Konfigurations-CTests, zwei reale20k-Prozessreplays, zehn geöffnete
+Softwarebilder und bytegleiche alte Vergleichspixel belegen die begrenzte
+[technische Abnahme](../original-economy/housing-inspector-validation.md).
+Rule10/Schema26/Policy3/Revision27 und sämtliche ältere Authority bleiben
+unverändert. Keine neue volle Corpus-/Originalparitäts-/native/human-Abnahme;
+Originalsprites29 bleiben offen, Gate E gehört zu30. Nur lokaler Task-Commit.

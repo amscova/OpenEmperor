@@ -11,6 +11,7 @@
 #include "simulation/RoadConnectivity.h"
 #include "persistence/SandboxSave.h"
 #include "app/SandboxUiLayout.h"
+#include "app/OriginalHouseInspection.h"
 #include "app/RoadDrag.h"
 #include "app/RoadTopology.h"
 #include "app/VisualSelection.h"
@@ -26,6 +27,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -283,6 +285,35 @@ public:
     std::optional<simulation::BuildingId> selected_building() const;
     std::optional<simulation::Cell> hovered_cell() const { return hovered_; }
     std::vector<std::string> inspection_lines() const;
+    using OriginalHouseSection=original_house_ui::Section;
+    using OriginalHouseOverlay=original_house_ui::Overlay;
+    // Rule10 presentation state only; neither choice enters a save.
+    bool original_house_inspector_active() const;
+    OriginalHouseSection original_house_section() const { return original_house_section_; }
+    OriginalHouseOverlay original_house_overlay() const { return original_house_overlay_; }
+    std::vector<std::string> original_house_section_lines() const;
+    sandbox_ui::Rect original_house_section_rect(OriginalHouseSection section) const;
+    sandbox_ui::Rect original_house_overlay_rect() const;
+    sandbox_ui::Rect original_house_content_rect() const;
+    int original_house_scroll() const { return original_house_scroll_; }
+    std::string original_house_overlay_legend() const;
+    struct OriginalHouseOverlayRecord {
+        simulation::BuildingId building_id=static_cast<simulation::BuildingId>(0);
+        simulation::Cell origin{};
+        simulation::BuildingFootprint footprint{};
+        original_house_ui::Status status=original_house_ui::Status::Unknown;
+        char symbol='?';
+        int value=0;
+        scene::Point screen_ground{};
+        std::size_t visible_cells=0;
+        bool marker_visible=false;
+    };
+    struct OriginalHouseOverlayStats { std::size_t houses=0,cells=0,markers=0; };
+    OriginalHouseOverlayStats original_house_overlay_stats() const { return original_house_overlay_stats_; }
+    std::span<const OriginalHouseOverlayRecord> original_house_overlay_records() const {
+        return std::span<const OriginalHouseOverlayRecord>(original_house_overlay_records_).first(
+            original_house_overlay_stats_.houses);
+    }
     // Explicit F1/G diagnosis only. Inspecting this cache never runs routing.
     const simulation::RoadConnectivityReport* road_connectivity_report() const;
     std::uint64_t road_connectivity_check_count() const { return road_connectivity_check_count_; }
@@ -307,6 +338,12 @@ private:
     int building_list_y() const;
     int demolition_hint_extra_height() const;
     std::vector<std::string> wrap_panel_lines(const std::vector<std::string>& lines) const;
+    void select_original_house_section(OriginalHouseSection section);
+    void cycle_original_house_overlay();
+    int original_house_scroll_limit() const;
+    bool draw_original_house_panel();
+    bool draw_original_house_overlay();
+    bool draw_original_house_overlay_legend();
     void request_road_connectivity_diagnosis();
     enum class OperationAction { Toggle, PriorityHigh, PriorityNormal, PriorityLow };
     struct DrawInstance {
@@ -461,6 +498,14 @@ private:
     bool debug_open_=false;
     bool help_open_=false;
     bool income_open_=false;
+    OriginalHouseSection original_house_section_=OriginalHouseSection::State;
+    OriginalHouseOverlay original_house_overlay_=OriginalHouseOverlay::Off;
+    int original_house_scroll_=0;
+    std::optional<OriginalHouseSection> pressed_original_house_section_;
+    bool pressed_original_house_overlay_=false;
+    bool original_house_panel_pressed_=false;
+    std::array<OriginalHouseOverlayRecord,simulation::Rules::city_v10_household_limit> original_house_overlay_records_{};
+    OriginalHouseOverlayStats original_house_overlay_stats_;
     bool water_overlay_=false;
     bool health_overlay_=false;
     bool service_overlay_=false;

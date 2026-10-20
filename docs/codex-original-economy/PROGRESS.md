@@ -22,7 +22,12 @@ Vertrag: `docs/original-economy/elite-footprints-runtime.md`.
 Haussteuer, installierter Unterhalt und aktuelle Wohnmission sind umgesetzt.
 [Finanzabnahme](../original-economy/finance-validation.md): 684 finale CTests PASS;
 Gate D technisch PASS, Gesamt-Originalparität weiterhin PARTIAL. Als Nächstes
-folgt OE-28; es bleibt TODO/unbegonnen. Original-Haussprites29 bleiben offen.
+folgt OE-28. Original-Haussprites29 bleiben offen.
+
+**Abschluss OE-28 am2026-10-20:** Vier Inspectoransichten und begrenzte
+Overlays sind umgesetzt;93 gezielte Konfigurations-CTests technisch PASS. Vorabvertrag:
+[housing-inspector-runtime.md](../original-economy/housing-inspector-runtime.md).
+Rule10/Schema26/Policy3/Revision27 bleiben unverändert; OE-29 ist unbegonnen.
 
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
@@ -53,8 +58,8 @@ folgt OE-28; es bleibt TODO/unbegonnen. Original-Haussprites29 bleiben offen.
 | OE-24 | PASS | 7360f84e40c6cd558d3cf87de41c8b713645840f | `.local/original-economy/oe24/validation2/`, `oe24/production-fixtures/final2/` | Revision24: vier bezahlte Luxusketten, fünf getrennte Vorprodukte und echter Paper→Academy-Materialpfad; 168 Konfigurations-CTests, 43 separate20k-Replays, beide Software-SDL-Ansichten geöffnet. Historische Nutzerpause danach, am2026-10-18 aufgehoben; Gate D TODO |
 | OE-25 | PASS | 9bac35b5626834b42d35d52c23b11eb039b14f21 | `.local/original-economy/oe25/validation3/`, `oe25/production-fixtures/final3/` | Revision25:15 Zeilen, bezahlte getrennte Elitefamilie, echte13→12→13 und Common6;177 relevante CTests/50 getrennte20k-Replays/4 geöffnete Softwarebilder;4×4-Geometrie26/Originalsprites29/Gate D27 offen |
 | OE-26 | PASS | bcba05334494b4f6f5afd7d4c0d2d76a13469caa | `.local/original-economy/oe26/validation2/`, `oe26/production-fixtures/final2/` | Revision26: atomare leere2×2→4×4-Elitegeometrie, echte Blockade/Reparatur/Einzug160, neun Konflikte/strikter Restore;231 CTests/51 separate20k-Replays/8 geöffnete Softwarebilder,72 Legacy-Saves/1485 Policyfälle exakt; Gate D27/Originalsprites29 offen |
-| OE-27 | PASS | eigene SHA in Antwort | `.local/original-economy/oe27/gate-d/final4/`, `oe27/validation/final-validation.json` | Revision27: fünf Difficulties, Modellsteuer/Workerunterhalt, signed Debt und verlustfähige Mission; 684 volle CTests, 101 getrennte20k-Fortsetzungen, zehn geöffnete Softwarebilder, Legacy exakt; Gate D technisch PASS, Originalparität PARTIAL |
-| OE-28 | TODO | — | — | — |
+| OE-27 | PASS | eb40408a57038d775dfa79d3c8e9f1bbf189f80d | `.local/original-economy/oe27/gate-d/final4/`, `oe27/validation/final-validation.json` | Revision27: fünf Difficulties, Modellsteuer/Workerunterhalt, signed Debt und verlustfähige Mission; 684 volle CTests, 101 getrennte20k-Fortsetzungen, zehn geöffnete Softwarebilder, Legacy exakt; Gate D technisch PASS, Originalparität PARTIAL |
+| OE-28 | PASS | eigene SHA in Antwort | `.local/original-economy/oe28/final-validation.json` | Vier Inspectoransichten, Supply/DES/Risk-Overlays;93 gezielte CTests, zwei20k-Prozessreplays, zehn geöffnete1×/2×/4×-Softwarebilder; Authority/alte Pixel exakt; Originalsprites29 offen |
 | OE-29 | TODO | — | — | — |
 | OE-30 | TODO | — | — | — |
 | OE-31 | TODO | — | — | — |
@@ -3216,3 +3221,40 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   **Gate D technisch PASS**, Gesamt-Originalparität PARTIAL; bekannte höhere
   Originalstufen, Collector, Original-Haussprites29 und native/human bleiben
   offen. Nur eigener lokaler OE27-Commit, kein neuer Push/PR/Merge/Tag/Release.
+
+## OE-28 – Original-House-Inspector und begrenzte Overlays
+
+- Nutzerfortsetzung2026-10-20 am sauberen OE27-HEAD
+  `eb40408a57038d775dfa79d3c8e9f1bbf189f80d`; vorheriger SHA oben nachgetragen.
+  [Vertrag](../original-economy/housing-inspector-runtime.md) vor Codeänderung,
+  Rule10/Schema26/Policy3/Revision27 und alte Authority unverändert.
+- Vier sichtbare Houseansichten State/Needs/Goods/Visits; Maus/Pages/Scroll,
+  eigener F10-Modus Off/Supply/DES/Risk, höchstens20 Häuser/320 Ownerzellen.
+  Worlddiagnosen statt zweiter Simulation, reale Timer/Besuche getrennt von
+  Quellenexistenz; Modellbedarf/relative numerische Prozentwerte, Quality,
+  aktuelle Blocker, Scheduler-Slots und bestehende Taxdetails sichtbar.
+  Hauslieferung/Konsum und Stadtproduktion/Reservierung/Fracht sauber getrennt.
+- Gegenüber der hypothetischen Forkansicht keine Mindestbewohner-/Qualitäts-
+  oder Wiederbesuchsannahmen; keine neuen Forkimports. Die bestehende
+  World-/Produktionsauthority und gekürzte Transferhistorie bleiben unverändert.
+- Drei frische gezielte Builds und93 CTests PASS,0 Fehler/Skips/Warnungen;
+  tatsächliche Befehle und Zeiten in `.local/original-economy/oe28/` und
+  [Abnahme](../original-economy/housing-inspector-validation.md). Neue Tests:
+  `original-house-inspection`, `original-house-inspection-real`,
+  `original-house-inspector-view`. Kein vorgezogener vollständiger Gate E.
+- Tatsächlicher SDL-Negativfall: verfügbare Quelle ohne Ankunft/Timer bleibt X.
+  Bezahlte positive Common-/Elite-/Food-/Waren-/Besuchsfälle; F5/F9,
+  Maus/Keyboard/Help/F3/Fokus/Release/Resize/HiDPI/F2/F6/F8 bestehen.
+  100 wechselnde UI-Frames halten sämtliche zwölf Arbeit-/Authorityzähler0
+  und alle Snapshot-/Cache-/Texturwerte exakt. Viewentscheidungen bleiben
+  aus Saves ausgeschlossen und starten in einer neuen Sitzung State/Off.
+- 22 PNGs mit echten Begleitsaves erzeugt, zehn1×/2×/4×-Bilder geöffnet.
+  Beide alten Sandbox-Software-BMPs bytegleich; unveränderte City16-Tests grün.
+  Zwei getrennte20k-Prozesse liefern vier volle SaveDocuments und vier
+  Berichte bytegleich zur OE27-Kontrolle. Keine neue vollständige72/167-
+  Corpusabnahme behauptet. Original1464 Dateien mit Bytes/Modi/mtime erhalten.
+- Der finale Report bindet560 Sourcepfade; erste Warnungs-/SDL-Testversuche
+  bleiben erhalten, ihre konkreten Korrekturen stehen in der Abnahme.
+  **OE-28 technisch PASS**. Gesamtparität PARTIAL, native/human NOT_RUN,
+  Originalsprites29 und Gate E30 bleiben offen. Nur eigener lokaler Commit;
+  kein neuer Push/PR/Merge/Tag/Release.

@@ -31,6 +31,33 @@
 
 namespace openemperor {
 namespace {
+const char* original_house_section_name(original_house_ui::Section section) {
+    switch (section) {
+    case original_house_ui::Section::State:return "State";
+    case original_house_ui::Section::Needs:return "Needs";
+    case original_house_ui::Section::Goods:return "Goods";
+    case original_house_ui::Section::Visits:return "Visits";
+    }
+    return "State";
+}
+const char* original_house_overlay_name(original_house_ui::Overlay overlay) {
+    switch (overlay) {
+    case original_house_ui::Overlay::Off:return "Off";
+    case original_house_ui::Overlay::Supply:return "Supply";
+    case original_house_ui::Overlay::Desirability:return "DES";
+    case original_house_ui::Overlay::Risk:return "Risk";
+    }
+    return "Off";
+}
+SDL_Color original_house_status_color(original_house_ui::Status status) {
+    switch (status) {
+    case original_house_ui::Status::Good:return {92,173,125,46};
+    case original_house_ui::Status::Warning:return {218,170,76,46};
+    case original_house_ui::Status::Bad:return {205,102,87,46};
+    case original_house_ui::Status::Unknown:return {148,157,172,38};
+    }
+    return {148,157,172,38};
+}
 struct IndustryTool {
     sandbox_ui::Action action;
     simulation::CommandType command;
@@ -1497,6 +1524,7 @@ void SandboxView::update_layout(bool preserve_center) {
     }
     panel_scroll_=0;
     income_scroll_=0;
+    original_house_scroll_=0;
     if (preserve_center) {
         float mouse_x=0,mouse_y=0;
         (void)SDL_GetMouseState(&mouse_x,&mouse_y);
@@ -2124,6 +2152,9 @@ void SandboxView::cancel_gesture() {
     pressed_building_.reset();
     pressed_operation_action_.reset();
     pressed_demolition_=false;
+    pressed_original_house_section_.reset();
+    pressed_original_house_overlay_=false;
+    original_house_panel_pressed_=false;
     ui_pressed_=false;
     map_pressed_=false;
     road_start_.reset();
@@ -2556,6 +2587,16 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
             return;
         }
         if (help_open_) return;
+        if (original_production_fixture() && input_focused_ && !walker_diagnostic_open_) {
+            if (event.key.key==SDLK_F10) { cycle_original_house_overlay();return; }
+            if (original_house_inspector_active() &&
+                (event.key.key==SDLK_PAGEUP || event.key.key==SDLK_PAGEDOWN)) {
+                const auto offset=event.key.key==SDLK_PAGEDOWN ? 1U:3U;
+                select_original_house_section(static_cast<OriginalHouseSection>(
+                    (static_cast<unsigned>(original_house_section_)+offset)%4U));
+                return;
+            }
+        }
         if (event.key.key==SDLK_T && simulation::market_profile(rules_)) {
             perform_action(sandbox_ui::Action::ToggleIncome); return;
         }
@@ -2702,6 +2743,14 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         if (point) {
             pointer_=point;
             if (layout_.panel.contains(point->x,point->y)) {
+                if (original_house_inspector_active()) {
+                    if (input_focused_ && !walker_diagnostic_open_) {
+                        const double next=original_house_scroll_-std::trunc(double(event.wheel.y))*24*layout_.scale;
+                        original_house_scroll_=static_cast<int>(std::clamp(next,0.0,double(original_house_scroll_limit())));
+                    }
+                    refresh_hover();
+                    return;
+                }
                 const auto rows=income_open_ ? income_lines().size():
                     placed_buildings().size()+inspection_lines().size();
                 const int total=56*layout_.scale+static_cast<int>(rows)*18*layout_.scale;
@@ -2734,6 +2783,18 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         if (managed_ && pointer_ && menu_button_rect().contains(pointer_->x,pointer_->y)) { menu_pressed_=true; return; }
         refresh_hover();
         if (!pointer_) return;
+        if (original_house_inspector_active() && layout_.panel.contains(pointer_->x,pointer_->y)) {
+            original_house_panel_pressed_=true;ui_pressed_=true;
+            if (input_focused_ && !walker_diagnostic_open_) {
+                for (unsigned index=0;index<4;++index) {
+                    const auto section=static_cast<OriginalHouseSection>(index);
+                    if (original_house_section_rect(section).contains(pointer_->x,pointer_->y))
+                        pressed_original_house_section_=section;
+                }
+                pressed_original_house_overlay_=original_house_overlay_rect().contains(pointer_->x,pointer_->y);
+            }
+            return;
+        }
         if (!income_open_ && layout_.panel_open && world_->demolition_supported() && selected_building() &&
             demolition_button_rect().contains(pointer_->x,pointer_->y)) {
             pressed_demolition_=true; ui_pressed_=true; return;
@@ -2790,6 +2851,17 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
             return;
         }
         if (ui_pressed_) {
+            if (original_house_panel_pressed_) {
+                const auto section=pressed_original_house_section_;
+                const bool matching_section=section && input_focused_ && !walker_diagnostic_open_ && pointer_ &&
+                    original_house_section_rect(*section).contains(pointer_->x,pointer_->y);
+                const bool matching_overlay=pressed_original_house_overlay_ && input_focused_ &&
+                    !walker_diagnostic_open_ && pointer_ && original_house_overlay_rect().contains(pointer_->x,pointer_->y);
+                cancel_gesture();
+                if (matching_section) select_original_house_section(*section);
+                else if (matching_overlay) cycle_original_house_overlay();
+                return;
+            }
             if (pressed_demolition_) {
                 const bool matching=pointer_ && demolition_button_rect().contains(pointer_->x,pointer_->y);
                 cancel_gesture();
@@ -2811,6 +2883,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                     if (index<entries.size() && entries[index]==*pressed_building_)
                         { clear_visual_selection(); selected_=world_->building(*pressed_building_).cell; income_open_=false; }
                     panel_scroll_=0;
+                    original_house_scroll_=0;
                 }
             }
             cancel_gesture(); return;
@@ -2836,7 +2909,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
             selected_=cell;
         } else if (cell) {
             if (tool_==(simulation::production_profile(rules_) ? 5:4)) {
-                if (selected_!=cell) panel_scroll_=0;
+                if (selected_!=cell) { panel_scroll_=0;original_house_scroll_=0; }
                 clear_visual_selection();
                 selected_=cell;
             }
@@ -2895,7 +2968,7 @@ simulation::CommandResult SandboxView::execute(simulation::Command command) {
         if (result.changed) { clear_visual_selection(); selected_.reset(); cancel_gesture(); refresh_hover(true); }
     } else if (command.type!=simulation::CommandType::SetBuildingOperation &&
         command.type!=simulation::CommandType::SetBuildingWorkforcePriority) {
-        if (selected_!=command.cell) panel_scroll_=0;
+        if (selected_!=command.cell) { panel_scroll_=0;original_house_scroll_=0; }
         clear_visual_selection();
         selected_=command.cell;
     }
@@ -3010,7 +3083,7 @@ void SandboxView::clear_visual_selection() {
 void SandboxView::clear_hidden_walker_selection() {
     if (simulation::production_profile(rules_) && selected_walker_ &&
         !walker_live_visible(world_->courier(*selected_walker_))) {
-        clear_visual_selection(); selected_.reset(); panel_scroll_=0;
+        clear_visual_selection(); selected_.reset(); panel_scroll_=0;original_house_scroll_=0;
     }
 }
 void SandboxView::record_visual_hit(const DrawInstance& instance) {
@@ -3163,7 +3236,7 @@ bool SandboxView::select_visual(scene::Point screen) {
     const auto stored=background_.hit_test_item(screen,visual_hit_camera_,
         road_ground_replacements_,static_cast<std::size_t>(world_->width()));
     if (!dynamic && !stored) return false;
-    clear_visual_selection(); panel_scroll_=0;
+    clear_visual_selection(); panel_scroll_=0;original_house_scroll_=0;
     if (dynamic && (!stored || !visual_hit_unified_ || stored->key<dynamic->key)) {
         selected_=dynamic->cell; selected_walker_=dynamic->walker;
     } else {
@@ -3883,6 +3956,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
         if (!SDL_SetRenderDrawBlendMode(renderer_,previous) || !ok) return false;
     }
+    if (!draw_original_house_overlay()) return false;
     if (selected_) {
         const auto owner=world_->building_owner_at(*selected_);
         if (owner) {
@@ -4170,6 +4244,65 @@ std::vector<std::string> SandboxView::wrap_panel_lines(const std::vector<std::st
     const auto columns=static_cast<std::size_t>(std::max(1,
         (layout_.panel.w-20*layout_.scale)/(10*layout_.scale)));
     return sandbox_ui::wrap_text(lines,columns);
+}
+bool SandboxView::original_house_inspector_active() const {
+    if (!world_ || !original_production_fixture() || !layout_.panel_open || income_open_ ||
+        selected_walker_ || selected_landscape_) return false;
+    const auto id=selected_building();
+    return id && simulation::original_house_kind(world_->building(*id).kind);
+}
+std::vector<std::string> SandboxView::original_house_section_lines() const {
+    if (!original_house_inspector_active()) return {};
+    return wrap_panel_lines(original_house_ui::section_lines(*world_,*selected_building(),original_house_section_));
+}
+sandbox_ui::Rect SandboxView::original_house_section_rect(OriginalHouseSection section) const {
+    const int index=static_cast<int>(section);
+    if (!original_house_inspector_active() || index>=4) return {};
+    const int scale=layout_.scale,gap=4*scale;
+    const int columns=layout_.panel.w<280*scale ? 2:4;
+    const int width=std::max(0,(layout_.panel.w-20*scale-(columns-1)*gap)/columns);
+    const sandbox_ui::Rect rect{layout_.panel.x+10*scale+static_cast<int>(index%columns)*(width+gap),
+        layout_.panel.y+38*scale+static_cast<int>(index/columns)*28*scale,width,24*scale};
+    return rect.y+rect.h<=layout_.panel.y+layout_.panel.h-4*scale ? rect:sandbox_ui::Rect{};
+}
+sandbox_ui::Rect SandboxView::original_house_overlay_rect() const {
+    if (!original_house_inspector_active()) return {};
+    const int scale=layout_.scale,rows=layout_.panel.w<280*scale ? 2:1;
+    const sandbox_ui::Rect rect{layout_.panel.x+10*scale,layout_.panel.y+(42+rows*28)*scale,
+        std::max(0,layout_.panel.w-20*scale),24*scale};
+    return rect.y+rect.h<=layout_.panel.y+layout_.panel.h-4*scale ? rect:sandbox_ui::Rect{};
+}
+sandbox_ui::Rect SandboxView::original_house_content_rect() const {
+    if (!original_house_inspector_active()) return {};
+    const int scale=layout_.scale,rows=layout_.panel.w<280*scale ? 2:1;
+    const int top=std::min(layout_.panel.y+layout_.panel.h,layout_.panel.y+(74+rows*28)*scale);
+    return {layout_.panel.x+10*scale,top,std::max(0,layout_.panel.w-20*scale),
+        std::max(0,layout_.panel.y+layout_.panel.h-8*scale-top)};
+}
+int SandboxView::original_house_scroll_limit() const {
+    const auto rect=original_house_content_rect();
+    const auto rows=original_house_section_lines().size();
+    const int height=rows ? (static_cast<int>(rows)-1)*17*layout_.scale+12*layout_.scale:0;
+    return std::max(0,height-rect.h);
+}
+void SandboxView::select_original_house_section(OriginalHouseSection section) {
+    cancel_gesture();original_house_section_=section;original_house_scroll_=0;
+    last_message_=std::string("House ")+original_house_section_name(section)+" | PageUp/PageDown: sections";
+}
+void SandboxView::cycle_original_house_overlay() {
+    cancel_gesture();
+    original_house_overlay_=static_cast<OriginalHouseOverlay>((static_cast<unsigned>(original_house_overlay_)+1U)%4U);
+    last_message_=std::string("Original House overlay: ")+original_house_overlay_name(original_house_overlay_)+
+        " | current observations; future arrivals unknown";
+}
+std::string SandboxView::original_house_overlay_legend() const {
+    switch (original_house_overlay_) {
+    case OriginalHouseOverlay::Off:return {};
+    case OriginalHouseOverlay::Supply:return "F10 Supply now | G met X missing ? vacant";
+    case OriginalHouseOverlay::Desirability:return "F10 DES | current low/high; no growth promise";
+    case OriginalHouseOverlay::Risk:return "F10 Risk | G calm ! pressure X risk ? vacant";
+    }
+    return {};
 }
 int SandboxView::building_list_y() const {
     return layout_.panel.y+(status_first_selected() ?
@@ -5304,6 +5437,125 @@ bool SandboxView::draw_text(double x,double y,const std::string& value,int max_w
                                         static_cast<float>(y/scale),text.c_str());
     return SDL_SetRenderScale(renderer_,1,1) && okay;
 }
+bool SandboxView::draw_original_house_panel() {
+    if (!original_house_inspector_active()) return true;
+    const int scale=layout_.scale;
+    if (layout_.panel.h>=28*scale &&
+        (!SDL_SetRenderDrawColor(renderer_,240,244,250,255) ||
+         !draw_text(layout_.panel.x+10*scale,layout_.panel.y+14*scale,"ORIGINAL HOUSE",layout_.panel.w-20*scale))) return false;
+    const auto button=[&](sandbox_ui::Rect rect,const std::string& label,bool active) {
+        if (rect.w<=0 || rect.h<=0) return true;
+        const SDL_FRect area{static_cast<float>(rect.x),static_cast<float>(rect.y),
+            static_cast<float>(rect.w),static_cast<float>(rect.h)};
+        return SDL_SetRenderDrawColor(renderer_,38,active ? 100:58,active ? 125:77,255) &&
+            SDL_RenderFillRect(renderer_,&area) && SDL_SetRenderDrawColor(renderer_,240,244,250,255) &&
+            draw_text(rect.x+4*scale,rect.y+7*scale,label,rect.w-8*scale);
+    };
+    for (unsigned index=0;index<4;++index) {
+        const auto section=static_cast<OriginalHouseSection>(index);
+        if (!button(original_house_section_rect(section),original_house_section_name(section),section==original_house_section_)) return false;
+    }
+    if (!button(original_house_overlay_rect(),std::string("F10: ")+original_house_overlay_name(original_house_overlay_)+" overlay",
+                original_house_overlay_!=OriginalHouseOverlay::Off)) return false;
+    const auto content=original_house_content_rect();
+    const auto lines=original_house_section_lines();
+    const int height=lines.empty() ? 0:(static_cast<int>(lines.size())-1)*17*scale+12*scale;
+    const int limit=std::max(0,height-content.h);
+    original_house_scroll_=std::clamp(original_house_scroll_,0,limit);
+    for (std::size_t row=0;row<lines.size();++row) {
+        const int y=content.y+static_cast<int>(row)*17*scale-original_house_scroll_;
+        // Complete glyph rows only: draw_text changes SDL scale, so an
+        // absolute output-pixel clip must not be carried into that call.
+        if (content.w<=0 || y<content.y || y+12*scale>content.y+content.h) continue;
+        if (!SDL_SetRenderDrawColor(renderer_,205,225,238,255) ||
+            !draw_text(content.x,y,lines[row],content.w)) return false;
+    }
+    if (limit>0 && content.h>0) {
+        const double thumb_height=std::min<double>(content.h,std::max(12.0*scale,double(content.h)*content.h/height));
+        const double travel=content.h-thumb_height;
+        const SDL_FRect thumb{static_cast<float>(layout_.panel.x+layout_.panel.w-5*scale),
+            static_cast<float>(content.y+travel*original_house_scroll_/limit),static_cast<float>(2*scale),
+            static_cast<float>(thumb_height)};
+        if (!SDL_SetRenderDrawColor(renderer_,119,150,165,255) || !SDL_RenderFillRect(renderer_,&thumb)) return false;
+    }
+    return true;
+}
+bool SandboxView::draw_original_house_overlay() {
+    original_house_overlay_stats_={};
+    if (!original_production_fixture() || original_house_overlay_==OriginalHouseOverlay::Off) return true;
+    SDL_BlendMode previous_blend=SDL_BLENDMODE_NONE;
+    SDL_Rect previous_clip{};
+    const bool clipped=SDL_RenderClipEnabled(renderer_);
+    if (!SDL_GetRenderDrawBlendMode(renderer_,&previous_blend) || !SDL_GetRenderClipRect(renderer_,&previous_clip) ||
+        !SDL_SetRenderDrawBlendMode(renderer_,SDL_BLENDMODE_BLEND)) return false;
+    struct Restore {
+        SDL_Renderer* renderer;SDL_BlendMode blend;SDL_Rect clip;bool clipped;
+        ~Restore() {
+            (void)SDL_SetRenderDrawBlendMode(renderer,blend);
+            (void)SDL_SetRenderClipRect(renderer,clipped ? &clip:nullptr);
+        }
+    } restore{renderer_,previous_blend,previous_clip,clipped};
+    // The runtime contains at most20 purchased Houses, each at most4x4.
+    // No terrain scan, frame cache preparation or routing is involved.
+    for (const auto& house:world_->original_economy_state()->houses) {
+        if (original_house_overlay_stats_.houses>=original_house_overlay_records_.size()) break;
+        const auto observation=original_house_ui::overlay_observation(*world_,house.building_id,original_house_overlay_);
+        if (!observation.applicable) continue;
+        const auto& body=world_->building(house.building_id);
+        const auto footprint=simulation::building_footprint(rules_,world_->rule_version(),body.kind);
+        const auto color=original_house_status_color(observation.status);
+        auto& record=original_house_overlay_records_[original_house_overlay_stats_.houses++];
+        record={};record.building_id=house.building_id;record.origin=body.cell;record.footprint=footprint;
+        record.status=observation.status;record.symbol=observation.symbol;record.value=observation.value;
+        for (int y=0;y<footprint.height;++y) for (int x=0;x<footprint.width;++x) {
+            const auto ground=world_for({double(body.cell.x+x),double(body.cell.y+y)});
+            const scene::Point center{ground.x,ground.y-20};
+            const auto screen=camera_.world_to_screen(center);
+            if (screen.x+40*camera_.zoom<layout_.map.x || screen.x-40*camera_.zoom>=layout_.map.x+layout_.map.w ||
+                screen.y+20*camera_.zoom<layout_.map.y || screen.y-20*camera_.zoom>=layout_.map.y+layout_.map.h) continue;
+            if (!draw_diamond(center,color.r,color.g,color.b,true,color.a/255.0F)) return false;
+            ++record.visible_cells;++original_house_overlay_stats_.cells;
+        }
+        const auto front=simulation::building_front_cell(rules_,world_->rule_version(),body.kind,body.cell);
+        record.screen_ground=camera_.world_to_screen(world_for({double(front.x),double(front.y)}));
+    }
+    // Avoid SDL's scaled clip-coordinate ambiguity: only submit labels whose
+    // complete glyph rectangle lies inside the existing map aperture.
+    if (!SDL_SetRenderClipRect(renderer_,nullptr)) return false;
+    for (std::size_t index=0;index<original_house_overlay_stats_.houses;++index) {
+        auto& record=original_house_overlay_records_[index];
+        const std::string label=std::string(1,record.symbol)+(original_house_overlay_==OriginalHouseOverlay::Desirability ?
+            std::to_string(record.value):"");
+        const int width=static_cast<int>(label.size())*10*layout_.scale;
+        const double left=record.screen_ground.x-width*.5,top=record.screen_ground.y-12*layout_.scale;
+        if (left-2*layout_.scale<layout_.map.x || top-layout_.scale<layout_.map.y ||
+            left+width+2*layout_.scale>layout_.map.x+layout_.map.w ||
+            top+13*layout_.scale>layout_.map.y+layout_.map.h) continue;
+        const SDL_FRect label_background{static_cast<float>(left-2*layout_.scale),
+            static_cast<float>(top-layout_.scale),static_cast<float>(width+4*layout_.scale),
+            static_cast<float>(14*layout_.scale)};
+        if (!SDL_SetRenderDrawColor(renderer_,19,29,43,235) || !SDL_RenderFillRect(renderer_,&label_background) ||
+            !SDL_SetRenderDrawColor(renderer_,245,244,224,255) || !draw_text(left,top,label,width)) return false;
+        record.marker_visible=true;++original_house_overlay_stats_.markers;
+    }
+    return true;
+}
+bool SandboxView::draw_original_house_overlay_legend() {
+    if (!original_production_fixture() || original_house_overlay_==OriginalHouseOverlay::Off) return true;
+    const int scale=layout_.scale;
+    const int width=std::min(500*scale,std::max(0,layout_.map.w-16*scale));
+    const auto lines=sandbox_ui::wrap_text({original_house_overlay_legend()},
+        static_cast<std::size_t>(std::max(1,(width-12*scale)/(10*scale))));
+    const int height=(static_cast<int>(lines.size())*17+8)*scale;
+    if (width<=12*scale || height>layout_.map.h-8*scale) return true;
+    const int left=layout_.map.x+8*scale,top=layout_.map.y+layout_.map.h-height-4*scale;
+    const SDL_FRect area{static_cast<float>(left),static_cast<float>(top),static_cast<float>(width),static_cast<float>(height)};
+    if (!SDL_SetRenderDrawColor(renderer_,19,29,43,255) || !SDL_RenderFillRect(renderer_,&area)) return false;
+    for (std::size_t row=0;row<lines.size();++row)
+        if (!SDL_SetRenderDrawColor(renderer_,236,239,228,255) ||
+            !draw_text(left+6*scale,top+(4+static_cast<int>(row)*17)*scale,lines[row],width-12*scale)) return false;
+    return true;
+}
 std::string SandboxView::hud_status_line() const {
     std::string status=road_start_ && !road_preview_.valid ? sandbox_ui::road_plan_status(road_preview_) :
         last_message_.empty() ? "OpenEmperor sandbox | Select a tool, then click the map" :
@@ -5711,7 +5963,9 @@ bool SandboxView::draw_hud() {
                     layout_.panel.w-20*layout_.scale)) return false;
         }
     }
-    if (layout_.panel_open && !income_open_) {
+    if (original_house_inspector_active()) {
+        if (!draw_original_house_panel()) return false;
+    } else if (layout_.panel_open && !income_open_) {
         if (!SDL_SetRenderDrawColor(renderer_,240,244,250,255)) return false;
         if (!draw_text(layout_.panel.x+10*layout_.scale,layout_.panel.y+14*layout_.scale,
                        industry_inspector_selected() ? "INDUSTRY INSPECTOR":
@@ -5980,7 +6234,7 @@ bool SandboxView::draw_hud() {
         debug_row+=14;
 
     }
-    return true;
+    return draw_original_house_overlay_legend();
 }
 std::string SandboxView::walker_clip_status(const simulation::CourierState& courier) const {
     const auto role=walker_visual_role(courier.role);
@@ -6139,9 +6393,9 @@ bool SandboxView::draw_help_overlay() {
             "E Music | C Acrobat | A Drama",
             "O Food Farm | W Wheat | L Millet", "N Hemp Farm | M Hemp Field",
             "J Herbalist | 9 Acupuncture", "0 Market | 5 Select | 1 Road",
-            "F5 Save | F9 Load | Space Pause", "All sources need actual workers",
+            "F5 Save | F9 Load | Space Pause", "Panel wheel scrolls; sources need workers",
             "Actual arrivals supply Houses", "Water is evaluated on phase28",
-            "House evolution runs on phase39", "Plain needs Water/Food/Ancestor",
+            "PageUp/Down: sections | F10: overlays", "Plain needs Water/Food/Ancestor",
             "Schools: experimental direct visits", "T:816t tax;2/worker/400t upkeep",
             "Original graphics follow separately"};
         for (std::size_t row=0;row<help.size();++row)
@@ -6268,6 +6522,7 @@ bool SandboxView::draw_demolition_overlay() {
 bool SandboxView::render() {
     if (hover_dirty_) refresh_hover();
     resize_camera();
+    original_house_overlay_stats_={};
     if (!SDL_SetRenderViewport(renderer_,nullptr) ||
         !SDL_SetRenderClipRect(renderer_,nullptr) ||
         !SDL_SetRenderScale(renderer_,1,1) ||
