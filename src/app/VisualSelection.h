@@ -32,6 +32,9 @@ struct VisualSelection {
     std::filesystem::path health_walker;
     VisualProfileSource health_walker_source = VisualProfileSource::Fallback;
     std::string health_walker_fallback_reason;
+    std::filesystem::path original_house;
+    VisualProfileSource original_house_source = VisualProfileSource::Fallback;
+    std::string original_house_fallback_reason;
 };
 
 VisualSelection select_visual_profiles(const assets::CompatibilityResult& compatibility,

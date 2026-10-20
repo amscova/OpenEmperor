@@ -1534,3 +1534,37 @@ Softwarebilder und bytegleiche alte Vergleichspixel belegen die begrenzte
 Rule10/Schema26/Policy3/Revision27 und sämtliche ältere Authority bleiben
 unverändert. Keine neue volle Corpus-/Originalparitäts-/native/human-Abnahme;
 Originalsprites29 bleiben offen, Gate E gehört zu30. Nur lokaler Task-Commit.
+
+### OE-29 vor Implementierung: belegte Hausbilder als optionale Präsentation
+
+Der Nutzer setzt am sauberen OE28-Commit
+`15dd6da9183617f39f711df2b2ab1598f6595cb9` ausdrücklich mit29 fort.
+Der [vorab erklärte Vertrag](../original-economy/original-house-visuals-runtime.md)
+bindet nur belegte Originaltype-/Footprint-/Asset-/Ankerkombinationen. Die
+bisherigen1512/1516/1520 bleiben unveränderte Legacy-Vorschauen. Fehlende
+Identitäten oder inkompatible temporäre Körper behalten benannte Fallbacks,
+keine geratene Stufe oder gestreckte Originalgrafik. Aktive-only Vorbereitung
+teilt den bestehenden physischen Bild-/Texturpool innerhalb alter Budgets;
+World-/Save-/Versionauthority bleibt Rule10/Schema26/Policy3/Revision27.
+Die konkrete Originalzuordnung wird vor ihrer Implementierung durch den neuen
+Quellennachweis gebunden. Gate E folgt30, Gesamtparität und native/human werden
+nicht aus Softwarebildern abgeleitet. Nur lokaler eigener Task-Commit.
+
+### OE-29 abgeschlossen: nachgewiesene Typfamilien, statische Repräsentation
+
+Der Originalsetter518de0 und die native Marker-/Body-/Type30-Kette belegen
+15 Typ3..17-Bilder und ihre Frontanker. Variante0 ist eine explizite statische
+Darstellungswahl, keine neue gespeicherte Variantenauthority. Vacant2 und der
+temporäre2×2-Eliteplot behalten klar benannte Fallbacks. Der optionale native
+Bildpool und tatsächliche Worldtyp ersetzen keine Regeln/Savefelder; alte
+House-Levelprofile bleiben unverändert.
+
+Die [technische Abnahme](../original-economy/original-house-visuals-validation.md)
+bindet174 finale CTests,114 neue Softwarebilder und zwölf tatsächlich geöffnete
+finale Aufnahmen an denselben564-Datei-Stand. Der unveränderte Produktionstest
+fand den Inaktive-Copyumbruch; ohne vorbereitetes Profil ist die alte Zeile
+wieder exakt. Alle22 bisherigen Inspector-PNGs und zwei Sandbox-BMPs sind je
+Konfiguration bytegleich. Original1464 Dateien und127 Authorityquelldateien
+bleiben exakt; keine neue volle Corpus-/20k-/native/human-Abnahme. Gesamtparität
+bleibt PARTIAL und ganze Originalgrafik-/Variantenparität UNKNOWN. Gate E folgt30,
+der nächste Starterprompt bleibt unbegonnen. Nur lokaler Task-Commit.

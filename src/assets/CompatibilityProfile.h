@@ -43,6 +43,8 @@ struct CompatibilityProfile {
     std::filesystem::path health_walker_profile;
     std::vector<CompatibilityFingerprint> health_walker_files;
     std::string health_walker_metadata_error;
+    std::filesystem::path original_house_profile;
+    std::string original_house_metadata_error;
 };
 
 struct CompatibilityResult {
@@ -85,6 +87,12 @@ struct CompatibilityResult {
     bool health_walker_compatible() const {
         return compatible() && health_walker_status == CompatibilityStatus::Compatible &&
             !profile->health_walker_profile.empty();
+    }
+    CompatibilityStatus original_house_status = CompatibilityStatus::Unknown;
+    std::string original_house_detail = "optional Original House sprites are not declared";
+    bool original_house_compatible() const {
+        return compatible() && original_house_status==CompatibilityStatus::Compatible &&
+            !profile->original_house_profile.empty();
     }
 };
 

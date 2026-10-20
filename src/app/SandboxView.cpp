@@ -636,6 +636,7 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
     refresh_ramp_visual_topology();
     background_.set_original_road_ground(world_->map_permissions());
     prepare_original_road_visuals();
+    prepare_original_house_visuals();
     reset_camera();
     if (demo_) place_demo();
     if (initial_save_ == std::nullopt && !demo_) {
@@ -669,6 +670,8 @@ void SandboxView::shutdown() {
     fire_inspector_extension_=market_walker_extension_=service_walker_extension_=health_walker_extension_=false;
     building_sprite_.reset();
     building_profile_.reset();
+    building_core_image_count_=0;
+    original_house_drawn_instances_.fill(0);original_house_authored_fallbacks_.fill(0);
     road_sprites_.reset();
     road_profile_.reset();
     ramp_presentation_.clear();
@@ -1090,7 +1093,13 @@ SandboxView::WalkerDisplayStats SandboxView::walker_display_stats() const {
 void SandboxView::set_building_visuals(const std::filesystem::path& manifest,
                                        VisualProfileSource source) {
     if (manifest.empty()) {
-        building_sprite_.reset();building_profile_.reset();building_manifest_.clear();
+        assets::BuildingVisualProfile profile;
+        auto reason=original_house_fallback_reason_;std::string error;
+        if (renderer_ && world_) append_requested_original_house_visuals(profile,VisualProfileSource::Fallback,
+            original_house_manifest_,original_house_source_,reason,error);
+        publish_building_visual_profile(std::move(profile));
+        building_core_image_count_=0;building_manifest_.clear();
+        original_house_fallback_reason_=std::move(reason);original_house_preparation_error_=std::move(error);
         visual_hits_.clear(); visual_frame_valid_=false;
         building_source_=VisualProfileSource::Fallback;
         return;
@@ -1109,10 +1118,13 @@ void SandboxView::set_building_visuals(const std::filesystem::path& manifest,
                 throw std::runtime_error(std::string(assets::building_role_name(role))+
                     " visual footprint differs from active rules");
     }
-    auto texture=std::make_unique<BuildingSprite>();
-    texture->initialize(renderer_,profile);
-    building_sprite_=std::move(texture);
-    building_profile_=std::move(profile);
+    const auto core_images=profile.unique_images.size();
+    auto reason=original_house_fallback_reason_;std::string error;
+    if (world_) append_requested_original_house_visuals(profile,source,original_house_manifest_,
+        original_house_source_,reason,error);
+    publish_building_visual_profile(std::move(profile));
+    building_core_image_count_=core_images;
+    original_house_fallback_reason_=std::move(reason);original_house_preparation_error_=std::move(error);
     visual_hits_.clear(); visual_frame_valid_=false;
     building_manifest_=manifest;
     building_source_=source;
@@ -1120,6 +1132,156 @@ void SandboxView::set_building_visuals(const std::filesystem::path& manifest,
     building_drawn_instances_.fill(0);building_placeholder_fallbacks_.fill(0);
     last_message_="Curated building preview active";
     enforce_fire_texture_budget();
+}
+assets::BuildingVisualProfile SandboxView::core_building_visual_profile() const {
+    auto result=building_profile_.value_or(assets::BuildingVisualProfile{});
+    result.original_house_entries.fill(std::nullopt);
+    result.original_house_fallbacks.fill({});result.original_house_prepared=false;
+    result.unique_images.resize(building_core_image_count_);
+    return result;
+}
+bool SandboxView::append_requested_original_house_visuals(assets::BuildingVisualProfile& profile,
+        VisualProfileSource core_source,const std::filesystem::path& manifest,
+        VisualProfileSource source,std::string& reason,std::string& error) const {
+    error.clear();
+    if (manifest.empty()) return false;
+    if (!original_production_fixture() || !world_) {
+        if (source==VisualProfileSource::Custom)
+            throw std::runtime_error("Original House visuals require explicit Original production");
+        reason="Original House art requires explicit Original production";return false;
+    }
+    if (source==VisualProfileSource::Fallback) return false;
+    if (source==VisualProfileSource::Builtin && core_source==VisualProfileSource::Custom) {
+        reason="Custom building profile selected; no built-in House supplement";return false;
+    }
+    try {
+        const auto available=session_texture_headroom(true,true,false);
+        if (!available) throw std::runtime_error("Session RGBA texture budget exhausted");
+        assets::append_original_house_visual_profile(data_root_,manifest,profile,*available);
+        reason.clear();return true;
+    } catch (const std::exception& failure) {
+        if (source==VisualProfileSource::Custom) throw;
+        error=std::string("Original House preparation failed: ")+failure.what();reason=error;
+        return false;
+    }
+}
+void SandboxView::publish_building_visual_profile(assets::BuildingVisualProfile profile) {
+    const bool core=std::any_of(profile.entries.begin(),profile.entries.end(),[](const auto& entry){return entry.has_value();});
+    if (!core && !profile.original_house_prepared) {
+        building_sprite_.reset();building_profile_.reset();return;
+    }
+    auto textures=std::make_unique<BuildingSprite>();
+    textures->initialize(renderer_,profile);
+    building_sprite_=std::move(textures);building_profile_=std::move(profile);
+}
+void SandboxView::prepare_original_house_visuals() {
+    if (!renderer_ || !world_ || original_house_manifest_.empty()) return;
+    set_original_house_visuals(original_house_manifest_,original_house_source_,original_house_fallback_reason_);
+}
+void SandboxView::set_original_house_visuals(const std::filesystem::path& manifest,
+        VisualProfileSource source,std::string fallback_reason) {
+    if (!renderer_ || !world_) {
+        original_house_manifest_=manifest;original_house_source_=source;
+        original_house_fallback_reason_=fallback_reason.empty() ? "No original House profile selected":std::move(fallback_reason);
+        original_house_preparation_error_.clear();return;
+    }
+    auto profile=core_building_visual_profile();
+    auto reason=fallback_reason.empty() ? std::string("No original House profile selected"):std::move(fallback_reason);
+    std::string error;
+    const bool prepared=append_requested_original_house_visuals(profile,building_source_,manifest,source,reason,error);
+    if (!error.empty() && building_profile_ && building_profile_->original_house_prepared) {
+        // An optional replacement must not destroy already working sprites.
+        original_house_preparation_error_=std::move(error);last_message_=original_house_preparation_error_;return;
+    }
+    if (prepared || (building_profile_ && building_profile_->original_house_prepared)) {
+        try {
+            const bool unchanged_core=building_profile_ && !building_profile_->original_house_prepared && building_sprite_ &&
+                building_sprite_->texture_count()==building_core_image_count_ &&
+                building_profile_->unique_images.size()==building_core_image_count_ &&
+                profile.unique_images.size()>=building_core_image_count_ &&
+                std::equal(building_profile_->unique_images.begin(),building_profile_->unique_images.end(),
+                    profile.unique_images.begin(),[](const auto& before,const auto& after) {
+                        return before.width==after.width && before.height==after.height && before.pixels==after.pixels;
+                    });
+            if (unchanged_core) {
+                const auto available=session_texture_headroom(true,true,false);
+                if (!available) throw std::runtime_error("Session RGBA texture budget exhausted");
+                building_sprite_->append(profile,*available);
+                building_profile_=std::move(profile);
+            } else publish_building_visual_profile(std::move(profile));
+        }
+        catch (const std::exception& failure) {
+            if (source==VisualProfileSource::Custom) throw;
+            original_house_preparation_error_=std::string("Original House texture preparation failed: ")+failure.what();
+            if (!building_profile_ || !building_profile_->original_house_prepared)
+                original_house_fallback_reason_=original_house_preparation_error_;
+            last_message_=original_house_preparation_error_;return;
+        }
+    }
+    original_house_manifest_=manifest;original_house_source_=manifest.empty() ? VisualProfileSource::Fallback:source;
+    original_house_fallback_reason_=std::move(reason);original_house_preparation_error_=std::move(error);
+    visual_hits_.clear();visual_frame_valid_=false;
+}
+SandboxView::OriginalHouseDisplayStats SandboxView::original_house_display_stats() const {
+    OriginalHouseDisplayStats stats;
+    stats.source=original_house_source_;stats.fallback_reason=original_house_fallback_reason_;
+    stats.preparation_error=original_house_preparation_error_;
+    stats.configured=building_profile_ && building_profile_->original_house_prepared;
+    if (stats.configured) {
+        for (std::size_t index=0;index<stats.configured_types.size();++index)
+            stats.configured_types[index]=building_profile_->original_house_entries[index].has_value();
+        stats.active=building_visuals_active() && building_sprite_ &&
+            std::any_of(stats.configured_types.begin(),stats.configured_types.end(),[](bool value){return value;});
+        stats.additional_assets=building_profile_->unique_images.size()-building_core_image_count_;
+        for (std::size_t index=building_core_image_count_;index<building_profile_->unique_images.size();++index)
+            stats.additional_bytes+=building_profile_->unique_images[index].pixels.size();
+    }
+    stats.drawn_instances=original_house_drawn_instances_;stats.authored_fallbacks=original_house_authored_fallbacks_;
+    return stats;
+}
+SandboxView::OriginalHouseVisualSelection SandboxView::original_house_visual_selection(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview) const {
+    OriginalHouseVisualSelection result;
+    if (!world_ || !original_production_fixture() || !simulation::original_house_kind(kind)) return result;
+    result.applicable=true;
+    result.actual_side=static_cast<std::uint8_t>(simulation::building_footprint(rules_,world_->rule_version(),kind).width);
+    if (placement_preview) result.house_type=static_cast<std::uint16_t>(
+        simulation::original_elite_house_kind(kind) ? original::HouseType::EliteUnoccupied:original::HouseType::Vacant);
+    else if (const auto owner=world_->building_owner_at(cell)) {
+        const auto& houses=world_->original_economy_state()->houses;
+        const auto found=std::find_if(houses.begin(),houses.end(),[&](const auto& house){return house.building_id==*owner;});
+        if (found!=houses.end()) result.house_type=static_cast<std::uint16_t>(found->house.type);
+    }
+    if (building_profile_) result.entry=building_profile_->find_original_house(result.house_type,result.actual_side);
+    return result;
+}
+SandboxView::OriginalHouseVisualDiagnostic SandboxView::original_house_visual_diagnostic(simulation::BuildingId id) const {
+    OriginalHouseVisualDiagnostic result;
+    if (!world_ || !original_production_fixture()) return result;
+    const auto& buildings=world_->buildings();
+    const auto found=std::find_if(buildings.begin(),buildings.end(),[&](const auto& body){return body.id==id;});
+    if (found==buildings.end() || !simulation::original_house_kind(found->kind)) return result;
+    const auto selected=original_house_visual_selection(found->cell,found->kind);
+    result.applicable=selected.applicable;result.house_type=selected.house_type;result.actual_side=selected.actual_side;
+    result.ground=building_visual_ground(found->cell,found->kind);
+    result.configured=selected.entry!=nullptr;
+    result.active=result.configured && building_visuals_active() && building_sprite_;
+    if (selected.entry) {
+        const auto& entry=*selected.entry;const auto& image=building_profile_->unique_images.at(entry.image_index);
+        result.asset=entry.id;result.image_width=image.width;result.image_height=image.height;
+        result.ground_x=entry.ground_x;result.ground_y=entry.ground_y;
+        result.image_origin={result.ground.x-entry.ground_x,result.ground.y-entry.ground_y};
+        result.selection=original_house_source_==VisualProfileSource::Custom ?
+            "custom static representative":"canonical static representative";
+        result.evidence=entry.evidence;
+        if (!result.active) result.fallback_reason="F4 authored comparison";
+    } else {
+        if (building_profile_ && building_profile_->original_house_prepared)
+            result.fallback_reason=building_profile_->fallback_original_house(selected.house_type,selected.actual_side);
+        if (result.fallback_reason.empty()) result.fallback_reason=original_house_fallback_reason_;
+        if (result.fallback_reason.empty()) result.fallback_reason="No proven original sprite for this House type/body";
+    }
+    return result;
 }
 SandboxView::BuildingDisplayStats SandboxView::building_display_stats() const {
     BuildingDisplayStats stats;
@@ -1300,7 +1462,7 @@ SandboxView::RoadVisualDiagnostic SandboxView::road_visual_diagnostic(simulation
     return result;
 }
 std::optional<std::uint64_t> SandboxView::session_texture_headroom(
-        bool include_walkers,bool include_fire) const {
+        bool include_walkers,bool include_fire,bool include_buildings) const {
     constexpr auto limit=maps::stored_max_texture_bytes;
     auto used=background_.plan().logical_texture_bytes;
     if (used>limit) return std::nullopt;
@@ -1313,7 +1475,7 @@ std::optional<std::uint64_t> SandboxView::session_texture_headroom(
         return true;
     };
     if ((include_walkers && walker_profile_ && !add(walker_profile_->unique_images)) ||
-        (building_profile_ && !add(building_profile_->unique_images)) ||
+        (include_buildings && building_profile_ && !add(building_profile_->unique_images)) ||
         (road_profile_ && !add(road_profile_->unique_images))) return std::nullopt;
     if (include_fire && fire_sprites_) {
         const auto bytes=fire_sprites_->logical_bytes();
@@ -3150,6 +3312,12 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
         return;
     }
     const auto ground=building_visual_ground(instance.cell,instance.object);
+    const auto original_house=original_house_visual_selection(instance.cell,instance.object);
+    if (original_house.entry && building_visuals_active() && building_sprite_) {
+        const auto& entry=*original_house.entry;const auto& image=building_profile_->unique_images[entry.image_index];
+        hit.image=entry.image_index;hit.origin={ground.x-entry.ground_x,ground.y-entry.ground_y};
+        hit.width=image.width;hit.height=image.height;append(hit);return;
+    }
     if (instance.object==simulation::Object::OriginalEliteHouse) {
         hit.mesh=instance.object;hit.mesh_ground=ground;hit.footprint_side=4;
         hit.origin={ground.x-160,ground.y-140};hit.width=320;hit.height=160;
@@ -3373,8 +3541,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             if (!frame) return false; // Complete preparation guarantees a valid selection.
             const auto& building=world_->building(*owner);
             const auto side=simulation::building_footprint(rules_,world_->rule_version(),building.kind).width;
+            const auto original_house=original_house_visual_selection(cell,building.kind);
             const auto role=visual_role(cell,building.kind);
-            const auto* entry=role ? building_entry(*role):nullptr;
+            const auto* entry=original_house.entry ? original_house.entry:role ? building_entry(*role):nullptr;
             // Curated roof attachment, independent of F4. Original timing/pivots
             // are not claimed: center the footprint and lift into its visible body.
             const double rise=entry ? std::clamp(entry->ground_y*0.3,12.0,36.0):12.0;
@@ -3479,6 +3648,14 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
                                               static_cast<double>(footprint_cell.y)});
                 if (!draw_diamond({logical.x,logical.y-20},80,210,245,false)) return false;
             }
+            const auto original_house=original_house_visual_selection(cell,object,placement_preview);
+            if (original_house.entry && building_visuals_active() && building_sprite_) {
+                if (!building_sprite_->draw(center,camera_.zoom,*building_profile_,*original_house.entry,placement_preview)) return false;
+                if (!placement_preview) ++original_house_drawn_instances_[original_house.house_type-2U];
+                return draw_fire_overlay(cell,center,placement_preview) && draw_sickness(cell,center,placement_preview);
+            }
+            if (original_house.applicable && original_house.house_type>=2 && original_house.house_type<=17 && !placement_preview)
+                ++original_house_authored_fallbacks_[original_house.house_type-2U];
             const auto role=visual_role(cell,object,placement_preview);
             if (role && building_profile_) {
                 const auto* entry=building_entry(*role);
@@ -3717,7 +3894,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==0 ? simulation::Object::Market:simulation::Object::Empty;
         const auto role=simulation::production_profile(rules_) ?
             visual_role(*hovered_,object,true):std::nullopt;
+        const auto original_house=original_house_visual_selection(*hovered_,object,true);
         if (result.accepted && (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
+            (original_house.entry && building_visuals_active() && building_sprite_) ||
             (role && building_visuals_active() && building_sprite_ &&
              building_profile_ && building_entry(*role)))) {
             const auto ground=building_visual_ground(*hovered_,object);
@@ -4045,7 +4224,8 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==0 ? simulation::Object::Market:simulation::Object::Empty;
         const auto role=simulation::production_profile(rules_) ?
             visual_role(*hovered_,object,true):std::nullopt;
-        const auto* entry=role && building_profile_ ? building_entry(*role):nullptr;
+        const auto original_house=original_house_visual_selection(*hovered_,object,true);
+        const auto* entry=original_house.entry ? original_house.entry:role && building_profile_ ? building_entry(*role):nullptr;
         if (object==simulation::Object::OriginalElitePlot) {
             // Future space is advisory only: buying the Plot claims four cells.
             // The authoritative sixteen-cell transaction runs at immigration.
@@ -4253,7 +4433,18 @@ bool SandboxView::original_house_inspector_active() const {
 }
 std::vector<std::string> SandboxView::original_house_section_lines() const {
     if (!original_house_inspector_active()) return {};
-    return wrap_panel_lines(original_house_ui::section_lines(*world_,*selected_building(),original_house_section_));
+    auto lines=original_house_ui::section_lines(*world_,*selected_building(),original_house_section_);
+    if (original_house_section_==OriginalHouseSection::State &&
+        building_profile_ && building_profile_->original_house_prepared) {
+        const auto visual=original_house_visual_diagnostic(*selected_building());
+        std::vector<std::string> art;
+        if (visual.active) {
+            art.push_back(std::string(original_house_source_==VisualProfileSource::Custom ? "Art: custom; ":"Art: original; ")+visual.selection);
+            art.push_back("SG3 "+visual.asset->archive_relative_path.filename().string()+" #"+std::to_string(visual.asset->image_index));
+        } else art.push_back("Art: authored fallback | "+visual.fallback_reason);
+        lines.insert(lines.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(3,lines.size())),art.begin(),art.end());
+    }
+    return wrap_panel_lines(lines);
 }
 sandbox_ui::Rect SandboxView::original_house_section_rect(OriginalHouseSection section) const {
     const int index=static_cast<int>(section);
@@ -4624,8 +4815,11 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 " residents"+std::to_string(tax.last_assessment->occupants));
             lines.push_back("Scroll: housing diagnosis");
             lines.push_back(std::string(simulation::original_housing_type_name(h.type)));
+            const auto visual=original_house_visual_diagnostic(*house_id);
             lines.push_back(d.elite_family ? d.actual_footprint_side==4 ?
-                "Elite4x4; authored courtyard":"Growth4x4 unreserved":"Common family; Original2x2");
+                visual.active ? original_house_source_==VisualProfileSource::Custom ?
+                    "Elite4x4; custom static body":"Elite4x4; original static body":"Elite4x4; authored courtyard":
+                "Growth4x4 unreserved":"Common family; Original2x2");
             if (d.materialization_pending) {
                 lines.push_back(d.materialization_ready ? "Growth ready; await immigration":
                     std::string("Growth blocked: ")+(d.materialization_diagnostic.blocker==simulation::BuildBlocker::InvalidEdge ?
@@ -4634,7 +4828,15 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                     std::to_string(d.materialization_diagnostic.cell->x)+","+
                     std::to_string(d.materialization_diagnostic.cell->y));
             }
-            lines.push_back("Original housing art pending");
+            if (visual.active) {
+                lines.push_back(std::string(original_house_source_==VisualProfileSource::Custom ?
+                    "Custom House art: ":"Original House art: ")+visual.selection);
+                lines.push_back("SG3 "+visual.asset->archive_relative_path.generic_string()+" #"+std::to_string(visual.asset->image_index));
+                lines.push_back("Evidence: "+visual.evidence);
+            } else if (building_profile_ && building_profile_->original_house_prepared) {
+                lines.push_back("Art: authored fallback");
+                lines.push_back("Art fallback: "+visual.fallback_reason);
+            } else lines.push_back("Original housing art pending");
             if (d.awaiting_admission) lines.push_back("Await actual immigration");
             else if (d.common_terminal) lines.push_back("Common terminal; no Elite jump");
             else if (d.elite_terminal) lines.push_back("Elite terminal");
@@ -6387,7 +6589,7 @@ bool SandboxView::draw_help_overlay() {
     const int pad=12*layout_.scale;
     const int line=16*layout_.scale;
     if (original_production_fixture()) {
-        constexpr std::array<const char*,17> help{
+        const std::array<const char*,17> help{
             "ORIGINAL ECONOMY - H closes", "Q Water Well | Y Ancestor Shrine",
             "U Daoist | K Buddhist | V Confucian",
             "E Music | C Acrobat | A Drama",
@@ -6397,7 +6599,8 @@ bool SandboxView::draw_help_overlay() {
             "Actual arrivals supply Houses", "Water is evaluated on phase28",
             "PageUp/Down: sections | F10: overlays", "Plain needs Water/Food/Ancestor",
             "Schools: experimental direct visits", "T:816t tax;2/worker/400t upkeep",
-            "Original graphics follow separately"};
+            building_profile_ && building_profile_->original_house_prepared ?
+                "House art: State; other art pending":"Original graphics follow separately"};
         for (std::size_t row=0;row<help.size();++row)
             if (!draw_text(x+pad,y+pad+static_cast<int>(row)*line,help[row],width-2*pad)) return false;
         return true;

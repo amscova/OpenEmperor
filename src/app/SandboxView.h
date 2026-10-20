@@ -183,6 +183,30 @@ public:
     HealthWalkerDisplayStats health_walker_display_stats() const;
     void set_building_visuals(const std::filesystem::path& manifest,
                               VisualProfileSource source=VisualProfileSource::Custom);
+    void set_original_house_visuals(const std::filesystem::path& manifest,
+                                   VisualProfileSource source=VisualProfileSource::Builtin,
+                                   std::string fallback_reason={});
+    struct OriginalHouseDisplayStats {
+        bool configured=false,active=false;
+        VisualProfileSource source=VisualProfileSource::Fallback;
+        std::string fallback_reason,preparation_error;
+        std::size_t additional_assets=0;
+        std::uint64_t additional_bytes=0;
+        std::array<bool,16> configured_types{};
+        std::array<std::uint64_t,16> drawn_instances{},authored_fallbacks{};
+    };
+    OriginalHouseDisplayStats original_house_display_stats() const;
+    struct OriginalHouseVisualDiagnostic {
+        bool applicable=false,configured=false,active=false;
+        std::uint16_t house_type=0;
+        std::uint8_t actual_side=0;
+        std::optional<assets::AssetId> asset;
+        std::uint16_t image_width=0,image_height=0;
+        double ground_x=0,ground_y=0;
+        scene::Point ground{},image_origin{}; // Unscaled world coordinates.
+        std::string selection,evidence,fallback_reason;
+    };
+    OriginalHouseVisualDiagnostic original_house_visual_diagnostic(simulation::BuildingId id) const;
     void set_road_visuals(const std::filesystem::path& manifest,
                           VisualProfileSource source=VisualProfileSource::Custom);
     // Optional presentation; an incomplete clip selects the complete marker fallback.
@@ -423,7 +447,22 @@ private:
                                                   simulation::Object kind) const;
     int walker_marker_shift(simulation::Position position,simulation::CourierId id) const;
     std::optional<std::uint64_t> session_texture_headroom(bool include_walkers,
-                                                        bool include_fire) const;
+                                                        bool include_fire,
+                                                        bool include_buildings=true) const;
+    struct OriginalHouseVisualSelection {
+        bool applicable=false;
+        std::uint16_t house_type=0;
+        std::uint8_t actual_side=0;
+        const assets::BuildingVisualEntry* entry=nullptr;
+    };
+    OriginalHouseVisualSelection original_house_visual_selection(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview=false) const;
+    assets::BuildingVisualProfile core_building_visual_profile() const;
+    bool append_requested_original_house_visuals(assets::BuildingVisualProfile& profile,
+        VisualProfileSource core_source,const std::filesystem::path& manifest,
+        VisualProfileSource source,std::string& reason,std::string& error) const;
+    void publish_building_visual_profile(assets::BuildingVisualProfile profile);
+    void prepare_original_house_visuals();
     void remove_fire_inspector_extension();
     void prepare_fire_inspector_extension();
     void remove_market_walker_extension();
@@ -586,6 +625,12 @@ private:
     VisualProfileSource building_source_=VisualProfileSource::Fallback;
     std::optional<assets::BuildingVisualProfile> building_profile_;
     std::unique_ptr<BuildingSprite> building_sprite_;
+    std::size_t building_core_image_count_=0;
+    std::filesystem::path original_house_manifest_;
+    VisualProfileSource original_house_source_=VisualProfileSource::Fallback;
+    std::string original_house_fallback_reason_="No original House profile selected";
+    std::string original_house_preparation_error_;
+    std::array<std::uint64_t,16> original_house_drawn_instances_{},original_house_authored_fallbacks_{};
     bool building_enabled_=true;
     std::array<std::uint64_t,assets::building_role_count> building_drawn_instances_{};
     std::array<std::uint64_t,assets::building_role_count> building_placeholder_fallbacks_{};

@@ -27,7 +27,12 @@ folgt OE-28. Original-Haussprites29 bleiben offen.
 **Abschluss OE-28 am2026-10-20:** Vier Inspectoransichten und begrenzte
 Overlays sind umgesetzt;93 gezielte Konfigurations-CTests technisch PASS. Vorabvertrag:
 [housing-inspector-runtime.md](../original-economy/housing-inspector-runtime.md).
-Rule10/Schema26/Policy3/Revision27 bleiben unverändert; OE-29 ist unbegonnen.
+Rule10/Schema26/Policy3/Revision27 bleiben unverändert.
+
+**Abschluss OE-29 am2026-10-20:**15 belegte native Hausgrafiken für Typ3..17,
+explizite statische Variante0 und benannte Vacant-/Plot-Fallbacks.
+[Abnahme](../original-economy/original-house-visuals-validation.md):174 gezielte
+CTests PASS; alle alten Inspector-/Sandbox-Pixel exakt. Gate E bleibt OE30.
 
 | ID | Status | Commit-SHA (im Folgecommit nachtragen) | Testbelege (Pfad/Run) | Blocker/Notiz |
 |---|---|---|---|---|
@@ -59,8 +64,8 @@ Rule10/Schema26/Policy3/Revision27 bleiben unverändert; OE-29 ist unbegonnen.
 | OE-25 | PASS | 9bac35b5626834b42d35d52c23b11eb039b14f21 | `.local/original-economy/oe25/validation3/`, `oe25/production-fixtures/final3/` | Revision25:15 Zeilen, bezahlte getrennte Elitefamilie, echte13→12→13 und Common6;177 relevante CTests/50 getrennte20k-Replays/4 geöffnete Softwarebilder;4×4-Geometrie26/Originalsprites29/Gate D27 offen |
 | OE-26 | PASS | bcba05334494b4f6f5afd7d4c0d2d76a13469caa | `.local/original-economy/oe26/validation2/`, `oe26/production-fixtures/final2/` | Revision26: atomare leere2×2→4×4-Elitegeometrie, echte Blockade/Reparatur/Einzug160, neun Konflikte/strikter Restore;231 CTests/51 separate20k-Replays/8 geöffnete Softwarebilder,72 Legacy-Saves/1485 Policyfälle exakt; Gate D27/Originalsprites29 offen |
 | OE-27 | PASS | eb40408a57038d775dfa79d3c8e9f1bbf189f80d | `.local/original-economy/oe27/gate-d/final4/`, `oe27/validation/final-validation.json` | Revision27: fünf Difficulties, Modellsteuer/Workerunterhalt, signed Debt und verlustfähige Mission; 684 volle CTests, 101 getrennte20k-Fortsetzungen, zehn geöffnete Softwarebilder, Legacy exakt; Gate D technisch PASS, Originalparität PARTIAL |
-| OE-28 | PASS | eigene SHA in Antwort | `.local/original-economy/oe28/final-validation.json` | Vier Inspectoransichten, Supply/DES/Risk-Overlays;93 gezielte CTests, zwei20k-Prozessreplays, zehn geöffnete1×/2×/4×-Softwarebilder; Authority/alte Pixel exakt; Originalsprites29 offen |
-| OE-29 | TODO | — | — | — |
+| OE-28 | PASS | 15dd6da9183617f39f711df2b2ab1598f6595cb9 | `.local/original-economy/oe28/final-validation.json` | Vier Inspectoransichten, Supply/DES/Risk-Overlays;93 gezielte CTests, zwei20k-Prozessreplays, zehn geöffnete1×/2×/4×-Softwarebilder; Authority/alte Pixel exakt; Originalsprites29 offen |
+| OE-29 | PASS | — | `.local/original-economy/oe29/final-validation.json` |15 belegte Typ3..17-Bilder, statische Variante0;174 gezielte CTests/12 geöffnete finale Softwarebilder; alte Pixel/Authority exakt; Vacant/Plot-Fallback, Originalszene UNKNOWN/Gesamtwirtschaft PARTIAL, native/human offen |
 | OE-30 | TODO | — | — | — |
 | OE-31 | TODO | — | — | — |
 | OE-32 | TODO | — | — | — |
@@ -3258,3 +3263,32 @@ Format: `Zeit/Revision – Task – Konfiguration – tatsächlich ausgeführter
   **OE-28 technisch PASS**. Gesamtparität PARTIAL, native/human NOT_RUN,
   Originalsprites29 und Gate E30 bleiben offen. Nur eigener lokaler Commit;
   kein neuer Push/PR/Merge/Tag/Release.
+
+## OE-29 – belegte native Hausbilder und sichere Stufenabbildung
+
+- Sauberer Start15dd6da, getrennte Originalsetter-/SG3-/Frontanker-Evidenz vor
+  Zuordnung.15 native Typ3..17-Bilder als metadata-only optionale Ergänzung;
+  tatsächlicher Worldtyp und Körperseite wählen nach Upgrade/Downgrade/F9.
+  Vacant2 bleibt wegen Constructor-/Settermehrdeutigkeit Fallback, leerer
+  Eliteplot2×2 übernimmt kein Original4×4-Bild. Statische Variante0 ist benannt.
+- Bestehende Legacy13 Rollen/12 Bilder und0/1/2-Stufen unverändert; ein
+  physischer Pool, atomarer Append ohne doppelte Core-Uploads und alte Budgets.
+  Gemeinsame bestehende Registrierung, kein zweiter Bildindexübersetzer.
+  Typ→Gruppe separat gegen kohärente Vertauschung geschützt. Benutzerdefinierte
+  Art ist ausdrücklich custom, unbekannte Daten aktivieren keine Builtinidentität.
+- 174 finale CTests in drei frischen Konfigurationen PASS,0 Fehler/Skips/Warnungen.
+  Bezahlte Common2→3→4→5/Elite11→13→12→13; native Pixel/Alpha/Picking/Culling/UI,
+  Walkerfüße, gleicher bezahlter Rule10-Rampenkontext, authored Foreground,
+  F4/F6/F7/Snapshot/F5F9.100 reine Frames halten alle zwölf Zähler0.
+- 114 neue PNGs samt Schema26-Saves, zwölf finale Releasebilder tatsächlich
+  geöffnet; Originalexport30 Bilder/sechs geöffnete Blätter separat. Alle22
+  alten House-Inspector-PNGs und zwei Sandbox-BMPs je Konfiguration bytegleich.
+  Keine neue volle Corpus-/20k-Abnahme; alte OE28-Artefakte unverändert.
+- Die anfängliche57/58-Inaktive-Copyregression wurde mit unverändertem Test
+  korrigiert; sämtliche finalen Läufe binden denselben eingefrorenen564-Datei-
+  Stand.127 Authorityquelldateien, alle Original1464 Dateien/Bytes/Modi/mtime
+  und Rule10/Schema26/Policy3/Revision27 unverändert. Exakte Befehle/Resultate
+  und Fehlversuche in der verlinkten Abnahme und privaten Reports erhalten.
+- **OE-29 technisch PASS**, ursprüngliche individuelle Variante/ganze Szene
+  UNKNOWN, Gesamt-Originalwirtschaft PARTIAL, native/human NOT_RUN. Gate E
+  gehört zu30; OE30 bleibt TODO. Nur eigener lokaler Task-Commit.

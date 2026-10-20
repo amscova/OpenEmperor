@@ -101,3 +101,18 @@ Overlays führen keine Forksimulation oder eigene Entwicklungsentscheidung aus.
 Details und tatsächliche Prüfläufe stehen in
 [housing-inspector-runtime.md](../original-economy/housing-inspector-runtime.md)
 und [PROGRESS](PROGRESS.md). Es wird kein weiterer Forkcode importiert.
+
+## OE-29 – belegte Hausfamilien statt angenommener Levelbilder
+
+Die aktive Darstellung bindet tatsächliche HouseTypes3..17 über den separat
+untersuchten Originalsetter und die bestehende General-Registrierung an native
+SG3-Bilder. Sie übernimmt keine neue Forkänderung. Die bisherigen drei kuratierten
+Legacy-Levelbilder bleiben unverändert und beweisen weiterhin keine Originalstufe.
+
+Die neue metadata-only Ergänzung wählt ausdrücklich die statische Variante0;
+die originale individuelle Variantenwahl wird nicht simuliert. Vacant2 bleibt
+wegen unterschiedlicher Constructor-/Setterkontexte ein benannter Fallback,
+ebenso der temporäre2×2-Eliteplot gegenüber dem originalen4×4-Bild. Bild- und
+Ankeridentität sind Präsentationsbelege, keine zusätzliche World-, Bau-,
+Höhen-, Save- oder Navigationsauthority. Quellen und offene Grenzen stehen in
+[original-house-visuals.md](../reverse/original-house-visuals.md).

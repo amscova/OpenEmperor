@@ -135,6 +135,7 @@ set(OPENEMPEROR_COMPATIBILITY_FILES
     "${CMAKE_SOURCE_DIR}/resources/compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}/manifest.json"
     "${CMAKE_SOURCE_DIR}/resources/compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}/walkers.json"
     "${CMAKE_SOURCE_DIR}/resources/compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}/buildings.json"
+    "${CMAKE_SOURCE_DIR}/resources/compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}/original-houses.json"
     "${CMAKE_SOURCE_DIR}/resources/compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}/roads.json"
     "${CMAKE_SOURCE_DIR}/resources/compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}/fire.json"
     "${CMAKE_SOURCE_DIR}/resources/compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}/fire-inspector.json"
@@ -172,6 +173,10 @@ add_executable(openemperor-inspect
     tools/asset-inspector/Sg3RedAudit.cpp
 )
 add_library(openemperor-sg3 STATIC
+    # Shared archive registration/index logic is also required by optional
+    # asset profiles. Keep one implementation, below the map preparation layer.
+    src/maps/RuntimeArchiveLayout.cpp
+    src/maps/ResourceGroupLookup.cpp
     src/assets/Sg3Archive.cpp
     src/assets/Sg3RgbaDecoder.cpp
     src/assets/Sg3OmegaDecoder.cpp
@@ -186,6 +191,7 @@ add_library(openemperor-sg3 STATIC
     src/assets/WalkerVisualProfile.cpp
     src/assets/FireVisualProfile.cpp
     src/assets/BuildingVisualProfile.cpp
+    src/assets/OriginalHouseVisualProfile.cpp
     src/assets/RoadVisualProfile.cpp
     src/assets/CompatibilityProfile.cpp
     src/assets/RgbaPngEncoder.cpp
@@ -208,8 +214,6 @@ add_library(openemperor-maps STATIC
     src/maps/MapGraphicCandidates.cpp
     src/maps/DirectGraphicCandidate.cpp
     src/maps/GraphicsIdHypothesis.cpp
-    src/maps/RuntimeArchiveLayout.cpp
-    src/maps/ResourceGroupLookup.cpp
     src/maps/StorageGridView.cpp
     src/maps/MapGeometry.cpp
     src/maps/TerrainInterpretation.cpp
@@ -1378,6 +1382,15 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-building-visual-tests)
     add_test(NAME building-visual-profile-depth COMMAND openemperor-building-visual-tests)
 
+    add_executable(openemperor-original-house-visual-profile-tests tests/OriginalHouseVisualProfileTests.cpp)
+    target_link_libraries(openemperor-original-house-visual-profile-tests PRIVATE openemperor-sg3)
+    openemperor_enable_warnings(openemperor-original-house-visual-profile-tests)
+    add_dependencies(openemperor-original-house-visual-profile-tests openemperor)
+    add_test(NAME original-house-visual-profile COMMAND openemperor-original-house-visual-profile-tests)
+    add_test(NAME original-house-visual-profile-real COMMAND openemperor-original-house-visual-profile-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" "${OPENEMPEROR_TEST_RESOURCE_ROOT}")
+    set_tests_properties(original-house-visual-profile original-house-visual-profile-real PROPERTIES TIMEOUT 60)
+
     add_executable(openemperor-road-topology-tests tests/RoadTopologyTests.cpp
         src/app/RoadTopology.cpp src/app/RoadDrag.cpp)
     target_link_libraries(openemperor-road-topology-tests PRIVATE openemperor-simulation)
@@ -1641,10 +1654,17 @@ target_compile_definitions(openemperor-original-goods-play PRIVATE OPENEMPEROR_O
 target_link_libraries(openemperor-original-goods-play PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-original-goods-play)
 add_executable(openemperor-original-production-play EXCLUDE_FROM_ALL
-    tools/OriginalProductionPlay.cpp ${bridge_fixture_sources})
+    tools/OriginalProductionPlay.cpp src/app/ResourceLocator.cpp ${bridge_fixture_sources})
 target_compile_definitions(openemperor-original-production-play PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
 target_link_libraries(openemperor-original-production-play PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
 openemperor_enable_warnings(openemperor-original-production-play)
+set_property(TARGET openemperor-original-production-play APPEND PROPERTY LINK_DEPENDS ${OPENEMPEROR_COMPATIBILITY_FILES})
+add_custom_command(TARGET openemperor-original-production-play POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:openemperor-original-production-play>/resources/Compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OPENEMPEROR_COMPATIBILITY_FILES}
+        "$<TARGET_FILE_DIR:openemperor-original-production-play>/resources/Compatibility/${OPENEMPEROR_COMPATIBILITY_PACK_ID}"
+    VERBATIM)
 add_executable(openemperor-original-production-fixture EXCLUDE_FROM_ALL tools/OriginalProductionFixture.cpp)
 target_link_libraries(openemperor-original-production-fixture PRIVATE openemperor-persistence)
 openemperor_enable_warnings(openemperor-original-production-fixture)
@@ -1679,6 +1699,15 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-house-inspector-view-tests)
     add_test(NAME original-house-inspector-view COMMAND openemperor-original-house-inspector-view-tests)
     set_tests_properties(original-house-inspector-view PROPERTIES TIMEOUT 120)
+
+    add_executable(openemperor-original-house-visual-view-tests tests/OriginalHouseVisualViewTests.cpp ${bridge_fixture_sources})
+    target_compile_definitions(openemperor-original-house-visual-view-tests PRIVATE OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE=1)
+    target_link_libraries(openemperor-original-house-visual-view-tests PRIVATE openemperor-recovery SDL3::SDL3 openemperor-version)
+    openemperor_enable_warnings(openemperor-original-house-visual-view-tests)
+    add_dependencies(openemperor-original-house-visual-view-tests openemperor)
+    add_test(NAME original-house-visual-production-view COMMAND openemperor-original-house-visual-view-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" "${OPENEMPEROR_TEST_RESOURCE_ROOT}")
+    set_tests_properties(original-house-visual-production-view PROPERTIES TIMEOUT 240)
 endif()
 add_executable(openemperor-city-v16-bridges-fixture EXCLUDE_FROM_ALL
     tools/CityV16BridgesFixture.cpp ${bridge_fixture_sources})

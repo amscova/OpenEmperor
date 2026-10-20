@@ -261,6 +261,8 @@ void MenuSession::finish_loading() {
             visuals.service_walker_fallback_reason);
         view->set_health_walker_visuals(visuals.health_walker,visuals.health_walker_source,
             visuals.health_walker_fallback_reason);
+        view->set_original_house_visuals(visuals.original_house,visuals.original_house_source,
+            visuals.original_house_fallback_reason);
         view->initialize(window_,renderer_);
         if (starting_map_check_ && !document &&
             view->capture_save_document().map_sha256!=starting_map_check_->input_sha256)

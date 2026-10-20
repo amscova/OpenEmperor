@@ -1,4 +1,6 @@
 #include "app/SandboxView.h"
+#include "app/ResourceLocator.h"
+#include "app/VisualSelection.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <filesystem>
@@ -69,11 +71,26 @@ int main(int argc,char** argv) {
             SDL_WINDOW_RESIZABLE,&window,&renderer))throw std::runtime_error(SDL_GetError());
         auto view=openemperor::SandboxView::create_original_production_save_fixture(std::move(session),options.difficulty);
         view->configure_save(data,options.paths[1],options.paths[2],std::move(initial));
+        const auto* base=SDL_GetBasePath();
+        const auto resources=openemperor::locate_resource_root(base ? std::filesystem::path(base):std::filesystem::path{});
+        const auto visuals=openemperor::detect_and_select_visual_profiles(data,resources);
+        view->set_walker_visuals(visuals.walker,visuals.walker_source);
+        view->set_building_visuals(visuals.building,visuals.building_source);
+        view->set_road_visuals(visuals.road,visuals.road_source);
+        view->set_fire_visuals(visuals.fire,visuals.fire_source,visuals.fire_fallback_reason);
+        view->set_fire_inspector_visuals(visuals.fire_inspector,visuals.fire_inspector_source,visuals.fire_inspector_fallback_reason);
+        view->set_market_walker_visuals(visuals.market_walker,visuals.market_walker_source,visuals.market_walker_fallback_reason);
+        view->set_service_walker_visuals(visuals.service_walker,visuals.service_walker_source,visuals.service_walker_fallback_reason);
+        view->set_health_walker_visuals(visuals.health_walker,visuals.health_walker_source,visuals.health_walker_fallback_reason);
+        view->set_original_house_visuals(visuals.original_house,visuals.original_house_source,visuals.original_house_fallback_reason);
         view->initialize(window,renderer);
         std::cout<<"Explicit Rule10/Schema26 development session; starts paused. Build paid roads/houses, "
             "Clay, Pottery and Warehouse; connected houses admit residents. Space: run/pause; F5/F9: save/load.\n";
         std::cout<<"Difficulty: "<<difficulty_names[static_cast<std::size_t>(view->world().original_rules_model()->difficulty())]<<
             "; authored direct house taxes every816 ticks; T: actual finances and live housing mission.\n";
+        const auto houses=view->original_house_display_stats();
+        std::cout<<"House art: "<<(houses.active ? "proven type mapping, canonical static representative":
+            houses.fallback_reason)<<"; F4: authored comparison; F6: independent roads.\n";
         bool running=true;auto previous=SDL_GetTicksNS();
         while(running){
             SDL_Event event{};while(SDL_PollEvent(&event))view->handle_event(event,running);
