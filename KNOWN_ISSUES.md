@@ -7,6 +7,10 @@ complete original-game compatibility.
   immigration, workforce, recipes, harvesting and school-to-house visits.
   Original venue/performer chains and illness are missing. Houses and productive
   buildings cannot yet be demolished; incompatible development saves are refused.
+- **Rule10 has no purchasable fire protection.** Natural fires temporarily remove
+  occupied Houses from the live goal while `PlaceFireWatch` is refused. The
+  [paid progression check](docs/original-economy/paid-progression.md) reaches the goal
+  and supplies six Houses in a finite window; its fixed plan still loses Funds over time.
 - **Original sprites are incomplete.** Supported House stages use verified art;
   several other buildings, plants and walkers retain fallbacks. Empty Elite plots
   have no matching original body until their larger footprint materializes.

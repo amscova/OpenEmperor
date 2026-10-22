@@ -28,6 +28,10 @@ sechs Häuser nötig; zusätzliche Häuser und Versorgung regulär kaufen.
 Auch pausierte Gebäude kosten Unterhalt. Häuser und Produktionsgebäude sind
 noch nicht abreißbar; Abriss gilt nur für neutrale Well72-Einflussquellen.
 
+Der [geprüfte Ausbauplan](paid-progression.md) ergänzt zwei Häuser, vier Straßen
+sowie je eine Food-/Hemp-Farm mit Feld für 266 Funds. Er belegt das Wohnziel und
+ein begrenztes Versorgungsfenster; Brände und laufende Verluste bleiben offen.
+
 ## Bedienung und Versorgung prüfen
 
 - **Pfeiltasten** verschieben, Mausrad oder **Z** zoomen; **H / Help** erklärt
