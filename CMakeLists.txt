@@ -1699,7 +1699,22 @@ add_executable(openemperor-original-longplay-acceptance EXCLUDE_FROM_ALL
 target_link_libraries(openemperor-original-longplay-acceptance PRIVATE
     openemperor-recovery SDL3::SDL3)
 openemperor_enable_warnings(openemperor-original-longplay-acceptance)
+# OE35 is diagnostic QA only; it uses the unchanged production World and readers.
+add_executable(openemperor-economy-fire-diagnosis
+    tools/EconomyFireDiagnosis.cpp
+    src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
+target_link_libraries(openemperor-economy-fire-diagnosis PRIVATE openemperor-recovery SDL3::SDL3)
+openemperor_enable_warnings(openemperor-economy-fire-diagnosis)
 if(BUILD_TESTING)
+    add_test(NAME original-economy-fire-diagnosis-real COMMAND openemperor-economy-fire-diagnosis
+        --mode check --variant supplied --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-economy-fire-diagnosis-real PROPERTIES TIMEOUT 600)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME original-economy-fire-diagnosis-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s "${CMAKE_SOURCE_DIR}/tests" -p EconomyFireDiagnosisRunnerTests.py)
+        set_tests_properties(original-economy-fire-diagnosis-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+    endif()
     add_executable(openemperor-original-longplay-tests tests/OriginalLongplayTests.cpp
         src/renderer/StoredGraphicsRenderer.cpp src/renderer/StoredCamera.cpp)
     target_link_libraries(openemperor-original-longplay-tests PRIVATE

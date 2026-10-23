@@ -11,6 +11,7 @@ Start with the [quick start](../README.md) and [known issues](../KNOWN_ISSUES.md
 ## Development
 
 - [Architecture](architecture.md) and [Original economy](original-economy/architecture-map.md): engine boundaries, persistence and versioned runtime contracts.
+- [Economy and fire diagnosis](original-economy/oe35-economy-fire-diagnosis.md): paid strategy comparisons, capital reach and fire-protection limits.
 - [Testing](testing.md): builds, automated checks and manual acceptance.
 - [macOS packaging](macos-packaging.md): local app bundles and distribution limits.
 - [Reverse-engineering evidence](reverse/README.md): original formats and supported source contracts.
