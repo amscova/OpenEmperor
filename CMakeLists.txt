@@ -1718,6 +1718,20 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-original-longplay-view-tests PRIVATE openemperor-original-longplay-view-support)
     openemperor_enable_warnings(openemperor-original-longplay-view-tests)
     add_dependencies(openemperor-original-longplay-view-tests openemperor)
+    # OE34 observes ordinary paid progression; no alternative World or save authority.
+    add_executable(openemperor-paid-progression-acceptance tools/PaidProgressionAcceptance.cpp)
+    target_link_libraries(openemperor-paid-progression-acceptance PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-paid-progression-acceptance)
+    add_dependencies(openemperor-paid-progression-acceptance openemperor)
+    add_test(NAME original-paid-progression-real COMMAND openemperor-paid-progression-acceptance
+        --mode check --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" --plan supplied --ticks 2000 --hold 3000)
+    set_tests_properties(original-paid-progression-real PROPERTIES TIMEOUT 180)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME original-paid-progression-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s "${CMAKE_SOURCE_DIR}/tests" -p PaidProgressionRunnerTests.py)
+        set_tests_properties(original-paid-progression-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+    endif()
     add_executable(openemperor-original-longplay-benchmark EXCLUDE_FROM_ALL tests/OriginalLongplayBenchmark.cpp)
     target_link_libraries(openemperor-original-longplay-benchmark PRIVATE openemperor-original-longplay-view-support)
     openemperor_enable_warnings(openemperor-original-longplay-benchmark)
