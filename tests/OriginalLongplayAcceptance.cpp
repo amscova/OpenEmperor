@@ -1,6 +1,8 @@
-// Excluded OE32 process fixture. All positive states are earned by ordinary
+// Excluded OE32/OE34 process fixture. All positive states are earned by ordinary
 // commands and ticks; only explicit private OE32 saves can be supplied.
 #include "OriginalLongplayMetrics.h"
+#include "PaidProgressionMetrics.h"
+#include "PaidProgressionStrategy.h"
 
 #include <charconv>
 #include <iostream>
@@ -16,7 +18,7 @@ namespace fs=std::filesystem;
 using Json=nlohmann::json;
 using q::check;
 
-const char* usage="Usage: original-longplay-acceptance --mode seed|run|resume --scenario starter|districts --data DATA --output NEW_OE32_DIRECTORY [--ticks 1..100000] [--input PRIVATE_OE32_SAVE]";
+const char* usage="Usage: original-longplay-acceptance --mode seed|run|resume --scenario starter|districts|progression --data DATA --output NEW_PRIVATE_DIRECTORY [--ticks 1..100000] [--input PRIVATE_OE32_SAVE]";
 struct Arguments {
     std::string mode,scenario;
     fs::path data,output,input;
@@ -45,21 +47,25 @@ Arguments arguments(int argc,char** argv) {
     for(const auto* name:{"--mode","--scenario","--data","--output"})check(values.contains(name),usage);
     Arguments result;result.mode=values.at("--mode");result.scenario=values.at("--scenario");
     check(result.mode=="seed"||result.mode=="run"||result.mode=="resume",usage);
-    check(result.scenario=="starter"||result.scenario=="districts",usage);
+    check(result.scenario=="starter"||result.scenario=="districts"||result.scenario=="progression",usage);
     if(values.contains("--ticks")) {
         const auto& raw=values.at("--ticks");const auto converted=std::from_chars(raw.data(),raw.data()+raw.size(),result.ticks);
         check(converted.ec==std::errc{}&&converted.ptr==raw.data()+raw.size()&&result.ticks>0&&result.ticks<=100000,
             "Longplay ticks must be in1..100000");
     }
+    check(result.scenario!="progression"||result.ticks>=20000,"Paid progression requires at least20000 ticks after the actual goal");
     result.data=fs::absolute(values.at("--data"));result.output=fs::absolute(values.at("--output"));
     if(values.contains("--input"))result.input=fs::absolute(values.at("--input"));
     check(result.mode!="seed"||result.input.empty(),"Seed mode cannot read a supplied save");
     check(result.mode!="resume"||!result.input.empty(),"Resume mode requires an explicit private input");
     return result;
 }
-fs::path private_root() {return fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/original-economy/oe32";}
+fs::path private_root(std::string_view scenario) {
+    return fs::canonical(fs::path(__FILE__).parent_path().parent_path())/
+        (scenario=="progression"?".local/original-economy/oe34":".local/original-economy/oe32");
+}
 void preflight(const Arguments& args) {
-    const auto allowed=private_root();safe_components(args.output);safe_components(args.data);
+    const auto allowed=private_root(args.scenario);safe_components(args.output);safe_components(args.data);
     check(fs::is_directory(args.data),"BLOCKED: original installation is missing");
     const auto data=fs::canonical(args.data),out=fs::weakly_canonical(args.output);
     check(out!=allowed&&below(out,allowed)&&!below(out,data)&&!below(data,out),
@@ -101,17 +107,135 @@ void tick(sim::World& world,oe_longplay_metrics::Metrics& metrics,const f::Scene
     if(scene)f::assert_independent(world,*scene);
 }
 void checkpoint(const q::Context& context,const fs::path& output,const char* name,const sim::World& world,
-                const oe_longplay_metrics::Metrics& metrics) {
+                const oe_longplay_metrics::Metrics& metrics,const Json& progression=nullptr) {
     const auto path=output/(std::string(name)+".save.json");check(!fs::exists(path),"Longplay save output already exists");
     const auto document=context.document(world);q::save::write_save(path,document,context.data,context.mask);
     const auto read=q::save::read_save(path);auto restored=context.restore(read);
     check(read.world==world.snapshot()&&restored.snapshot()==world.snapshot(),"Longplay full SaveDocument/snapshot roundtrip differs");
     const auto raw=Json::parse(q::f::read_text(path));write(output/(std::string(name)+".snapshot.json"),raw.at("world"));
-    write(output/(std::string(name)+".report.json"),metrics.report(world));
+    auto report=metrics.report(world);if(!progression.is_null())report["progression"]=progression;
+    write(output/(std::string(name)+".report.json"),report);
     write(output/(std::string(name)+".resources.json"),metrics.resources(world));
 }
+// The strategy and goal query are shared with the existing OE34 View fixture.
+// Goal success is never reconstructed from individual thresholds in this test.
+namespace player=oe_paid_progression_strategy;
+namespace detail=oe_paid_progression_metrics;
+struct GoalObservation {
+    Json first_goal,changes=Json::array(),samples=Json::array();
+    std::uint64_t lost=0,streak=0,longest=0,previous_taxes=0,previous_upkeep=0;
+    bool previous=true;
+    explicit GoalObservation(const sim::World& world):first_goal(player::goal(world)),
+        previous_taxes(world.taxes_collected_total()),previous_upkeep(world.maintenance_spent_total()) {
+        check(world.original_goal_status().reached,"Paid progression requires the productive World goal");
+        sample_frame(world);
+    }
+    void sample_frame(const sim::World& world) {
+        auto row=player::goal(world);Json houses=Json::array(),burning=Json::array();
+        for(const auto& home:world.original_economy_state()->houses)houses.push_back({
+            {"id",static_cast<unsigned>(home.building_id)},{"type",static_cast<unsigned>(home.house.type)},
+            {"occupants",home.house.occupants},{"burning",world.building_on_fire(home.building_id)}});
+        for(const auto& body:world.buildings())if(world.building_on_fire(body.id))burning.push_back(static_cast<unsigned>(body.id));
+        row["houses"]=houses;row["burning_ids"]=burning;samples.push_back(std::move(row));
+    }
+    void after(const sim::World& world) {
+        const auto current=player::goal(world);const bool reached=world.original_goal_status().reached;
+        if(reached){++streak;longest=std::max(longest,streak);}else{++lost;streak=0;}
+        const bool changed=reached!=previous;
+        if(changed)changes.push_back(current);
+        if(changed||world.taxes_collected_total()!=previous_taxes||world.maintenance_spent_total()!=previous_upkeep)sample_frame(world);
+        previous=reached;previous_taxes=world.taxes_collected_total();previous_upkeep=world.maintenance_spent_total();
+    }
+    Json report(const sim::World& world) const {
+        const auto taxes=world.taxes_collected_total()-first_goal.at("taxes").get<std::uint64_t>();
+        const auto upkeep=world.maintenance_spent_total()-first_goal.at("maintenance").get<std::uint64_t>();
+        check(taxes<=static_cast<std::uint64_t>(INT64_MAX)&&upkeep<=static_cast<std::uint64_t>(INT64_MAX),"Observed finance delta exceeds signed reporting domain");
+        const auto balance=static_cast<std::int64_t>(taxes)-static_cast<std::int64_t>(upkeep);
+        return {{"goal_reached",first_goal.at("reached")},{"goal_status","PASS"},
+            {"first_goal_tick",first_goal.at("tick")},{"first_goal",first_goal},{"final_goal",player::goal(world)},
+            {"stability_status",lost||balance<0?"PARTIAL":"PASS"},{"goal_loss_ticks",lost},
+            {"longest_goal_streak",longest},{"goal_changes",changes},{"financial_samples",samples},
+            {"operating_tax_delta",taxes},{"operating_maintenance_delta",upkeep},{"operating_balance",balance},
+            {"taxes_cover_upkeep",taxes>=upkeep},{"goal_predicate","World::original_goal_status().reached"}};
+    }
+};
+void progression_tick(sim::World& world,oe_longplay_metrics::Metrics& measured,detail::Metrics& detailed) {
+    measured.before(world);detailed.before(world);world.tick();f::check_authority(world);
+    measured.after(world);detailed.after(world);
+}
+void detailed_checkpoint(const fs::path& output,const char* name,const sim::World& world,const detail::Metrics& detailed) {
+    const auto stem=std::string(name);
+    write(output/(stem+".evaluations.json"),detailed.events());
+    write(output/(stem+".evaluation-frames.json"),detailed.evaluation_frames());
+    write(output/(stem+".transport.json"),detailed.transport_events());
+    write(output/(stem+".detailed.json"),detailed.report(world));
+}
+void progression_run(const Arguments& args) {
+    const auto context=q::Context::real(args.data);
+    check(context.model->provenance().sha256=="7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6",
+        "BLOCKED: progression requires the unchanged original Normal model");
+    const bool resumed=args.mode=="resume";const auto input=args.input.empty()?std::string{}:q::f::read_text(args.input);
+    auto world=resumed?context.restore(q::save::read_save(args.input)):context.world();
+    Json commands=Json::array(),refusal=nullptr;
+    std::uint64_t warmup=0;
+    if(resumed)check(world.snapshot()==q::save::read_save(args.input).world,"Progression restore changed the complete supplied snapshot");
+    else {
+        const auto receipt=sim::place_original_economy_starter(world);q::paid_empty(context,world,receipt);
+        commands=player::expand(world,receipt,"supplied");refusal=player::fire_refusal(world,receipt.origin);
+        check(world.construction_spent_total()==1670&&world.command_sequence()==97,"Ordinary paid progression receipt changed");
+    }
+    f::check_authority(world);fs::create_directories(args.output);
+    if(!resumed) {
+        oe_longplay_metrics::Metrics measured(world);detail::Metrics detailed(world);
+        while(!world.original_goal_status().reached&&world.ticks()<20000)progression_tick(world,measured,detailed);
+        warmup=world.ticks();
+        if(!world.original_goal_status().reached) {
+            write(args.output/"first-blocker.json",{{"status","FAIL"},{"reason","Productive World goal not reached within20000 normal ticks"},
+                {"actual_goal",player::goal(world)},{"metrics",measured.report(world)}});
+            throw std::runtime_error("Productive World goal not reached; inspect first-blocker.json");
+        }
+        if(args.mode=="seed") {
+            GoalObservation goal(world);checkpoint(context,args.output,"seed",world,measured,goal.report(world));
+            detailed_checkpoint(args.output,"seed",world,detailed);
+        }
+    }
+    check(world.original_goal_status().reached,"Goal success requires the production World predicate");
+    GoalObservation observation(world);const auto begin=world.ticks();
+    if(args.mode=="run"&&!args.input.empty()) {
+        check(world.snapshot()==q::save::read_save(args.input).world,"Fresh paid creator differs from protected goal seed");
+        q::save::write_save(args.output/"creator-reference.save.json",context.document(world),context.data,context.mask);
+        check(q::f::read_text(args.output/"creator-reference.save.json")==input,"Unrestored creator goal document differs from protected seed bytes");
+    }
+    if(args.mode!="seed") {
+        oe_longplay_metrics::Metrics measured(world);detail::Metrics detailed(world);
+        for(unsigned elapsed=1;elapsed<=args.ticks;++elapsed) {
+            progression_tick(world,measured,detailed);observation.after(world);
+            if(elapsed==args.ticks/2) {
+                checkpoint(context,args.output,"midpoint",world,measured,observation.report(world));
+                detailed_checkpoint(args.output,"midpoint",world,detailed);
+            }
+        }
+        checkpoint(context,args.output,"result",world,measured,observation.report(world));
+        detailed_checkpoint(args.output,"result",world,detailed);
+    }
+    if(!args.input.empty())check(q::f::read_text(args.input)==input,"Progression process rewrote its supplied goal save");
+    Json manifest{{"format","openemperor-original-longplay-process-v1"},{"status","PASS"},{"mode",args.mode},{"scenario",args.scenario},
+        {"begin_tick",args.mode=="seed"?0:begin},{"end_tick",world.ticks()},{"ticks",args.mode=="seed"?warmup:world.ticks()-begin},
+        {"original_map",true},{"original_model",true},{"model_sha256",context.model->provenance().sha256},
+        {"map",context.map_relative.generic_string()},{"authored_geography",false},{"snapshot_injection",false},
+        {"health_authority","neutral; Original illness unsupported"},{"creator_mode",!resumed},{"restored_live_world",resumed},
+        {"protected_reference_compared",args.mode=="run"&&!args.input.empty()},{"warmup_ticks",warmup},
+        {"rule",10},{"schema",26},{"policy",3},{"revision",27},{"budget_format",1},{"input_preserved",true},
+        {"native_human","NOT_RUN"},{"observer_is_performance_benchmark",false},{"progression",observation.report(world)},
+        {"strategy","supplied paid player commands; no legacy pause/priorities"},{"expansion_commands",commands},{"fire_watch_control",refusal}};
+    write(args.output/"manifest.json",manifest);
+    std::cout<<"Original longplay progression goal PASS; first_tick="<<begin<<"; additional_ticks="<<world.ticks()-begin
+        <<"; stability="<<manifest["progression"]["stability_status"]<<"; native/human NOT_RUN\n";
+}
+
 void run(const Arguments& args) {
     preflight(args);
+    if(args.scenario=="progression"){progression_run(args);return;}
     const auto context=args.scenario=="starter"?q::Context::real(args.data):f::real_district_context(args.data);
     const auto input_bytes=args.input.empty()?std::string{}:q::f::read_text(args.input);
     const bool restored_live_world=args.mode=="resume";

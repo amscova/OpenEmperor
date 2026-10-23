@@ -102,7 +102,7 @@ def preflight(binary, data, output, resources):
             "BLOCKED: paid progression requires the pinned unchanged original model")
 
 
-def review(path, data, goal=False):
+def review(path, data):
     document = load(path)
     world = document["world"]
     require(document["schema_version"] == 26 and document["rules"]["version"] == 10 and
@@ -123,10 +123,6 @@ def review(path, data, goal=False):
     inhabited = [row["house"] for row in homes if row["house"]["occupants"] > 0 and
                  bodies[row["building_id"]]["fire_until_tick"] <= world["ticks"]]
     population = sum(row["occupants"] for row in inhabited)
-    if goal:
-        require(len(inhabited) >= 6 and population >= 50 and any(5 <= row["type"] <= 10 for row in inhabited) and
-                world["taxes_collected_total"] > 0 and world["treasury"] >= 0,
-                "Saved city does not independently meet the paid housing goal")
     return {"save": record(path), "tick": world["ticks"], "funds": world["treasury"],
             "taxes": world["taxes_collected_total"], "population": population,
             "inhabited_houses": len(inhabited)}
@@ -179,9 +175,18 @@ def workflow(binary, data, output, resources, plan="supplied", ticks=20000, hold
 
     try:
         created = output / "create"
-        child("create", created)
-        reviewed = [review(created / (name + ".save.json"), data, goal=name == "goal")
+        creation = child("create", created)
+        reviewed = [review(created / (name + ".save.json"), data)
                     for name in ("starter", "expanded", "goal", "result")]
+        # Goal authority belongs solely to World::original_goal_status(). The
+        # C++ creator records that result at its first reached checkpoint; raw
+        # save population/occupancy above is diagnostic, not a second goal rule.
+        first_goal = creation.get("first_goal")
+        require(isinstance(first_goal, dict) and first_goal.get("reached") is True and
+                creation.get("goal_status") == "PASS",
+                "Creator did not confirm the production World housing goal")
+        require(first_goal.get("tick") == creation.get("first_goal_tick") == reviewed[2]["tick"],
+                "Production World housing goal differs from its saved checkpoint tick")
         starter = load(created / "starter.save.json")["world"]
         expanded = load(created / "expanded.save.json")["world"]
         require(starter["ticks"] == expanded["ticks"] == 0 and

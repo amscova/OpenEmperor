@@ -75,8 +75,6 @@ if mode == "create":
     for name, value in (("starter",doc(0,4)), ("expanded",doc(0,6)),
                         ("goal",doc(816,6,True,100,600)), ("result",doc(816+int(a["--hold"]),6,True,120,600))):
         if BEHAVIOR == "equal-invalid": value = {"explicitly_fake":True}
-        if BEHAVIOR in ("false-goal", "partial-false-goal") and name == "goal": value = doc(816,4,True,100,600)
-        if BEHAVIOR == "burning-goal" and name == "goal": value["world"]["buildings"][0]["fire_until_tick"] = 9999
         (out/(name+".save.json")).write_text(json.dumps(value,sort_keys=True))
 elif mode == "resume":
     source = Path(a["--input"])
@@ -89,8 +87,16 @@ elif mode == "render" and BEHAVIOR not in ("render-no-images", "partial-no-image
     if BEHAVIOR == "render-truncated": image = image[:8]
     (out/"explicit-fake-guard-image.png").write_bytes(image)
 if BEHAVIOR == "mutate-original": (data/"Cities/Xia.map").write_bytes(b"changed fake source")
-(out/"report.json").write_text(json.dumps({"status":"PARTIAL" if BEHAVIOR.startswith("partial-") and mode == "create" else "PASS",
-    "input_preserved":True, "scope":"Explicit fake runner guards, never gameplay acceptance"}))
+report = {"status":"PARTIAL" if BEHAVIOR.startswith("partial-") and mode == "create" else "PASS",
+    "input_preserved":True, "scope":"Explicit fake runner guards, never gameplay acceptance"}
+if mode == "create":
+    report.update(goal_status="PASS", first_goal_tick=816, first_goal={"reached":True, "tick":816})
+    if BEHAVIOR in ("false-goal", "partial-false-goal"): report["first_goal"]["reached"] = False
+    if BEHAVIOR == "missing-goal": del report["first_goal"]
+    if BEHAVIOR == "malformed-goal": report["first_goal"]["reached"] = 1
+    if BEHAVIOR == "failed-goal-status": report["goal_status"] = "FAIL"
+    if BEHAVIOR == "different-goal-tick": report["first_goal"]["tick"] = 815
+(out/"report.json").write_text(json.dumps(report))
 ''')
         self.binary.chmod(0o700)
 
@@ -179,8 +185,8 @@ if BEHAVIOR == "mutate-original": (data/"Cities/Xia.map").write_bytes(b"changed 
         self.assertEqual(self.report()["status"], "FAIL")
         self.assertEqual(len(self.report()["processes"]), 1)
 
-    def test_claimed_goal_is_checked_independently(self):
-        for behavior in ("false-goal", "burning-goal"):
+    def test_goal_requires_the_production_world_result(self):
+        for behavior in ("false-goal", "missing-goal", "malformed-goal", "failed-goal-status", "different-goal-tick"):
             with self.subTest(behavior=behavior):
                 self.fake(behavior)
                 self.output = self.root / behavior

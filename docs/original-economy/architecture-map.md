@@ -168,8 +168,13 @@ See [testing.md](../testing.md) for build/sanitizer setup. With a configured `bu
 ```sh
 ctest --test-dir build --output-on-failure -R '^original-'
 cmake --build build --parallel 2 --target openemperor-original-longplay-acceptance
-python3 tools/test_original_longplay.py --binary build/openemperor-original-longplay-acceptance --data /path/to/game --output .local/longplay-check --scenario starter --ticks 20000
+python3 tools/test_original_longplay.py --binary build/openemperor-original-longplay-acceptance --data /path/to/game --output .local/original-economy/oe32/longplay-check --scenario starter --ticks 20000
 ```
+
+The [paid progression check](paid-progression.md) uses the same runner with
+`--scenario progression` and a new output under `.local/original-economy/oe34/`.
+It waits for the actual World goal, then measures at least 20000 additional ticks;
+goal acceptance and long-term operating stability are reported separately.
 
 `sh tools/play_original_economy.sh --help` documents the empty developer session;
 the play guide covers the menu starter. Dedicated runners remain under
