@@ -3,7 +3,7 @@
 OpenEmperor is an alpha. Supported sandbox behavior does not establish
 complete original-game compatibility.
 
-- **Original economy is experimental.** Rules10/11 are opt-in and include authored
+- **Original economy is experimental.** Rules10/11/12 are opt-in and include authored
   immigration, workforce, recipes, harvesting and school-to-house visits.
   Original venue/performer chains and illness are missing. Houses and productive
   buildings cannot yet be demolished; incompatible development saves are refused.
@@ -15,6 +15,12 @@ complete original-game compatibility.
   does not establish original Inspector's Tower124 identity or profitable economy.
   Its bounded arrival/tax provenance has a finite capacity; see
   [fire protection](docs/original-economy/oe36-fire-protection.md).
+  Separate [Rule12](docs/original-economy/oe37-sustainable-economy.md) adds three
+  paid Food chains and authored monthly installed upkeep. Existing Rules10/11
+  and saves retain their contracts; a cheaper invoice does not guarantee supply
+  or profitability for arbitrary cities. Its measured twelve-House plan sustains
+  current needs and positive operations for 100000 post-maturity ticks; higher
+  stages and unlimited stability remain unproven.
 - **Original sprites are incomplete.** Supported House stages use verified art;
   several other buildings, plants and walkers retain fallbacks. Empty Elite plots
   have no matching original body until their larger footprint materializes.

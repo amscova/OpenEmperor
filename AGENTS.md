@@ -29,7 +29,9 @@
   Original economy is independently opt-in: current rule10/policy3/schema26,
   development revision27. Authored fire protection is a separate explicit
   rule11/policy3/schema27 opt-in; it retains the revision27 economy. Historical
-  rules7/8/9 retain schemas23/24/25.
+  rules7/8/9 retain schemas23/24/25. Sustainable economy is a separate explicit
+  rule12/policy3/schema28 opt-in: three paid Food chains and authored installed
+  upkeep every 816 ticks; rules10/11 retain their two-chain/400-tick contracts.
 - Saves are OpenEmperor JSON, never original Emperor savegames. Validate complete
   identities, versions, source hashes, geometry, accounting, goods, paths and limits
   before atomic publication. Derived indexes/caches do not become saved authority.

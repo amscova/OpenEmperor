@@ -31,6 +31,18 @@ Wache als Besucher. Betriebspausen stoppen neue Fahrten, bereits entsandte
 Inspectors beenden ihre Fahrt. Brandschutz beseitigt das Wirtschaftsdefizit
 nicht; Kaufpreis und laufender Unterhalt kommen hinzu.
 
+**S Sustainable economy** startet separat **Rule12 / Schema28 / Policy3**.
+Hier sind drei regulär bezahlte Food-Farmen mit jeweils eigenem Feld erlaubt;
+der Unterhalt von 2 Funds pro benötigtem Mitarbeiter fällt alle 816 statt 400
+Ticks an. Alle Originalmodellwerte, Steuern, Erntezeiten und Brandschutzregeln
+bleiben erhalten. Alte Städte behalten ihre Regeln. Für den gezielten
+[Zwölf-Häuser-Ausbau](oe37-sustainable-economy.md) **Empty** wählen; der
+Vier-Häuser-Starter ist weiterhin eine eigene bezahlte Startoption.
+Der geprüfte Ausbau hält zwölf bewohnte Häuser und 318 Einwohner über 100000
+Ticks nach der Anlaufphase; vier volle 20400-Tick-Fenster erwirtschaften je 1950
+Funds nach sämtlichem Unterhalt. Das belegt diesen begrenzten Bauplan, keinen
+Gewinn für jede Stadt oder einen vollständigen Aufstieg zu höchsten Hausstufen.
+
 Der Starter bezahlt Straßen, vier Häuser, Wasser, Ancestor, Market, Food-/Hemp-
 Ketten, Clay/Pottery/Warehouse, Herbalist, Acupuncture und Music. Mit der
 geprüften Modelldatei bleiben **10596 von 12000 Funds**. Bewohner und Waren
@@ -90,6 +102,8 @@ Ihre begrenzte Besuchs-/Steuerhistorie kann voll werden; dann pausiert die Stadt
 vor dem nächsten Tick mit Diagnose, statt einen unprüfbaren Zustand zu erzeugen.
 Der letzte Stand bleibt speicherbar. Grenzen und Messwerte stehen im
 [Brandschutzvertrag](oe36-fire-protection.md).
+Rule12 verwendet denselben begrenzten Brandschutz und eine eigene Save-Version;
+auch seine sparsamere Finanzierung garantiert keinen Gewinn für jeden Ausbau.
 
 Rezepte, Ernte, Zuzug/Worker und Schule→Haus-Besuche enthalten eigene Regeln.
 Originale Veranstaltungs-/Performer-Abläufe und Krankheit fehlen. Mehrere

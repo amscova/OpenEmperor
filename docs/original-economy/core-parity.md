@@ -166,6 +166,11 @@ reviewed header pins include the separate fire-state header; fresh linked
 fork/current probes retain all74 previous cases, expectations and observations,
 including the unchanged real-model digest. The authored FireWatch integration
 does not acquire original-mechanics parity from this numerical comparison.
+Rule12's separate factories and capacity/invoice queries have a reviewed World
+header pin. Fresh linked probes still pass the same74 vectors with identical
+cases, expected/observed values, fork pins and real-model digest. Its authored
+economy changes are evaluated by the separate paid-city acceptance, not this
+kernel comparison. Raw build/library provenance remains under ignored `.local/`.
 
 The comparison uses independently specified vectors and expected outcomes for
 parser values, rings, needs, House transitions, timer effects, consumption,
