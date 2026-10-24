@@ -20,6 +20,7 @@ std::uint64_t paid_cost(Object kind) {
     case Object::Household:
     case Object::OriginalElitePlot:
     case Object::OriginalEliteHouse:return Rules::household_cost;
+    case Object::FireWatch:return Rules::fire_watch_cost;
     case Object::ClaySource:return Rules::clay_source_cost;
     case Object::Pottery:return Rules::pottery_cost;
     case Object::Warehouse:return Rules::warehouse_cost;
@@ -138,10 +139,31 @@ World World::create_original_production_development(std::shared_ptr<const MapPer
     world.rebuild_original_influence_cache();return world;
 }
 
+World World::create_original_fire_protection(std::shared_ptr<const MapPermissions> permissions,
+    std::shared_ptr<const original::OriginalRulesModel> model) {
+    auto world=create_original_production_development(std::move(permissions),std::move(model));
+    world.rule_version_=kOriginalFireProtectionRuleVersion;
+    world.original_production_->fire_protection.emplace();return world;
+}
+World World::restore_original_fire_protection(const WorldSnapshot& snapshot,
+    std::shared_ptr<const MapPermissions> permissions,
+    std::shared_ptr<const original::OriginalRulesModel> model) {
+    if (!simulation::original_fire_protection_enabled(snapshot.profile,snapshot.rule_version) ||
+        !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model)
+        invalid("original production restore requires explicit rule11, policy3 and prepared model");
+    const auto capacity=model->house_rules().row_capacity(original::ModelHouse::Shelter);
+    if (capacity<=0 || capacity>INT16_MAX) invalid("invalid original production Shelter capacity");
+    validate_original_production_snapshot(snapshot);
+    auto world=restore_impl(snapshot,{},std::move(permissions),true,std::move(model));
+    world.validate_original_hemp_model();world.validate_original_food_model();world.validate_original_consumption_model();
+    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();world.validate_original_industry_model();
+    world.validate_original_finance_model();return world;
+}
+
 World World::restore_original_production_development(const WorldSnapshot& snapshot,
     std::shared_ptr<const MapPermissions> permissions,
     std::shared_ptr<const original::OriginalRulesModel> model) {
-    if (!simulation::original_production_enabled(snapshot.profile,snapshot.rule_version) ||
+    if (snapshot.profile!=RulesProfile::CityV16 || snapshot.rule_version!=kOriginalProductionRuleVersion ||
         !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model)
         invalid("original production restore requires explicit rule10, policy3 and prepared model");
     const auto capacity=model->house_rules().row_capacity(original::ModelHouse::Shelter);
@@ -191,20 +213,22 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         const auto& b=s.buildings[i];mark(b.id);
         if ((i && !(s.buildings[i-1].id<b.id)) || b.placed_tick>s.ticks)
             invalid("original production buildings must be sorted with valid placement time");
+        if (b.kind==Object::FireWatch && !simulation::original_fire_protection_enabled(s.profile,s.rule_version))
+            invalid("Rule10 does not admit FireWatch");
         (void)paid_cost(b.kind);validate_neutral_fields(b);
         const auto footprint=building_footprint(s.profile,s.rule_version,b.kind);
         // Check by subtraction before any helper adds footprint offsets to an
         // untrusted origin. In particular, INT_MAX must never reach cell+1.
         if (b.cell.x<0 || b.cell.y<0 || b.cell.x>s.width-footprint.width || b.cell.y>s.height-footprint.height)
             invalid("original production building footprint outside saved grid");
-        if (b.kind==Object::ClaySource || b.kind==Object::Pottery || b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalFoodFarm ||
+        if (b.kind==Object::FireWatch || b.kind==Object::ClaySource || b.kind==Object::Pottery || b.kind==Object::Warehouse || b.kind==Object::Market || b.kind==Object::OriginalHempFarm || b.kind==Object::OriginalFoodFarm ||
             b.kind==Object::HealthPost || b.kind==Object::ServicePost || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72 ||
             b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 || b.kind==Object::OriginalConfucianAcademy219 ||
             b.kind==Object::OriginalMusicSchool211 ||
             b.kind==Object::OriginalAcrobatSchool212 || b.kind==Object::OriginalDramaSchool213 || original_industry_source(b.kind)) {
             if (courier_index>=s.couriers.size()) invalid("missing purchased original production courier");
             const auto& c=s.couriers[courier_index];
-            const auto role=original_industry_source(b.kind) ? (original_industry_goods::output(b.kind) ? CourierRole::OriginalLuxuryToWarehouse:CourierRole::OriginalAuxToWarehouse):
+            const auto role=b.kind==Object::FireWatch ? CourierRole::FireInspector:original_industry_source(b.kind) ? (original_industry_goods::output(b.kind) ? CourierRole::OriginalLuxuryToWarehouse:CourierRole::OriginalAuxToWarehouse):
                 b.kind==Object::OriginalWaterWell72 ? CourierRole::OriginalWater:b.kind==Object::HealthPost ? CourierRole::HealthWorker:
                 b.kind==Object::ServicePost ? CourierRole::Service:
                 b.kind==Object::OriginalMusicSchool211 ? CourierRole::OriginalMusic:
@@ -300,6 +324,7 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
     validate_original_services_snapshot(s);
     validate_original_water_snapshot(s);
     validate_original_housing_snapshot(s);
+    validate_original_fire_protection_snapshot(s);
     validate_original_finance_snapshot(s);
     validate_original_industry_snapshot(s);
     std::uint64_t hemp=0;for (const auto& farm:s.original_production->hemp_farms) hemp+=farm.harvested;
@@ -330,7 +355,8 @@ void World::validate_original_production_snapshot(const WorldSnapshot& s) {
         c.role!=CourierRole::HealthWorker && c.role!=CourierRole::Service && c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater &&
         c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian && c.role!=CourierRole::OriginalMusic &&
         c.role!=CourierRole::OriginalAcrobat && c.role!=CourierRole::OriginalDrama &&
-        c.role!=CourierRole::OriginalLuxuryToWarehouse && c.role!=CourierRole::OriginalAuxToWarehouse && c.role!=CourierRole::OriginalAuxSupplier)
+        c.role!=CourierRole::OriginalLuxuryToWarehouse && c.role!=CourierRole::OriginalAuxToWarehouse && c.role!=CourierRole::OriginalAuxSupplier &&
+        !(simulation::original_fire_protection_enabled(s.profile,s.rule_version) && c.role==CourierRole::FireInspector))
         invalid("unsupported original production courier role");
 }
 
@@ -485,6 +511,7 @@ void World::tick_original_production() {
     const auto next=original::advance_scheduler_tick(ticks_);
     const auto dispatch=*original::next_scheduler_dispatch(ticks_);
     if (next>UINT64_MAX-Rules::fire_incident_ticks) throw std::overflow_error("original production Fire clock exhausted");
+    if (original_fire_protection_enabled()) preflight_original_fire_tick();
     book_original_finance_tick(next);
     capture_tick_staffing();ticks_=next;
     // Staffing belongs to the pre-tick population. Immigration cannot staff a

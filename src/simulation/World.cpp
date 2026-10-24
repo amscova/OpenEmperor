@@ -255,6 +255,13 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
         kind==Object::Household ? original_house_kind(target.kind):target.kind==kind;
 }
 
+bool courier_can_target(CourierRole role,const BuildingState& target,
+                        RulesProfile profile,std::uint32_t rule_version) {
+    if (role==CourierRole::FireInspector)
+        return target.placed && fire_eligible(target.kind,profile,rule_version);
+    return courier_can_target(role,target);
+}
+
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
     if (original_production_enabled(profile,rule_version)) {
         if (kind==Object::OriginalElitePlot) return {2,2};
@@ -400,7 +407,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=10;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=11;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -433,7 +440,9 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v9{9,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==9) return city_v16_v9;
     static constexpr ProfileRules city_v16_v10{10,32,64,32,5,800};
-    if (original_production_enabled(profile,version)) return city_v16_v10;
+    if (profile==RulesProfile::CityV16 && version==kOriginalProductionRuleVersion) return city_v16_v10;
+    static constexpr ProfileRules city_v16_v11{11,32,64,32,5,800};
+    if (original_fire_protection_enabled(profile,version)) return city_v16_v11;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};
@@ -1345,7 +1354,9 @@ CommandResult World::validate(Command command) const {
     if (command.type==CommandType::PlaceOriginalInfluenceSource ||
         (original_influence_enabled() && command.type==CommandType::DemolishBuilding))
         return validate_original_influence_command(command);
-    if (original_production_enabled() && !industry_construction && command.type!=CommandType::PlaceRoad &&
+    if (original_production_enabled() && !industry_construction &&
+        !(original_fire_protection_enabled() && command.type==CommandType::PlaceFireWatch) &&
+        command.type!=CommandType::PlaceRoad &&
         command.type!=CommandType::RemoveRoad && command.type!=CommandType::PlaceBridge &&
         command.type!=CommandType::PlaceRamp && command.type!=CommandType::PlaceHousehold && command.type!=CommandType::PlaceOriginalElitePlot &&
         command.type!=CommandType::PlaceClaySource && command.type!=CommandType::PlacePottery &&
@@ -2314,7 +2325,7 @@ void World::refresh_routes() {
             courier.dynamic_target_routes.clear();
             const auto& source=building(courier.owner);
             if (source.placed) for (const auto& target:buildings_)
-                if (courier_can_target(courier.role,target) && target.id!=source.id)
+                if (courier_can_target(courier.role,target,profile_,rule_version_) && target.id!=source.id)
                     courier.dynamic_target_routes.emplace_back(target.id,
                         find_building_route(source.id,target.id));
             courier.cached_route.reset();
@@ -2438,7 +2449,7 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
         if (!service && source_stock<=0) return {CourierDispatchStatus::NoStock,std::nullopt};
         std::vector<const BuildingState*> targets;
         for (const auto& b:buildings_)
-            if (courier_can_target(c.role,b) && b.id!=source.id) targets.push_back(&b);
+            if (courier_can_target(c.role,b,profile_,rule_version_) && b.id!=source.id) targets.push_back(&b);
         if (targets.empty()) return {CourierDispatchStatus::NoTarget,std::nullopt};
         if (c.role==CourierRole::HealthWorker) {
             // Reachability comes exclusively from the ordinary topology cache.
@@ -2826,13 +2837,15 @@ void World::dispatch_v2(CourierState& courier) {
     if (service_role(courier.role) && scalable(profile_)) {
         if ((courier.role==CourierRole::Service ? source.kind!=Object::ServicePost:
                 (courier.role==CourierRole::HealthWorker ? source.kind!=Object::HealthPost:
-                 source.kind!=Object::FireWatch)) || !courier_can_target(courier.role,target) ||
+                 source.kind!=Object::FireWatch)) || !courier_can_target(courier.role,target,profile_,rule_version_) ||
             courier.good!=Good::Goods || courier.cargo || courier.reserved)
             throw std::logic_error("invalid Service visit relation");
         courier.path=*route; courier.target=target_id;
         courier.last_dispatched_target=target_id;
         courier.path_vertex=0; courier.edge_progress=0; courier.route_pending=false;
         courier.route_checked_revision.reset(); courier.phase=CourierPhase::ToWarehouse;
+        if (original_fire_protection_enabled() && courier.role==CourierRole::FireInspector)
+            record_original_fire_dispatch(courier);
         return;
     }
     if (selected_service_home) {
@@ -2854,7 +2867,7 @@ void World::dispatch_v2(CourierState& courier) {
     int destination_stock=0,capacity=0;
     switch (courier.role) {
     case CourierRole::Clay:
-        if (source.kind!=Object::ClaySource || !courier_can_target(courier.role,target) ||
+        if (source.kind!=Object::ClaySource || !courier_can_target(courier.role,target,profile_,rule_version_) ||
             courier.good!=Good::Clay) throw std::logic_error("invalid Clay delivery relation");
         source_stock=&source.output; destination_stock=target.input_clay;
         capacity=Rules::pottery_input_capacity; break;
@@ -3012,6 +3025,8 @@ void World::move_v2(CourierState& courier) {
     if (++courier.edge_progress<active_rules().courier_edge_ticks) return;
     courier.edge_progress=0;
     ++courier.path_vertex;
+    if (original_fire_protection_enabled() && courier.role==CourierRole::FireInspector &&
+        courier.phase==CourierPhase::ToWarehouse) record_original_fire_step(courier);
     if (courier.route_pending) {
         const auto reached=courier.path.at(courier.path_vertex);
         courier.path={reached};
@@ -3027,16 +3042,17 @@ void World::move_v2(CourierState& courier) {
     if (courier.phase==CourierPhase::ToWarehouse) {
         auto& target=mutable_building(courier.target);
         if (courier.role==CourierRole::HealthWorker) {
-            if (!health_profile(profile_) || !courier_can_target(courier.role,target) ||
+            if (!health_profile(profile_) || !courier_can_target(courier.role,target,profile_,rule_version_) ||
                 courier.cargo || courier.reserved)
                 throw std::logic_error("invalid Health Worker arrival");
             if (household_sick(target.id)) target.sick_until_tick=ticks_;
             target.health_risk=0;
             target.health_protection_until_tick=ticks_+Rules::health_protection_ticks;
         } else if (courier.role==CourierRole::FireInspector) {
-            if (!fire_profile(profile_) || !courier_can_target(courier.role,target) ||
+            if (!fire_profile(profile_) || !courier_can_target(courier.role,target,profile_,rule_version_) ||
                 courier.cargo || courier.reserved)
                 throw std::logic_error("invalid Fire Inspector arrival");
+            if (original_fire_protection_enabled()) record_original_fire_arrival(courier);
             target.fire_until_tick=ticks_;
             target.fire_risk=0;
             target.fire_protection_until_tick=ticks_+Rules::fire_protection_ticks;
@@ -3497,11 +3513,11 @@ bool World::industry_balance_valid() const {
                 const auto found=std::lower_bound(reservations.begin(),reservations.end(),c.target,
                     [](const auto& value,BuildingId key) { return value.first<key; });
                 if (found==reservations.end() || found->first!=c.target) return false;
-                if (!courier_can_target(c.role,building(c.target))) return false;
+                if (!courier_can_target(c.role,building(c.target),profile_,rule_version_)) return false;
                 found->second+=c.reserved;
             }
             if (c.last_dispatched_target &&
-                !courier_can_target(c.role,building(*c.last_dispatched_target))) return false;
+                !courier_can_target(c.role,building(*c.last_dispatched_target),profile_,rule_version_)) return false;
         }
         if (clay_couriers!=clay_count || pottery_couriers!=pottery_count ||
             service_couriers!=service_count || fire_couriers!=fire_watch_count ||
@@ -4485,10 +4501,10 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                 (c.role==CourierRole::HealthWorker && !health_profile(s.profile)))
                 fail("invalid scalable City courier owner, role, or good");
             if (c.phase!=CourierPhase::IdleAtWorkshop &&
-                !courier_can_target(c.role,target))
+                !courier_can_target(c.role,target,s.profile,s.rule_version))
                 fail("invalid scalable City courier target");
             if (c.last_dispatched_target) {
-                if (!courier_can_target(c.role,w.building(*c.last_dispatched_target)) ||
+                if (!courier_can_target(c.role,w.building(*c.last_dispatched_target),s.profile,s.rule_version) ||
                     c.target!=*c.last_dispatched_target)
                     fail("invalid scalable City courier cursor target");
             } else if (c.phase==CourierPhase::IdleAtWorkshop && c.target!=c.owner)

@@ -32,7 +32,7 @@ bool Layout::ui_at(double x,double y) const {
         panel.contains(x,y);
 }
 
-Layout make_layout(int width,int height,int window_width,int window_height,bool open,bool fire_watch,bool desirability,bool water,bool health,bool income,bool service,bool bridges,bool ramps,bool original_production,bool industry_page) {
+Layout make_layout(int width,int height,int window_width,int window_height,bool open,bool fire_watch,bool desirability,bool water,bool health,bool income,bool service,bool bridges,bool ramps,bool original_production,bool industry_page,bool original_fire_protection) {
     Layout out;
     out.scale=std::max(1,static_cast<int>(std::lround(std::min(
         width/static_cast<double>(std::max(1,window_width)),
@@ -58,6 +58,7 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
         tools.push_back(Action::OriginalMusicSchool);tools.push_back(Action::OriginalAcrobatSchool);tools.push_back(Action::OriginalDramaSchool);
     }
     if (original_production) {
+        if (original_fire_protection) tools.push_back(Action::FireWatch);
         tools.push_back(Action::ToggleIndustryPage);
         if (industry_page) tools={Action::Select,Action::Road,Action::RemoveRoad,Action::Household,Action::Warehouse,Action::Market,
             Action::OriginalLoggingShed,Action::OriginalBronzeSmelter,Action::OriginalBronzewareMaker,

@@ -28,6 +28,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace openemperor {
@@ -402,6 +403,17 @@ std::string joined_buildings(const std::vector<simulation::Object>& kinds) {
 }
 }
 
+std::unique_ptr<SandboxView> SandboxView::create_original_fire_protection(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original fire-protection difficulty");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalFireProtectionRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
+
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version)
     : SandboxView(std::move(session),demo,rules,rule_version,false) {}
@@ -450,7 +462,7 @@ SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::Ru
     if (!simulation::rule_version_supported(rules_,requested_rule_version_))
         throw std::invalid_argument("unsupported sandbox rule version");
     if (simulation::original_economy_enabled(rules_,requested_rule_version_) && !original_save_fixture_)
-        throw std::invalid_argument(requested_rule_version_==simulation::kOriginalProductionRuleVersion ?
+        throw std::invalid_argument(simulation::original_production_enabled(rules_,requested_rule_version_) ?
             "Original economy requires its explicit optional entry" :
             "Rule 7 original economy runtime is not available yet; "
             "use --sandbox-original-economy-check for developer diagnostics");
@@ -513,7 +525,8 @@ void SandboxView::load_now() {
          (original_requested_difficulty_ &&
           document.world.original_economy->model_source->difficulty!=*original_requested_difficulty_)))
         throw std::runtime_error("Saved original difficulty differs from this running session");
-    auto replacement=original_production_fixture() ?
+    auto replacement=original_fire_protection() ?
+        persistence::restore_original_fire_protection(document,data_root_,buildable_mask_) : original_production_fixture() ?
         persistence::restore_original_production_development(document,data_root_,buildable_mask_) : original_goods_fixture() ?
         persistence::restore_original_goods_development(document,data_root_,buildable_mask_) : original_influence_fixture() ?
         persistence::restore_original_influence_development(document,data_root_,buildable_mask_) : original_save_fixture_ ?
@@ -608,7 +621,9 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(original_production_fixture() ?
+        world_=std::make_unique<simulation::World>(original_fire_protection() ?
+            persistence::restore_original_fire_protection(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) : original_production_fixture() ?
             persistence::restore_original_production_development(*initial_save_,data_root_,
                 buildable_mask_,std::move(permissions)) : original_goods_fixture() ?
             persistence::restore_original_goods_development(*initial_save_,data_root_,
@@ -623,6 +638,10 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (original_fire_protection()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_fire_protection(
+            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal))));
     } else if (original_production_fixture()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_production_development(
             std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
@@ -668,7 +687,8 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(original_production_fixture())title+=" | save schema 26 | original economy development "+
+    if(original_fire_protection())title+=" | save schema 27 | original economy + authored fire protection";
+    else if(original_production_fixture())title+=" | save schema 26 | original economy development "+
         std::to_string(simulation::kOriginalProductionDevelopmentRevision);
     else if(original_goods_fixture())title+=" | save schema 25 | goods accounting development";
     else if(original_influence_fixture())title+=" | save schema 24 | Well72 influence development";
@@ -1682,7 +1702,7 @@ void SandboxView::update_layout(bool preserve_center) {
         simulation::market_profile(rules_),simulation::service_profile(rules_),
         world_ ? world_->bridges_supported():simulation::bridges_rule_enabled(rules_,requested_rule_version_),
         world_ ? world_->ramps_supported():simulation::ramps_rule_enabled(rules_,requested_rule_version_),
-        original_production_fixture(),industry_page_);
+        original_production_fixture(),industry_page_,original_fire_protection());
     if (preserve_center && next.map.x==layout_.map.x && next.map.y==layout_.map.y &&
         next.map.w==layout_.map.w && next.map.h==layout_.map.h) {layout_=next;return;}
     // Panel toggles and resize change the clipped viewport before another
@@ -2178,7 +2198,7 @@ bool SandboxView::action_enabled(sandbox_ui::Action action) const {
     }
     if (original_production_fixture()) {
         using A=sandbox_ui::Action;
-        if (action==A::Farm || action==A::FireWatch ||
+        if (action==A::Farm || (action==A::FireWatch && !original_fire_protection()) ||
             action==A::Health || action==A::ServiceOverlay ||
             action==A::Water || action==A::Reset) return false;
     } else if (original_influence_fixture()) {
@@ -2271,8 +2291,12 @@ bool SandboxView::action_enabled(sandbox_ui::Action action) const {
             count_kind(simulation::Object::ServicePost)<
                 ((simulation::scalable_profile(rules_)) ? 2:1);
     if (action==sandbox_ui::Action::FireWatch)
-        return simulation::fire_profile(rules_) && count_kind(simulation::Object::FireWatch)<
-            static_cast<std::ptrdiff_t>(simulation::Rules::fire_watch_limit);
+        return simulation::fire_profile(rules_) &&
+            (!original_production_fixture() || original_fire_protection()) &&
+            count_kind(simulation::Object::FireWatch)<static_cast<std::ptrdiff_t>(simulation::Rules::fire_watch_limit) &&
+            (!original_fire_protection() ||
+             (world_->buildings().size()<simulation::Rules::original_production_building_limit &&
+              world_->couriers().size()<simulation::Rules::original_production_courier_limit));
     if (action==sandbox_ui::Action::Market)
         return simulation::market_profile(rules_) &&
             count_kind(simulation::Object::Market)<
@@ -2527,7 +2551,11 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         last_message_=desirability_overlay_ ? "Desirability ON: green Good, amber Neutral, red Poor":
             "Desirability OFF";
     } else if (action==A::Pause) clock_.toggle_pause();
-    else if (action==A::Step) { clock_.step_once(*world_); clear_hidden_walker_selection(); }
+    else if (action==A::Step) {
+        try { clock_.step_once(*world_); }
+        catch (const std::overflow_error& error) { if (!pause_for_original_fire_limit(error.what())) throw; }
+        clear_hidden_walker_selection();
+    }
     else if (action==A::Speed1) clock_.set_speed(1);
     else if (action==A::Speed2) clock_.set_speed(2);
     else if (action==A::Speed4) clock_.set_speed(4);
@@ -3115,11 +3143,23 @@ void SandboxView::update(double seconds,PanKeyState keys) {
         hover_dirty_=true;
     }
     if (hover_dirty_ || road_start_ || bridge_start_ || ramp_start_) refresh_hover();
-    clock_.update(seconds,*world_);
+    try { clock_.update(seconds,*world_); }
+    catch (const std::overflow_error& error) { if (!pause_for_original_fire_limit(error.what())) throw; }
     clear_hidden_walker_selection();
 }
+bool SandboxView::pause_for_original_fire_limit(const char* reason) {
+    // World performs this particular finite-proof check before any tick mutation.
+    // Other failures and all historical exception behavior remain unchanged.
+    if (!original_fire_protection() || std::string_view(reason)!=
+        "Rule11 bounded fire/tax provenance exhausted before tick") return false;
+    clock_.pause_and_reset();last_message_=reason;
+    return true;
+}
 void SandboxView::tick_once() {
-    if (!budget_warning_ && !pending_demolition_) world_->tick();
+    if (!budget_warning_ && !pending_demolition_) {
+        try { world_->tick(); }
+        catch (const std::overflow_error& error) { if (!pause_for_original_fire_limit(error.what())) throw; }
+    }
     clear_hidden_walker_selection();
 }
 simulation::CommandResult SandboxView::execute(simulation::Command command) {
@@ -3550,7 +3590,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
                                      bool placement_preview)->bool {
         if (placement_preview || !simulation::fire_profile(rules_)) return true;
         const auto owner=world_->building_owner_at(cell);
-        if (!owner || !simulation::fire_eligible(world_->building(*owner).kind)) return true;
+        if (!owner || !simulation::fire_eligible(world_->building(*owner).kind,rules_,world_->rule_version())) return true;
         const bool burning=world_->building_on_fire(*owner);
         if (burning && fire_profile_ && fire_sprites_) {
             const auto frame=fire_frame_for(*owner);
@@ -4720,10 +4760,25 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         const auto diagnostic=road_connectivity_lines();
         lines.insert(lines.end(),diagnostic.begin(),diagnostic.end());
     };
+    const auto add_fire_status=[&](simulation::BuildingId id) {
+        const auto& body=world_->building(id);
+        if (!original_fire_protection() || !simulation::fire_eligible(body.kind,rules_,world_->rule_version())) return;
+        lines.push_back("Fire risk: "+std::to_string(body.fire_risk)+"/"+
+            std::to_string(simulation::Rules::fire_risk_threshold));
+        lines.push_back(world_->building_on_fire(id) ?
+            "ON FIRE - "+std::to_string(world_->fire_remaining(id))+" ticks remaining":
+            world_->building_fire_protected(id) ?
+            "Protection active - "+std::to_string(world_->fire_protection_remaining(id))+" ticks":"Unprotected");
+    };
     if (fire_watch_selected()) {
         const auto id=*selected_building();
         const auto& b=world_->building(id);
         lines.push_back("Fire Watch #"+std::to_string(static_cast<std::uint32_t>(id)));
+        if (original_fire_protection()) {
+            lines.push_back("Authored price $80; requires 2 workers");
+            lines.push_back("Actual arrival grants 2400 ticks protection");
+            add_fire_status(id);
+        }
         lines.push_back("Workers assigned "+std::to_string(world_->workers_assigned(id))+"/"+
             std::to_string(world_->workforce_required(id)));
         lines.push_back(std::string("Operation: ")+(b.operating_enabled ? "Running":"Paused"));
@@ -4743,7 +4798,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             std::to_string(world_->fire_eligible_buildings()));
         lines.push_back("City-wide burning "+std::to_string(world_->burning_buildings()));
         if (debug_open_) {
-            lines.push_back("Fireproof; footprint 1x1");
+            lines.push_back(original_fire_protection() ? "Can burn; footprint 1x1":"Fireproof; footprint 1x1");
             const auto inspector=fire_inspector_display_stats();
             lines.push_back(inspector.active ? "Inspector: curated original walk clip":
                 "Inspector marker: "+inspector.fallback_reason);
@@ -4793,7 +4848,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         for (const auto& actor:world_->couriers()) if (actor.owner==id)
             lines.push_back(std::string(displayed_courier_good(*world_,actor))+" cargo "+std::to_string(displayed_courier_cargo(*world_,actor)));
         lines.push_back("Marker art; original pending");
-        add_connectivity();return wrap_panel_lines(lines);
+        add_fire_status(id);add_connectivity();return wrap_panel_lines(lines);
     }
     if (original_influence_fixture() && house_id) {
         const auto& b=world_->building(*house_id);
@@ -4829,6 +4884,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             if (tax.last_assessment) lines.push_back("Last tax tick "+std::to_string(tax.last_assessment->tick)+
                 " type"+std::to_string(static_cast<unsigned>(tax.last_assessment->type))+
                 " residents"+std::to_string(tax.last_assessment->occupants));
+            add_fire_status(*house_id);
             lines.push_back("Scroll: housing diagnosis");
             lines.push_back(std::string(simulation::original_housing_type_name(h.type)));
             const auto visual=original_house_visual_diagnostic(*house_id);
@@ -4992,7 +5048,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 lines.push_back("No future visit promised");
             }
         }
-        add_connectivity();return wrap_panel_lines(lines);
+        add_fire_status(id);add_connectivity();return wrap_panel_lines(lines);
     }
     if (house_id && world_->building(*house_id).kind==simulation::Object::HealthPost) {
         const auto id=*house_id;
@@ -5126,7 +5182,7 @@ std::vector<std::string> SandboxView::inspection_lines() const {
     add_connectivity();
     if (simulation::market_profile(rules_) && b.kind==simulation::Object::Household) add_house_income(*id);
     add_maintenance(*id);
-    if (simulation::fire_profile(rules_) && simulation::fire_eligible(b.kind)) {
+    if (simulation::fire_profile(rules_) && simulation::fire_eligible(b.kind,rules_,world_->rule_version())) {
         lines.push_back("Fire risk: "+std::to_string(b.fire_risk)+"/"+
             std::to_string(simulation::Rules::fire_risk_threshold));
         lines.push_back(world_->building_on_fire(*id) ?
@@ -5318,7 +5374,9 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         lines.push_back("Food stock "+std::to_string(b.food_stock)+"/16");
         lines.push_back("Food incoming "+std::to_string(b.reserved_food_incoming));
     } else if (b.kind==simulation::Object::FireWatch) {
-        lines.push_back("Fire Watch - fireproof");
+        lines.push_back(original_fire_protection() ? "Authored Fire Watch | $80 | 2 workers":"Fire Watch - fireproof");
+        if (original_fire_protection())
+            lines.push_back("Inspector arrival grants 2400 ticks protection");
         lines.push_back(std::string("Staffed ")+(world_->building_staffed(*id) ? "yes":"no"));
         lines.push_back("Protected "+std::to_string(world_->protected_buildings())+"/"+
             std::to_string(world_->fire_eligible_buildings()));
@@ -5943,7 +6001,8 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(original_production_fixture())overview+=" | Policy 3 | Save 26 | Production development "+
+        if(original_fire_protection())overview+=" | Policy 3 | Save 27 | Authored fire protection";
+        else if(original_production_fixture())overview+=" | Policy 3 | Save 26 | Production development "+
             std::to_string(simulation::kOriginalProductionDevelopmentRevision);
         else if(original_goods_fixture())overview+=" | Policy 3 | Save 25 | Goods accounting development";
         else if(original_influence_fixture())overview+=" | Policy 3 | Save 24 | Well72 influence development";
@@ -6049,8 +6108,8 @@ bool SandboxView::draw_hud() {
         case A::Well: return original_influence_fixture() ? "I Influence $60":"I Well $60";
         case A::Water: return water_overlay_ ? "U Water ON":"U Water";
         case A::Desirability: return desirability_overlay_ ? "D Desirability ON":"D Desirability";
-        case A::FireWatch: return "F Fire Watch $"+
-            std::to_string(simulation::Rules::fire_watch_cost);
+        case A::FireWatch: return original_fire_protection() ? "F Watch $80 2W":
+            "F Fire Watch $"+std::to_string(simulation::Rules::fire_watch_cost);
         case A::Pause: return clock_.paused()?"Continue":"Pause";
         case A::Step: return "Step";
         case A::Speed1: return "1x";
@@ -6612,7 +6671,8 @@ bool SandboxView::draw_help_overlay() {
             "O Food Farm | W Wheat | L Millet", "N Hemp Farm | M Hemp Field",
             "J Herbalist | 9 Acupuncture", "0 Market | 5 Select | 1 Road",
             "F5 Save | F9 Load | Space Pause", "Panel wheel scrolls; sources need workers",
-            "Actual arrivals supply Houses", "Water is evaluated on phase28",
+            original_fire_protection() ? "F Watch: $80; 2 workers (2W)":"Actual arrivals supply Houses",
+            original_fire_protection() ? "Inspector arrival:2400 ticks protection":"Water is evaluated on phase28",
             "PageUp/Down: sections | F10: overlays", "Plain needs Water/Food/Ancestor",
             "Schools: experimental direct visits", "T:816t tax;2/worker/400t upkeep",
             building_profile_ && building_profile_->original_house_prepared ?

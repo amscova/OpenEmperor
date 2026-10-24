@@ -195,6 +195,93 @@ void capture_failure_recovery(SDL_Window* window,SDL_Renderer* renderer) {
           "Optional Recovery capture failure prevented candidate commit or changed prior files");
     fs::rename(held,model);menu.shutdown();
 }
+void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer) {
+    // Independently authored map/model: normal MenuSession and production View,
+    // ordinary paid World commands and actual SDL F5/F9. Real Xia acceptance
+    // remains a separate original-data run.
+    oe::testing::economy::Temp source;const auto data=source.root/"data",app=source.root/"fire-app";
+    oe_production_fixture::write_model(data);seed_preferences(app,data);
+    auto dialog=std::make_unique<Dialog>();auto* callbacks=dialog.get();
+    Menu menu({},app,std::move(dialog));menu.initialize(window,renderer);
+    expect_legacy_preferences(menu);
+    check(!menu.original_setup() && !menu.original_fire_protection_setup(),"Rule11 became a fresh-menu default");
+    check_bounds(menu,"F Original fire protection");
+    click(menu,window,renderer,"F Original fire protection");wait_check(menu);
+    check(menu.original_setup() && menu.original_fire_protection_setup() &&
+        menu.map_rules_result().request.rule_version==11 && menu.map_rules_result().request.policy_version==3,
+        "Explicit Rule11 menu option did not preflight its own policy3 contract");
+    key(menu,SDLK_RETURN);finish_load(menu);
+    check(menu.state()==Menu::State::Playing && menu.sandbox()->world().original_fire_protection_enabled() &&
+        menu.sandbox()->paused() && house_count(menu.sandbox()->world())==4,
+        "Rule11 menu did not buy the actual four-house plan and publish it paused");
+    auto& view=*menu.sandbox();
+    const auto tool=std::find_if(view.layout().buttons.begin(),view.layout().buttons.end(),
+        [](const auto& button){return button.action==oe::sandbox_ui::Action::FireWatch;});
+    check(tool!=view.layout().buttons.end(),"Rule11 ordinary toolbar has no FireWatch action");
+    key(menu,SDLK_F);check(view.tool()==11,"Rule11 F key did not choose the ordinary FireWatch tool");
+    const auto first=std::find_if(view.world().buildings().begin(),view.world().buildings().end(),
+        [](const auto& b){return sim::original_house_kind(b.kind);});
+    check(first!=view.world().buildings().end(),"Paid starter has no actual House anchor");
+    const sim::Cell watch_cell{first->cell.x+13,first->cell.y+1};
+    const auto funds=view.world().treasury();
+    const auto purchased=view.execute({sim::CommandType::PlaceFireWatch,watch_cell});
+    check(purchased.accepted && purchased.changed && view.world().treasury()==funds-80,
+        "Rule11 View did not pay the actual authored80-Funds Watch price");
+    const auto watch=*view.world().building_owner_at(watch_cell);
+    check(view.world().workforce_required(watch)==2,"Rule11 Watch does not require its authored2 workers");
+    bool moving=false;
+    for (int i=0;i<1500 && !moving;++i) {
+        view.tick_once();
+        moving=std::any_of(view.world().couriers().begin(),view.world().couriers().end(),[](const auto& c){
+            return c.role==sim::CourierRole::FireInspector && c.phase!=sim::CourierPhase::IdleAtWorkshop && c.edge_progress>0;
+        });
+    }
+    check(moving,"Rule11 menu city did not earn an actual staffed Inspector trip");
+    key(menu,SDLK_F5);const auto manual=menu.settings().last_save;
+    const auto saved=view.capture_save_document();const auto bytes=oe_influence_fixture::read_text(manual);
+    check(oe::persistence::read_save(manual).source_schema_version==27,"Rule11 F5 wrote another save schema");
+    for (int i=0;i<20;++i) view.tick_once();
+    key(menu,SDLK_F9);same(saved,view.capture_save_document());
+    check(oe_influence_fixture::read_text(manual)==bytes,"Rule11 midflight F9 changed its input save bytes");
+    while (view.world().ticks()<saved.world.ticks+1250) view.tick_once();
+    menu.update(0);
+    const auto catalog=recovery_catalog(menu,app);
+    const auto history=std::find_if(catalog.histories.begin(),catalog.histories.end(),[&](const auto& h){
+        return h.history_id==menu.recovery_history_id();
+    });
+    check(history!=catalog.histories.end() && history->error.empty() && history->entries.size()>=2,
+        "Rule11 autosave did not retain a protected start and due checkpoint");
+    for (const auto& e:history->entries) check(e.loadable() && e.schema==27 && e.rule_version==11,
+        "Rule11 recovery history is not a valid exact schema27/rule11 tuple");
+    const auto checkpoint=history->entries.front();const auto checkpoint_bytes=oe_influence_fixture::read_text(checkpoint.path);
+    key(menu,SDLK_F5); // Resolve real dirty progress before the independent recovery load.
+    external_load(menu,*callbacks,window,renderer,checkpoint.path);
+    check(menu.state()==Menu::State::Playing && menu.sandbox()->world().rule_version()==11,
+        "Normal file chooser did not restore Rule11 recovery as Rule11");
+    same(oe::persistence::read_save(checkpoint.path),menu.sandbox()->capture_save_document());
+    key(menu,SDLK_F5);
+    check(menu.settings().last_save!=checkpoint.path && oe_influence_fixture::read_text(checkpoint.path)==checkpoint_bytes,
+        "Rule11 F5 overwrote an owned recovery checkpoint");
+    expect_legacy_preferences(menu);menu.shutdown();
+
+    auto fresh_dialog=std::make_unique<Dialog>();auto* fresh_callbacks=fresh_dialog.get();
+    Menu fresh({},app,std::move(fresh_dialog));fresh.initialize(window,renderer);
+    check(!fresh.original_setup() && !fresh.original_fire_protection_setup(),"Rule11 selection persisted as a new-game default");
+    external_load(fresh,*fresh_callbacks,window,renderer,manual);
+    check(fresh.state()==Menu::State::Playing && fresh.sandbox()->world().rule_version()==11 &&
+        house_count(fresh.sandbox()->world())==4,"Restart/reload changed Rule11 or repeated the paid starter");
+    key(fresh,SDLK_ESCAPE);enter_original(fresh,window,renderer);wait_map(fresh);
+    check(!fresh.original_fire_protection_setup(),"Old O Original economy menu inherited Rule11");
+    key(fresh,SDLK_RETURN);finish_load(fresh);
+    check(fresh.state()==Menu::State::Playing && fresh.sandbox()->world().rule_version()==10,
+        "Existing Original menu changed from Rule10");
+    fresh.sandbox()->set_tool(11);check(fresh.sandbox()->tool()!=11,"Rule10 UI now exposes FireWatch");
+    const auto& current=fresh.sandbox()->world();const auto before=current.snapshot();
+    check(!fresh.sandbox()->execute({sim::CommandType::PlaceFireWatch,watch_cell}).accepted && current.snapshot()==before,
+        "Rule10 stopped atomically refusing FireWatch after a Rule11 session");
+    fresh.shutdown();
+}
+
 void process_write(const fs::path& root,SDL_Window* window,SDL_Renderer* renderer) {
     check(!fs::exists(root),"Process-save evidence root must be fresh");
     oe::testing::economy::Temp source;fs::create_directories(root);
@@ -245,6 +332,7 @@ int main(int argc,char** argv) {
             process_load(fs::absolute(argv[2]),window,renderer);
         } else {
             check(argc==1 || (argc==3 && std::string_view(argv[1])=="--capture"),"Unknown Original menu test arguments");
+            fire_protection_menu(window,renderer);
             capture_failure_recovery(window,renderer);
             const fs::path captures=argc==3 ? fs::absolute(argv[2]):fs::path{};
             oe::testing::economy::Temp temp;const auto root=fs::canonical(temp.root),data=root/"data",app=root/"app";

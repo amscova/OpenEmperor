@@ -39,6 +39,7 @@ public:
     const maps::MapRulesResult& map_rules_result() const { return map_preflight_.result(); }
     bool map_rules_can_start() const;
     bool original_setup() const { return original_new_game_; }
+    bool original_fire_protection_setup() const { return original_fire_protection_new_game_; }
     original::Difficulty original_difficulty() const { return original_difficulty_; }
     bool original_paid_starter() const { return original_paid_starter_; }
     std::string recovery_history_id() const { return autosave_ ? autosave_->history_id():std::string{}; }
@@ -96,6 +97,7 @@ private:
     bool ramps_new_game_=false; // Explicit rule6 setup, never a saved default or migration.
     bool bridges_new_game_=false; // Explicit setup choice, never a default/save upgrade.
     bool original_new_game_=false; // Session-only opt-in; never a RulesProfile/settings default.
+    bool original_fire_protection_new_game_=false; // Explicit Rule11 session choice, never a default.
     original::Difficulty original_difficulty_=original::Difficulty::Normal;
     bool original_paid_starter_=true;
     MapRulesPreflight map_preflight_;

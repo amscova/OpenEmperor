@@ -433,6 +433,7 @@ def current_source_hashes() -> dict[str,str]:
     module = ROOT / "src/simulation/original"
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
     sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h", ROOT / "src/simulation/OriginalProductionState.h", ROOT / "src/simulation/OriginalFoodState.h", ROOT / "src/simulation/OriginalServicesState.h", ROOT / "src/simulation/OriginalWaterState.h", ROOT / "src/simulation/OriginalHousingState.h", ROOT / "src/simulation/OriginalIndustryState.h", ROOT / "src/simulation/OriginalFinanceState.h"]
+    sources.append(ROOT / "src/simulation/OriginalFireProtectionState.h")
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
 
 
@@ -462,13 +463,15 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE-27: Rule10 adds model-bound finance with unchanged numerical kernels.
+    # OE36: Rule11 adds a separately guarded authored fire journal.
+    # Only the public World/production DTO ABI changes; all numerical kernels
+    # and independently specified historical probe expectations stay unchanged.
     # Additive model rows/DTOs require matching ABI pins; every pure numerical kernel
     # and the legacy HouseholdV3/CityV7 probe behavior remain unchanged.
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "aadad42944338e92e308c076802e261a8d2f7a32":
+    if world_blob != "db866afe18e36a27f839768b2782788fbb4e40b7":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
@@ -484,7 +487,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         raise ValueError("Original-goods API drift: fourth-module adapter needs a reviewed compatibility contract")
     production_dto = ROOT / "src/simulation/OriginalProductionState.h"
     production_blob = hashlib.sha1(b"blob " + str(production_dto.stat().st_size).encode() + b"\0" + production_dto.read_bytes()).hexdigest()
-    if production_blob != "f356fe33008262d97cf36c80d1dfd457d3c82c66":
+    if production_blob != "146b4b79eb65307e0e81d1a39c82a7ed07852cf3":
         raise ValueError("Original-production API drift: fourth-module adapter needs a reviewed compatibility contract")
     food_dto = ROOT / "src/simulation/OriginalFoodState.h"
     food_blob = hashlib.sha1(b"blob " + str(food_dto.stat().st_size).encode() + b"\0" + food_dto.read_bytes()).hexdigest()
@@ -494,7 +497,12 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     services_blob = hashlib.sha1(b"blob " + str(services_dto.stat().st_size).encode() + b"\0" + services_dto.read_bytes()).hexdigest()
     if services_blob != "5cf40486c26d26e02c1259a35f757aa82c0c0d0f":
         raise ValueError("Original-services API drift: fourth-module adapter needs a reviewed compatibility contract")
-    added_header_blobs = {}
+    fire_header = ROOT / "src/simulation/OriginalFireProtectionState.h"
+    fire_bytes = fire_header.read_bytes()
+    fire_blob = hashlib.sha1(b"blob " + str(len(fire_bytes)).encode() + b"\0" + fire_bytes).hexdigest()
+    if fire_blob != "a5d45a75fffbebced30b02e4f5a4e18e889049c6":
+        raise ValueError("Fire protection ABI drift requires reviewed compatibility contract")
+    added_header_blobs = {"OriginalFireProtectionState.h": fire_blob}
     added_header = ROOT / "src/simulation/OriginalWaterState.h"
     added_bytes = added_header.read_bytes()
     added_blob = hashlib.sha1(b"blob " + str(len(added_bytes)).encode() + b"\0" + added_bytes).hexdigest()

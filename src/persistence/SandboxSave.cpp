@@ -1,3 +1,4 @@
+#include "simulation/original/OriginalScheduler.h"
 #include "persistence/SandboxSave.h"
 #include "core/PerformanceDiagnostics.h"
 #include "simulation/OriginalGoodsLedger.h"
@@ -1514,13 +1515,66 @@ simulation::OriginalFinanceState parse_production_finance(const json& j) {
     }
     return result;
 }
+json fire_protection_json(const simulation::OriginalFireProtectionState& state,int width) {
+    const auto trip=[&](const simulation::OriginalFireTrip& t) {
+        json cells=json::array();for (const auto c:t.travelled) cells.push_back(c.y*width+c.x);
+        return json::array({static_cast<std::uint32_t>(t.courier_id),static_cast<std::uint32_t>(t.owner),
+            static_cast<std::uint32_t>(t.target),t.dispatched_tick,t.road_revision,t.assigned_workers,t.population,t.operating,std::move(cells)});
+    };
+    json trips=json::array(),arrivals=json::array(),taxes=json::array();
+    for (const auto& t:state.trips) trips.push_back(trip(t));
+    for (const auto& e:state.arrivals) arrivals.push_back(json::array({e.tick,e.extinguished,trip(e.trip)}));
+    for (const auto& e:state.taxes) taxes.push_back(json::array({static_cast<std::uint32_t>(e.building_id),
+        e.assessment.tick,static_cast<unsigned>(e.assessment.type),e.assessment.occupants}));
+    return {{"travelled_cells",state.travelled_cells},{"trips",std::move(trips)},{"arrivals",std::move(arrivals)},{"taxes",std::move(taxes)}};
+}
+simulation::OriginalFireProtectionState parse_fire_protection(const json& j,int width,int height) {
+    simulation::OriginalFireProtectionState result;
+    result.travelled_cells=number(field(j,"travelled_cells"),simulation::original_fire_path_cell_limit);
+    std::size_t cells=0;
+    const auto trip=[&](const json& value) {
+        require(value.is_array() && value.size()==9,"schema27 requires complete Inspector dispatch/travel provenance");
+        simulation::OriginalFireTrip t;
+        t.courier_id=static_cast<simulation::CourierId>(number(value[0],UINT32_MAX));
+        t.owner=static_cast<simulation::BuildingId>(number(value[1],UINT32_MAX));
+        t.target=static_cast<simulation::BuildingId>(number(value[2],UINT32_MAX));
+        t.dispatched_tick=number(value[3],original::scheduler_max_tick);t.road_revision=number(value[4]);
+        t.assigned_workers=small(value[5],simulation::Rules::fire_watch_workers);
+        t.population=small(value[6],INT16_MAX*20);t.operating=boolean(value[7]);
+        require(value[8].is_array() && value[8].size()<=simulation::original_fire_path_cell_limit-cells,
+                "schema27 historical path cell budget exceeded");
+        for (const auto& encoded:value[8]) {
+            const auto flat=number(encoded,static_cast<std::uint64_t>(width)*static_cast<std::uint64_t>(height)-1);
+            t.travelled.push_back({static_cast<int>(flat%static_cast<std::uint64_t>(width)),static_cast<int>(flat/static_cast<std::uint64_t>(width))});++cells;
+        }
+        return t;
+    };
+    const auto& trips=field(j,"trips");const auto& arrivals=field(j,"arrivals");const auto& taxes=field(j,"taxes");
+    require(trips.is_array() && trips.size()<=2 && arrivals.is_array() && arrivals.size()<=simulation::original_fire_arrival_limit &&
+            taxes.is_array() && taxes.size()<=simulation::original_fire_tax_limit,"schema27 fire/tax journal collection bound exceeded");
+    for (const auto& t:trips) result.trips.push_back(trip(t));
+    for (const auto& e:arrivals) {
+        require(e.is_array() && e.size()==3,"schema27 arrival requires time, actual extinguishing and dispatch provenance");
+        result.arrivals.push_back({trip(e[2]),number(e[0],original::scheduler_max_tick),boolean(e[1])});
+    }
+    for (const auto& e:taxes) {
+        require(e.is_array() && e.size()==4,"schema27 tax requires a complete historical pre-tick input");
+        result.taxes.push_back({static_cast<simulation::BuildingId>(number(e[0],UINT32_MAX)),
+            {number(e[1],original::scheduler_max_tick),static_cast<original::HouseType>(number(e[2],17)),
+             static_cast<std::int16_t>(small(e[3],INT16_MAX))}});
+    }
+    require(cells==result.travelled_cells,"schema27 historical path counter differs from journal");
+    return result;
+}
 json production_document_json(const SaveDocument& d) {
+    const bool fire=simulation::original_fire_protection_enabled(d.world.profile,d.world.rule_version);
+    const auto schema=fire ? 27U:26U;
     require(simulation::original_production_enabled(d.world.profile,d.world.rule_version) &&
             d.world.original_production && d.world.original_goods &&
             d.world.original_economy && d.world.original_influence,
             "schema26 requires separate City-v16 rule10 production authority");
-    require(d.source_schema_version==0 || d.source_schema_version==26,
-            "rule10 requires schema26; existing saves are not migrated");
+    require(d.source_schema_version==0 || d.source_schema_version==schema,
+            "Rule10 requires schema26 and Rule11 schema27; existing saves are not migrated");
     require(d.world.original_production->development_revision==simulation::kOriginalProductionDevelopmentRevision,
             "schema26 development revision differs from this executable");
     require(d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion &&
@@ -1578,7 +1632,7 @@ json production_document_json(const SaveDocument& d) {
             courier.role=simulation::CourierRole::Service;
     }
     auto result=document_json(projected);
-    result["schema_version"]=26;result["rules"]["version"]=d.world.rule_version;
+    result["schema_version"]=schema;result["rules"]["version"]=d.world.rule_version;
     for (std::size_t i=0;i<d.world.buildings.size();++i)
         result["world"]["buildings"][i]["kind"]=static_cast<int>(d.world.buildings[i].kind);
     for (std::size_t i=0;i<d.world.couriers.size();++i)
@@ -1603,12 +1657,15 @@ json production_document_json(const SaveDocument& d) {
         {"water",production_water_json(production.water)},{"housing",production_housing_json(production.housing)},
         {"industry",production_industry_json(production.industry)},
         {"finance",production_finance_json(production.finance)}};
+    if (fire) result["world"]["original_production"]["fire_protection"]=fire_protection_json(*production.fire_protection,d.world.width);
     return result;
 }
 SaveDocument parse_production_document(const json& j) {
+    const auto schema=number(field(j,"schema_version"));
+    const bool fire=schema==27;
     require(str(field(field(j,"rules"),"id"))==simulation::city_v16_profile_name &&
-            number(field(field(j,"rules"),"version"))==simulation::kOriginalProductionRuleVersion,
-            "schema26 requires City-v16 rule10");
+            number(field(field(j,"rules"),"version"))==(fire ? simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion),
+            "schema26 requires City-v16 rule10; schema27 requires explicit Rule11");
     const auto& world=field(j,"world");const auto& production=field(world,"original_production");
     simulation::OriginalProductionState state;
     state.development_revision=static_cast<std::uint32_t>(number(field(production,"development_revision"),UINT32_MAX));
@@ -1717,7 +1774,7 @@ SaveDocument parse_production_document(const json& j) {
             courier["role"]=static_cast<int>(simulation::CourierRole::Service);
     }
     auto d=parse_document(projected,SnapshotSyntax::OriginalProduction);
-    d.source_schema_version=26;d.world.rule_version=simulation::kOriginalProductionRuleVersion;
+    d.source_schema_version=static_cast<std::uint32_t>(schema);d.world.rule_version=fire ? simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion;
     for (std::size_t i=0;i<d.world.buildings.size();++i)
         d.world.buildings[i].kind=static_cast<simulation::Object>(number(field(field(world,"buildings")[i],"kind")));
     for (std::size_t i=0;i<d.world.couriers.size();++i)
@@ -1725,6 +1782,7 @@ SaveDocument parse_production_document(const json& j) {
     d.world.original_economy=parse_original_economy(field(world,"original_economy"));
     d.world.original_influence=parse_original_influence(field(world,"original_influence"));
     d.world.original_goods=parse_production_goods(field(world,"original_goods"));
+    if (fire) state.fire_protection=parse_fire_protection(field(production,"fire_protection"),d.world.width,d.world.height);
     d.world.original_production=state;
     simulation::World::validate_original_production_snapshot(d.world);
     require(canonical_fields(j,production_document_json(d)),"schema26 contains unknown or noncanonical save fields");
@@ -1794,7 +1852,7 @@ SaveDocument parse_document(const json& j,SnapshotSyntax syntax) {
     require(str(field(j,"format"))=="openemperor-sandbox-save","unknown save format");
     const auto schema=number(field(j,"schema_version"));
     require(syntax==SnapshotSyntax::Frozen || schema==22,"active syntax is restricted to the local schema22 projection");
-    if (schema==26) return parse_production_document(j);
+    if (schema==26 || schema==27) return parse_production_document(j);
     if (schema==25) return parse_goods_document(j);
     if (schema==24) return parse_influence_document(j);
     if (schema==23) return parse_original_document(j);
@@ -1935,7 +1993,9 @@ SaveDocument make_document(const fs::path& root,const fs::path& relative,
                 "schema26 requires complete immutable policy3 map permissions");
         d.map_permissions_policy_version=d.prepared_permissions->policy_version();
         d.map_permissions_sha256=map_permissions_fingerprint(*d.prepared_permissions,d.map_sha256);
-        (void)restore_original_production_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
+        if (simulation::original_fire_protection_enabled(d.world.profile,d.world.rule_version))
+            (void)restore_original_fire_protection(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
+        else (void)restore_original_production_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
         return d;
     }
     if (simulation::original_goods_enabled(d.world.profile,d.world.rule_version)) {
@@ -2015,8 +2075,8 @@ SaveDocument read_save(const fs::path& path) {
         require(!duplicate_key,"schema24 duplicate save key");
     if (j.is_object() && j.contains("schema_version") && j.at("schema_version")==25)
         require(!duplicate_key,"schema25 duplicate save key");
-    if (j.is_object() && j.contains("schema_version") && j.at("schema_version")==26)
-        require(!duplicate_key,"schema26 duplicate save key");
+    if (j.is_object() && j.contains("schema_version") && (j.at("schema_version")==26 || j.at("schema_version")==27))
+        require(!duplicate_key,"original production duplicate save key");
     return parse_document(j);
 }
 simulation::OriginalModelSource original_model_source(const fs::path& root,original::Difficulty difficulty) {
@@ -2230,7 +2290,7 @@ simulation::World restore_original_goods_development(const SaveDocument& d,const
 simulation::World restore_original_production_development(const SaveDocument& d,const fs::path& root,
         std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model) {
-    require(simulation::original_production_enabled(d.world.profile,d.world.rule_version),
+    require(d.world.profile==simulation::RulesProfile::CityV16 && d.world.rule_version==simulation::kOriginalProductionRuleVersion,
             "schema26 development restore requires City-v16 rule10");
     require(d.source_schema_version==0 || d.source_schema_version==26,
             "rule10 requires schema26; existing saves are not migrated");
@@ -2261,6 +2321,40 @@ simulation::World restore_original_production_development(const SaveDocument& d,
             "map-permissions SHA-256 differs from save (permissions or topology changed)");
     return simulation::World::restore_original_production_development(d.world,std::move(permissions),std::move(model));
 }
+simulation::World restore_original_fire_protection(const SaveDocument& d,const fs::path& root,
+        std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model) {
+    require(simulation::original_fire_protection_enabled(d.world.profile,d.world.rule_version),
+            "schema27 development restore requires City-v16 rule11");
+    require(d.source_schema_version==0 || d.source_schema_version==27,
+            "rule11 requires schema27; existing saves are not migrated");
+    require(d.world.original_economy && d.world.original_economy->model_source,
+            "schema27 requires an original model source identity");
+    (void)production_document_json(d);
+    const auto& source=*d.world.original_economy->model_source;
+    if (!model) model=prepare_original_production_rules_model(root,source.difficulty);
+    const auto& provenance=model->provenance();
+    require(source.format_version==provenance.format_version && source.sha256==provenance.sha256 &&
+            source.byte_count==provenance.byte_count && source.difficulty==model->difficulty(),
+            "schema27 prepared original rules model identity differs from save");
+    const auto inspected=original::inspect_model_source(root);
+    require(inspected.fingerprint && inspected.fingerprint->sha256==source.sha256 &&
+            inspected.fingerprint->byte_count==source.byte_count,
+            "schema27 live original model source identity differs from save");
+    safe_relative(d.map_relative);
+    const auto map=maps::resolve_map_path(root,d.map_relative);
+    require(hash_file(map)==d.map_sha256,"original map SHA-256 differs from save");
+    require(digest(mask.data(),mask.size())==d.buildable_sha256,
+            "sandbox buildable mask SHA-256 differs from save");
+    if (!permissions) permissions=maps::read_sandbox_map_permissions(root,d.map_relative,mask,
+        simulation::kBridgesMapPermissionsPolicyVersion);
+    require(permissions && permissions->policy_version()==simulation::kBridgesMapPermissionsPolicyVersion &&
+            d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion,
+            "schema27 requires matching immutable policy3 map permissions");
+    require(map_permissions_fingerprint(*permissions,d.map_sha256)==d.map_permissions_sha256,
+            "map-permissions SHA-256 differs from save (permissions or topology changed)");
+    return simulation::World::restore_original_fire_protection(d.world,std::move(permissions),std::move(model));
+}
 void validate_save_target(const fs::path& path,const fs::path& root) {
     require(!path.empty(),"save path is empty");
     const auto absolute=fs::absolute(path).lexically_normal();
@@ -2285,7 +2379,9 @@ void write_save(const fs::path& path,const SaveDocument& d,const fs::path& root,
     validate_save_target(path,root);
     // Recheck original inputs and all world invariants before writing any bytes.
     if (simulation::original_production_enabled(d.world.profile,d.world.rule_version))
-        (void)restore_original_production_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
+        if (simulation::original_fire_protection_enabled(d.world.profile,d.world.rule_version))
+            (void)restore_original_fire_protection(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
+        else (void)restore_original_production_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
     else if (simulation::original_goods_enabled(d.world.profile,d.world.rule_version))
         (void)restore_original_goods_development(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
     else if (simulation::original_influence_enabled(d.world.profile,d.world.rule_version))

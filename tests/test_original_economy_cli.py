@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hermetic contracts for the unavailable Rule-7 developer preflight.
+"""Hermetic argument contracts for Rule7 preflight and explicit Rule11 opt-in.
 
 Every map byte below is authored test data. No licensed model, graphics, SDL
 display or existing player state is needed by this process-level check.
@@ -141,11 +141,44 @@ class OriginalEconomyCli(unittest.TestCase):
             ["--road-visuals", "unread.json"], ["--great-wall-presentation", "historical"],
             ["--authored-terrain-sides"], ["--app-root", "unwritten-app"],
             ["--browse-assets"], ["--browse-maps"], ["--list-maps"],
-            ["--sandbox-original-economy-check"],
+            ["--sandbox-original-economy-check"], ["--original-fire-protection"],
         ]
         for extra in incompatible:
             with self.subTest(extra=extra):
                 result = self.run_cli(self.arguments() + extra)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("Usage:", result.stderr)
+
+    def test_fire_protection_requires_explicit_city16_selection(self):
+        base = ["--data", str(self.root), "--sandbox", "Cities/authored.map",
+                "--sandbox-rules", "sandbox-city-v16", "--original-fire-protection"]
+        for flag in ("--data", "--sandbox", "--sandbox-rules"):
+            arguments = base.copy()
+            at = arguments.index(flag)
+            del arguments[at:at + 2]
+            with self.subTest(missing=flag):
+                result = self.run_cli(arguments)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("Usage:", result.stderr)
+        arguments = base.copy()
+        arguments[arguments.index("sandbox-city-v16")] = "sandbox-city-v11"
+        self.assertEqual(self.run_cli(arguments).returncode, 2)
+
+    def test_fire_protection_rejects_other_rule_and_diagnostic_modes(self):
+        base = ["--data", str(self.root), "--sandbox", "Cities/authored.map",
+                "--sandbox-rules", "sandbox-city-v16", "--original-fire-protection"]
+        incompatible = [
+            ["--sandbox-demo"], ["--sandbox-bridges"], ["--sandbox-ramps"],
+            ["--sandbox-check", "--report-json"], ["--sandbox-resume-check"],
+            ["--sandbox-routing-check", "--report-json"],
+            ["--sandbox-original-economy-check", "--report-json"],
+            ["--load-sandbox", "unread.json"], ["--authored-terrain-sides"],
+            ["--original-fire-protection"],
+        ]
+        for extra in incompatible:
+            with self.subTest(extra=extra):
+                result = self.run_cli(base + extra)
                 self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
                 self.assertEqual(result.stdout, "")
                 self.assertIn("Usage:", result.stderr)

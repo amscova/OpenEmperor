@@ -227,9 +227,14 @@ inline constexpr std::uint32_t kOriginalEconomyRuleVersion=7;
 inline constexpr std::uint32_t kOriginalInfluenceRuleVersion=8;
 inline constexpr std::uint32_t kOriginalGoodsRuleVersion=9;
 inline constexpr std::uint32_t kOriginalProductionRuleVersion=10;
+inline constexpr std::uint32_t kOriginalFireProtectionRuleVersion=11;
+constexpr bool original_fire_protection_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalFireProtectionRuleVersion;
+}
 inline constexpr std::int64_t original_production_starting_treasury=12000;
 constexpr bool original_production_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && version==kOriginalProductionRuleVersion;
+    return profile==RulesProfile::CityV16 && (version==kOriginalProductionRuleVersion ||
+        version==kOriginalFireProtectionRuleVersion);
 }
 inline constexpr std::int64_t original_influence_starting_treasury=2000;
 inline constexpr std::int64_t original_influence_source_cost=60;
@@ -238,22 +243,22 @@ inline constexpr std::size_t original_influence_purchase_limit=33;
 constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion ||
-         version==kOriginalProductionRuleVersion);
+         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion);
 }
 constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && (version==kOriginalGoodsRuleVersion ||
-        version==kOriginalProductionRuleVersion);
+        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion);
 }
 constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
-         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion);
+         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion);
 }
 constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10);
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11);
 }
 constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10);
+    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11);
 }
 
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
@@ -477,7 +482,11 @@ struct MaintenanceProjection {
     std::optional<std::int64_t> interval_cost,funds_after_interval;
 };
 bool fire_eligible(Object kind);
+// The authored Watch becomes a combustible target only in the explicit Rule11 contract.
+bool fire_eligible(Object kind,RulesProfile profile,std::uint32_t rule_version);
 bool courier_can_target(CourierRole role,const BuildingState& target);
+bool courier_can_target(CourierRole role,const BuildingState& target,
+                        RulesProfile profile,std::uint32_t rule_version);
 struct CourierState {
     CourierId id=CourierId::Clay;
     CourierRole role=CourierRole::None;
@@ -621,6 +630,7 @@ public:
     bool original_influence_enabled() const { return simulation::original_influence_enabled(profile_,rule_version_); }
     bool original_goods_enabled() const { return simulation::original_goods_enabled(profile_,rule_version_); }
     bool original_production_enabled() const { return simulation::original_production_enabled(profile_,rule_version_); }
+    bool original_fire_protection_enabled() const { return simulation::original_fire_protection_enabled(profile_,rule_version_); }
     const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
     const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
     const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
@@ -688,6 +698,13 @@ public:
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
     static void validate_original_production_snapshot(const WorldSnapshot& snapshot);
+    static void validate_original_fire_protection_snapshot(const WorldSnapshot& snapshot);
+    // Explicit authored paid fire protection; historical Rule10 factories remain Rule10-only.
+    static World create_original_fire_protection(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_fire_protection(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -869,6 +886,10 @@ private:
     void tick_production_v2();
     void advance_clay_pottery_production();
     void tick_original_production();
+    void preflight_original_fire_tick() const;
+    void record_original_fire_dispatch(const CourierState& courier);
+    void record_original_fire_arrival(const CourierState& courier);
+    void record_original_fire_step(const CourierState& courier);
     void validate_original_industry_model() const;
     static void validate_original_industry_snapshot(const WorldSnapshot& snapshot);
     void validate_original_industry_state() const;

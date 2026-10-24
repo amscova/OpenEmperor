@@ -6,6 +6,7 @@
 #include "simulation/OriginalHousingState.h"
 #include "simulation/OriginalIndustryState.h"
 #include "simulation/OriginalFinanceState.h"
+#include "simulation/OriginalFireProtectionState.h"
 
 #include <array>
 #include <cstdint>
@@ -42,6 +43,7 @@ struct OriginalProductionState {
     OriginalHousingState housing;
     OriginalIndustryState industry;
     OriginalFinanceState finance;
+    std::optional<OriginalFireProtectionState> fire_protection;
     bool operator==(const OriginalProductionState&) const = default;
 };
 

@@ -16,6 +16,21 @@ Im Hauptmenü **O Original economy → Cities/Xia.map → Normal →
 Paid four-house starter → Start sandbox** wählen. Die Stadt beginnt pausiert.
 **Space** startet die Simulation; **1x / 2x / 4x** unten ändern ihr Tempo.
 
+Für den separat versionierten Brandschutz im Hauptmenü **F Original fire
+protection** wählen. Das startet **Rule11 / Schema27 / Policy3** mit derselben
+bezahlten Stadt. **O Original economy** bleibt Rule10; bestehende Saves werden
+nicht umgewandelt. Über **F FireWatch $80 +2 workers** bis zu zwei Wachen
+regulär kaufen und mit Straßen verbinden. Jede Wache benötigt zwei tatsächlich
+zugeteilte Mitarbeiter und laufenden Betrieb für neue Inspector-Fahrten.
+
+Erst die echte Ankunft eines Inspectors löscht einen Brand und schützt das
+besuchte Gebäude für 2400 Ticks. Bei **Select** zeigen Gebäude und Häuser
+Brandstatus und verbleibenden Schutz; die Wache zeigt Betrieb und Staffing,
+Walker die laufende Fahrt. Wachen können selbst brennen und brauchen die andere
+Wache als Besucher. Betriebspausen stoppen neue Fahrten, bereits entsandte
+Inspectors beenden ihre Fahrt. Brandschutz beseitigt das Wirtschaftsdefizit
+nicht; Kaufpreis und laufender Unterhalt kommen hinzu.
+
 Der Starter bezahlt Straßen, vier Häuser, Wasser, Ancestor, Market, Food-/Hemp-
 Ketten, Clay/Pottery/Warehouse, Herbalist, Acupuncture und Music. Mit der
 geprüften Modelldatei bleiben **10596 von 12000 Funds**. Bewohner und Waren
@@ -67,6 +82,14 @@ Policy3 / Entwicklungsrevision27**. Frühere Regeln und Saves behalten ihre
 Verträge. Modelldaten werden beim Start vorbereitet; Originaldateien bleiben
 unverändert. [Modellherkunft](model-provenance.md) und
 [Kernvergleich](core-parity.md) dokumentieren die belegten Regeln.
+
+Rule11 nutzt dieselbe Wirtschaftsrevision27 und einen zusätzlichen authored
+Brandschutzvertrag mit eigener Save-Prüfung. Die Preise und Mitarbeiter der
+FireWatch stammen aus OpenEmperor, nicht aus verifizierten Originalwerten.
+Ihre begrenzte Besuchs-/Steuerhistorie kann voll werden; dann pausiert die Stadt
+vor dem nächsten Tick mit Diagnose, statt einen unprüfbaren Zustand zu erzeugen.
+Der letzte Stand bleibt speicherbar. Grenzen und Messwerte stehen im
+[Brandschutzvertrag](oe36-fire-protection.md).
 
 Rezepte, Ernte, Zuzug/Worker und Schule→Haus-Besuche enthalten eigene Regeln.
 Originale Veranstaltungs-/Performer-Abläufe und Krankheit fehlen. Mehrere

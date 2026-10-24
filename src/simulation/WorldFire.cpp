@@ -14,6 +14,11 @@ bool fire_eligible(Object kind) {
         kind==Object::Market || kind==Object::HealthPost || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalWaterWell72;
 }
 
+bool fire_eligible(Object kind,RulesProfile profile,std::uint32_t rule_version) {
+    return fire_eligible(kind) || (kind==Object::FireWatch &&
+        original_fire_protection_enabled(profile,rule_version));
+}
+
 bool World::building_on_fire(BuildingId id) const {
     return fire_profile(profile_) && building(id).fire_until_tick>ticks_;
 }
@@ -33,17 +38,17 @@ std::uint64_t World::fire_remaining(BuildingId id) const {
 std::size_t World::fire_eligible_buildings() const {
     if (!fire_profile(profile_)) return 0;
     return static_cast<std::size_t>(std::count_if(buildings_.begin(),buildings_.end(),
-        [](const auto& b) { return b.placed && fire_eligible(b.kind); }));
+        [&](const auto& b) { return b.placed && fire_eligible(b.kind,profile_,rule_version_); }));
 }
 
 std::size_t World::protected_buildings() const {
     return static_cast<std::size_t>(std::count_if(buildings_.begin(),buildings_.end(),
-        [&](const auto& b) { return b.placed && fire_eligible(b.kind) && building_fire_protected(b.id); }));
+        [&](const auto& b) { return b.placed && fire_eligible(b.kind,profile_,rule_version_) && building_fire_protected(b.id); }));
 }
 
 std::size_t World::burning_buildings() const {
     return static_cast<std::size_t>(std::count_if(buildings_.begin(),buildings_.end(),
-        [&](const auto& b) { return b.placed && fire_eligible(b.kind) && building_on_fire(b.id); }));
+        [&](const auto& b) { return b.placed && fire_eligible(b.kind,profile_,rule_version_) && building_on_fire(b.id); }));
 }
 
 void World::update_fire() {
@@ -51,7 +56,7 @@ void World::update_fire() {
     // A visit in the preceding movement phase resets risk and protects immediately.
     // The placement-relative risk clock is never paused or persisted separately.
     for (auto& b:buildings_) {
-        if (!b.placed || !fire_eligible(b.kind) || building_on_fire(b.id) ||
+        if (!b.placed || !fire_eligible(b.kind,profile_,rule_version_) || building_on_fire(b.id) ||
             building_fire_protected(b.id)) continue;
         if (ticks_>b.placed_tick && (ticks_-b.placed_tick)%Rules::fire_risk_step_ticks==0) {
             if (++b.fire_risk==Rules::fire_risk_threshold) {
@@ -65,7 +70,7 @@ void World::update_fire() {
 
 bool World::fire_state_valid() const {
     for (const auto& b:buildings_) {
-        if (!fire_profile(profile_) || !fire_eligible(b.kind)) {
+        if (!fire_profile(profile_) || !fire_eligible(b.kind,profile_,rule_version_)) {
             if (b.fire_risk || b.fire_protection_until_tick || b.fire_until_tick) return false;
             continue;
         }
@@ -83,14 +88,15 @@ bool World::fire_state_valid() const {
     for (const auto& c:couriers_) if (c.role==CourierRole::FireInspector) {
         if (!fire_profile(profile_) || c.good!=Good::Goods || c.cargo || c.reserved ||
             building(c.owner).kind!=Object::FireWatch ||
-            c.dynamic_target_routes.size()>(health_profile(profile_) ?
+            c.dynamic_target_routes.size()>(original_fire_protection_enabled() ?
+                Rules::original_production_building_limit:health_profile(profile_) ?
                 Rules::city_v12_building_limit:Rules::city_v11_building_limit)) return false;
         if (c.phase!=CourierPhase::IdleAtWorkshop &&
-            !courier_can_target(c.role,building(c.target))) return false;
-        if (c.last_dispatched_target && !courier_can_target(c.role,building(*c.last_dispatched_target)))
+            !courier_can_target(c.role,building(c.target),profile_,rule_version_)) return false;
+        if (c.last_dispatched_target && !courier_can_target(c.role,building(*c.last_dispatched_target),profile_,rule_version_))
             return false;
         for (const auto& route:c.dynamic_target_routes)
-            if (!courier_can_target(c.role,building(route.first))) return false;
+            if (!courier_can_target(c.role,building(route.first),profile_,rule_version_)) return false;
     }
     return true;
 }

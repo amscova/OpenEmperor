@@ -279,6 +279,14 @@ inline HouseInspection inspect_house(const simulation::World& world,simulation::
         if (d.materialization_diagnostic.cell) detail::line(state,"Growth cell "+std::to_string(d.materialization_diagnostic.cell->x)+","+std::to_string(d.materialization_diagnostic.cell->y));
     }
     if (world.building_on_fire(id)) detail::line(state,"FIRE: arrivals/immigration interrupted");
+    if (world.original_fire_protection_enabled()) {
+        detail::line(state,"Fire risk "+std::to_string(world.building(id).fire_risk)+"/"+
+            std::to_string(simulation::Rules::fire_risk_threshold));
+        detail::line(state,world.building_on_fire(id) ?
+            "ON FIRE: "+std::to_string(world.fire_remaining(id))+" ticks remaining":
+            world.building_fire_protected(id) ?
+            "Fire protection: "+std::to_string(world.fire_protection_remaining(id))+" ticks remaining":"Fire protection: none");
+    }
     detail::line(state,"Next housing slot "+detail::tick_label(result.checks.housing));
     detail::line(state,"Next water check "+detail::tick_label(result.checks.water));
     detail::line(state,"Next countdown "+detail::tick_label(result.checks.countdown));

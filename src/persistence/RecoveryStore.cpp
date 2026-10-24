@@ -136,7 +136,7 @@ RecoveryEntry parse_entry(const json& value,const fs::path& dir,const std::strin
     require(value.contains("population") && value.at("population").is_number_integer() &&
             value.contains("treasury") && value.at("treasury").is_number_integer(),
             "invalid recovery summary values");
-    if (result.profile==simulation::city_v16_profile_name && result.rule_version==simulation::kOriginalProductionRuleVersion) {
+    if (result.profile==simulation::city_v16_profile_name && simulation::original_production_enabled(simulation::RulesProfile::CityV16,result.rule_version)) {
         const auto& people=value.at("population");const auto& funds=value.at("treasury");
         require(!people.is_number_unsigned() || people.get<std::uint64_t>()<=static_cast<std::uint64_t>(std::numeric_limits<int>::max()),
                 "original recovery population exceeds int");
@@ -208,7 +208,7 @@ Metadata parse_metadata(const fs::path& file) {
         sequences.push_back(entry.sequence);filenames.push_back(entry.filename);
     }
     if (std::any_of(result.entries.begin(),result.entries.end(),[](const auto& entry) {
-        return entry.profile==simulation::city_v16_profile_name&&entry.rule_version==simulation::kOriginalProductionRuleVersion;
+        return entry.profile==simulation::city_v16_profile_name&&simulation::original_production_enabled(simulation::RulesProfile::CityV16,entry.rule_version);
     })) {
         require(!duplicate_key,"original recovery metadata contains a duplicate key");
         require(value==metadata_json(result),"original recovery metadata contains missing, additional or noncanonical fields");
@@ -264,7 +264,7 @@ RecoveryEntry make_entry(const std::string& history,const std::optional<Recovery
 }
 void validate_policy_readback(const SaveDocument& saved,const SaveDocument& source) {
     if (simulation::original_production_enabled(source.world.profile,source.world.rule_version)) {
-        require(saved.source_schema_version==26 && saved.world==source.world &&
+        require(saved.source_schema_version==(simulation::original_fire_protection_enabled(source.world.profile,source.world.rule_version) ? 27U:26U) && saved.world==source.world &&
                 saved.map_relative==source.map_relative && saved.map_sha256==source.map_sha256 &&
                 saved.buildable_sha256==source.buildable_sha256 &&
                 saved.map_permissions_policy_version==source.map_permissions_policy_version &&
@@ -289,7 +289,7 @@ bool validate_recovery_access(const SaveDocument& document,RecoveryAccess access
     require(access==RecoveryAccess::OriginalProduction &&
             simulation::original_production_enabled(document.world.profile,document.world.rule_version),
             "schema23 development saves are unavailable in normal recovery histories");
-    require((document.source_schema_version==0 || document.source_schema_version==26) &&
+    require((document.source_schema_version==0 || document.source_schema_version==(simulation::original_fire_protection_enabled(document.world.profile,document.world.rule_version) ? 27U:26U)) &&
             document.world.original_production && document.world.original_production->development_revision==
                 simulation::kOriginalProductionDevelopmentRevision &&
             document.world.original_economy && document.world.original_economy->model_source,
@@ -344,6 +344,7 @@ void validate_original_sequence(const Metadata& metadata) {
 void same_original_identity(const SaveDocument& a,const SaveDocument& b) {
     require(simulation::original_production_enabled(a.world.profile,a.world.rule_version) &&
             simulation::original_production_enabled(b.world.profile,b.world.rule_version) &&
+            a.world.rule_version==b.world.rule_version &&
             a.world.original_production->development_revision==b.world.original_production->development_revision &&
             a.map_relative==b.map_relative && a.map_sha256==b.map_sha256 && a.buildable_sha256==b.buildable_sha256 &&
             a.map_permissions_policy_version==b.map_permissions_policy_version &&

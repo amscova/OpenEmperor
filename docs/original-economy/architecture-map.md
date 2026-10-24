@@ -12,10 +12,14 @@ parity remains partial; see [the play guide](player-handoff.md) and [Known Issue
 | Rule8 / schema24 | Frozen paid Well72 desirability sources; no water, population or production. |
 | Rule9 / schema25 | Frozen neutral six-goods ledger; real World goods remain unsupported/zero. |
 | Rule10 / schema26 / revision27 | Current explicit paid economy; incompatible development revisions are refused. |
+| Rule11 / schema27 / revision27 | Separate explicit paid economy with authored FireWatch and actual Inspector visits; bounded fire/tax provenance. |
 
 Rules1–9 and schemas1–25 retain their identities and canonical bytes. City-v11
 Rule3 and City-v16 Rule4 defaults are unchanged; no automatic migration opts older
 saves into Original economy. Bridge/Ramp infrastructure retains its existing contracts.
+Rule11 inherits the unchanged Rule10 economic values and uses its own fire guard;
+Rule10 still rejects FireWatch. The [fire protection contract](oe36-fire-protection.md)
+defines its authored building, actual arrivals and separate schema27 validation.
 
 `ModelData` reads the selected installation's `Model/EmperorBuildingModels.txt`
 within its canonical root: regular file, at most 256 KiB, lines at most 4096 bytes,

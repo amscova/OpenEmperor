@@ -161,6 +161,12 @@ evidence path and assertion result. The fourth-module observation and optional
 real-model result are separate members. Summary counts describe those executed
 vectors, not the broader decision register or unimplemented gameplay.
 
+Rule11's optional fire provenance changes the World/production DTO ABI. Its
+reviewed header pins include the separate fire-state header; fresh linked
+fork/current probes retain all74 previous cases, expectations and observations,
+including the unchanged real-model digest. The authored FireWatch integration
+does not acquire original-mechanics parity from this numerical comparison.
+
 The comparison uses independently specified vectors and expected outcomes for
 parser values, rings, needs, House transitions, timer effects, consumption,
 market-style inventory transfers and FoodQuality. A second executable runs the

@@ -70,6 +70,11 @@ public:
         maps::StoredMapSession session,
         std::optional<original::Difficulty> difficulty=std::nullopt,
         bool paid_starter=false);
+    // Explicit Rule11 opt-in; Rule10 and all ordinary defaults remain unchanged.
+    static std::unique_ptr<SandboxView> create_original_fire_protection(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
 #if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
     // Explicit development fixtures; no shipped application entry point.
     static std::unique_ptr<SandboxView> create_original_economy_save_fixture(
@@ -417,6 +422,7 @@ private:
     bool select_visual(scene::Point screen);
     void clear_visual_selection();
     void clear_hidden_walker_selection();
+    bool pause_for_original_fire_limit(const char* reason);
     void reset_camera();
     void update_window_title();
     void resize_camera();
@@ -591,6 +597,9 @@ private:
     }
     bool original_production_fixture() const {
         return original_save_fixture_ && simulation::original_production_enabled(rules_,requested_rule_version_);
+    }
+    bool original_fire_protection() const {
+        return simulation::original_fire_protection_enabled(rules_,requested_rule_version_);
     }
     bool original_save_fixture_=false; // Explicit original entry/legacy fixture; never saved authority.
     // Retained only through initialization, when immutable map permissions are
