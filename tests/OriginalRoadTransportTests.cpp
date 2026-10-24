@@ -72,11 +72,16 @@ void version_contract() {
           sim::rule_version_supported(sim::RulesProfile::CityV16,9) &&
           sim::rule_version_supported(sim::RulesProfile::CityV16,10) &&
           sim::rule_version_supported(sim::RulesProfile::CityV16,11) &&
-          !sim::rule_version_supported(sim::RulesProfile::CityV16,12),
+          sim::rule_version_supported(sim::RulesProfile::CityV16,12) &&
+        !sim::rule_version_supported(sim::RulesProfile::CityV16,13),
           "Unknown City-v16 rule accepted");
     check(sim::original_fire_protection_enabled(sim::RulesProfile::CityV16,11) &&
+        sim::original_fire_protection_enabled(sim::RulesProfile::CityV16,12) &&
         !sim::original_fire_protection_enabled(sim::RulesProfile::CityV16,10),
-        "Fire protection escaped its explicit Rule11 opt-in");
+        "Fire protection escaped its explicit Rule11/12 opt-ins");
+    check(sim::original_sustainable_economy_enabled(sim::RulesProfile::CityV16,12) &&
+        !sim::original_sustainable_economy_enabled(sim::RulesProfile::CityV16,11),
+        "Sustainable economy escaped its explicit Rule12 opt-in");
     const auto p2=policy(cells());
     const auto p1=sim::authored_simple_permissions(size,size,std::vector<std::uint8_t>(size*size,1));
     sim::World old(p1,sim::RulesProfile::CityV16,3),current(p2);

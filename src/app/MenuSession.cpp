@@ -18,7 +18,7 @@ enum Action { ChooseFolder=1, NewGame, LoadGame, Resume, DataFolder, Quit,
     RoadVisualsFile, RoadVisualsClear, AdvancedVisuals, UpgradeCopy, ConfirmUpgradeCopy,
     CancelUpgrade, ToggleAutosave, ToggleSaveView, DeleteRecovery, ConfirmDeleteRecovery,
     CancelDeleteRecovery, GreatWallChoice, RecheckMap, BridgesChoice, RampsChoice,
-    OriginalNewGame, OriginalDifficulty, OriginalStarter, OriginalFireProtectionNewGame,
+    OriginalNewGame, OriginalDifficulty, OriginalStarter, OriginalFireProtectionNewGame, OriginalSustainableEconomyNewGame,
     MapSelectBase=1000, SaveSelectBase=2000, RecoverySelectBase=3000 };
 constexpr const char* difficulty_names[]={"Very Easy","Easy","Normal","Hard","Very Hard"};
 std::string original_save_status(bool enabled) {
@@ -186,7 +186,7 @@ void MenuSession::open_dialog(DialogKind kind) {
 std::optional<maps::MapRulesRequest> MenuSession::selected_map_request() const {
     if (map_index_>=catalog_.entries.size() || catalog_.data_root.empty()) return std::nullopt;
     const auto profile=original_new_game_ ? simulation::RulesProfile::CityV16:settings_.profile;
-    const auto version=original_new_game_ ? (original_fire_protection_new_game_ ?
+    const auto version=original_new_game_ ? (original_sustainable_economy_new_game_ ? simulation::kOriginalSustainableRuleVersion:original_fire_protection_new_game_ ?
         simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion):
         ramps_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 6U:bridges_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 5U:
         simulation::current_rule_version(settings_.profile);
@@ -274,9 +274,13 @@ void MenuSession::finish_loading() {
         const bool original=document ? simulation::original_production_enabled(profile,document->world.rule_version):
             original_new_game_;
         const auto version=document ? document->world.rule_version:original ?
-            (original_fire_protection_new_game_ ? simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion):
+            (original_sustainable_economy_new_game_ ? simulation::kOriginalSustainableRuleVersion:
+             original_fire_protection_new_game_ ? simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion):
             ramps_new_game_ && profile==simulation::RulesProfile::CityV16 ? 6U:bridges_new_game_ && profile==simulation::RulesProfile::CityV16 ? 5U:simulation::current_rule_version(profile);
-        auto view=simulation::original_fire_protection_enabled(profile,version) ?
+        auto view=simulation::original_sustainable_economy_enabled(profile,version) ?
+            SandboxView::create_original_sustainable_economy(std::move(loaded),
+                document ? std::nullopt:std::optional{original_difficulty_},!document && original_paid_starter_):
+            simulation::original_fire_protection_enabled(profile,version) ?
             SandboxView::create_original_fire_protection(std::move(loaded),
                 document ? std::nullopt:std::optional{original_difficulty_},!document && original_paid_starter_):
             original ? SandboxView::create_original_production(std::move(loaded),
@@ -426,16 +430,24 @@ void MenuSession::perform(int action) {
         switch (action) {
         case ChooseFolder: open_dialog(DialogKind::Folder); break;
         case NewGame:
+            original_sustainable_economy_new_game_=false;
             original_fire_protection_new_game_=false;
             original_new_game_=false;advanced_visuals_open_=false;set_state(State::NewSandbox);break;
         case OriginalNewGame:
+            original_sustainable_economy_new_game_=false;
             original_fire_protection_new_game_=false;
             original_new_game_=true;advanced_visuals_open_=false;set_state(State::NewSandbox);
             message_=original_save_status(settings_.autosave_enabled);break;
         case OriginalFireProtectionNewGame:
+            original_sustainable_economy_new_game_=false;
             original_new_game_=true;original_fire_protection_new_game_=true;
             advanced_visuals_open_=false;set_state(State::NewSandbox);
             message_="Rule11: authored paid Fire Watch and real Inspector visits; "+
+                original_save_status(settings_.autosave_enabled);break;
+        case OriginalSustainableEconomyNewGame:
+            original_new_game_=true;original_fire_protection_new_game_=false;original_sustainable_economy_new_game_=true;
+            advanced_visuals_open_=false;set_state(State::NewSandbox);
+            message_="Rule12: three paid Food chains, authored upkeep and paid fire protection; "+
                 original_save_status(settings_.autosave_enabled);break;
         case OriginalDifficulty:
             if (state_==State::NewSandbox && original_new_game_) {
@@ -450,6 +462,7 @@ void MenuSession::perform(int action) {
             }
             break;
         case LoadGame:
+            original_sustainable_economy_new_game_=false;
             original_fire_protection_new_game_=false;
             original_new_game_=false;advanced_visuals_open_=false;
             refresh_saves();set_state(State::LoadSandbox);break;
@@ -670,6 +683,8 @@ void MenuSession::handle_event(const SDL_Event& event) {
             activate_button(OriginalNewGame);
         } else if (event.key.key==SDLK_F && state_==State::MainMenu) {
             activate_button(OriginalFireProtectionNewGame);
+        } else if (event.key.key==SDLK_S && state_==State::MainMenu) {
+            activate_button(OriginalSustainableEconomyNewGame);
         } else if (event.key.key==SDLK_D && state_==State::NewSandbox && original_new_game_) {
             activate_button(OriginalDifficulty);
         } else if (event.key.key==SDLK_P && state_==State::NewSandbox && original_new_game_) {
@@ -781,14 +796,14 @@ void MenuSession::rebuild_buttons() {
         add(Quit,"Quit",40,sandbox_?280:235,210);
         add(OriginalNewGame,"O Original economy",280,145,280);
         add(OriginalFireProtectionNewGame,"F Original fire protection",280,185,280);
+        add(OriginalSustainableEconomyNewGame,"S Sustainable economy",280,225,280);
         if (sandbox_ && sandbox_->world().original_production_enabled()) {
             add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",280,280,280);
-        } else add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",
-                   510,sandbox_?280:235,180);
+        } else add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",280,280,280);
         if (settings_reset_required_) {
             if (sandbox_ && sandbox_->world().original_production_enabled())
                 add(ResetSettings,"Reset preferences",40,325,210);
-            else add(ResetSettings,"Reset preferences",280,235,210);
+            else add(ResetSettings,"Reset preferences",280,325,210);
         }
     } else if (state_==State::NewSandbox) {
         if (original_new_game_) {
@@ -896,7 +911,7 @@ bool MenuSession::render() {
     };
     const auto heading=state_==State::DataSetup?"OpenEmperor":
         state_==State::MainMenu?"OpenEmperor":state_==State::NewSandbox?
-            (original_new_game_ ? (original_fire_protection_new_game_ ?
+            (original_new_game_ ? (original_sustainable_economy_new_game_ ? "New Sustainable economy":original_fire_protection_new_game_ ?
                 "New Original fire protection":"New Original economy"):"New sandbox"):
         state_==State::LoadSandbox?"Load sandbox":state_==State::Loading?"Loading...":
         state_==State::ConfirmUpgrade?(upgrade_target_version_==4 ? "Enable demolition in a copy":"Enable operation controls in a copy"):
@@ -916,15 +931,16 @@ bool MenuSession::render() {
         if (sandbox_ && !label(280,125,"Retained tick "+std::to_string(sandbox_->world().ticks())+
             (sandbox_->dirty()?" (unsaved)":" (saved)"))) return false;
         if (sandbox_ && sandbox_->world().original_production_enabled() &&
-            (!label(280,225,"Original: manual F5/F9") ||
-             !label(280,245,settings_.autosave_enabled?"Recovery every 60s simulated":"Recovery: Autosave OFF"))) return false;
+            (!label(280,325,"Original: manual F5/F9") ||
+             !label(280,345,settings_.autosave_enabled?"Recovery every 60s simulated":"Recovery: Autosave OFF"))) return false;
     } else if (state_==State::NewSandbox && original_new_game_ && map_index_<catalog_.entries.size()) {
         const auto& e=catalog_.entries[map_index_];
         const auto columns=static_cast<std::size_t>(std::max(16,(width-80)/8));
         auto map_name="Map "+std::to_string(map_index_+1)+" / "+std::to_string(catalog_.entries.size())+
             ": "+e.relative_path.generic_string();
         if (map_name.size()>columns) map_name=map_name.substr(0,columns-3)+"...";
-        if (!label(40,55,original_fire_protection_new_game_ ?
+        if (!label(40,55,original_sustainable_economy_new_game_ ?
+                "Rule12 | authored sustainable economy | fire protection":original_fire_protection_new_game_ ?
                 "Rule11 | authored fire protection | original economy":
                 "Rule10 | paid authored plan | original model data") ||
             !label(40,72,map_name)) return false;
@@ -1025,7 +1041,8 @@ bool MenuSession::render() {
                 " | schema "+std::to_string(e.schema)+" rule "+std::to_string(e.rule_version))) return false;
             if (e.error.empty() && simulation::original_production_enabled(
                     simulation::RulesProfile::CityV16,e.rule_version) &&
-                e.schema==(e.rule_version==simulation::kOriginalFireProtectionRuleVersion ? 27U:26U) &&
+                e.schema==(e.rule_version==simulation::kOriginalSustainableRuleVersion ? 28U:
+                    e.rule_version==simulation::kOriginalFireProtectionRuleVersion ? 27U:26U) &&
                 (!label(40,211,"Original economy: saved difficulty is kept") ||
                  !label(40,227,"F5/F9 saves; optional recovery"))) return false;
         }

@@ -413,6 +413,16 @@ std::unique_ptr<SandboxView> SandboxView::create_original_fire_protection(
     result->original_paid_starter_=paid_starter;
     return result;
 }
+std::unique_ptr<SandboxView> SandboxView::create_original_sustainable_economy(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original sustainable-economy difficulty");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalSustainableRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
 
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version)
@@ -525,7 +535,8 @@ void SandboxView::load_now() {
          (original_requested_difficulty_ &&
           document.world.original_economy->model_source->difficulty!=*original_requested_difficulty_)))
         throw std::runtime_error("Saved original difficulty differs from this running session");
-    auto replacement=original_fire_protection() ?
+    auto replacement=original_sustainable_economy() ?
+        persistence::restore_original_sustainable_economy(document,data_root_,buildable_mask_) : original_fire_protection() ?
         persistence::restore_original_fire_protection(document,data_root_,buildable_mask_) : original_production_fixture() ?
         persistence::restore_original_production_development(document,data_root_,buildable_mask_) : original_goods_fixture() ?
         persistence::restore_original_goods_development(document,data_root_,buildable_mask_) : original_influence_fixture() ?
@@ -621,7 +632,9 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(original_fire_protection() ?
+        world_=std::make_unique<simulation::World>(original_sustainable_economy() ?
+            persistence::restore_original_sustainable_economy(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) : original_fire_protection() ?
             persistence::restore_original_fire_protection(*initial_save_,data_root_,
                 buildable_mask_,std::move(permissions)) : original_production_fixture() ?
             persistence::restore_original_production_development(*initial_save_,data_root_,
@@ -638,6 +651,10 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (original_sustainable_economy()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_sustainable_economy(
+            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal))));
     } else if (original_fire_protection()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_fire_protection(
             std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
@@ -687,7 +704,8 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(original_fire_protection())title+=" | save schema 27 | original economy + authored fire protection";
+    if(original_sustainable_economy())title+=" | save schema 28 | authored sustainable economy + fire protection";
+    else if(original_fire_protection())title+=" | save schema 27 | original economy + authored fire protection";
     else if(original_production_fixture())title+=" | save schema 26 | original economy development "+
         std::to_string(simulation::kOriginalProductionDevelopmentRevision);
     else if(original_goods_fixture())title+=" | save schema 25 | goods accounting development";
@@ -2226,7 +2244,7 @@ bool SandboxView::action_enabled(sandbox_ui::Action action) const {
             action==sandbox_ui::Action::OriginalWheatField ? simulation::CommandType::PlaceOriginalWheatField:simulation::CommandType::PlaceOriginalMilletField;
         if (world_->treasury()<world_->construction_cost(command)) return false;
         const auto& farms=world_->original_production_state()->food.farms;
-        if (!field) return farms.size()<2;
+        if (!field) return farms.size()<simulation::original_food_farm_limit(rules_,world_->rule_version());
         const auto selected=selected_building();
         if (!selected || world_->building(*selected).kind!=simulation::Object::OriginalFoodFarm) return false;
         const auto farm=std::find_if(farms.begin(),farms.end(),[&](const auto& row){return row.farm_id==*selected;});
@@ -4716,11 +4734,11 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 lines.push_back("Maintenance none.");
             return;
         }
-        lines.push_back("Maintenance: "+std::to_string(cost)+" every "+
-            std::to_string(simulation::Rules::maintenance_interval_ticks)+" ticks");
+        const auto interval=original_production_fixture() ? world_->original_worker_upkeep_interval():
+            simulation::Rules::maintenance_interval_ticks;
+        lines.push_back("Maintenance: "+std::to_string(cost)+" every "+std::to_string(interval)+" ticks");
         const auto due=world_->maintenance_due_in(id);
-        if (due) lines.push_back("Next due: "+std::to_string(*due ? *due:
-            simulation::Rules::maintenance_interval_ticks)+" ticks");
+        if (due) lines.push_back("Next due: "+std::to_string(*due ? *due:interval)+" ticks");
         if (!b.operating_enabled) lines.push_back("Maintenance continues while paused.");
     };
     const auto add_service_diagnosis=[&](simulation::BuildingId id) {
@@ -5462,7 +5480,8 @@ std::vector<std::string> SandboxView::income_summary_lines() const {
     if (original_production_fixture()) {
         const auto goal=world_->original_goal_status();
         return {"Funds "+std::to_string(world_->treasury())+" | Tax received "+std::to_string(world_->taxes_collected_total())+
-                " | Upkeep "+std::to_string(world_->current_maintenance_rate())+"/400t",
+                " | Upkeep "+std::to_string(world_->current_maintenance_rate())+"/"+
+                    std::to_string(world_->original_worker_upkeep_interval())+"t",
             "Residents "+std::to_string(world_->total_population())+" | Workers "+std::to_string(world_->workforce_supply())+
                 " | Difficulty "+original_difficulty_name(world_->original_rules_model()->difficulty()),
             std::string("Authored mission ")+(goal.reached ? "MET":"pending")+" | Homes "+
@@ -5532,7 +5551,8 @@ std::vector<std::string> SandboxView::income_lines() const {
         "Taxes actually received: "+std::to_string(world_->taxes_collected_total()),
         "Upkeep actually paid: "+std::to_string(world_->maintenance_spent_total()),
         "Construction spent: "+std::to_string(world_->construction_spent_total()),
-        "Installed upkeep: "+std::to_string(world_->current_maintenance_rate())+" /400t",
+        "Installed upkeep: "+std::to_string(world_->current_maintenance_rate())+" /"+
+            std::to_string(world_->original_worker_upkeep_interval())+"t",
         "Authored upkeep:2 Funds /required worker; installed even paused",
         "Authored direct tax: residents x model rate /816t",
         "1 rate point =1 Fund per resident per authored month",
@@ -5860,7 +5880,7 @@ std::string SandboxView::hud_status_line() const {
         if (cost>0 && kind) {
             if (original_production_fixture()) status="$"+std::to_string(cost)+
                 " | upkeep "+std::to_string(simulation::original_worker_upkeep_funds)+"/required worker/"+
-                std::to_string(simulation::original_worker_upkeep_interval_ticks)+"t; T: installed | "+status;
+                std::to_string(world_->original_worker_upkeep_interval())+"t; T: installed | "+status;
             else status="$"+std::to_string(cost)+" | upkeep $"+
                 std::to_string(simulation::maintenance_cost(rules_,*kind))+"/400t | "+status;
         }
@@ -6001,7 +6021,8 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(original_fire_protection())overview+=" | Policy 3 | Save 27 | Authored fire protection";
+        if(original_sustainable_economy())overview+=" | Policy 3 | Save 28 | Authored sustainable economy";
+        else if(original_fire_protection())overview+=" | Policy 3 | Save 27 | Authored fire protection";
         else if(original_production_fixture())overview+=" | Policy 3 | Save 26 | Production development "+
             std::to_string(simulation::kOriginalProductionDevelopmentRevision);
         else if(original_goods_fixture())overview+=" | Policy 3 | Save 25 | Goods accounting development";
@@ -6070,7 +6091,8 @@ bool SandboxView::draw_hud() {
         case A::OriginalHempField: return "M Hemp Field $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalHempField));
         case A::OriginalFoodFarm: return "O Food Farm $"+
-            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalFoodFarm));
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalFoodFarm))+
+            (original_sustainable_economy() ? " "+std::to_string(world_->original_production_state()->food.farms.size())+"/3":"");
         case A::OriginalWheatField: return "W Wheat $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalWheatField));
         case A::OriginalMilletField: return "L Millet $"+
@@ -6475,8 +6497,10 @@ bool SandboxView::draw_hud() {
                 const auto next=world_->maintenance_due_in(b.id);
                 if (next && *next>0 && *next<=100) ++due;
             }
+            const auto interval=original_production_fixture() ? world_->original_worker_upkeep_interval():400U;
             const auto line="Maintenance spent "+std::to_string(world_->maintenance_spent_total())+
-                " | Installed "+std::to_string(world_->current_maintenance_rate())+"/400t | Due next 100t "+std::to_string(due);
+                " | Installed "+std::to_string(world_->current_maintenance_rate())+"/"+
+                std::to_string(interval)+"t | Due next 100t "+std::to_string(due);
             if (!draw_text(8*layout_.scale,layout_.map.y+debug_row*layout_.scale,line,layout_.map.w-16*layout_.scale)) return false;
             debug_row+=14;
         }
@@ -6674,7 +6698,8 @@ bool SandboxView::draw_help_overlay() {
             original_fire_protection() ? "F Watch: $80; 2 workers (2W)":"Actual arrivals supply Houses",
             original_fire_protection() ? "Inspector arrival:2400 ticks protection":"Water is evaluated on phase28",
             "PageUp/Down: sections | F10: overlays", "Plain needs Water/Food/Ancestor",
-            "Schools: experimental direct visits", "T:816t tax;2/worker/400t upkeep",
+            "Schools: experimental direct visits", world_->original_worker_upkeep_interval()==816 ?
+                "T:816t tax;2/worker/816t upkeep":"T:816t tax;2/worker/400t upkeep",
             building_profile_ && building_profile_->original_house_prepared ?
                 "House art: State; other art pending":"Original graphics follow separately"};
         for (std::size_t row=0;row<help.size();++row)

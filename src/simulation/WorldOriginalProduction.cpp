@@ -145,14 +145,33 @@ World World::create_original_fire_protection(std::shared_ptr<const MapPermission
     world.rule_version_=kOriginalFireProtectionRuleVersion;
     world.original_production_->fire_protection.emplace();return world;
 }
+World World::create_original_sustainable_economy(std::shared_ptr<const MapPermissions> permissions,
+    std::shared_ptr<const original::OriginalRulesModel> model) {
+    auto world=create_original_fire_protection(std::move(permissions),std::move(model));
+    world.rule_version_=kOriginalSustainableRuleVersion;return world;
+}
 World World::restore_original_fire_protection(const WorldSnapshot& snapshot,
     std::shared_ptr<const MapPermissions> permissions,
     std::shared_ptr<const original::OriginalRulesModel> model) {
-    if (!simulation::original_fire_protection_enabled(snapshot.profile,snapshot.rule_version) ||
+    if (snapshot.profile!=RulesProfile::CityV16 || snapshot.rule_version!=kOriginalFireProtectionRuleVersion ||
         !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model)
         invalid("original production restore requires explicit rule11, policy3 and prepared model");
     const auto capacity=model->house_rules().row_capacity(original::ModelHouse::Shelter);
     if (capacity<=0 || capacity>INT16_MAX) invalid("invalid original production Shelter capacity");
+    validate_original_production_snapshot(snapshot);
+    auto world=restore_impl(snapshot,{},std::move(permissions),true,std::move(model));
+    world.validate_original_hemp_model();world.validate_original_food_model();world.validate_original_consumption_model();
+    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();world.validate_original_industry_model();
+    world.validate_original_finance_model();return world;
+}
+World World::restore_original_sustainable_economy(const WorldSnapshot& snapshot,
+    std::shared_ptr<const MapPermissions> permissions,
+    std::shared_ptr<const original::OriginalRulesModel> model) {
+    if (!simulation::original_sustainable_economy_enabled(snapshot.profile,snapshot.rule_version) ||
+        !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model)
+        invalid("original sustainable restore requires explicit rule12, policy3 and prepared model");
+    const auto capacity=model->house_rules().row_capacity(original::ModelHouse::Shelter);
+    if (capacity<=0 || capacity>INT16_MAX) invalid("invalid original sustainable Shelter capacity");
     validate_original_production_snapshot(snapshot);
     auto world=restore_impl(snapshot,{},std::move(permissions),true,std::move(model));
     world.validate_original_hemp_model();world.validate_original_food_model();world.validate_original_consumption_model();

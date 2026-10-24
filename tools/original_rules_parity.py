@@ -463,7 +463,8 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE36: Rule11 adds a separately guarded authored fire journal.
+    # OE37: Rule12 adds explicit capacity/interval queries and strict factories.
+    # Its authored balance changes do not alter any historical numerical probe.
     # Only the public World/production DTO ABI changes; all numerical kernels
     # and independently specified historical probe expectations stay unchanged.
     # Additive model rows/DTOs require matching ABI pins; every pure numerical kernel
@@ -471,7 +472,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
     # Recompile against matching archives and pin their exact public ABI headers.
     world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "db866afe18e36a27f839768b2782788fbb4e40b7":
+    if world_blob != "f2a62fd2f65c4da93accb38fd062eca832b496d0":
         raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()

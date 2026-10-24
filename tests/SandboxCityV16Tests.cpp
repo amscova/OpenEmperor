@@ -400,10 +400,15 @@ void geometry() {
         sim::rule_version_supported(sim::RulesProfile::CityV16,9) &&
         sim::rule_version_supported(sim::RulesProfile::CityV16,10) &&
         sim::rule_version_supported(sim::RulesProfile::CityV16,11) &&
-        !sim::rule_version_supported(sim::RulesProfile::CityV16,12),"City16 version support");
+        sim::rule_version_supported(sim::RulesProfile::CityV16,12) &&
+        !sim::rule_version_supported(sim::RulesProfile::CityV16,13),"City16 version support");
     check(sim::original_fire_protection_enabled(sim::RulesProfile::CityV16,11) &&
+        sim::original_fire_protection_enabled(sim::RulesProfile::CityV16,12) &&
         !sim::original_fire_protection_enabled(sim::RulesProfile::CityV16,10),
-        "Fire protection escaped its explicit Rule11 opt-in");
+        "Fire protection escaped its explicit Rule11/12 opt-ins");
+    check(sim::original_sustainable_economy_enabled(sim::RulesProfile::CityV16,12) &&
+        !sim::original_sustainable_economy_enabled(sim::RulesProfile::CityV16,11),
+        "Sustainable economy escaped its explicit Rule12 opt-in");
     Temp t;
     for (const auto profile:{sim::RulesProfile::CityV14,sim::RulesProfile::CityV15,sim::RulesProfile::CityV16})
         for (const auto kind:{sim::Object::Well,sim::Object::HealthPost})

@@ -111,7 +111,7 @@ inline std::uint64_t expected_maintenance(const sim::World& world) {
     for (const auto& body:world.buildings()) if (body.placed) {
         const auto workers=world.workforce_required(body.id);
         f::check(workers>=0,"Negative installed workforce in finance oracle");
-        const auto bills=(world.ticks()-body.placed_tick)/400;
+        const auto bills=(world.ticks()-body.placed_tick)/(world.rule_version()==12 ? 816U:400U);
         const auto cost=static_cast<std::uint64_t>(workers)*2;
         f::check(!cost || bills<=(UINT64_MAX-total)/cost,"Finance oracle maintenance overflow");
         total+=bills*cost;
@@ -119,7 +119,7 @@ inline std::uint64_t expected_maintenance(const sim::World& world) {
     return total;
 }
 inline void accounting(const sim::World& world) {
-    f::check(world.maintenance_spent_total()==expected_maintenance(world),"Actual upkeep differs from installed workers/placement-relative400t bills");
+    f::check(world.maintenance_spent_total()==expected_maintenance(world),"Actual upkeep differs from installed workers/versioned placement-relative bills");
     std::uint64_t paid=0;
     for (const auto& body:world.buildings()) {
         f::check(!body.taxes_paid_total || sim::original_house_kind(body.kind),"Non-House owns actual house tax");

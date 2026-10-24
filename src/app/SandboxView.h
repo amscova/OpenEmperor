@@ -75,6 +75,11 @@ public:
         maps::StoredMapSession session,
         std::optional<original::Difficulty> difficulty=std::nullopt,
         bool paid_starter=false);
+    // Explicit Rule12/schema28; no new-game default or saved-rule migration.
+    static std::unique_ptr<SandboxView> create_original_sustainable_economy(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
 #if defined(OPENEMPEROR_ORIGINAL_ECONOMY_SAVE_FIXTURE)
     // Explicit development fixtures; no shipped application entry point.
     static std::unique_ptr<SandboxView> create_original_economy_save_fixture(
@@ -600,6 +605,9 @@ private:
     }
     bool original_fire_protection() const {
         return simulation::original_fire_protection_enabled(rules_,requested_rule_version_);
+    }
+    bool original_sustainable_economy() const {
+        return simulation::original_sustainable_economy_enabled(rules_,requested_rule_version_);
     }
     bool original_save_fixture_=false; // Explicit original entry/legacy fixture; never saved authority.
     // Retained only through initialization, when immutable map permissions are

@@ -228,13 +228,26 @@ inline constexpr std::uint32_t kOriginalInfluenceRuleVersion=8;
 inline constexpr std::uint32_t kOriginalGoodsRuleVersion=9;
 inline constexpr std::uint32_t kOriginalProductionRuleVersion=10;
 inline constexpr std::uint32_t kOriginalFireProtectionRuleVersion=11;
+inline constexpr std::uint32_t kOriginalSustainableRuleVersion=12;
+constexpr bool original_sustainable_economy_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalSustainableRuleVersion;
+}
 constexpr bool original_fire_protection_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && version==kOriginalFireProtectionRuleVersion;
+    return profile==RulesProfile::CityV16 && (version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
+}
+constexpr std::size_t original_food_farm_limit(RulesProfile profile,std::uint32_t version) {
+    return original_sustainable_economy_enabled(profile,version) ? 3U:2U;
+}
+constexpr std::size_t original_food_stock_limit(RulesProfile profile,std::uint32_t version) {
+    return 24U+original_food_farm_limit(profile,version);
+}
+constexpr std::size_t original_food_trip_limit(RulesProfile profile,std::uint32_t version) {
+    return 4U+original_food_farm_limit(profile,version);
 }
 inline constexpr std::int64_t original_production_starting_treasury=12000;
 constexpr bool original_production_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && (version==kOriginalProductionRuleVersion ||
-        version==kOriginalFireProtectionRuleVersion);
+        version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
 }
 inline constexpr std::int64_t original_influence_starting_treasury=2000;
 inline constexpr std::int64_t original_influence_source_cost=60;
@@ -243,22 +256,22 @@ inline constexpr std::size_t original_influence_purchase_limit=33;
 constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion ||
-         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion);
+         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
 }
 constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && (version==kOriginalGoodsRuleVersion ||
-        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion);
+        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
 }
 constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
-         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion);
+         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
 }
 constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11);
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12);
 }
 constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11);
+    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12);
 }
 
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
@@ -631,6 +644,12 @@ public:
     bool original_goods_enabled() const { return simulation::original_goods_enabled(profile_,rule_version_); }
     bool original_production_enabled() const { return simulation::original_production_enabled(profile_,rule_version_); }
     bool original_fire_protection_enabled() const { return simulation::original_fire_protection_enabled(profile_,rule_version_); }
+    bool original_sustainable_economy_enabled() const { return simulation::original_sustainable_economy_enabled(profile_,rule_version_); }
+    // Authored installed liability: Rule12 uses one existing 816t economy
+    // month; historical generations retain their exact 400t invoice clock.
+    std::uint64_t original_worker_upkeep_interval() const {
+        return original_sustainable_economy_enabled() ? original_tax_interval_ticks:original_worker_upkeep_interval_ticks;
+    }
     const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
     const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
     const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
@@ -703,6 +722,12 @@ public:
     static World create_original_fire_protection(std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
     static World restore_original_fire_protection(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    // Explicit authored capacity/finance generation; historical factories never migrate.
+    static World create_original_sustainable_economy(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_sustainable_economy(const WorldSnapshot& snapshot,
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
     RulesProfile profile() const { return profile_; }

@@ -407,7 +407,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=11;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=12;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -442,7 +442,9 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v10{10,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==kOriginalProductionRuleVersion) return city_v16_v10;
     static constexpr ProfileRules city_v16_v11{11,32,64,32,5,800};
-    if (original_fire_protection_enabled(profile,version)) return city_v16_v11;
+    if (profile==RulesProfile::CityV16 && version==kOriginalFireProtectionRuleVersion) return city_v16_v11;
+    static constexpr ProfileRules city_v16_v12{12,32,64,32,5,800};
+    if (original_sustainable_economy_enabled(profile,version)) return city_v16_v12;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
     static constexpr ProfileRules city_v12{1,32,64,32,5,800};

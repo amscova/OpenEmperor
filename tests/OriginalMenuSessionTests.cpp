@@ -195,7 +195,9 @@ void capture_failure_recovery(SDL_Window* window,SDL_Renderer* renderer) {
           "Optional Recovery capture failure prevented candidate commit or changed prior files");
     fs::rename(held,model);menu.shutdown();
 }
-void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer) {
+void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer,bool sustainable=false) {
+    const auto rule=sustainable ? 12U:11U,schema=sustainable ? 28U:27U;
+    const auto option=sustainable ? "S Sustainable economy":"F Original fire protection";
     // Independently authored map/model: normal MenuSession and production View,
     // ordinary paid World commands and actual SDL F5/F9. Real Xia acceptance
     // remains a separate original-data run.
@@ -204,15 +206,16 @@ void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer) {
     auto dialog=std::make_unique<Dialog>();auto* callbacks=dialog.get();
     Menu menu({},app,std::move(dialog));menu.initialize(window,renderer);
     expect_legacy_preferences(menu);
-    check(!menu.original_setup() && !menu.original_fire_protection_setup(),"Rule11 became a fresh-menu default");
-    check_bounds(menu,"F Original fire protection");
-    click(menu,window,renderer,"F Original fire protection");wait_check(menu);
-    check(menu.original_setup() && menu.original_fire_protection_setup() &&
-        menu.map_rules_result().request.rule_version==11 && menu.map_rules_result().request.policy_version==3,
+    check(!menu.original_setup() && !menu.original_fire_protection_setup() && !menu.original_sustainable_economy_setup(),"Rule11 became a fresh-menu default");
+    check_bounds(menu,option);
+    click(menu,window,renderer,option);wait_check(menu);
+    check(menu.original_setup() && menu.original_fire_protection_setup()==!sustainable &&
+        menu.original_sustainable_economy_setup()==sustainable &&
+        menu.map_rules_result().request.rule_version==rule && menu.map_rules_result().request.policy_version==3,
         "Explicit Rule11 menu option did not preflight its own policy3 contract");
     key(menu,SDLK_RETURN);finish_load(menu);
     check(menu.state()==Menu::State::Playing && menu.sandbox()->world().original_fire_protection_enabled() &&
-        menu.sandbox()->paused() && house_count(menu.sandbox()->world())==4,
+        menu.sandbox()->world().rule_version()==rule && menu.sandbox()->paused() && house_count(menu.sandbox()->world())==4,
         "Rule11 menu did not buy the actual four-house plan and publish it paused");
     auto& view=*menu.sandbox();
     const auto tool=std::find_if(view.layout().buttons.begin(),view.layout().buttons.end(),
@@ -229,6 +232,16 @@ void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer) {
         "Rule11 View did not pay the actual authored80-Funds Watch price");
     const auto watch=*view.world().building_owner_at(watch_cell);
     check(view.world().workforce_required(watch)==2,"Rule11 Watch does not require its authored2 workers");
+    const auto check_watch_invoice=[&] {
+        check(view.selected_building()==watch,"Paid Watch lost its actual inspection selection");
+        std::string text;for(const auto& line:view.inspection_lines())text+=line+" ";
+        const auto interval=sustainable ? 816U:400U;
+        const auto due=view.world().maintenance_due_in(watch);
+        check(due && text.find("Maintenance: 4 every "+std::to_string(interval)+" ticks")!=std::string::npos &&
+            text.find("Next due: "+std::to_string(*due ? *due:interval)+" ticks")!=std::string::npos,
+            "Watch inspection misreported its selected rule's actual installed invoice or next due time");
+    };
+    check_watch_invoice();
     bool moving=false;
     for (int i=0;i<1500 && !moving;++i) {
         view.tick_once();
@@ -237,9 +250,10 @@ void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer) {
         });
     }
     check(moving,"Rule11 menu city did not earn an actual staffed Inspector trip");
+    check_watch_invoice();
     key(menu,SDLK_F5);const auto manual=menu.settings().last_save;
     const auto saved=view.capture_save_document();const auto bytes=oe_influence_fixture::read_text(manual);
-    check(oe::persistence::read_save(manual).source_schema_version==27,"Rule11 F5 wrote another save schema");
+    check(oe::persistence::read_save(manual).source_schema_version==schema,"Rule11 F5 wrote another save schema");
     for (int i=0;i<20;++i) view.tick_once();
     key(menu,SDLK_F9);same(saved,view.capture_save_document());
     check(oe_influence_fixture::read_text(manual)==bytes,"Rule11 midflight F9 changed its input save bytes");
@@ -251,12 +265,12 @@ void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer) {
     });
     check(history!=catalog.histories.end() && history->error.empty() && history->entries.size()>=2,
         "Rule11 autosave did not retain a protected start and due checkpoint");
-    for (const auto& e:history->entries) check(e.loadable() && e.schema==27 && e.rule_version==11,
+    for (const auto& e:history->entries) check(e.loadable() && e.schema==schema && e.rule_version==rule,
         "Rule11 recovery history is not a valid exact schema27/rule11 tuple");
     const auto checkpoint=history->entries.front();const auto checkpoint_bytes=oe_influence_fixture::read_text(checkpoint.path);
     key(menu,SDLK_F5); // Resolve real dirty progress before the independent recovery load.
     external_load(menu,*callbacks,window,renderer,checkpoint.path);
-    check(menu.state()==Menu::State::Playing && menu.sandbox()->world().rule_version()==11,
+    check(menu.state()==Menu::State::Playing && menu.sandbox()->world().rule_version()==rule,
         "Normal file chooser did not restore Rule11 recovery as Rule11");
     same(oe::persistence::read_save(checkpoint.path),menu.sandbox()->capture_save_document());
     key(menu,SDLK_F5);
@@ -266,9 +280,9 @@ void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer) {
 
     auto fresh_dialog=std::make_unique<Dialog>();auto* fresh_callbacks=fresh_dialog.get();
     Menu fresh({},app,std::move(fresh_dialog));fresh.initialize(window,renderer);
-    check(!fresh.original_setup() && !fresh.original_fire_protection_setup(),"Rule11 selection persisted as a new-game default");
+    check(!fresh.original_setup() && !fresh.original_fire_protection_setup() && !fresh.original_sustainable_economy_setup(),"Rule11 selection persisted as a new-game default");
     external_load(fresh,*fresh_callbacks,window,renderer,manual);
-    check(fresh.state()==Menu::State::Playing && fresh.sandbox()->world().rule_version()==11 &&
+    check(fresh.state()==Menu::State::Playing && fresh.sandbox()->world().rule_version()==rule &&
         house_count(fresh.sandbox()->world())==4,"Restart/reload changed Rule11 or repeated the paid starter");
     key(fresh,SDLK_ESCAPE);enter_original(fresh,window,renderer);wait_map(fresh);
     check(!fresh.original_fire_protection_setup(),"Old O Original economy menu inherited Rule11");
@@ -333,6 +347,7 @@ int main(int argc,char** argv) {
         } else {
             check(argc==1 || (argc==3 && std::string_view(argv[1])=="--capture"),"Unknown Original menu test arguments");
             fire_protection_menu(window,renderer);
+            fire_protection_menu(window,renderer,true);
             capture_failure_recovery(window,renderer);
             const fs::path captures=argc==3 ? fs::absolute(argv[2]):fs::path{};
             oe::testing::economy::Temp temp;const auto root=fs::canonical(temp.root),data=root/"data",app=root/"app";

@@ -44,7 +44,7 @@ std::optional<std::uint64_t> World::maintenance_due_in(BuildingId id) const {
         !(original_production_enabled() ? original_worker_upkeep(found->id):maintenance_cost(profile_,found->kind)) ||
         ticks_<found->placed_tick) return std::nullopt;
     const auto age=ticks_-found->placed_tick;
-    const auto interval=original_production_enabled() ? original_worker_upkeep_interval_ticks:Rules::maintenance_interval_ticks;
+    const auto interval=original_production_enabled() ? original_worker_upkeep_interval():Rules::maintenance_interval_ticks;
     if (age>0 && age%interval==0) return 0;
     return interval-age%interval;
 }
@@ -57,7 +57,7 @@ MaintenanceProjection World::maintenance_projection(std::uint64_t horizon) const
     result.installed_rate=current_maintenance_rate();
     std::int64_t total=0;
     bool representable=result.horizon_end_tick.has_value();
-    const auto interval=original_production_enabled() ? original_worker_upkeep_interval_ticks:Rules::maintenance_interval_ticks;
+    const auto interval=original_production_enabled() ? original_worker_upkeep_interval():Rules::maintenance_interval_ticks;
     // Bounded building collection; no simulation, navigation or mutable cache.
     for (const auto& b:buildings_) {
         const auto cost=b.placed ? (original_production_enabled() ? original_worker_upkeep(b.id):maintenance_cost(profile_,b.kind)):0;

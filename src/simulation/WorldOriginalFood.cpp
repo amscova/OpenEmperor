@@ -77,14 +77,17 @@ void return_load(OriginalFoodState& food,OriginalFoodTrip& trip) {
 }
 template<class Buildings,class Couriers,class Homes>
 void validate_food(const OriginalFoodState& food,const Buildings& buildings,const Couriers& couriers,const Homes& houses,
-              std::uint64_t ticks,bool bind_movement=true,bool check_progress=true) {
-    if (food.farms.size()>2 || food.stocks.size()>26 || food.trips.size()>6) invalid("bounded Food authority exceeded");
+              std::uint64_t ticks,RulesProfile profile,std::uint32_t rule,bool bind_movement=true,bool check_progress=true) {
+    const auto farm_limit=original_food_farm_limit(profile,rule);
+    const auto trip_limit=original_food_trip_limit(profile,rule);
+    if (food.farms.size()>farm_limit || food.stocks.size()>original_food_stock_limit(profile,rule) || food.trips.size()>trip_limit)
+        invalid("bounded Food authority exceeded");
     std::size_t owners=0,farms=0,fields=0,actors=0;
     for (const auto& b:buildings) {owners+=food_owner(b.kind);farms+=b.kind==Object::OriginalFoodFarm;
         fields+=b.kind==Object::OriginalWheatField || b.kind==Object::OriginalMilletField;}
     for (const auto& c:couriers) actors+=food_role(c.role);
-    if (owners!=food.stocks.size() || farms!=food.farms.size() || fields>2 || actors>6) invalid("missing Food purchase authority");
-    std::array<BuildingId,2> assigned_fields{};std::size_t assigned=0;
+    if (owners!=food.stocks.size() || farms!=food.farms.size() || fields>farm_limit || actors>trip_limit) invalid("missing Food purchase authority");
+    std::array<BuildingId,3> assigned_fields{};std::size_t assigned=0;
     OriginalFoodCounters harvest{},all_stock{},all_consumed{},all_departed{},all_received{},all_returned{},all_cargo{};
     for (std::size_t i=0;i<food.farms.size();++i) {
         const auto& f=food.farms[i];const auto g=crop_index(f.crop);const auto& b=body(buildings,f.farm_id);
@@ -270,7 +273,7 @@ CommandResult World::validate_original_food_command(Command command) const {
     if (!in_bounds(command.cell)) {result.reason="Food construction outside permitted map bounds";return result;}
     const auto& food=original_production_->food;
     if (command.type==CommandType::PlaceOriginalFoodFarm) {
-        if (food.farms.size()>=2) {result.reason="Food Farmhouse limit reached";return result;}
+        if (food.farms.size()>=original_food_farm_limit(profile_,rule_version_)) {result.reason="Food Farmhouse limit reached";return result;}
     } else if (command.type==CommandType::PlaceOriginalWheatField || command.type==CommandType::PlaceOriginalMilletField) {
         const auto f=std::find_if(food.farms.begin(),food.farms.end(),[&](const auto& row){return row.farm_id==command.building_id;});
         if (f==food.farms.end() || f->field_id || !adjacent(building(f->farm_id).cell,command.cell)) {
@@ -281,10 +284,11 @@ CommandResult World::validate_original_food_command(Command command) const {
 }
 void World::validate_original_food_snapshot(const WorldSnapshot& snapshot) {
     if (!snapshot.original_production || !snapshot.original_economy) invalid("Food snapshot has no original production authority");
-    validate_food(snapshot.original_production->food,snapshot.buildings,snapshot.couriers,snapshot.original_economy->houses,snapshot.ticks);
+    validate_food(snapshot.original_production->food,snapshot.buildings,snapshot.couriers,snapshot.original_economy->houses,
+        snapshot.ticks,snapshot.profile,snapshot.rule_version);
 }
 void World::validate_original_food_state() const {
-    validate_food(original_production_->food,buildings_,couriers_,original_economy_->houses,ticks_);
+    validate_food(original_production_->food,buildings_,couriers_,original_economy_->houses,ticks_,profile_,rule_version_);
 }
 bool World::original_food_courier(CourierRole role) const {return original_production_enabled() && food_role(role);}
 int World::original_food_cargo(CourierId id) const {
@@ -304,7 +308,7 @@ void World::advance_original_food() {
         if (farm.progress<79) {++farm.progress;continue;}
         auto candidate=original_production_->food;auto& next=candidate.farms[i];auto& stock=account(candidate.stocks,farm.id);
         const auto g=crop_index(next.crop);add(next.harvested,1);++stock.amounts[g];
-        validate_food(candidate,buildings_,couriers_,original_economy_->houses,ticks_,false,false);
+        validate_food(candidate,buildings_,couriers_,original_economy_->houses,ticks_,profile_,rule_version_,false,false);
         original_production_->food=std::move(candidate);farm.progress=0;
     }
 }
@@ -339,7 +343,7 @@ void World::dispatch_original_food(CourierState& c) {
     auto path=*route->second;
     // No actual movement fields are changed until every bounded DTO check and
     // the route allocation have completed successfully.
-    validate_food(candidate,buildings_,couriers_,original_economy_->houses,ticks_,false);
+    validate_food(candidate,buildings_,couriers_,original_economy_->houses,ticks_,profile_,rule_version_,false);
     original_production_->food=std::move(candidate);c.path=std::move(path);c.target=target;c.last_dispatched_target=target;c.path_vertex=0;c.edge_progress=0;
     c.route_pending=false;c.route_checked_revision.reset();c.phase=CourierPhase::ToWarehouse;
 }
@@ -350,7 +354,7 @@ void World::cancel_original_food(BuildingId owner) {
         const auto here=c.path.at(c.path_vertex);const auto& source=building(owner);
         const bool already_home=!c.edge_progress && building_footprint_contains(profile_,rule_version_,source.kind,source.cell,here);
         if (already_home) return_load(candidate,*trip);
-        validate_food(candidate,buildings_,couriers_,original_economy_->houses,ticks_,false);
+        validate_food(candidate,buildings_,couriers_,original_economy_->houses,ticks_,profile_,rule_version_,false);
         original_production_->food=std::move(candidate);
         if (already_home) {c.path.clear();c.path_vertex=0;c.edge_progress=0;c.route_pending=false;c.route_checked_revision.reset();c.phase=CourierPhase::IdleAtWorkshop;}
         else {c.phase=CourierPhase::Returning;mark_route_pending(c);if (!c.edge_progress) reroute_v2(c);}
@@ -374,13 +378,13 @@ void World::arrive_original_food(CourierState& c) {
             for (std::size_t g=0;g<cargo.size();++g) {stock.amounts[g]+=cargo[g];add(stock.received[g],static_cast<std::uint64_t>(cargo[g]));trip->delivered[g]=cargo[g];}
             trip->phase=OriginalGoodsTransferPhase::Completed;
         }
-        validate_food(candidate,buildings_,couriers_,houses,ticks_,false);
+        validate_food(candidate,buildings_,couriers_,houses,ticks_,profile_,rule_version_,false);
         original_production_->food=std::move(candidate);original_economy_->houses=std::move(houses);c.phase=CourierPhase::Returning;
         if (valid_return_path(c)) {std::reverse(c.path.begin(),c.path.end());c.path_vertex=0;}
         else {c.path={c.path.back()};c.path_vertex=0;c.route_pending=true;c.route_checked_revision.reset();reroute_v2(c);}
     } else {
         if (volume(remaining(*trip))) return_load(candidate,*trip);
-        validate_food(candidate,buildings_,couriers_,houses,ticks_,false);
+        validate_food(candidate,buildings_,couriers_,houses,ticks_,profile_,rule_version_,false);
         original_production_->food=std::move(candidate);c.path.clear();c.path_vertex=0;c.phase=CourierPhase::IdleAtWorkshop;
         c.route_pending=false;c.route_checked_revision.reset();
     }
@@ -393,7 +397,7 @@ void World::consume_original_food() {
         const std::size_t crop=stock.amounts[0] ? 0:1;--stock.amounts[crop];add(stock.consumed[crop],1);
         if (!volume(stock.amounts)) h.house.food_quality=0;
     }
-    validate_food(candidate,buildings_,couriers_,houses,ticks_);
+    validate_food(candidate,buildings_,couriers_,houses,ticks_,profile_,rule_version_);
     original_production_->food=std::move(candidate);original_economy_->houses=std::move(houses);
 }
 

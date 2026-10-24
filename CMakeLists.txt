@@ -1755,7 +1755,23 @@ if(BUILD_TESTING)
     add_test(NAME original-fire-protection-real COMMAND openemperor-fire-protection-acceptance
         --mode check --rule 11 --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" --ticks 6000)
     set_tests_properties(original-fire-protection-real PROPERTIES TIMEOUT 240)
+    add_executable(openemperor-sustainable-economy-tests tests/SustainableEconomyTests.cpp)
+    target_link_libraries(openemperor-sustainable-economy-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-sustainable-economy-tests)
+    add_test(NAME original-sustainable-economy-world COMMAND openemperor-sustainable-economy-tests)
+    set_tests_properties(original-sustainable-economy-world PROPERTIES TIMEOUT 240)
+    add_executable(openemperor-sustainable-economy-acceptance tools/SustainableEconomyAcceptance.cpp)
+    target_link_libraries(openemperor-sustainable-economy-acceptance PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-sustainable-economy-acceptance)
+    add_dependencies(openemperor-sustainable-economy-acceptance openemperor)
+    add_test(NAME original-sustainable-economy-real COMMAND openemperor-sustainable-economy-acceptance
+        --mode check --rule 12 --variant balanced-three --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" --ticks 6000)
+    set_tests_properties(original-sustainable-economy-real PROPERTIES TIMEOUT 600)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME original-sustainable-economy-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s "${CMAKE_SOURCE_DIR}/tests" -p SustainableEconomyRunnerTests.py)
+        set_tests_properties(original-sustainable-economy-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME original-fire-protection-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s "${CMAKE_SOURCE_DIR}/tests" -p FireProtectionRunnerTests.py)
         set_tests_properties(original-fire-protection-runner-contract PROPERTIES TIMEOUT 30

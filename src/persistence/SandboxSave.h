@@ -83,6 +83,13 @@ simulation::World restore_original_fire_protection(
     std::vector<std::uint8_t> buildable,
     std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
     std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+// Schema28/Rule12 explicitly selects the authored sustainable-economy contract.
+// Existing schema26/27 documents retain their exact identities and rules.
+simulation::World restore_original_sustainable_economy(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& document);
 SaveDocument upgrade_city_v11_v3_to_v4(const SaveDocument& document);
 simulation::World restore_save(const SaveDocument& document,

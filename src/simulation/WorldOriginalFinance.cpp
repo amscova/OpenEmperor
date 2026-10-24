@@ -334,7 +334,7 @@ bool World::original_finance_history_valid() const {
         std::uint64_t maintenance=0;
         for (const auto& b:buildings_) if (b.placed) {
             if (b.placed_tick>ticks_) return false;
-            maintenance=add(maintenance,multiply((ticks_-b.placed_tick)/original_worker_upkeep_interval_ticks,
+            maintenance=add(maintenance,multiply((ticks_-b.placed_tick)/original_worker_upkeep_interval(),
                 static_cast<std::uint64_t>(original_worker_upkeep(b.id))));
         }
         return taxes==taxes_collected_total_ && maintenance==maintenance_spent_total_ &&
@@ -368,7 +368,7 @@ void World::book_original_finance_tick(std::uint64_t next) {
         }
     }
     for (const auto& b:buildings_) if (b.placed && next>b.placed_tick &&
-        (next-b.placed_tick)%original_worker_upkeep_interval_ticks==0)
+        (next-b.placed_tick)%original_worker_upkeep_interval()==0)
         bill=add(bill,static_cast<std::uint64_t>(original_worker_upkeep(b.id)));
     const auto booked=original_finance_book(treasury_,taxes_collected_total_,maintenance_spent_total_,income,bill);
     // Every allocation, signed/counter product and invoice has passed. Commit

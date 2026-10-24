@@ -223,8 +223,74 @@ void paid_fire_and_recovery() {
     refuses([&]{(void)restore(burned);});
 
 }
+void sustainable_paid_save_and_recovery() {
+    // Independently authored geography/model, using only ordinary paid actions.
+    // This verifies the new persistence boundary, not original-data gameplay.
+    q::Fixture fixture;auto world=sim::World::create_original_sustainable_economy(fixture.policy,fixture.model);
+    for(int x=0;x<24;++x)f::buy(world,{sim::CommandType::PlaceRoad,{x,4}});
+    for(int x=0;x<12;x+=3)f::buy(world,{sim::CommandType::PlaceHousehold,{x,2}});
+    f::buy(world,{sim::CommandType::PlaceMarket,{5,5}});
+    f::buy(world,{sim::CommandType::PlaceOriginalWaterWell,{9,5}});
+    f::buy(world,{sim::CommandType::PlaceOriginalAncestorShrine,{13,5}});
+    for(const auto& [farm_x,field_x]:std::array{std::pair{0,3},std::pair{15,18},std::pair{19,22}}) {
+        f::buy(world,{sim::CommandType::PlaceOriginalFoodFarm,{farm_x,5}});
+        sim::Command field{sim::CommandType::PlaceOriginalMilletField,{field_x,5}};
+        field.building_id=*world.building_owner_at({farm_x,5});f::buy(world,field);
+    }
+    f::buy(world,{sim::CommandType::PlaceFireWatch,{23,5}});
+    check(world.original_production_state()->food.farms.size()==3 && world.treasury()>=0 && !world.total_population(),
+          "Rule12 persistence fixture did not pay for three distinct Food chains before admission");
+    const auto unmutated=world.snapshot();
+    const auto fourth=world.execute({sim::CommandType::PlaceOriginalFoodFarm,{10,5}});
+    check(!fourth.accepted && std::string_view(fourth.reason)=="Food Farmhouse limit reached" && world.snapshot()==unmutated,
+          "Fourth Food farm was not refused atomically");
+    for(int i=0;i<1700;++i)world.tick();
+    check(world.taxes_collected_total()>0 && !world.original_production_state()->fire_protection->arrivals.empty(),
+          "Rule12 persistence fixture did not earn real taxes and Inspector arrivals");
+    const auto target=fixture.root.path/"rule12-good.json";
+    const auto document=fixture.document(world);
+    save::write_save(target,document,fixture.root.data,fixture.policy->building_mask());
+    const auto bytes=f::read_text(target);const auto parsed=save::read_save(target);
+    check(parsed.source_schema_version==28 && parsed.world.rule_version==12 && parsed.world==world.snapshot(),
+          "Rule12 schema28 did not preserve complete paid authority");
+    auto copy=save::restore_original_sustainable_economy(parsed,fixture.root.data,fixture.policy->building_mask(),fixture.policy,fixture.model);
+    save::write_save(target,fixture.document(copy),fixture.root.data,fixture.policy->building_mask());
+    check(f::read_text(target)==bytes,"Rule12 complete canonical SaveDocument changed after restore");
+    refuses([&]{(void)save::restore_original_fire_protection(parsed,fixture.root.data,fixture.policy->building_mask(),fixture.policy,fixture.model);});
+    refuses([&]{(void)save::restore_original_production_development(parsed,fixture.root.data,fixture.policy->building_mask(),fixture.policy,fixture.model);});
+    for(const auto schema:{26U,27U}) {
+        auto forged=parsed;forged.source_schema_version=schema;
+        refuses([&]{(void)save::restore_original_sustainable_economy(forged,fixture.root.data,fixture.policy->building_mask(),fixture.policy,fixture.model);});
+    }
+    const auto raw_reject=[&](auto edit) {
+        auto j=Json::parse(bytes);edit(j);const auto path=fixture.root.path/"hostile-rule12.json";f::write_text(path,j.dump());
+        refuses([&]{(void)save::read_save(path);});
+        check(f::read_text(target)==bytes && world.snapshot()==parsed.world,"Rejected schema28 input changed live World or prior save");
+    };
+    raw_reject([](auto& j){j["rules"]["version"]=11;});
+    raw_reject([](auto& j){j["schema_version"]=27;});
+    raw_reject([](auto& j){j["world"]["original_production"]["food"]["farms"].push_back(j["world"]["original_production"]["food"]["farms"].back());});
+    raw_reject([](auto& j){j["world"]["original_production"]["finance"]["unknown"]=1;});
+    raw_reject([](auto& j){j["world"]["original_production"].erase("fire_protection");});
+    auto duplicate=bytes;const auto at=duplicate.find("\"travelled_cells\":");
+    check(at!=std::string::npos,"Rule12 omitted its mandatory fire provenance");
+    duplicate.insert(at,"\"travelled_cells\":0,");
+    const auto duplicate_path=fixture.root.path/"duplicate-rule12.json";f::write_text(duplicate_path,duplicate);
+    refuses([&]{(void)save::read_save(duplicate_path);});
+    save::RecoveryStore legacy(fixture.root.path/"legacy-app",fixture.root.data);
+    refuses([&]{(void)legacy.create_history(document,fixture.policy->building_mask());});
+    save::RecoveryStore recovery(fixture.root.path/"rule12-app",fixture.root.data,save::recovery_storage_budget_bytes,
+                                 save::RecoveryAccess::OriginalProduction);
+    const auto history=recovery.create_history(document,fixture.policy->building_mask());
+    for(int i=0;i<400;++i){world.tick();copy.tick();check(world.snapshot()==copy.snapshot(),"Rule12 complete continuation diverged");}
+    const auto checkpoint=recovery.write_checkpoint(history,fixture.document(world),fixture.policy->building_mask());
+    check(checkpoint.schema==28 && checkpoint.rule_version==12 && checkpoint.loadable(),"Recovery changed the explicit schema28/rule12 tuple");
+    const auto resumed=save::restore_original_sustainable_economy(save::read_save(checkpoint.path),fixture.root.data,
+        fixture.policy->building_mask(),fixture.policy,fixture.model);
+    check(resumed.snapshot()==world.snapshot(),"Rule12 recovery changed complete current authority");
+}
 }
 int main() {
-    try {rejects_unvisited_return_target();legitimate_repaired_return_progress();paid_fire_and_recovery();std::cout<<"PASS Rule11 paid fire persistence, exact taxes, hostile saves and recovery\n";return 0;}
+    try {rejects_unvisited_return_target();legitimate_repaired_return_progress();paid_fire_and_recovery();sustainable_paid_save_and_recovery();std::cout<<"PASS Rule11/12 paid fire persistence, exact taxes, hostile saves and recovery\n";return 0;}
     catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}
 }
