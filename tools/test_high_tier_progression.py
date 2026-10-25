@@ -2,9 +2,11 @@
 """OE38 diagnostic and unchanged paid-baseline gates; no high-tier grants."""
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import time
 
@@ -176,6 +178,52 @@ def review_type_durations(metrics):
     return sum(count for kind, count in counts.items() if kind != 10)
 
 
+def review_finance_extrema(metrics, seed):
+    """No commands occur in these intervals; cash changes only at invoices/tax."""
+    funds = baseline.integer(seed["treasury"], "Invalid initial actual Funds")
+    minimum = maximum = funds;previous = metrics["begin_tick"]
+    for event in metrics["city"]["finance"]:
+        tick = baseline.integer(event["tick"], "Invalid chronological finance event", previous+1)
+        proof.require(tick <= metrics["end_tick"], "Finance event outside its actual interval")
+        funds += baseline.integer(event["tax"], "Invalid actual tax receipt", 0)
+        funds -= baseline.integer(event["upkeep"], "Invalid actual upkeep invoice", 0)
+        proof.require(type(event["funds"]) is int and event["funds"] == funds,
+                      "Finance event changed Funds beyond its actual tax/upkeep")
+        minimum = min(minimum, funds);maximum = max(maximum, funds);previous = tick
+    proof.require(metrics["summary"]["minimum_funds"] == metrics["city"]["summary"]["minimum_funds"] == minimum and
+                  metrics["summary"]["maximum_funds"] == maximum,
+                  "Observed Funds extrema differ from the independently reconstructed actual invoice/payment stream")
+    return minimum
+
+
+def review_retention_losses(metrics, seed, final, target):
+    """Union real type-loss and fire intervals, without counting overlaps twice."""
+    begin, end = metrics["begin_tick"], metrics["end_tick"]
+    proof.require(0 <= end-begin <= 60000 and type(metrics["summary"]["minimum_target_occupants"]) is int and
+                  metrics["summary"]["minimum_target_occupants"] > 0,
+                  "Retention eligibility requires measured positive occupancy throughout; zero is no PASS witness")
+    bodies = {row["id"]: row for row in seed["buildings"]}
+    final_bodies = {row["id"]: row for row in final["buildings"]}
+    current = owned(seed, target)["house"]["type"]
+    burning = bodies[target]["fire_until_tick"] > begin
+    types = {event["tick"]: event["to"] for event in metrics["transition_events"]}
+    fires = {};previous = begin;state = burning
+    for event in metrics["target_fire_events"]:
+        tick = baseline.integer(event["tick"], "Invalid chronological target-fire event", previous+1)
+        proof.require(tick <= end and type(event["burning"]) is bool and event["burning"] is not state,
+                      "Target-fire event omitted a state change or escaped its actual interval")
+        fires[tick] = event["burning"];state = event["burning"];previous = tick
+    lost = type_lost = fire_ticks = 0
+    for tick in range(begin+1, end+1):
+        current = types.get(tick, current);burning = fires.get(tick, burning)
+        type_lost += current != 10;fire_ticks += burning;lost += current != 10 or burning
+    proof.require(current == owned(final, target)["house"]["type"] and
+                  burning is (final_bodies[target]["fire_until_tick"] > end) and
+                  type_lost == review_type_durations(metrics) and fire_ticks == metrics["summary"]["burning_ticks"],
+                  "Reconstructed retention/fire intervals differ from raw endpoints or observed durations")
+    return lost
+
+
 def review_observation(metrics, seed, final, target, model):
     begin, end = seed["ticks"], final["ticks"]
     proof.require(metrics["format"] == "openemperor-high-tier-observation-v1" and
@@ -195,6 +243,7 @@ def review_observation(metrics, seed, final, target, model):
                   summary["construction_delta"] == 0 and summary["operating_cashflow"] == summary["taxes_delta"] - summary["upkeep_delta"],
                   "Observed interval cashflow differs from complete real counters")
     baseline.operating_windows(summary["windows20400"], begin, end); baseline.finance_events(city, seed, final)
+    review_finance_extrema(metrics, seed)
     ledger = metrics["final_target_ledger"]
     for name, field in (("funds", "treasury"), ("taxes", "taxes_collected_total"),
                         ("upkeep", "maintenance_spent_total"), ("construction", "construction_spent_total")):
@@ -326,7 +375,8 @@ def review_common(report, warmup, search, expansion, final, model, buildings, fi
         counts = retention["summary"]["type_tick_counts"]
         loss_floor = sum(row["post_tick_count"] for row in counts if row["type"] != 10)
         proof.require(report["type_lost_ticks"] == loss_floor, "Type loss headline differs from actual event durations")
-        proof.require(type(report["target_lost_ticks"]) is int and loss_floor <= report["target_lost_ticks"] <= 20400 and
+        actual_lost = review_retention_losses(retention, first, final, target)
+        proof.require(type(report["target_lost_ticks"]) is int and report["target_lost_ticks"] == actual_lost and
                       report["retention"] == ("PASS" if report["target_lost_ticks"] == 0 else "PARTIAL") and
                       report["financial_stability"] == ("PASS" if report["operating_cashflow"] >= 0 and report["minimum_retention_funds"] >= 0 else "FAIL") and
                       report["complete_recovery_equality"] is True, "Retention/profit/Recovery claim lacks actual evidence")
@@ -396,6 +446,252 @@ def common_workflow(binary, data, output, variant="common-reserved", search_tick
         (output / "common-acceptance.json").write_text(json.dumps(result, indent=2)+"\n")
     proof.require(result["technical_status"] == "PASS", result.get("error", "Common technical gate failed"))
     return result
+
+
+LITERAL_PAIRS = ("first-success.save.json", "result.save.json", "first-success.snapshot.json",
+                 "result.snapshot.json", "retention.json")
+
+
+def review_snapshot(path, saved):
+    proof.safe(path)
+    proof.require(proof.load(path) == saved, "Standalone complete snapshot differs from its complete SaveDocument World")
+
+
+def compare_literals(creator, resumed):
+    pairs = []
+    for name in LITERAL_PAIRS:
+        first, second = creator / name, resumed / name
+        proof.safe(first);proof.safe(second)
+        proof.require(first.is_file() and second.is_file() and first.read_bytes() == second.read_bytes(),
+                      "Separate-process complete artifact bytes differ: " + name)
+        pairs.append({"creator": proof.record(first), "resumed": proof.record(second)})
+    return pairs
+
+
+def review_resume(report, seed, final, target):
+    proof.require(report["format"] == "openemperor-high-tier-resume-v1" and report["technical_status"] == "PASS" and
+                  all(type(report[key]) is int and report[key] == value for key, value in
+                      (("target", target), ("rule", 12), ("schema", 28), ("policy", 3), ("revision", 27),
+                       ("begin_tick", seed["ticks"]), ("end_tick", final["ticks"]), ("retention_ticks", 20400))) and
+                  final["ticks"] - seed["ticks"] == 20400 and report["input_preserved"] is True and
+                  report["complete_recovery_equality"] is True and report["command_sequence_unchanged"] is True and
+                  report["snapshot_injection"] is False and report["native_human"] == "NOT_RUN" and
+                  seed["command_sequence"] == final["command_sequence"] and
+                  seed["construction_spent_total"] == final["construction_spent_total"],
+                  "Independent continuation changed identity, commands, input, Recovery or actual interval")
+
+
+def review_recovery(folder, seed_path, final_path):
+    root = folder / "recovery-app" / "recovery"
+    proof.safe(root)
+    histories = list(root.glob("*/history.json"))
+    proof.require(len(histories) == 1, "Expected exactly one newly created Recovery history")
+    path = histories[0];proof.safe(path);meta = proof.load(path)
+    proof.require(meta["version"] == 1 and meta["history_id"] == path.parent.name and meta["parent"] is None and
+                  meta["next_sequence"] == 2 and len(meta["checkpoints"]) == 2,
+                  "Recovery metadata changed its genuine start/result lineage")
+    result = []
+    for seq, (entry, saved_path) in enumerate(zip(meta["checkpoints"], (seed_path, final_path))):
+        world = proof.load(saved_path)["world"]
+        name = entry["filename"]
+        proof.require(type(name) is str and Path(name).name == name and name.endswith(".json") and
+                      (name == "start.json" if seq == 0 else name.startswith("checkpoint-1-")) and
+                      type(entry["sequence"]) is int and entry["sequence"] == seq and
+                      entry["kind"] == ("start" if seq == 0 else "autosave") and
+                      entry["profile"] == "sandbox-city-v16" and entry["rule_version"] == 12 and entry["schema"] == 28 and
+                      entry["map"] == "Cities/Xia.map" and entry["tick"] == world["ticks"] and
+                      entry["treasury"] == world["treasury"] and
+                      entry["population"] == world["original_production"]["residents_admitted"],
+                      "Recovery advertised another generation, checkpoint, population or ledger")
+        actual = path.parent / name;proof.safe(actual)
+        proof.require(actual.read_bytes() == saved_path.read_bytes(), "Published Recovery checkpoint differs from its complete live SaveDocument")
+        result.append(proof.record(actual))
+    return result
+
+
+def review_art(art, world, target, data, resources):
+    actual = owned(world, target)["house"]["type"]
+    profile = proof.load(resources / "compatibility/gog-derived-2.0.0.2-en-assetset-1/original-houses.json")
+    proof.require(profile["schema_version"] == 1 and profile["mode"] == "original_house_stages" and
+                  profile["selection"] == "canonical_static_variant_0" and profile["anchor_policy"] == "type30_front_cell",
+                  "Focused original House art used another metadata contract")
+    stages = [row for row in profile["stages"] if row["house_type"] == actual]
+    proof.require(len(stages) == 1, "Actual original House stage missing/duplicated in protected resource metadata")
+    stage = stages[0]
+    for source in profile["files"]:
+        path = data / source["path"];proof.safe(path)
+        proof.require(data in path.parents and proof.digest(path) == source["sha256"], "Original House metadata activated without its exact source bytes")
+    proof.require(art["configured"] is True and art["active"] is True and art["house_type"] == actual and
+                  art["actual_side"] == stage["original_side"] == 2 and art["source"] == "builtin" and
+                  art["archive"] == stage["archive"] and art["image_index"] == stage["image_index"] and
+                  art["image_width"] == stage["width"] and art["image_height"] == stage["height"] and
+                  art["anchor"] == stage["ground_anchor"] and art["selection"] == "canonical static representative" and
+                  art["evidence"] == stage["evidence"] and type(art["original_draws"]) is int and art["original_draws"] > 0 and
+                  type(art["authored_fallbacks"]) is int and art["authored_fallbacks"] == 0,
+                  "Focused sprite is a fallback, future stage or a different original asset/anchor")
+    proof.require(all(len(art[key]) == 2 and all(type(v) in (int, float) and math.isfinite(v) for v in art[key])
+                      for key in ("ground", "anchor", "image_origin")) and
+                  art["image_origin"] == [art["ground"][n]-art["anchor"][n] for n in range(2)],
+                  "Focused House origin is not its finite production ground minus native anchor")
+
+
+def review_render(report, folder, world, target, demand_ten=False):
+    actual = owned(world, target)["house"]
+    proof.require(report["format"] == "openemperor-high-tier-view-v1" and report["status"] == "PASS" and
+                  all(type(report[key]) is int and report[key] == value for key, value in
+                      (("target_house", target), ("actual_type", actual["type"]), ("rule", 12), ("schema", 28),
+                       ("policy", 3), ("revision", 27), ("tick", world["ticks"]))) and
+                  (not demand_ten or actual["type"] == 10) and report["complete_f5_f9_equality"] is True and
+                  report["world_unchanged"] is True and report["input_preserved"] is True and
+                  report["selected_via_sdl_list"] is True and report["native_human"] == "NOT_RUN" and
+                  report["sections_via_sdl_input"] is True and report["actual_state_only"] is True and
+                  report["actual_sandbox_renderer"] is True and type(report["backend"]) is str and report["backend"] and
+                  set(report["sections"]) == {"State", "Needs", "Goods", "Visits"} and
+                  report["inspection"] == report["sections"]["State"] and
+                  all(isinstance(lines, list) and lines and all(type(line) is str for line in lines) for lines in report["sections"].values()),
+                  "Focused rendering lost actual target, original generation, SDL selection or F5/F9 equality")
+    captures = report["captures"]
+    expected = [("sandbox-1x.png", 1, "State"), ("sandbox-2x.png", 2, "State"),
+                ("sandbox-4x.png", 4, "State"), ("sandbox-needs-2x.png", 2, "Needs"),
+                ("sandbox-goods-2x.png", 2, "Goods"), ("sandbox-visits-2x.png", 2, "Visits")]
+    proof.require([(c["file"], c["zoom"], c["section"]) for c in captures] == expected,
+                  "Missing, reordered or mislabeled actual target captures/inspector sections")
+    records = []
+    for capture in captures:
+        proof.require(capture["tick"] == world["ticks"] and capture["target_house"] == target and
+                      capture["actual_type"] == actual["type"], "Capture describes a different target or simulated tick")
+        path = folder / capture["file"];proof.safe(path)
+        header = path.read_bytes()[:24]
+        proof.require(len(header) == 24 and header[:8] == b"\x89PNG\r\n\x1a\n" and header[12:16] == b"IHDR",
+                      "Capture is not an actual PNG")
+        width, height = struct.unpack(">II", header[16:24])
+        proof.require(width > 0 and height > 0 and capture["width"] == width and capture["height"] == height,
+                      "Capture dimensions differ from its real PNG header")
+        records.append(proof.record(path))
+    # Art provenance has a separate production assertion in high-render; it is
+    # bound to the actual saved type here and never treated as house authority.
+    proof.require(isinstance(report["original_house_art"], dict) and report["original_house_art"],
+                  "Original House art provenance missing")
+    return records
+
+
+def continuation_workflow(binary, data, output, creator, resources=None, timeout=1800):
+    """Explicit earned creator directory only; no save discovery or grants."""
+    for path in (binary, data, output, creator, PRIVATE):proof.safe(path)
+    proof.require(binary.is_file() and os.access(binary, os.X_OK) and data.is_dir() and creator.is_dir() and
+                  PRIVATE in creator.parents and PRIVATE in output.parents and not output.exists() and
+                  not any(proof.overlaps(output, p) for p in (data, binary.parent, creator)),
+                  "Continuation requires explicit earned OE38 input and a new isolated output")
+    proof.require(type(timeout) is int and 1 <= timeout <= 7200, "Invalid continuation timeout")
+    if resources is not None:
+        proof.safe(resources)
+        proof.require(resources.is_dir() and not proof.overlaps(output, resources), "Rendering resources missing or overlapping output")
+    before, sources, executable, earned = proof.inventory(data), proof.sources(), proof.record(binary), proof.inventory(creator)
+    resource_identity = proof.inventory(resources) if resources is not None else None
+    output.mkdir(parents=True)
+    result = {"format": "openemperor-high-tier-continuation-workflow-v1", "stage": "C-continuation",
+              "status": "FAIL", "technical_status": "FAIL", "separate_process_continuation": "FAIL",
+              "save_recovery": "FAIL", "rendering": "NOT_RUN", "native_human": "NOT_RUN",
+              "visual_inspection": "NOT_RUN", "creator": str(creator), "executable": executable, "sources": sources,
+              "processes": []}
+    started = time.monotonic()
+    def child(mode, folder, input_path, target):
+        argv = [str(binary), "--mode", mode, "--target", str(target), "--data", str(data), "--output", str(folder), "--input", str(input_path)]
+        if mode == "high-render":argv += ["--resources", str(resources)]
+        entry = {"command": argv, "input": proof.record(input_path)};result["processes"].append(entry)
+        now = time.monotonic()
+        try:
+            with (output / (folder.name+".log")).open("w") as log:
+                ran = subprocess.run(argv, stdout=log, stderr=subprocess.STDOUT, timeout=timeout, check=False)
+            entry["returncode"] = ran.returncode
+            proof.require(ran.returncode == 0, mode+" process failed; inspect its log")
+            proof.require(proof.record(input_path) == entry["input"], mode+" changed the protected earned input")
+            return proof.load(folder / "report.json")
+        finally:entry["elapsed_seconds"] = time.monotonic()-now
+    try:
+        report = proof.load(creator / "report.json")
+        proof.require(report["common10"] == "PASS", "Continuation requires an actual earned Common10 creator")
+        target = baseline.integer(report["target_house"], "Invalid continuation target", 1)
+        expansion = baseline.review_save(creator / "expansion.save.json", 12, data)
+        seed = baseline.review_save(creator / "first-success.save.json", 12, data)
+        final = baseline.review_save(creator / "result.save.json", 12, data)
+        model, buildings = baseline.prepared(data / "Model/EmperorBuildingModels.txt")
+        review_common(report, proof.load(creator / "warmup.json"), proof.load(creator / "search.json"),
+                      expansion, final, model, buildings, seed, proof.load(creator / "retention.json"))
+        for label, world in (("first-success", seed), ("result", final)):
+            review_snapshot(creator / (label+".snapshot.json"), world)
+        creator_recovery = review_recovery(creator, creator / "first-success.save.json", creator / "result.save.json")
+        resumed = output / "resume"
+        resumed_report = child("high-resume", resumed, creator / "first-success.save.json", target)
+        resumed_seed = baseline.review_save(resumed / "first-success.save.json", 12, data)
+        resumed_final = baseline.review_save(resumed / "result.save.json", 12, data)
+        review_resume(resumed_report, resumed_seed, resumed_final, target)
+        for key in ("target_lost_ticks", "type_lost_ticks", "goal_loss_ticks", "minimum_retention_funds", "operating_cashflow"):
+            proof.require(type(resumed_report[key]) is int and resumed_report[key] == report[key],
+                          "Independent resume headline differs from the actual creator retention: " + key)
+        metrics = proof.load(resumed / "retention.json")
+        review_observation(metrics, resumed_seed, resumed_final, target, model)
+        for label, world in (("first-success", resumed_seed), ("result", resumed_final)):
+            review_snapshot(resumed / (label+".snapshot.json"), world)
+        pairs = compare_literals(creator, resumed)
+        recovered = review_recovery(resumed, resumed / "first-success.save.json", resumed / "result.save.json")
+        renders = []
+        if resources is not None:
+            for label, world in (("first-success", seed), ("result", final)):
+                folder = output / ("render-"+label)
+                rendered = child("high-render", folder, creator / (label+".save.json"), target)
+                proof.require((folder / "view.save.json").read_bytes() == (creator / (label+".save.json")).read_bytes(),
+                              "Actual F5/F9 view save differs from its protected complete source")
+                captures = review_render(rendered, folder, world, target, label == "first-success")
+                review_art(rendered["original_house_art"], world, target, data, resources)
+                renders.append({"checkpoint": label, "report": rendered, "captures": captures})
+        result.update(status="PASS", technical_status="PASS", common10="PASS", elite17=report["elite17"],
+                      retention=report["retention"], financial_stability=report["financial_stability"],
+                      separate_process_continuation="PASS", save_recovery="PASS", rendering="PASS" if renders else "NOT_RUN",
+                      literal_pairs=pairs, creator_recovery=creator_recovery, resumed_recovery=recovered, renders=renders,
+                      resume=resumed_report)
+    except Exception as error:
+        result.update(error=str(error));raise
+    finally:
+        result.update(elapsed_seconds=time.monotonic()-started, original_bytes_modes_mtimes_unchanged=before == proof.inventory(data),
+                      sources_unchanged=sources == proof.sources(), executable_unchanged=executable == proof.record(binary),
+                      earned_creator_unchanged=earned == proof.inventory(creator),
+                      resources_unchanged=resources is None or resource_identity == proof.inventory(resources))
+        if not all(result[k] for k in ("original_bytes_modes_mtimes_unchanged", "sources_unchanged", "executable_unchanged",
+                                      "earned_creator_unchanged", "resources_unchanged")):
+            result.update(status="FAIL", technical_status="FAIL", separate_process_continuation="FAIL", save_recovery="FAIL",
+                          error="Protected original/source/executable/earned/resource identity changed")
+        (output / "continuation-acceptance.json").write_text(json.dumps(result, indent=2)+"\n")
+    proof.require(result["technical_status"] == "PASS", result.get("error", "Continuation technical gate failed"))
+    return result
+
+
+def acceptance_workflow(binary, data, output, resources, variant="common-reserved", search_ticks=30000, timeout=1800):
+    for path in (binary, data, output, resources, PRIVATE):proof.safe(path)
+    proof.require(PRIVATE in output.parents and not output.exists() and resources.is_dir() and
+                  not any(proof.overlaps(output, p) for p in (data, binary.parent, resources)), "New isolated full-acceptance output required")
+    original, sources, executable, assets = proof.inventory(data), proof.sources(), proof.record(binary), proof.inventory(resources)
+    output.mkdir(parents=True)
+    report = {"format": "openemperor-high-tier-acceptance-v1", "status": "FAIL", "technical_status": "FAIL",
+              "common10": "PARTIAL", "retention": "NOT_RUN", "native_human": "NOT_RUN", "visual_inspection": "NOT_RUN"}
+    try:
+        created = common_workflow(binary, data, output / "creator", variant, search_ticks, timeout)
+        report["creator"] = created
+        if created["common10"] == "PASS":
+            continued = continuation_workflow(binary, data, output / "continuation", output / "creator/common", resources, timeout)
+            report.update(status="PASS", technical_status="PASS", common10="PASS", elite17=continued["elite17"],
+                          retention=continued["retention"], financial_stability=continued["financial_stability"], continuation=continued)
+        else:report.update(status="PARTIAL", technical_status="PASS", common10="PARTIAL", elite17=created["elite17"])
+    except Exception as error:
+        report.update(error=str(error));raise
+    finally:
+        report.update(original_bytes_modes_mtimes_unchanged=original == proof.inventory(data), sources_unchanged=sources == proof.sources(),
+                      executable_unchanged=executable == proof.record(binary), resources_unchanged=assets == proof.inventory(resources))
+        if not all(report[k] for k in ("original_bytes_modes_mtimes_unchanged", "sources_unchanged", "executable_unchanged", "resources_unchanged")):
+            report.update(status="FAIL", technical_status="FAIL", error="Protected full-acceptance input changed")
+        (output / "acceptance.json").write_text(json.dumps(report, indent=2)+"\n")
+    proof.require(report["technical_status"] == "PASS", report.get("error", "Full acceptance failed"))
+    return report
 
 
 def review_matrix(matrix):
@@ -511,7 +807,7 @@ def matrix_workflow(binary, data, output, input_path=None, timeout=180):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stage", choices=("matrix", "baseline", "common"), required=True)
+    parser.add_argument("--stage", choices=("matrix", "baseline", "common", "continuation", "acceptance"), required=True)
     for key in ("binary", "data", "output"):
         parser.add_argument("--" + key, type=Path, required=True)
     parser.add_argument("--resources", type=Path)
@@ -528,6 +824,17 @@ def main():
             result = baseline.workflow(binary, data, output, args.resources.absolute(), 12, "balanced-three", 100000, args.timeout, True)
             proof.require(all(result[k] == "PASS" for k in ("status", "sustainability", "goods_supply", "fire_protection")),
                           "OE37 baseline regression did not meet every existing gate")
+        elif args.stage in ("continuation", "acceptance"):
+            if args.stage == "continuation":
+                proof.require(args.input is not None, "Continuation requires an explicit earned creator directory")
+                result = continuation_workflow(binary, data, output, args.input.absolute(),
+                                               args.resources.absolute() if args.resources else None, args.timeout)
+            else:
+                proof.require(args.input is None and args.resources is not None, "Fresh full acceptance requires resources and no imported state")
+                result = acceptance_workflow(binary, data, output, args.resources.absolute(), args.variant, args.search_ticks, args.timeout)
+            print("OE38 Common10 " + result["common10"] + "; retention " + result["retention"] + "; technical " + result["technical_status"] +
+                  "; native/human/visual inspection NOT_RUN")
+            return 0
         elif args.stage == "common":
             proof.require(args.input is None and args.resources is None, "Common creator requires fresh real state and no imported/resource overrides")
             result = common_workflow(binary, data, output, args.variant, args.search_ticks, args.timeout)

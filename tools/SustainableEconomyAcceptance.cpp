@@ -8,6 +8,7 @@
 #include <charconv>
 #include <iostream>
 #include <map>
+#include <optional>
 
 namespace {
 namespace q=oe_starter_fixture;
@@ -104,7 +105,100 @@ void simulate(const Args& a){
 struct Sdl{SDL_Window* window=nullptr;SDL_Renderer* renderer=nullptr;Sdl(){check(SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy")&&SDL_Init(SDL_INIT_VIDEO),SDL_GetError());window=SDL_CreateWindow("OE37 actual SandboxView",1600,1000,SDL_WINDOW_HIDDEN);check(window,SDL_GetError());renderer=SDL_CreateRenderer(window,"software");check(renderer,SDL_GetError());}~Sdl(){if(renderer)SDL_DestroyRenderer(renderer);if(window)SDL_DestroyWindow(window);SDL_Quit();}};
 void key(oe::SandboxView& v,SDL_Keycode code){SDL_Event e{};e.type=SDL_EVENT_KEY_DOWN;e.key.key=code;check(SDL_PushEvent(&e),SDL_GetError());e={};e.type=SDL_EVENT_KEY_UP;e.key.key=code;check(SDL_PushEvent(&e),SDL_GetError());bool running=true;while(SDL_PollEvent(&e))v.handle_event(e,running);check(running,"View exited unexpectedly");}
 void center(oe::SandboxView& v,oe::scene::Point at){for(unsigned i=0;i<1000;++i){const auto map=v.layout().map;const auto cam=v.camera();const double dx=map.x+map.w*.5-at.x*cam.zoom-cam.offset.x,dy=map.y+map.h*.5-at.y*cam.zoom-cam.offset.y;if(std::abs(dx)<.01&&std::abs(dy)<.01)return;oe::SandboxView::PanKeyState held{};if(std::abs(dx)>.01){held.left=dx>0;held.right=dx<0;v.update(std::min(.05,std::abs(dx)/400),held);}else{held.up=dy>0;held.down=dy<0;v.update(std::min(.05,std::abs(dy)/400),held);}}throw std::runtime_error("Actual camera steering failed");}
-void render(const Args& a){
+void render_house(const Args& a,const std::string& input,
+        const q::save::SaveDocument& saved,oe::SandboxView& view,SDL_Renderer* renderer,sim::BuildingId target){
+    check(a.rule==12&&view.world().rule_version()==12,"Focused House capture requires explicit Rule12");
+    const auto& body=view.world().building(target);const auto& house=q::house(view.world(),target);
+    const auto actual_type=static_cast<unsigned>(house.type);
+    check(body.placed&&body.kind==sim::Object::Household&&house.occupants>0&&actual_type>=3&&actual_type<=10,
+        "Focused capture requires an actually occupied Common House, without a projected promotion");
+    check(!view.selected_building(),"Fresh F9 unexpectedly retained a building selection");
+    const auto click=[&](float x,float y){
+        float window_x=0,window_y=0;
+        check(SDL_RenderCoordinatesToWindow(renderer,x,y,&window_x,&window_y),SDL_GetError());
+        bool running=true;
+        for(const auto type:{SDL_EVENT_MOUSE_MOTION,SDL_EVENT_MOUSE_BUTTON_DOWN,SDL_EVENT_MOUSE_BUTTON_UP}){
+            SDL_Event event{};event.type=type;
+            if(type==SDL_EVENT_MOUSE_MOTION){event.motion.x=window_x;event.motion.y=window_y;}
+            else{event.button.button=SDL_BUTTON_LEFT;event.button.x=window_x;event.button.y=window_y;}
+            view.handle_event(event,running);
+        }
+        check(running,"Focused House input exited the view");
+    };
+    const auto bodies=view.world().buildings();
+    const auto found=std::find_if(bodies.begin(),bodies.end(),[&](const auto& value){return value.id==target;});
+    check(found!=bodies.end(),"Focused paid House is missing from the actual building list");
+    const auto index=static_cast<int>(std::distance(bodies.begin(),found));
+    const auto panel=view.layout().panel;const auto scale=view.layout().scale;
+    click(float(panel.x+30*scale),float(panel.y+(46+index*18+3)*scale));
+    check(view.selected_building()==target&&view.original_house_inspector_active(),
+        "Actual SDL building-list input failed to select the paid House inspector");
+    const auto visual=view.original_house_visual_diagnostic(target);
+    const auto initial_art=view.original_house_display_stats();
+    check(visual.applicable&&visual.configured&&visual.active&&visual.asset&&visual.house_type==actual_type&&
+        visual.actual_side==2&&visual.image_width>0&&visual.image_height>0&&
+        initial_art.source==oe::VisualProfileSource::Builtin,
+        "Focused actual Common House lacks its canonical original sprite");
+    const oe::scene::Point image_center{visual.image_origin.x+visual.image_width*.5,
+        visual.image_origin.y+visual.image_height*.5};
+    check(std::isfinite(image_center.x)&&std::isfinite(image_center.y),"Focused sprite has an invalid production anchor");
+    Json captures=Json::array(),sections=Json::object();
+    const auto frozen=[&]{
+        check(view.paused()&&view.world().snapshot()==saved.world&&q::f::read_text(a.input)==input&&
+            q::f::read_text(a.output/"view.save.json")==input,
+            "Focused House rendering/input changed complete World or save bytes");
+    };
+    const auto capture=[&](unsigned zoom,const char* filename,const char* section){
+        for(unsigned attempts=0;attempts<3&&view.camera().zoom!=zoom;++attempts)key(view,SDLK_Z);
+        check(view.camera().zoom==zoom,"Focused House zoom input failed");
+        center(view,image_center);view.update(0);check(view.render(),"Actual focused House render failed");
+        const auto art=view.original_house_display_stats();const auto slot=actual_type-2;
+        check(art.drawn_instances.at(slot)>0&&art.authored_fallbacks.at(slot)==0,
+            "Focused actual House type did not draw original art without an authored fallback");
+        const auto file=a.output/filename;
+        std::unique_ptr<SDL_Surface,decltype(&SDL_DestroySurface)> image(SDL_RenderReadPixels(renderer,nullptr),SDL_DestroySurface);
+        check(image&&SDL_SavePNG(image.get(),file.string().c_str()),"Cannot capture actual focused House renderer");
+        captures.push_back({{"file",file.filename().string()},{"zoom",zoom},{"tick",view.world().ticks()},
+            {"section",section},{"target_house",static_cast<unsigned>(target)},{"actual_type",actual_type},
+            {"width",image->w},{"height",image->h}});
+        frozen();
+    };
+    check(view.original_house_section()==oe::SandboxView::OriginalHouseSection::State,
+        "Fresh selected House did not open its actual State section");
+    const auto inspection=view.original_house_section_lines();sections["State"]=inspection;
+    const auto has_original=std::any_of(inspection.begin(),inspection.end(),[](const auto& line){
+        return line.find("Art: original")!=std::string::npos;});
+    check(has_original,"Focused State inspector failed to identify its actual original art");
+    capture(1,"sandbox-1x.png","State");capture(2,"sandbox-2x.png","State");capture(4,"sandbox-4x.png","State");
+    for(const auto section:{oe::SandboxView::OriginalHouseSection::Needs,oe::SandboxView::OriginalHouseSection::Goods,
+            oe::SandboxView::OriginalHouseSection::Visits}){
+        const auto rect=view.original_house_section_rect(section);
+        check(rect.w>0&&rect.h>0,"Focused House section tab is not visible");
+        click(float(rect.x)+float(rect.w)*.5F,float(rect.y)+float(rect.h)*.5F);
+        check(view.original_house_section()==section&&view.selected_building()==target,
+            "Actual SDL House tab input changed selection or missed the requested section");
+        const std::string name(oe::original_house_ui::section_name(section));sections[name]=view.original_house_section_lines();
+        const char* file=section==oe::SandboxView::OriginalHouseSection::Needs?"sandbox-needs-2x.png":
+            section==oe::SandboxView::OriginalHouseSection::Goods?"sandbox-goods-2x.png":"sandbox-visits-2x.png";
+        capture(2,file,name.c_str());
+    }
+    key(view,SDLK_F5);frozen();const auto art=view.original_house_display_stats();
+    const auto slot=actual_type-2;
+    write(a.output/"report.json",{{"format","openemperor-high-tier-view-v1"},{"status","PASS"},
+        {"rule",12},{"schema",28},{"policy",3},{"revision",27},{"tick",view.world().ticks()},
+        {"target_house",static_cast<unsigned>(target)},{"actual_type",actual_type},{"actual_sandbox_renderer",true},
+        {"backend",SDL_GetRendererName(renderer)},{"complete_f5_f9_equality",true},{"world_unchanged",true},
+        {"input_preserved",true},{"selected_via_sdl_list",true},{"sections_via_sdl_input",true},
+        {"actual_state_only",true},{"original_house_art",{{"configured",visual.configured},{"active",visual.active},
+            {"house_type",visual.house_type},{"actual_side",visual.actual_side},{"source",oe::visual_profile_source_name(art.source)},
+            {"archive",visual.asset->archive_relative_path.generic_string()},{"image_index",visual.asset->image_index},
+            {"selection",visual.selection},{"evidence",visual.evidence},{"image_width",visual.image_width},
+            {"image_height",visual.image_height},{"ground",{visual.ground.x,visual.ground.y}},
+            {"anchor",{visual.ground_x,visual.ground_y}},{"image_origin",{visual.image_origin.x,visual.image_origin.y}},
+            {"original_draws",art.drawn_instances.at(slot)},{"authored_fallbacks",art.authored_fallbacks.at(slot)}}},
+        {"inspection",inspection},{"sections",sections},{"captures",captures},{"native_human","NOT_RUN"}});
+}
+void render(const Args& a,std::optional<sim::BuildingId> focus_house=std::nullopt){
     preflight(a);const auto c=q::Context::real(a.data);const auto input=q::f::read_text(a.input);const auto d=q::save::read_save(a.input);check(d.world.rule_version==a.rule,"Render requires exact explicit saved rule");auto restored=restore(c,d);q::authority(restored);
     fs::create_directories(a.output);const auto target=a.output/"view.save.json";q::f::write_text(target,input);Sdl sdl;
     auto session=oe::maps::load_stored_map_session(c.data,c.map_relative,oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8);const oe::maps::MapGeometry geometry(session.map.declared_map_size);
@@ -122,6 +216,7 @@ void render(const Args& a){
     v->set_market_walker_visuals(p.market_walker,p.market_walker_source,p.market_walker_fallback_reason);v->set_service_walker_visuals(p.service_walker,p.service_walker_source,p.service_walker_fallback_reason);v->set_health_walker_visuals(p.health_walker,p.health_walker_source,p.health_walker_fallback_reason);v->set_original_house_visuals(p.original_house,p.original_house_source,p.original_house_fallback_reason);
     v->initialize(sdl.window,sdl.renderer);key(*v,SDLK_F9);check(v->paused()&&v->world().snapshot()==d.world,"Actual Sandbox F9 differs: "+v->last_message());key(*v,SDLK_F5);check(q::f::read_text(target)==input,"Actual Sandbox F5 bytes differ");
     SDL_Event focus{};focus.type=SDL_EVENT_WINDOW_FOCUS_GAINED;bool running=true;v->handle_event(focus,running);
+    if(focus_house){render_house(a,input,d,*v,sdl.renderer,*focus_house);v->shutdown();return;}
     const auto active=std::find_if(v->world().couriers().begin(),v->world().couriers().end(),[](const auto& actor){return actor.role==sim::CourierRole::FireInspector;});
     check(active!=v->world().couriers().end(),"Earned render checkpoint lacks its paid FireInspector");
     const auto owner=active->owner;const auto owner_index=static_cast<std::size_t>(std::distance(v->world().buildings().begin(),std::find_if(v->world().buildings().begin(),v->world().buildings().end(),[&](const auto& b){return b.id==owner;})));

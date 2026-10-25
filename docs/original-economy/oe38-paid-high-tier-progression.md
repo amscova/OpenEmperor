@@ -5,6 +5,19 @@ This investigation starts from `main`/`origin/main`
 `feat/oe38-paid-high-tier-progression`. The supplied root task document is
 preserved separately; it is not a runtime contract or a committed fixture.
 
+**Result: PARTIAL.** Paid Common10 is reached; the separate Elite17 target is
+blocked by a proven current-Rule12 DES bound. No rule, model, save generation or
+resource grant is changed to manufacture either outcome.
+
+| Gate | Result | Evidence scope |
+|---|---|---|
+| Common10 | PASS | Actual paid House#3, tick27733,47 occupants; city440 residents,11431 Funds,2588 construction |
+| Elite17 | BLOCKED | Exact source/footprint relaxation DES≤79; actual16→17 needs80 |
+| Retention | PARTIAL |20400 further actual ticks;18 target devolutions, later returns to10 |
+| Financial stability | PASS | Measured20400-tick operating window +3705, minimum Funds11431; no indefinite-profit claim |
+| Save/recovery | PASS | Exact first-entry save, independent continuation, complete byte equality, F5/F9 and Recovery |
+| Original parity | PARTIAL | Existing authored adapters and unknown full original lifecycle/venue/illness behavior remain |
+
 Rule12 / Schema28 / Policy3 / development revision27 and all historical
 generations remain unchanged. Diagnostics and player strategies use production
 World commands, immutable prepared model data and the shared navigator. Original
@@ -255,3 +268,98 @@ Release takes4.58s, Debug424.88s and ASan/UBSan130.67s; no skips or sanitizer
 findings occur. LeakSanitizer is not run on this macOS configuration.
 The two guarded full Common workflows also pass their independent technical
 checks; their PARTIAL retention and BLOCKED Elite results remain explicit.
+
+## Independent continuation, saves and actual rendering
+
+The creator writes the exact first-success save at tick27733 before any
+continuation tick. A separate process must restore that exact actual9→10
+witness at the current tick; an arbitrary later type10 save is refused as an
+origin for this first-entry proof. Both processes use one shared continuation
+procedure for20400 real ticks, without commands. Five artifacts must be
+literally byte-identical: complete first-success/result SaveDocuments, their
+complete serialized World snapshots, and the complete target/city observation.
+JSON semantic equality alone does not pass this gate. Recovery metadata must
+identify the same Rule12/Schema28 histories and publish the exact start/result
+save bytes, not just contain an unrelated matching file.
+
+Actual SandboxView loads copies of the earned first-success and result through
+F9, stays paused, selects House#3 through SDL building-list input and writes F5.
+The complete saved World and input/output save bytes remain identical through
+selection, zoom, camera movement and the actual State/Needs/Goods/Visits tabs.
+At each checkpoint it captures State at1×/2×/4× and the other three tabs at2×.
+All12 Release PNGs were opened and visually inspected: the selected occupied
+Luxurious Apartment uses the canonical static original sprite
+`China_General.sg3` image1523, correctly tied to actual type10 and the shared
+anchor. Recorded original draws are positive with zero authored House fallbacks.
+Other buildings' existing colored fallbacks remain visible and are not claimed
+as complete original art or scene parity. Scripted SDL/image inspection does
+not establish native human play acceptance.
+
+Run a fresh creator/independent continuation/render acceptance, or compare a
+second compiled configuration against its protected earned creator:
+
+```sh
+python3 -B tools/test_high_tier_progression.py --stage acceptance --binary "$PWD/build/openemperor-high-tier-progression-acceptance" --data /absolute/path/to/Emperor --resources "$PWD/build/resources" --output "$PWD/.local/original-economy/oe38/acceptance-new" --variant common-reserved
+python3 -B tools/test_high_tier_progression.py --stage continuation --binary /absolute/path/to/other-build/openemperor-high-tier-progression-acceptance --data /absolute/path/to/Emperor --resources /absolute/path/to/other-build/resources --input "$PWD/.local/original-economy/oe38/acceptance-new/creator/common" --output "$PWD/.local/original-economy/oe38/continuation-new"
+```
+
+Without `--resources`, an explicit continuation performs the save/replay checks
+and reports rendering NOT_RUN. The guarded workflow preserves all original,
+creator, executable, source and resource bytes/modes/mtimes. Source-backed art
+verification independently checks the pinned metadata, archive hash, actual
+type/image/geometry/anchor and PNG dimensions. A wrong type, fallback, spoofed
+asset, later first-entry tick, changed complete snapshot, partial JSON comparison
+or forged Recovery publication is refused by the48-case runner contract.
+
+The final fresh Release100k baseline reproduction remains byte-identical to
+Stage A in all five creator saves/observations and all three Watch captures.
+The optional House render branch leaves that default path unchanged.
+
+Final technical acceptance is PASS with **overall progression PARTIAL**. Both
+paid variants receive independent Release continuations with five complete
+literal pairs each. The reserved case additionally receives independent Debug
+and ASan/UBSan continuations against the same protected creator: another five
+pairs each,20 in total. The final stricter48-case verifier reconstructs the
+minimum/maximum Funds from every invoice/payment event and exact retention loss
+as the union of type-loss and fire intervals; overlapping loss is counted once.
+All four workflows preserve original/source/executable/resource identities and
+earned creator bytes. No sanitizer findings or skipped required data cases occur.
+
+The counterfactual's additional twelve Release captures were also opened and
+inspected: first-success is actually10, while its end is actually8, rendered
+with canonical `China_General.sg3` image1519. It is not photographed as a held10.
+The reserved final Release/Debug/ASan PNGs are byte-identical to the twelve
+already inspected reserved Release views (36 recorded equivalence pairs).
+Previously admitted residents remain after devolution in this adapter; current
+House type/needs are therefore measured independently of total population and
+lifetime tax. At the reserved endpoint the city has489 residents, House#3 has74
+occupants/type10 and15136 Funds; this does not erase its18 earlier devolutions.
+
+Final evidence, all under ignored `.local/original-economy/oe38/`:
+
+- `stage-c-acceptance-release-02/acceptance.json` and
+  `stage-c-two-market-release-02/acceptance.json`: fresh paid creators, independent
+  continuations, exact first/end F5/F9/Recovery and both actual render states.
+- `stage-c-continuation-{debug,sanitize}-02/continuation-acceptance.json`:
+  complete cross-configuration continuation and render checks (448.81s/266.06s).
+- `stage-c-baseline-release-02/acceptance.json`: unchanged20k+100k baseline;
+  all five creator artifacts and three default Watch PNGs match Stage A.
+- `stage-c-release.xml`:9/9 relevant Release CTests, with historical housing,
+  Elite and fire saves; `stage-c-final-runner.xml` and
+  `runner-stage-c-final-contract.log`: the final48-case contract passes.
+- `stage-c-visual-review.json`, `stage-c-final-acceptance.json`: opened image
+  review, literal image equivalence, complete workflow audit and terminal statuses.
+
+The source and World executable did not change during final guarded runs. The
+final verifier hardening was followed by fresh Release/Debug/ASan executions;
+old weaker headline checks are not used as final acceptance. Native delivery,
+human play, other operating systems, LeakSanitizer and a new100k Debug/sanitizer
+baseline workflow are NOT_RUN. The100k baseline is freshly reproduced in Release;
+Debug/sanitizer instead exercise the actual high-tier20400-tick continuation,
+source/authority negatives and complete save/render equality. None of these
+finite checks establishes universal fairness, indefinite profit, complete
+original runtime semantics or complete original object art.
+
+Local stage commits A (`13566ef`) and B (`24c0fc4`) precede the final
+continuation/visual acceptance commit. No push, merge, tag, release, historical
+save migration or production rule/model change is part of this work.

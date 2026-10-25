@@ -2,6 +2,8 @@
 import copy
 from pathlib import Path
 import sys
+import struct
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
@@ -237,6 +239,62 @@ class RetentionDurationGuards(unittest.TestCase):
             with self.assertRaises(Exception):runner.review_type_durations(value)
 
 
+class RetentionEligibilityUnionGuards(unittest.TestCase):
+    def control(self, overlap=False):
+        metrics=RetentionDurationGuards().control()
+        metrics["summary"].update(minimum_target_occupants=47,burning_ticks=2)
+        metrics["target_fire_events"] = ([{"tick":108,"burning":True},{"tick":110,"burning":False}] if overlap
+                                          else [{"tick":103,"burning":False}])
+        seed={"ticks":100,"buildings":[{"id":3,"fire_until_tick":0 if overlap else 103}],
+              "original_economy":{"houses":[{"building_id":3,"house":{"type":10,"occupants":47}}]}}
+        final={"ticks":110,"buildings":[{"id":3,"fire_until_tick":110 if overlap else 103}],
+               "original_economy":{"houses":[{"building_id":3,"house":{"type":9,"occupants":47}}]}}
+        return metrics,seed,final
+
+    def test_initial_burn_and_type_loss_count_as_union(self):
+        self.assertEqual(runner.review_retention_losses(*self.control(),3),7)
+
+    def test_overlapping_fire_does_not_double_count_type_loss(self):
+        self.assertEqual(runner.review_retention_losses(*self.control(True),3),5)
+
+    def test_hidden_fire_or_fake_zero_occupants_cannot_support_pass(self):
+        for edit in (lambda m:m["target_fire_events"].clear(),lambda m:m["summary"].update(burning_ticks=0),
+                     lambda m:m["summary"].update(minimum_target_occupants=0),
+                     lambda m:m["target_fire_events"][0].update(burning=True)):
+            metrics,seed,final=self.control();edit(metrics)
+            with self.assertRaises(Exception):runner.review_retention_losses(metrics,seed,final,3)
+
+    def test_full_type_retention_still_loses_burning_ticks(self):
+        metrics,seed,final=self.control()
+        metrics["transition_events"]=[]
+        metrics["summary"]["type_tick_counts"]=[{"type":10,"post_tick_count":10}]
+        final["original_economy"]["houses"][0]["house"]["type"]=10
+        self.assertEqual(runner.review_retention_losses(metrics,seed,final,3),2)
+
+
+class ActualFinanceMinimumGuards(unittest.TestCase):
+    def control(self):
+        return {"begin_tick":100,"end_tick":110,"summary":{"minimum_funds":-10,"maximum_funds":20},
+                "city":{"summary":{"minimum_funds":-10},"finance":[
+                    {"tick":103,"tax":0,"upkeep":20,"funds":-10},
+                    {"tick":108,"tax":30,"upkeep":0,"funds":20}]}},{"treasury":10}
+
+    def test_profitable_endpoint_does_not_hide_intermediate_negative_funds(self):
+        self.assertEqual(runner.review_finance_extrema(*self.control()),-10)
+
+    def test_coordinated_fake_minima_and_hidden_grant_are_refused(self):
+        metrics,seed=self.control();metrics["summary"]["minimum_funds"]=0;metrics["city"]["summary"]["minimum_funds"]=0
+        with self.assertRaises(Exception):runner.review_finance_extrema(metrics,seed)
+        metrics,seed=self.control();metrics["city"]["finance"][0]["funds"]=-9
+        with self.assertRaises(Exception):runner.review_finance_extrema(metrics,seed)
+
+    def test_initial_funds_and_typed_event_chronology_are_included(self):
+        metrics,seed=self.control();metrics["city"]["finance"].reverse()
+        with self.assertRaises(Exception):runner.review_finance_extrema(metrics,seed)
+        metrics,seed=self.control();metrics["city"]["finance"][0]["upkeep"]=20.0
+        with self.assertRaises(Exception):runner.review_finance_extrema(metrics,seed)
+
+
 def authored_certificate_control():
     # Zero-DES authored model metadata, not original fixture bytes or a paid
     # progression claim. Closed-form placement counts avoid reusing the checker.
@@ -281,6 +339,158 @@ class EliteCertificateGuards(unittest.TestCase):
                      lambda b: b.update(positive_placements_checked=1), lambda b: b.update(blocks_entry=False)):
             bound, model, buildings = authored_certificate_control();edit(bound)
             with self.assertRaises(Exception):runner.review_des_bound(bound, model, buildings)
+
+
+def resume_control():
+    seed = {"ticks": 27733, "command_sequence": 116, "construction_spent_total": 2588}
+    final = dict(seed, ticks=48133)
+    report = {"format": "openemperor-high-tier-resume-v1", "technical_status": "PASS", "target": 3,
+              "begin_tick": 27733, "end_tick": 48133, "retention_ticks": 20400,
+              "rule": 12, "schema": 28, "policy": 3, "revision": 27,
+              "input_preserved": True, "complete_recovery_equality": True, "command_sequence_unchanged": True,
+              "snapshot_injection": False, "native_human": "NOT_RUN"}
+    return report, seed, final
+
+
+class IndependentContinuationGuards(unittest.TestCase):
+    def test_exact_generation_interval_and_immutable_commands(self):
+        runner.review_resume(*resume_control(), 3)
+
+    def test_changed_identity_tick_injection_and_recovery_refused(self):
+        for key, value in (("rule", 11), ("schema", 27), ("policy", 2), ("revision", 28), ("target", 4),
+                           ("end_tick", 48132), ("retention_ticks", 20400.0), ("input_preserved", False),
+                           ("complete_recovery_equality", False), ("command_sequence_unchanged", False),
+                           ("snapshot_injection", True), ("native_human", "PASS")):
+            report, seed, final = resume_control();report[key] = value
+            with self.assertRaises(Exception):runner.review_resume(report, seed, final, 3)
+
+    def test_even_paid_continuation_commands_break_literal_replay_contract(self):
+        report, seed, final = resume_control();final["command_sequence"] += 1
+        with self.assertRaises(Exception):runner.review_resume(report, seed, final, 3)
+        report, seed, final = resume_control();final["construction_spent_total"] += 2
+        with self.assertRaises(Exception):runner.review_resume(report, seed, final, 3)
+
+    def test_complete_artifact_bytes_not_only_json_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve();first = root/"creator";second = root/"resume"
+            first.mkdir();second.mkdir()
+            for name in runner.LITERAL_PAIRS:
+                (first/name).write_text('{"all_world_fields":1}\n');(second/name).write_text('{"all_world_fields":1}\n')
+            self.assertEqual(len(runner.compare_literals(first, second)), 5)
+            (second/"retention.json").write_text('{ "all_world_fields": 1 }\n')
+            with self.assertRaises(Exception):runner.compare_literals(first, second)
+
+    def test_snapshot_is_complete_saved_world(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory).resolve()/"snapshot.json";path.write_text('{"ticks":10,"goods":[1,2]}')
+            runner.review_snapshot(path, {"ticks": 10, "goods": [1, 2]})
+            with self.assertRaises(Exception):runner.review_snapshot(path, {"ticks": 10, "goods": [1, 3]})
+
+
+class RecoveryPublicationGuards(unittest.TestCase):
+    def control(self, root):
+        saved = [root/"seed.save.json", root/"result.save.json"]
+        for n, path in enumerate(saved):
+            path.write_text(runner.json.dumps({"world": {"ticks": 100+n*20400, "treasury": 200+n,
+                             "original_production": {"residents_admitted": 50}}}))
+        history = root/"recovery-app/recovery/history-authored-control";history.mkdir(parents=True)
+        entries = []
+        for n, path in enumerate(saved):
+            name = "start.json" if n == 0 else "checkpoint-1-authored.json"
+            (history/name).write_bytes(path.read_bytes())
+            entries.append({"filename": name, "sequence": n, "kind": "start" if n == 0 else "autosave",
+                            "profile": "sandbox-city-v16", "rule_version": 12, "schema": 28, "map": "Cities/Xia.map",
+                            "tick": 100+n*20400, "treasury": 200+n, "population": 50})
+        meta = {"version": 1, "history_id": history.name, "parent": None, "next_sequence": 2, "checkpoints": entries}
+        (history/"history.json").write_text(runner.json.dumps(meta))
+        return saved, history, meta
+
+    def test_only_advertised_complete_start_and_result_qualify(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve();saved, history, meta = self.control(root)
+            self.assertEqual(len(runner.review_recovery(root, *saved)), 2)
+            (history/meta["checkpoints"][1]["filename"]).write_text('{}')
+            with self.assertRaises(Exception):runner.review_recovery(root, *saved)
+
+    def test_wrong_schema_advertised_tick_and_traversal_refused(self):
+        for key, value in (("schema", 27), ("tick", 20499), ("treasury", 999), ("filename", "../escape.json")):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve();saved, history, meta = self.control(root)
+                meta["checkpoints"][1][key] = value;(history/"history.json").write_text(runner.json.dumps(meta))
+                with self.assertRaises(Exception):runner.review_recovery(root, *saved)
+
+
+class FocusedRenderGuards(unittest.TestCase):
+    def control(self, root):
+        world = {"ticks": 27733, "original_economy": {"houses": [{"building_id": 3, "house": {"type": 10}}]}}
+        sections = {key: ["Authored metadata test; no gameplay/capture claim"] for key in ("State", "Needs", "Goods", "Visits")}
+        report = {"format": "openemperor-high-tier-view-v1", "status": "PASS", "target_house": 3, "actual_type": 10,
+                  "rule": 12, "schema": 28, "policy": 3, "revision": 27, "tick": 27733,
+                  "complete_f5_f9_equality": True, "world_unchanged": True, "input_preserved": True,
+                  "selected_via_sdl_list": True, "sections_via_sdl_input": True, "actual_state_only": True,
+                  "actual_sandbox_renderer": True, "backend": "authored metadata control",
+                  "native_human": "NOT_RUN", "inspection": sections["State"], "sections": sections,
+                  "original_house_art": {"authored_metadata_control": True}, "captures": []}
+        for name, zoom, section in (("sandbox-1x.png", 1, "State"), ("sandbox-2x.png", 2, "State"),
+                                    ("sandbox-4x.png", 4, "State"), ("sandbox-needs-2x.png", 2, "Needs"),
+                                    ("sandbox-goods-2x.png", 2, "Goods"), ("sandbox-visits-2x.png", 2, "Visits")):
+            # PNG header metadata only, intentionally not an actual image. The
+            # workflow separately requires real CLI/source and art provenance.
+            (root/name).write_bytes(b'\x89PNG\r\n\x1a\n'+struct.pack('>I',13)+b'IHDR'+struct.pack('>II',1,1))
+            report["captures"].append({"file": name, "zoom": zoom, "section": section, "tick": 27733,
+                                       "target_house": 3, "actual_type": 10, "width": 1, "height": 1})
+        return report, world
+
+    def test_actual_checkpoint_identity_and_six_sections_required(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve();report, world = self.control(root)
+            self.assertEqual(len(runner.review_render(report, root, world, 3, True)), 6)
+            report["captures"].pop()
+            with self.assertRaises(Exception):runner.review_render(report, root, world, 3, True)
+
+    def test_future_type_fake_dimensions_and_unscripted_selection_refused(self):
+        for edit in (lambda r: r.update(actual_type=17), lambda r: r.update(selected_via_sdl_list=False),
+                     lambda r: r.update(actual_state_only=False), lambda r: r.update(complete_f5_f9_equality=False),
+                     lambda r: r["captures"][0].update(width=2), lambda r: r["captures"][0].update(actual_type=9)):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve();report, world = self.control(root);edit(report)
+                with self.assertRaises(Exception):runner.review_render(report, root, world, 3, True)
+
+
+class OriginalArtProvenanceGuards(unittest.TestCase):
+    def control(self, root):
+        # Authored metadata and non-image bytes only; no original test asset.
+        data=root/"data";resources=root/"resources";data.mkdir();resources.mkdir()
+        archive=data/"authored-source.bin";archive.write_bytes(b"authored metadata control")
+        profile=resources/"compatibility/gog-derived-2.0.0.2-en-assetset-1/original-houses.json"
+        profile.parent.mkdir(parents=True)
+        stage={"house_type":10,"original_side":2,"archive":archive.name,"image_index":7,
+               "width":20,"height":30,"ground_anchor":[10,25],"evidence":"Authored unit provenance"}
+        profile.write_text(runner.json.dumps({"schema_version":1,"mode":"original_house_stages",
+            "selection":"canonical_static_variant_0","anchor_policy":"type30_front_cell",
+            "files":[{"path":archive.name,"sha256":runner.proof.digest(archive)}],"stages":[stage]}))
+        world={"original_economy":{"houses":[{"building_id":3,"house":{"type":10}}]}}
+        art={"configured":True,"active":True,"house_type":10,"actual_side":2,"source":"builtin",
+             "archive":archive.name,"image_index":7,"image_width":20,"image_height":30,"anchor":[10,25],
+             "selection":"canonical static representative","evidence":"Authored unit provenance",
+             "original_draws":1,"authored_fallbacks":0,"ground":[100,200],"image_origin":[90,175]}
+        return art,world,data,resources
+
+    def test_actual_type_native_anchor_and_source_hash_bind(self):
+        with tempfile.TemporaryDirectory() as directory:
+            art,world,data,resources=self.control(Path(directory).resolve())
+            runner.review_art(art,world,3,data,resources)
+            (data/"authored-source.bin").write_bytes(b"changed original-source stand-in")
+            with self.assertRaises(Exception):runner.review_art(art,world,3,data,resources)
+
+    def test_future_stage_custom_fallback_and_shifted_anchor_refused(self):
+        for edit in (lambda a:a.update(house_type=17),lambda a:a.update(source="custom"),
+                     lambda a:a.update(authored_fallbacks=1),lambda a:a.update(original_draws=0),
+                     lambda a:a.update(image_index=8),lambda a:a.update(anchor=[10,24]),
+                     lambda a:a.update(image_origin=[90,176]),lambda a:a.update(ground=[float("nan"),200])):
+            with tempfile.TemporaryDirectory() as directory:
+                art,world,data,resources=self.control(Path(directory).resolve());edit(art)
+                with self.assertRaises(Exception):runner.review_art(art,world,3,data,resources)
 
 
 if __name__ == "__main__":
