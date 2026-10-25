@@ -20,7 +20,10 @@ using Json=nlohmann::json;
 using q::check;
 constexpr const char* usage="sustainable-economy-acceptance --mode create|resume|check|render --rule 11|12 --variant supplied12|lean12|compact-two|three-food|compact-three|balanced-three|compact-connected-three --data ABSOLUTE [--output NEW_PRIVATE_OE37_DIRECTORY] [--ticks 6000..150000] [--input EARNED_SEED] [--resources ABSOLUTE]";
 struct Args {std::string mode,variant;fs::path data,output,input,resources;unsigned rule=12,ticks=100000;};
-fs::path private_root(){return fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/original-economy/oe37";}
+#ifndef OE_SUSTAINABLE_PROOF_DIRECTORY
+#define OE_SUSTAINABLE_PROOF_DIRECTORY "oe37"
+#endif
+fs::path private_root(){return fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/original-economy"/OE_SUSTAINABLE_PROOF_DIRECTORY;}
 bool below(const fs::path& p,const fs::path& parent){auto i=p.begin();for(auto j=parent.begin();j!=parent.end();++j,++i)if(i==p.end()||*i!=*j)return false;return true;}
 void safe(const fs::path& p){check(p.is_absolute(),"Proof path must be absolute");fs::path part;for(const auto& s:p){check(s!="."&&s!="..","Proof path must be canonical");part/=s;std::error_code e;const auto status=fs::symlink_status(part,e);check(!e||e==std::errc::no_such_file_or_directory,"Cannot inspect proof path");check(!fs::is_symlink(status),"Proof path traverses symlink");}}
 Args arguments(int argc,char** argv){

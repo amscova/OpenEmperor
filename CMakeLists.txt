@@ -1767,7 +1767,31 @@ if(BUILD_TESTING)
     add_test(NAME original-sustainable-economy-real COMMAND openemperor-sustainable-economy-acceptance
         --mode check --rule 12 --variant balanced-three --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" --ticks 6000)
     set_tests_properties(original-sustainable-economy-real PROPERTIES TIMEOUT 600)
+    add_executable(openemperor-high-tier-progression-acceptance tools/HighTierProgressionAcceptance.cpp)
+    target_link_libraries(openemperor-high-tier-progression-acceptance PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-high-tier-progression-acceptance)
+    add_dependencies(openemperor-high-tier-progression-acceptance openemperor)
+    add_executable(openemperor-high-tier-progression-matrix-tests tests/HighTierProgressionMatrixTests.cpp)
+    target_link_libraries(openemperor-high-tier-progression-matrix-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-high-tier-progression-matrix-tests)
+    add_test(NAME original-high-tier-progression-matrix-synthetic COMMAND openemperor-high-tier-progression-matrix-tests)
+    add_test(NAME original-high-tier-progression-matrix-real COMMAND openemperor-high-tier-progression-matrix-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-high-tier-progression-matrix-synthetic original-high-tier-progression-matrix-real PROPERTIES TIMEOUT 180)
+    set_tests_properties(original-high-tier-progression-matrix-real PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(openemperor-high-tier-progression-authority-tests tests/HighTierProgressionAuthorityTests.cpp)
+    target_link_libraries(openemperor-high-tier-progression-authority-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-high-tier-progression-authority-tests)
+    add_test(NAME original-high-tier-progression-authority-stage-a COMMAND openemperor-high-tier-progression-authority-tests --stage-a)
+    set_tests_properties(original-high-tier-progression-authority-stage-a PROPERTIES TIMEOUT 180)
+    add_test(NAME original-high-tier-progression-baseline-real COMMAND openemperor-high-tier-progression-acceptance
+        --mode check --rule 12 --variant balanced-three --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" --ticks 100000)
+    set_tests_properties(original-high-tier-progression-baseline-real PROPERTIES TIMEOUT 1800)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME original-high-tier-progression-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s "${CMAKE_SOURCE_DIR}/tests" -p HighTierProgressionRunnerTests.py)
+        set_tests_properties(original-high-tier-progression-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME original-sustainable-economy-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s "${CMAKE_SOURCE_DIR}/tests" -p SustainableEconomyRunnerTests.py)
         set_tests_properties(original-sustainable-economy-runner-contract PROPERTIES TIMEOUT 30
