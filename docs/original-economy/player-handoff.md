@@ -43,6 +43,13 @@ Ticks nach der Anlaufphase; vier volle 20400-Tick-Fenster erwirtschaften je 1950
 Funds nach sämtlichem Unterhalt. Das belegt diesen begrenzten Bauplan, keinen
 Gewinn für jede Stadt oder einen vollständigen Aufstieg zu höchsten Hausstufen.
 
+Der [bezahlte High-Tier-Ausbau](oe38-paid-high-tier-progression.md) erreicht
+Common10 (Luxurious Apartment). In den geprüften20400 Folgeticks entstehen
+Hemp-/Ceramics-Lücken und Rückentwicklungen trotz positivem Betriebssaldo;
+ein zweiter Markt allein behebt sie nicht. Elite17 ist im unveränderten
+Normal-Rule12-Vertrag geometrisch blockiert: Die zugelassenen Quellen und
+Footprints erlauben höchstens DES79, der Aufstieg16→17 verlangt80.
+
 Der Starter bezahlt Straßen, vier Häuser, Wasser, Ancestor, Market, Food-/Hemp-
 Ketten, Clay/Pottery/Warehouse, Herbalist, Acupuncture und Music. Mit der
 geprüften Modelldatei bleiben **10596 von 12000 Funds**. Bewohner und Waren
@@ -108,8 +115,9 @@ auch seine sparsamere Finanzierung garantiert keinen Gewinn für jeden Ausbau.
 Rezepte, Ernte, Zuzug/Worker und Schule→Haus-Besuche enthalten eigene Regeln.
 Originale Veranstaltungs-/Performer-Abläufe und Krankheit fehlen. Mehrere
 Gebäude und Walker nutzen Fallbackbilder; passende Hausbilder decken Typen3–17
-ab. Ein vollständiger bezahlter Aufstieg durch alle oberen Hausstufen und die
-native menschliche Abnahme bleiben offen. Der unveränderte Vier-Haus-Plan ohne
+ab. Common10 wurde bezahlt erreicht; Elite17 bleibt durch den beschriebenen
+Rule12-DES-Vertrag blockiert. Die native menschliche Abnahme bleibt offen.
+Der unveränderte Vier-Haus-Plan ohne
 Ausbau verlor im gemessenen100k-Lauf Geld und verpasste Food-Bedarfe; er ist
 keine dauerhaft selbsttragende Musterstadt. Weitere Grenzen stehen in
 [Known Issues](../../KNOWN_ISSUES.md).

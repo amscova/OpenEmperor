@@ -80,10 +80,10 @@ and the inspected `baseline-release-01/render/` captures, all under ignored
 schema28 saved World; its additional empty Elite plot is ordinarily purchased
 for80 Funds at the saved tick and receives no admission or resources.
 
-The upper-tier gameplay gates and their retention remain unproven until the
-subsequent paid scenarios produce actual first-success events and continuations.
-Numerical/technical checks and the successful OE37 baseline do not substitute
-for those gates. Original parity remains PARTIAL because immigration, workforce,
+At the Stage A boundary, upper-tier gameplay gates and retention were still
+unproven. The paid scenarios and separate blocker proof below supersede that
+initial reachability status. Numerical checks and the successful OE37 baseline
+do not substitute for real high-tier events. Original parity remains PARTIAL because immigration, workforce,
 recipes, targeted School visits, Paper dispatch units and taxation are authored
 adapters; complete original lifecycle and venue/performer mechanics remain open.
 
@@ -103,3 +103,155 @@ and `stage-a-{debug,sanitize}-matrix.xml`, under the private OE38 directory.
 The100k workflow is rerun in Release; an additional OE38 Debug/sanitizer100k
 workflow, native delivery and human play are NOT_RUN at this stage. Existing
 OE37 Debug/sanitizer evidence is historical evidence, not a new run.
+
+## Paid Common development and the first supply barrier
+
+The deterministic `common-reserved` expansion starts only after the actual
+`balanced-three` maturity at tick20000. Coordinates below are relative to its
+unchanged starter-area origin; receipts also record absolute cells, selected
+owners, validation, command sequence, quoted/paid price and Funds before/after.
+
+| Purchases | Relative cells | Cost |
+|---|---|---:|
+| Four roads | (2,0)..(2,3) | 8 |
+| Ancestor; two Daoist; Buddhist | (6,0); (3,0),(9,0); (10,5) | 175 |
+| Herbalist; Music; Acupuncture; Acrobat | (12,0); (15,0); (12,5); (21,5) | 190 |
+| Clay; Pottery | (0,0); (22,2) | 300 |
+| Tea shed and its explicitly owned Bush | (15,5); (17,5) | 46 |
+| **Expansion** | 12 new bodies, four roads | **719** |
+
+The expansion adds70 installed workers (140 upkeep per816 ticks), reaching190
+workers,40 bodies and24 actors. Existing paid House#3 at(6,2) has actual DES40
+from admitted source prefixes; it is never converted into an Elite family.
+No Drama, Academy, Silk or Bronze/Lacquer chain is purchased for Common10,
+because the actual source model does not require them for that target.
+
+The first actual9→10 evaluation occurs at tick27733, with47 occupants in
+House#3,11431 Funds and2588 total construction (1869 baseline +719 expansion).
+The pre-evolution witness contains real FoodQuality80, Hemp4, Ceramics4, Tea8,
+Water and the required positive provider timers/arrival witnesses. The exact
+live first-success save is captured at this tick; a matrix projection is not
+an evolution proof.
+
+| Bounded paid variant | First Common10 | Funds at entry | End of20400 continuation | Operating tax−upkeep | Target retention |
+|---|---:|---:|---|---:|---|
+| `common-reserved` | 27733 | 11431 | tick48133, type10, Funds15136 | 13205−9500 = **+3705** | 18 devolutions;9537 ticks below10,65 additional burning ticks |
+| `common-two-market` | 22633 | 10968 | tick43033, type8, Funds13956 | 12688−9700 = **+2988** | 18 devolutions;14026 ticks below10,315 burning ticks (overlap recorded separately) |
+
+The counterfactual buys one additional Market at(17,7) and its actual road at
+(17,8), for142 extra Funds (861 expansion,2730 total construction). It reaches
+Common10 earlier, but does not cure retention. These finite operating windows
+are financially positive; they do not demonstrate continuous high-tier supply
+or indefinite economic stability. The productive World goal never becomes
+false in either continuation.
+
+For `common-reserved`,194 of400 target evaluations miss current needs: all194
+miss Hemp and29 also miss Ceramics. No other current need, DES or timer fails.
+The first missing Hemp evaluation is tick29008; the actual tenth consecutive
+failed input at29467 causes10→9. All18 target devolutions include missing Hemp.
+At29008 the Warehouse holds28 Hemp with4 committed incoming (effective capacity32),
+both Farms have stock and their carts report target-full, while the Market's
+sole goods distributor is returning from another House over a22-vertex path.
+The target has no Hemp or Ceramics. Warehouse Hemp is at least28 in392/400
+samples while Market Hemp is zero in239/400. Global Hemp stock plus cargo grows
+74→89; local delivery throughput/backpressure is the first measured barrier.
+
+Over these25 months, scheduled House Hemp requests365, actual consumption297
+and harvest312 are below the two-Farm nominal maximum510. Raising Farm caps
+would therefore misdiagnose this first failure. Keeping every later upgraded
+House supplied can introduce a separate capacity ceiling; that hypothetical
+steady demand is not substituted for the actual first bottleneck.
+Ceramics requests91, consumption87, conversion164 and global stock/cargo52→129
+also demonstrate a distribution gap despite available mass. The Clay→Pottery
+route has25 edges/125 ticks one-way and carries4 per round trip; production is
+limited by physical Clay hauling, not an altered model value.
+
+The city records63 new fires and63 extinguishments in the first variant's
+continuation. House#3 has one incident, tick45220–45285, lasting65 ticks. Its
+first three devolution cascades precede that fire. Fire interrupts some supply
+infrastructure as a secondary effect; it is not the cause of the first Hemp
+failure. Two fire-state observations are not reported as two separate fires.
+
+## Proven Elite17 barrier
+
+Finite paid packing probes reached DES64, not80. Their failure alone would
+prove no global obstruction. The separate exact integer certificate is stronger:
+for every one of the16 cells in a complete4×4 House, it bounds **all** positive
+placements of every currently admitted Rule12 influence source on otherwise
+unrestricted flat land. Roads, terrain, existing buildings, finances, staffing
+and route constraints are removed, so every legal city is included.
+
+Charge even lattice points x,y∈{−4,−2,0,2,4}:3 in the central[-2,2]² and1 on
+the outer ring, excluding the House footprint. Each of its16 possible selected
+cells leaves lattice charge31. Source charges, multiplied by the actual caps,
+sum to48: four neutral Wells; two Water sources; and two each of nine typed
+services. Every positive source placement is bounded by its source charge plus
+covered lattice charges. Complete non-overlapping footprints can spend each
+lattice point at most once, giving **48+31=79**. Source values/decay are read
+from the unchanged prepared Normal model and evaluated through the shared
+`DesirabilityMap`; no original numeric table or private fixture is committed.
+
+The regression checks12156 positive placements, all16 cells, exact shared
+footprints, all24 actual paid source purchases and every next-cap atomic
+refusal. Independent Python verification repeats the lattice inequalities
+against the supplied raw model. Pure negative controls distinguish a fully
+supplied synthetic16 at DES79 (cannot enter17) from DES80 (can); neither is
+injected into World or counted as a paid success. World uses no DES bonus or
+forced evolution bypass. Removing negative contributions remains a conservative
+upper bound under the current clamped fold.
+
+Thus **Elite17 is BLOCKED in the current Normal Rule12 adapter**. No costly
+Paper/luxury build is presented as17 success, and no claim about original
+Emperor's complete source manager follows. The paid empty Plot observer and
+synthetic-geography materialization regressions establish their own narrower
+scope; they are not a real Xia13→17 playthrough.
+
+Any future Rule13/Schema29 proposal needs a separately approved source contract:
+identify and verify an additional original DES source/lifecycle or an explicitly
+authored alternative; define its complete placement, cap, accounting, transport
+and restore authority; preserve Rule12 and its saves exactly. An arbitrary +1
+bonus, lowered80 threshold, raised cap, overlapping footprint or Common→Elite
+conversion is not authorized by this diagnosis. No Rule13 behavior is implemented.
+
+Reproduce either finite paid Common scenario with a new directory:
+
+```sh
+python3 -B tools/test_high_tier_progression.py --stage common --binary "$PWD/build/openemperor-high-tier-progression-acceptance" --data /absolute/path/to/Emperor --output "$PWD/.local/original-economy/oe38/common-new" --variant common-reserved --search-ticks 30000
+# Use common-two-market and another new output directory for the paid counterfactual.
+```
+
+The workflow checks receipts against independently read source prices/fixed
+construction contracts and every complete paid body/road; it binds the first10
+claim to the literal9→10 evaluation in the complete first-success World.
+Every target evaluation is cross-checked against independently prepared source
+needs and actual consumption. C++ and independent Python both check the exact
+Elite blocker certificate. Partial retention is retained as an observed result,
+not converted to PASS by checking only the last House type.
+
+Stage B's fresh Release workflows are
+`stage-b-common-reserved-release-01/common-acceptance.json` and
+`stage-b-common-two-market-release-01/common-acceptance.json` beneath the private
+OE38 directory. All original bytes/modes/mtimes, executable and source manifests
+remain unchanged within each process workflow. Six saves/observation files per
+variant are byte-identical to their earlier exploratory actual runs. Those
+explorations alone were not treated as guarded source-identity acceptance.
+
+The dedicated real-Xia supply regression reconstructs the first failure without
+telemetry-derived state injection: fresh paid baseline,719 expansion, actual
+first10/first empty Hemp/ten consecutive unmet evaluations and10→9, complete
+goods conservation and strict Schema28 memory/disk/canonical-byte restore.
+Other Stage B controls exercise both sides of the luxury/religion OR predicates,
+physical Paper loading/arrival/debit and Elite-only Confucian visits, expiry,
+retained loaded cargo across road interruption/paid repair, natural provider
+fire and hostile goods/type/visitor/tax/delivery/save witnesses. Synthetic
+geography and pure negative controls are explicitly separate from real-Xia
+positive progression. No production source or bundled resource is changed.
+
+Stage B acceptance passes4/4 relevant CTests in each of Release, Debug and
+ASan/UBSan: authority-stage-b, exact DES bound, real Common supply barrier and
+runner contract (30 hostile unit cases). Artifacts are
+`stage-b-{build,debug,sanitize}.xml` and logs in the private OE38 directory.
+Release takes4.58s, Debug424.88s and ASan/UBSan130.67s; no skips or sanitizer
+findings occur. LeakSanitizer is not run on this macOS configuration.
+The two guarded full Common workflows also pass their independent technical
+checks; their PARTIAL retention and BLOCKED Elite results remain explicit.

@@ -25,8 +25,14 @@ complete original-game compatibility.
   several other buildings, plants and walkers retain fallbacks. Empty Elite plots
   have no matching original body until their larger footprint materializes.
   Building animation, profession mappings and some pivots remain unverified.
-- **High-tier progression is unproven.** All 15 housing model rows are integrated,
-  but a complete paid playthrough to the highest tier has not been demonstrated.
+- **High-tier progression has a bounded Rule12 blocker.** The
+  [paid high-tier check](docs/original-economy/oe38-paid-high-tier-progression.md)
+  reaches Common10 through actual purchases and deliveries, but does not hold it
+  continuously for the following20400 ticks: Hemp distribution and intermittent
+  Ceramics delivery cause devolutions despite positive operating cashflow.
+  An exact source/footprint bound gives DES≤79 for a materialized4×4 Elite House;
+  the unchanged16→17 entry needs80. This blocks Elite17 in the current Normal
+  Rule12 adapter, not in original Emperor. No historical rule or model is changed.
   The unchanged four-house Xia starter without expansion loses money and misses
   Food demands in the measured long run; it needs active development.
 - **Service capacity is limited.** Larger cities can miss Service deadlines
