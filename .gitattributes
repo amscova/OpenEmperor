@@ -4,7 +4,5 @@
 /src/simulation/original/*.cpp text eol=lf
 /tools/original-rules-parity/*.cpp text eol=lf
 /tools/original_rules_parity.py text eol=lf
-/src/simulation/OriginalEconomyState.h text eol=lf
-/src/simulation/OriginalInfluenceState.h text eol=lf
-/src/simulation/OriginalGoodsState.h text eol=lf
+/src/simulation/Original*State.h text eol=lf
 /src/simulation/World.h text eol=lf
