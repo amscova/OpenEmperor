@@ -9,7 +9,7 @@ Upstream targets native macOS on Apple Silicon first. This fork makes the same p
 ## How this fork relates to upstream
 
 - **Same game, same rules.** Simulation, rules, rendering, saves, file readers and documentation come from upstream. Where the two ever differ in behaviour, upstream is the reference. For what the project is, its alpha status, the City rule sets, saves and the map browser, read upstream's README, kept unchanged as [README.upstream.md](README.upstream.md).
-- **Level with upstream.** `windows-port` is upstream `main` plus the small Windows layer below. Last synced with upstream `41091b6` (2026-10-16, "OE-13 typed goods ledger foundation"). The fork is merged forward with `git merge upstream/main`; upstream's version of any shared file wins.
+- **Level with upstream.** `windows-port` is upstream `main` plus the small Windows layer below. Last synced with upstream `81bc921` (2026-10-25, "validate paid Common replay and original-sprite rendering"). The fork is merged forward with `git merge upstream/main`; upstream's version of any shared file wins.
 - **Nothing here is a fork-only feature.** Earlier fork experiments with original-style housing rules were retired when upstream built its own, more thoroughly verified implementation of the same area.
 
 ## What is different on Windows
@@ -58,7 +58,7 @@ Point `--data` at the installed game folder, not the GOG installer. Settings, sa
 
 This is an alpha, inheriting upstream's status: it is **not a complete recreation of Emperor**. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) and [README.upstream.md](README.upstream.md).
 
-Windows test results (Clang 22.1.8, SDL 3.4.10, at upstream `41091b6`): **all 186 CTest cases pass**. Seven of them read the installed game's model file and skip unless configured with `-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=<game folder>`; with it they pass too. A `--sandbox-check` smoke run on `Cities/Xia.map` succeeds. Interactive play on Windows has had less testing than the automated suite, so expect rough edges and please report them.
+Windows test results (Clang 22.1.8, SDL 3.4.10, at upstream `81bc921`): **all 265 CTest cases pass** except one skip. Several of them read the installed game's model file and skip unless configured with `-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=<game folder>`; with it they pass too. `original-production-model-real` looks only in `.local/gog-extracted/app` and is skipped otherwise; run by hand with `--real "<game folder>"`, it passes. A `--sandbox-check` smoke run on `Cities/Xia.map` succeeds. Interactive play on Windows has had less testing than the automated suite, so expect rough edges and please report them.
 
 ## Contributing and upstream
 
