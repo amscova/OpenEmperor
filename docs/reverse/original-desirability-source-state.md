@@ -106,10 +106,8 @@ Thus Subindex0 cannot stand in for the separate link-word predicate, and a
 constructor's initial zero cannot replace the object's actual state. Nor does
 zero alone establish every other source condition or a safe model index.
 
-No original state is imported into the current Vacant container; its status0
-and existing strict restore contract remain exact. The seven functional
-World→Model analogies remain unverified. The separate
-[source/build/restore/budget blockers](../original-economy/desirability-integration-blockers.md)
-still apply. Further implementation requires those contracts to be resolved;
-this research does not advance to OE-13 or claim original-game execution or
-human acceptance.
+This audit imports no original state into the frozen Rule7 Vacant container;
+its status0 and strict restore contract remain exact. The seven functional
+World→Model analogies remain unverified. Later source/build/restore/budget
+permissions require the separate [runtime contracts](../original-economy/architecture-map.md).
+These findings establish neither original-game execution nor human acceptance.

@@ -38,6 +38,12 @@ public:
     VisualSelection visual_selection() const;
     const maps::MapRulesResult& map_rules_result() const { return map_preflight_.result(); }
     bool map_rules_can_start() const;
+    bool original_setup() const { return original_new_game_; }
+    bool original_fire_protection_setup() const { return original_fire_protection_new_game_; }
+    bool original_sustainable_economy_setup() const { return original_sustainable_economy_new_game_; }
+    original::Difficulty original_difficulty() const { return original_difficulty_; }
+    bool original_paid_starter() const { return original_paid_starter_; }
+    std::string recovery_history_id() const { return autosave_ ? autosave_->history_id():std::string{}; }
     struct DiagnosticButtonHit {
         int action;
         bool enabled;
@@ -45,6 +51,7 @@ public:
     };
     std::optional<SDL_FPoint> diagnostic_render_point(float window_x,float window_y) const;
     std::optional<DiagnosticButtonHit> diagnostic_button_hit(float window_x,float window_y) const;
+    std::optional<SDL_FRect> diagnostic_button_rect(const std::string& label) const;
     int diagnostic_pressed_action() const { return pressed_action_; }
     int diagnostic_pending_action() const { return pending_action_.value_or(-1); }
 private:
@@ -65,6 +72,8 @@ private:
     void perform(int action);
     void persist_settings();
     void record_save();
+    void record_load();
+    AutosaveResult begin_original_autosave(std::optional<persistence::RecoveryParent> parent=std::nullopt);
     void report_autosave(const AutosaveResult& result);
     void activate_button(int action);
     void rebuild_buttons();
@@ -80,6 +89,7 @@ private:
     std::unique_ptr<DialogAdapter> dialog_;
     std::shared_ptr<Inbox> inbox_=std::make_shared<Inbox>();
     std::uint64_t dialog_generation_=0,seen_save_generation_=0;
+    std::uint64_t seen_load_generation_=0;
     DialogKind dialog_kind_=DialogKind::None;
     State state_=State::DataSetup,return_state_=State::MainMenu;
     State confirm_return_state_=State::MainMenu;
@@ -87,6 +97,11 @@ private:
     Settings settings_;
     bool ramps_new_game_=false; // Explicit rule6 setup, never a saved default or migration.
     bool bridges_new_game_=false; // Explicit setup choice, never a default/save upgrade.
+    bool original_new_game_=false; // Session-only opt-in; never a RulesProfile/settings default.
+    bool original_fire_protection_new_game_=false; // Explicit Rule11 session choice, never a default.
+    bool original_sustainable_economy_new_game_=false; // Explicit Rule12, never persisted as a default.
+    original::Difficulty original_difficulty_=original::Difficulty::Normal;
+    bool original_paid_starter_=true;
     MapRulesPreflight map_preflight_;
     std::optional<maps::MapRulesResult> starting_map_check_;
     assets::CompatibilityResult compatibility_;

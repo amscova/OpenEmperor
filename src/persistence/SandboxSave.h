@@ -44,6 +44,11 @@ simulation::OriginalModelSource original_model_source(
 std::shared_ptr<const original::OriginalRulesModel> prepare_original_rules_model(
     const std::filesystem::path& data_root,
     original::Difficulty difficulty=original::Difficulty::Normal);
+// Active Rule10 preparation additionally requires the named paid-production
+// model categories. Frozen Rule7/8/9 preparation remains the seven-row path.
+std::shared_ptr<const original::OriginalRulesModel> prepare_original_production_rules_model(
+    const std::filesystem::path& data_root,
+    original::Difficulty difficulty=original::Difficulty::Normal);
 // Schema 23 remains an explicit development boundary while normal Rule-7
 // sessions, ticking and restore_save are unavailable.
 simulation::World restore_original_economy_development(
@@ -61,6 +66,26 @@ simulation::World restore_original_influence_development(
 // Schema25/Rule9 adds an explicitly inactive goods ledger; no migration or
 // normal/recovery restore grants a goods-production or transport capability.
 simulation::World restore_original_goods_development(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+// Schema26/Rule10 is an explicit paid-production development generation.
+// Its mandatory development revision rejects incompatible in-progress saves.
+simulation::World restore_original_production_development(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+// Schema27/Rule11 is a separate explicit paid fire-protection contract.
+simulation::World restore_original_fire_protection(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+// Schema28/Rule12 explicitly selects the authored sustainable-economy contract.
+// Existing schema26/27 documents retain their exact identities and rules.
+simulation::World restore_original_sustainable_economy(
     const SaveDocument& document,const std::filesystem::path& data_root,
     std::vector<std::uint8_t> buildable,
     std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,

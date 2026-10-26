@@ -1,92 +1,197 @@
-# OE-00: Architekturkarte des bestehenden Wirtschaftspfads
+# Original economy: architecture and contracts
 
-Erfasst am 2026-10-16 für `fef111deff4cedd3d3fa48663556d41b2e4b31a6`. Die Zeilenangaben beziehen sich auf diesen Source-Stand. Dies ist eine Source-Diagnose und ein Plan für spätere Erweiterungen; OE-00 ändert weder Simulation noch Save-Format. Testresultate und Baseline-Hashes stehen separat in [baseline.md](baseline.md). Die hier benannten Tests sind vorhandene Prüfpunkte, keine zusätzliche Behauptung, dass sie in dieser Teilanalyse ausgeführt wurden.
+The optional **City-v16 Rule10 / schema26 / policy3 / development revision27**
+has paid production, transport, House evolution, taxes and recovery. Full original
+parity remains partial; see [the play guide](player-handoff.md) and [Known Issues](../../KNOWN_ISSUES.md).
 
-## Versionsinventar und Defaults
+## Versions and source preparation
 
-| Identität | Tatsächlicher Vertrag am erfassten HEAD | Beleg |
-|---|---|---|
-| Höchstes Profil | `RulesProfile::CityV16`; Profilnummer und Regelversion sind verschiedene Begriffe. | [World.h:19](../../src/simulation/World.h#L19) |
-| City-v16-Regeln | Unterstützt sind 1–6; neue normale City-v16-Welten verwenden Rule4. Rule7 ist derzeit nicht unterstützt. | [World.cpp:240–253](../../src/simulation/World.cpp#L240); explizite Rule7-Ablehnung in [SandboxCityV16Tests.cpp:390–398](../../tests/SandboxCityV16Tests.cpp#L390) |
-| Allgemeiner Menüdefault | Frische Settings wählen City-v11 und bezahlten Prepared Starter; City-v11 verwendet standardmäßig Rule3. Vorhandene explizite Settings bleiben eigene Eingaben. | [MenuStorage.h:11–15](../../src/app/MenuStorage.h#L11), [World.cpp:240–245](../../src/simulation/World.cpp#L240), [MenuSessionTests.cpp:303](../../tests/MenuSessionTests.cpp#L303) |
-| Bridges/Ramps | Rule5 und Rule6 sind separate, ausdrücklich gewählte New-Game-Optionen. Die beiden Flags starten `false` und sind nicht gespeicherte Defaults. Bridges werden nur unter Rule5/6, Ramps nur unter Rule6 unterstützt. | [MenuSession.h:88–89](../../src/app/MenuSession.h#L88), [MenuSession.cpp:180–185](../../src/app/MenuSession.cpp#L180), [World.h:514–515](../../src/simulation/World.h#L514) |
-| Direkter CLI-Default | Der direkte Sandbox-CLI-Pfad beginnt bei `LogisticsV1`, unabhängig vom Menüdefault. | [main.cpp:130](../../src/app/main.cpp#L130) |
-| MapPermissions | Unterstützt sind Policy1/2/3. City-v16 Rule3→Policy1, Rule4→Policy2, Rule5/6→Policy3. | [MapPermissions.h:22–27](../../src/simulation/MapPermissions.h#L22), [MapRulesCheck.cpp:50–56](../../src/maps/MapRulesCheck.cpp#L50) |
-| Save-Schemas | Der Parser akzeptiert ausschließlich 1–22. City-v16 Rule1/2→18, Rule3→19, Rule4→20, Rule5→21, Rule6→22. | [SandboxSave.cpp:616–618](../../src/persistence/SandboxSave.cpp#L616), [648](../../src/persistence/SandboxSave.cpp#L648), [734–743](../../src/persistence/SandboxSave.cpp#L734) |
+| Generation | Saved contract and scope |
+|---|---|
+| Rule7 / schema23 | Frozen original House state, immutable model binding and scheduler; no active economy. |
+| Rule8 / schema24 | Frozen paid Well72 desirability sources; no water, population or production. |
+| Rule9 / schema25 | Frozen neutral six-goods ledger; real World goods remain unsupported/zero. |
+| Rule10 / schema26 / revision27 | Current explicit paid economy; incompatible development revisions are refused. |
+| Rule11 / schema27 / revision27 | Separate explicit paid economy with authored FireWatch and actual Inspector visits; bounded fire/tax provenance. |
+| Rule12 / schema28 / revision27 | Separate explicit sustainable-economy contract: three paid Food Farm/Field chains and installed-worker upkeep every 816 placement-relative ticks; retains paid Rule11 fire protection. |
 
-**Bedingte Reservierung für spätere Tasks:** Rule7 und Schema23 kollidieren an diesem HEAD mit keiner unterstützten Produktionsidentität. Sie sind noch nicht implementiert oder aktiviert. Ihre Nutzung setzt die OE-08/OE-09-Gates und eine erneute Versionsprüfung voraus. Policy3 existiert bereits und darf hierfür nicht neu interpretiert werden. Ein bloßes Anheben der Versionsobergrenzen genügt nicht: Konstruktor, Map-Preflight, Bridge-/Ramp-Support, Save-Erstellung, Parser und Restore enthalten jeweils explizite Versionstore. Beispielsweise würden die jetzigen `bridges_supported()`/`ramps_supported()` unter Rule7 beide `false` liefern ([World.h:514–515](../../src/simulation/World.h#L514)).
+Rules1–9 and schemas1–25 retain their identities and canonical bytes. City-v11
+Rule3 and City-v16 Rule4 defaults are unchanged; no automatic migration opts older
+saves into Original economy. Bridge/Ramp infrastructure retains its existing contracts.
+Rule11 inherits the unchanged Rule10 economic values and uses its own fire guard;
+Rule10 still rejects FireWatch. The [fire protection contract](oe36-fire-protection.md)
+defines its authored building, actual arrivals and separate schema27 validation.
+Rule12 has a separate create/restore and menu/CLI choice. It preserves original
+model values, taxes, harvest periods, needs, immigration, goods, services and fire
+mechanics. Only its authored Food count and upkeep interval differ; see the
+[sustainable-economy contract](oe37-sustainable-economy.md). No save is migrated.
 
-## Kauf bis Ankunft und Haushalt
+`ModelData` reads the selected installation's `Model/EmperorBuildingModels.txt`
+within its canonical root: regular file, at most 256 KiB, lines at most 4096 bytes,
+unique Building IDs and complete 13-field Building/24-field House grammar.
+`OriginalRulesModel` prepares all 15 House rows and admitted named providers for
+one Difficulty. Building values use checked signed `base * modifier / 100`,
+truncating toward zero; House values use checked `clamp(base + modifier,-99,100)`.
+The [model register](model-provenance.md) binds labels, units and evidence.
 
-```mermaid
-flowchart TD
-    Menu[Menü: Profil + explizite Regel + Map-Preflight] --> View[SandboxView initialisiert eine World]
-    Input[Kauf / Placement] --> Validate[SandboxView request_execute: Vorschau und Budgetwarnung]
-    Validate --> Execute[World execute: erneut validieren und bezahlt mutieren]
-    Execute --> World[Authoritative Buildings, Couriers, Funds, Road Revision]
-    View --> World
-    Clock[TickDriver: feste World-Schritte] --> Tick[World tick_production_v2]
-    World --> Tick
-    Tick --> Production[Produktion mit Staffing vom Tick-Anfang]
-    Production --> Demand[Household Demand und Steuern]
-    Demand --> Bill[Maintenance]
-    Bill --> Dispatch[Dispatch: realer Bestand zu Cargo + Reservation]
-    Dispatch --> Move[move_v2: Route und Kantenfortschritt]
-    Move --> Arrival[Ankunft: Ware übertragen oder Service-Timer setzen]
-    Arrival --> HealthFire[Health / Fire / Invarianten]
-    World --> Snapshot[WorldSnapshot]
-    Snapshot --> Save[SaveDocument mit Map- und Policy-Hash]
-    Save --> Restore[Striktes Restore und abgeleitete Indizes]
-    Restore --> World
-    World --> Presentation[Painter / Inspector lesen bestehenden Zustand]
+Create/restore receives a `shared_ptr<const OriginalRulesModel>`. Worlds never
+search for files. Saved source identity includes format, SHA256, byte count and
+Difficulty; prepared rules/tables and runtime pointers are not serialized.
+F5 checks the actual file identity before atomic replacement; F9 prepares and
+validates a new candidate before publication. Missing or changed sources reject
+I/O without changing the live city or prior save. Frames and ticks perform no
+model reading, hashing, preparation, asset loading or navigation preparation.
+
+## Clock and update order
+
+World ticks are the only saved clock. Mapping version 1 assigns one scheduler
+phase per existing 20 Hz tick; this speed and calendar integration are authored.
+For completed ticks `t`, the next dispatch is:
+
+```text
+phase = t % 51
+step  = (t / 51) % 16
+month = (t / 816) % 12
+year  = t / 9792
 ```
 
-Die zentrale Reihenfolge ist **Produktion → Household-Demand → Maintenance → Dispatch → Bewegung/Ankunft → Health → Fire**. Eine Ankunft am Demand-Tick erfolgt also nach dessen Bedarfsprüfung und rettet diesen bereits geprüften Bedarf nicht rückwirkend. Das ist aktuelles OpenEmperor-Verhalten, keine Aussage zur Reihenfolge im Originalspiel ([World.cpp:1980–2116](../../src/simulation/World.cpp#L1980)).
+Phase 35 decrements service timers; phase 39 evaluates evolution, followed by
+six-goods and Food consumption only at step 0 or 7. First consumption completes
+at ticks 40 and 397. A real arrival earlier in that tick can supply the evaluation
+and consumption; the old 400-tick demand path does not run as a second authority.
+Taxes use the pre-tick occupied/non-burning state every 816 ticks, before upkeep,
+production, actual movement, fire, immigration and House dispatch.
 
-| Schritt | Bestehende konkrete Stelle | Erweiterungspunkt und einzuhaltende Grenze |
-|---|---|---|
-| Eingabe und Kaufanfrage | `SandboxView::request_execute()` prüft `World::validate()` und kann eine Budgetwarnung öffnen. Die tatsächliche Aktion verwendet `SandboxView::execute()` → `World::execute()`. [SandboxView.cpp:2381–2449](../../src/app/SandboxView.cpp#L2381) | Neue kaufbare Sources später über denselben Command-/Funds-Pfad aufnehmen. Keine UI-Funktion darf Bestand oder House-State direkt setzen. |
-| Bezahlte Mutation | `World::validate()` verwirft unbekannte/unzulässige Commands; `execute_impl()` validiert erneut, legt Building/Courier an und belastet Funds. [World.cpp:910](../../src/simulation/World.cpp#L910), [1233](../../src/simulation/World.cpp#L1233), [1327](../../src/simulation/World.cpp#L1327), [1487–1496](../../src/simulation/World.cpp#L1487) | Neue Object-/Command-/Role-Typen brauchen konsistente Validierung, Kosten, IDs, Footprint/Owner und Restore-Regeln. Bridge-/Ramp-Kauf bleibt eigener geprüfter Zweig am Anfang von `execute_impl()`. |
-| Zeit und Tick | `SandboxView::update()` ruft den vorhandenen `TickDriver` auf; `tick_once()` verwendet dieselbe `World::tick()`. Der Driver arbeitet mit `1/Rules::ticks_per_second`; aktuell 20 Hz. [SandboxView.cpp:2362–2379](../../src/app/SandboxView.cpp#L2362), [World.cpp:3768–3783](../../src/simulation/World.cpp#L3768), [World.h:102](../../src/simulation/World.h#L102) | Ein späterer Originalzyklus benötigt einen versionierten, gespeicherten Scheduler. Aus 20 Hz folgt keine originale Zyklusdauer. Kein Wallclock-/Render-Timer als Wirtschaftsauthority. |
-| Produktion und Staffing | `tick_production_v2()` prüft Überläufe, erfasst Staffing vor der Tick-Mutation, produziert Clay/Pottery/Food und respektiert die bestehenden Produktionskapazitäten. [World.cpp:1980–2051](../../src/simulation/World.cpp#L1980) | Neue Goods nur mit realer, bezahlter Source und Bilanz. Alte Profilzweige und die stabile Reihenfolge bleiben unverändert. |
-| Zielwahl und Transport | `courier_dispatch_status()` und vorbereitete Routen bestimmen Dispatch; `dispatch_v2()` prüft Relation, Road-Revision, Zielkapazität, Stock und Reservation vor der Mutation. [World.cpp:1756](../../src/simulation/World.cpp#L1756), [2119–2250](../../src/simulation/World.cpp#L2119) | Vorhandenes Routing und Reservationen erweitern, keinen zweiten Navigator einführen. Ein ausgewähltes Ziel oder eine Route beweist noch keine Lieferung. |
-| Tatsächliche Ankunft | `move_v2()` bewegt Kante für Kante und mutiert das Ziel erst nach Erreichen des Routenendes. Goods verlassen Cargo/Reservation und werden Stock; Service setzt `service_until_tick`, Health/Fire haben getrennte Arrival-Zweige. Danach folgt der normale Rückweg. [World.cpp:2317–2398](../../src/simulation/World.cpp#L2317) | Original-Servicekategorien später ausschließlich durch passende tatsächliche Ankünfte aktivieren. Keine Render- oder Dispatch-Events als Visit. |
-| Household-Demand | Alle 400 World-Ticks pro platziertem Haus prüft die Produktion `household_demand_status(home,ticks_)`; Erfolg verbraucht vorhandenes Pottery/Food, verbucht tatsächliche Steuern und verändert Population nach bestehenden Regeln. [World.cpp:2052–2106](../../src/simulation/World.cpp#L2052) | Späteren Rule7-Konsum/House-Zyklus getrennt versionieren. Keine Umdeutung vorhandener kumulativer Counter oder der alten Demand-Phase. |
-| Gegenwärtiger Bedarf und Steuern | Der gemeinsame pure Bedarfscheck verlangt Waren, ggf. aktive Serviceabdeckung und kein Feuer/Krankheit. Service ist nur gültig bei `service_until_tick > evaluation_tick`. Steuern nutzen aktuelle Regeln und effektive Stufe. [WorldMaintenance.cpp:88–118](../../src/simulation/WorldMaintenance.cpp#L88) | Neue Timer/Warenmodelle müssen auch die arithmetische Maintenance-Vorprüfung berücksichtigen; diese prüft den nächsten Demand vor jeder Mutation ([121](../../src/simulation/WorldMaintenance.cpp#L121)). |
-| Bisherige Hausstufe | Historische Stufe 0/1/2 kommt aus kumulativ erfüllten Bedarfen; effektive Stufe wird durch Water/Desirability begrenzt. Die Kapazitäten sind 6/10/16. [World.cpp:661–689](../../src/simulation/World.cpp#L661), [World.h:144–146](../../src/simulation/World.h#L144) | Die geplanten 15 Original-Hausmodelle sind keine Erweiterung dieses Zahlenbereichs per Cast. Eigene getypte, versionierte Authority mit klarer Abbildung ist erforderlich. |
-| Bisherige Desirability | Authored Object-Gewichte, Manhattan-Abstand zwischen Footprints, abgestufte Radiusbeiträge und Clamp. [WorldDesirability.cpp:18–47](../../src/simulation/WorldDesirability.cpp#L18), [58–85](../../src/simulation/WorldDesirability.cpp#L58) | Ein Originalkern darf diese alte City-v13+-Funktion nicht still ersetzen. Echte platzierte Quellen sind die spätere Runtime-Eingabe, nicht ähnliche Sprite-/Modellnamen. |
+The original static evidence is narrower than this integration. On the pinned
+EXE recorded by [the model contract](../reverse/original-model-contract.md),
+`0x4ac2e4..0x4ac2f9` and `0x4ac4c8..0x4ac4e7` establish phases 0..50;
+`0x4ac4e8` targets `0x4ac45e`/`0x4ac48f` for phases 35/39.
+`0x519025..0x51905b` gates post-evolution consumption on selector0/7;
+`0x4ac650..0x4ac67e`, `0x4ac6b8..0x4ac6c9`, `0x4ac794..0x4ac7b4` establish
+16 passes and a 12-value outer counter. The original year increment at
+`0x4ac7ce..0x4ac7e9` uses outer value1, unlike the elapsed-year counter above.
+These read-only findings do not establish original real-time speed or all
+scheduler work. No original executable is run by this implementation.
 
-## Snapshot, Save und Session
+## Paid sources, inventories and actual arrivals
 
-`BuildingState`/`CourierState` sind Laufzeitdaten; `BuildingSnapshot`/`CourierSnapshot` halten die gespeicherte Authority. `WorldSnapshot` umfasst IDs, Tick-/Command-/Road-Revision, Waren, Population, Ledger sowie BridgeSpan/RampLink. Route-Caches und abgeleitete Occupancy/Indizes sind nicht zweite Save-Authority ([World.h:402–500](../../src/simulation/World.h#L402)). `World::snapshot()` kopiert diese Felder, während `restore_impl()` Regelversion, Eingaben und Invarianten erneut prüft ([World.cpp:3246–3325](../../src/simulation/World.cpp#L3246)).
+The active bounds are 82 bodies, 58 couriers and 20 Houses. All bodies, fields and
+plants are purchased through normal commands. Population belongs solely to
+`OriginalHouseState`; old `Building.population` remains zero. Authored immigration
+starts no earlier than 120 ticks after purchase and then admits up to two people
+every 40 ticks, bounded by prepared capacity and an actual safe road entrance.
+Residents provide deterministically allocated workers, including Elite residents;
+this is an explicit adapter rather than recovered original labor policy.
 
-`SandboxView::capture_save_document()` verwendet `make_document()`; F5 schreibt den normalen Savepfad. F9 liest/validiert einen Ersatz, veröffentlicht ihn erst danach, bereitet Präsentationscaches neu vor und pausiert ([SandboxView.cpp:201–255](../../src/app/SandboxView.cpp#L201)). `make_document()` bindet Map-SHA, Buildable-Mask-SHA, Snapshot und für City-v16 Rule3–6 den unveränderlichen MapPermissions-Fingerprint ([SandboxSave.cpp:760–775](../../src/persistence/SandboxSave.cpp#L760)). Restore prüft dieselben tatsächlichen Quellen/Fingerprints ([835–864](../../src/persistence/SandboxSave.cpp#L835)).
+Six House goods are Hemp, Ceramics, Tea, Silk, Bronzeware and Lacquerware.
+HouseState is their sole House inventory; the typed ledger owns non-House stock,
+cargo, reservations and historical counters. Pottery becomes Ceramics exactly
+once on successful Warehouse arrival; the old Warehouse Pottery slot stays zero.
+For every good, checked conservation requires:
 
-Die neuen Regeln benötigen später eine ausdrückliche Schema23-Serialisierung und -Validierung. Die bestehenden numerischen Guards dürfen nicht pauschal von `<=22` auf `<=23` angehoben werden, weil etliche alte Felder nach Schemagrenzen zugelassen werden. Bridge-Authority ist nur Schema21/22, Ramp-Authority nur Schema22; diese bisherigen Ablehnungen bleiben erhalten ([SandboxSave.cpp:300–302](../../src/persistence/SandboxSave.cpp#L300)). Für alte Dokumente gilt das alte Format, keine automatische Rule7-Migration. Bereits bestehende Schema1-Kompatibilität und ausdrücklich bestätigte City-v11-Kopieupgrades sind historische, getrennte Pfade ([SandboxSave.cpp:746–751](../../src/persistence/SandboxSave.cpp#L746), [SandboxSave.h:37–38](../../src/persistence/SandboxSave.h#L37)).
+```text
+produced + imported = consumed + demolished + stock + cargo
+```
 
-Hinweis zur Quellenqualität: Der Kommentar in `SaveDocument` nennt noch nur Schema19/20 ([SandboxSave.h:21](../../src/persistence/SandboxSave.h#L21)); der tatsächlich ausgeführte Parser/Writer/Restore behandelt auch21/22 wie oben belegt. OE-00 ändert diesen Produktionsheader nicht. Der Kommentar ist kein Beleg dafür, dass Bridges/Ramps nicht gespeichert würden.
+Reservations commit source stock and destination/return space; they add no mass.
+Only actual loading creates cargo and actual arrival credits the destination.
+Transfer handles bind CourierId to a monotonic sequence; stale or duplicate
+arrivals fail. Pause/disconnect preserves cargo and begun-edge safety, using the
+same navigator for return and paid road repair. Goods/target rotation is bounded;
+finite visit tests do not prove universal starvation freedom.
 
-Das Menü entscheidet neue Regel/Policy vor dem Map-Preflight und verwendet bei geladenen Dokumenten deren gespeichertes Profil/Regelversion ([MenuSession.cpp:180–185](../../src/app/MenuSession.cpp#L180), [216–247](../../src/app/MenuSession.cpp#L216)). Spätere Modellbindung muss deshalb sowohl Create als auch Restore prüfen; ein nur im New-Game-Menü gewähltes Modell reicht nicht.
+Recipes and 80-productive-tick harvest periods are authored. Every required input
+is debited atomically with output credit: Wood+internal Ore→Bronze;
+Bronze+Clay→Bronzeware; Lacquer+Wood→Lacquerware; RawSilk→Silk; Hemp→Paper.
+Plants are separately purchased and owned. Wood/Bronze/RawSilk/Lacquer/Paper are
+five auxiliary materials, not extra House goods. Exact source evidence is in
+[the luxury contract](../reverse/original-luxury-source-contract.md).
 
-## Painter und Inspector
+Food has separate Wheat/Millet quantities, cargo and arrival witnesses. Authored
+crop scores 20/80 feed the original quality blend only on positive House delivery.
+Rules10/11 admit two paid Food Farms with one uniquely owned adjacent Field
+each; Rule12 admits three within the unchanged global body/courier bounds.
+Stock depletion resets quality; an authored sink consumes one unit per occupied
+House at 0/7 boundaries and records real misses. Six-goods consumption uses the
+current model row independently per good: Bronze/Lacquer satisfy needs as OR,
+but both stocks are consumed. See [goods evidence](../reverse/original-goods-consumption-food-contract.md).
 
-Die Darstellung liest die World. Hausgrafikrollen werden über `World::household_level()` ausgewählt ([SandboxView.cpp:835–843](../../src/app/SandboxView.cpp#L835)); Gebäudefüße und Footprints verwenden die gemeinsamen Geometriehelfer ([World.cpp:127–154](../../src/simulation/World.cpp#L127), [SandboxView.cpp:2858–2866](../../src/app/SandboxView.cpp#L2858)). Die spätere Originalhausdarstellung muss den neuen getypten House-State gezielt in eine geprüfte VisualRole überführen. Eine Sprite-ID erzeugt weder Gebäudegröße noch Bewohnbarkeit oder neue Transportrechte.
+Nine services use paid 207/208/211/212/213/214/215/217/219 providers, real workers,
+operation/fire/road gates and actual walker arrival. Medicine/culture grant only
+their corresponding 96 timer; religions their own 40 timer. Availability or a
+future trip grants nothing. Confucian 219 serves occupied Elite Houses and requires
+real Paper delivery, consuming one Paper per new successful dispatch. Targeted
+School→House visits and this Paper policy are authored; original Performer/Venue
+chains remain incomplete. See [spawn](../reverse/original-service-spawn-contract.md),
+[culture](../reverse/original-culture-source-contract.md) and
+[religion](../reverse/original-religion-source-contract.md) evidence.
 
-`draw_world()` bildet Building-/Courier-DrawInstances aus bestehendem Zustand; der Walker verwendet gespeicherten Path-/Tickfortschritt und vorbereitete Spriteframes ([SandboxView.cpp:2986–3005](../../src/app/SandboxView.cpp#L2986), [3069–3083](../../src/app/SandboxView.cpp#L3069)). Road-Ground kommt vor den räumlichen Objekten. Der vorhandene Painter mischt bereits sortierte Original-/Sandbox-Streams über `WorldDrawKey(depth,ground_x,layer,stable_id)` ([SandboxView.cpp:3214–3246](../../src/app/SandboxView.cpp#L3214), [WorldDrawOrder.h:9–61](../../src/scene/WorldDrawOrder.h#L9)). Er behauptet ausdrücklich keine originale Z-Reihenfolge. Ein neuer Housing-State gehört nicht in einen per-Frame-Dateiparser oder einen alternativen Painter.
+## Houses, geometry, finance and presentation
 
-Die Inspektor-/HUD-Erweiterung sitzt im bestehenden Household-Detailpfad und in `draw_hud()` ([SandboxView.cpp:3757–3788](../../src/app/SandboxView.cpp#L3757), [4406](../../src/app/SandboxView.cpp#L4406)). Bereit zur Diagnose ist aktueller Bestand/Timer; ein zukünftiger Dispatch oder momentaner HUD-Miss ist kein Nachweis einer vergangenen Deadline oder garantierten nächsten Versorgung.
+Common types 2–10 remain 2×2 and terminal at 10; Elite 11–17 are a separate family.
+The paid 80-Funds Elite plot starts empty 11/2×2. At its first actual admission,
+all 16 future claims, equal signed height, original protection, infrastructure,
+road entrance and begun actor edges must pass before atomic 4×4/11→13 publication.
+A conflict leaves the plot empty for a later normal attempt. Identity, stock,
+paths and history stay intact; later 13→12 devolution never shrinks the body.
+No Common→Elite conversion is inferred. [Lifecycle evidence](../reverse/original-house-lifecycle-contract.md)
+distinguishes original family geometry from this authored placement transaction.
 
-## Vorhandene Prüfstellen für spätere Änderungen
+Evolution uses actual DES, water, quality, goods and nine timers at phase 39.
+Prepared DES sources are paid Well72 and admitted service bodies in BuildingId
+order; build/restore or permitted source removal rebuilds the cache, never frames
+or ticks. Original wall blocking and full source-manager lifecycle remain open.
+[Source evidence](../reverse/original-desirability-source-admission.md) does not
+grant construction permission by analogy. Production/House demolition is blocked;
+only neutral Well72 influence sources have the existing no-refund removal path.
 
-| Vertrag | Source-Fixture / registrierter CTest |
-|---|---|
-| City-v16 Wartung, Überläufe, Saved-State, Determinismus, 20k-Ticks, Geometrie und Rule7-Ablehnung | [SandboxCityV16Tests.cpp:248](../../tests/SandboxCityV16Tests.cpp#L248), [306](../../tests/SandboxCityV16Tests.cpp#L306), [390](../../tests/SandboxCityV16Tests.cpp#L390); `sandbox-city-v16-{base,persistence,balance,determinism,endurance,geometry,determinism-v2,endurance-v2}` ([CMakeLists.txt:655–662](../../CMakeLists.txt#L655)) |
-| Historische Save-Schemas, Snapshotgleichheit und Fortsetzung | [SandboxSaveTests.cpp:55–265](../../tests/SandboxSaveTests.cpp#L55); `sandbox-save-resume` ([CMakeLists.txt:509](../../CMakeLists.txt#L509)) |
-| Unveränderliche MapPermissions gegen Präsentationszustand | [SandboxMapPermissionsTests.cpp:29](../../tests/SandboxMapPermissionsTests.cpp#L29); `sandbox-map-permissions` ([CMakeLists.txt:493–496](../../CMakeLists.txt#L493)) |
-| Policy2/Schema20, kompletter Schema19-Dokumentvergleich, Neustart und Recovery | [OriginalRoadSaveTests.cpp:123](../../tests/OriginalRoadSaveTests.cpp#L123), [174–179](../../tests/OriginalRoadSaveTests.cpp#L174), [244–258](../../tests/OriginalRoadSaveTests.cpp#L244); `original-road-save-recovery` ([CMakeLists.txt:541–545](../../CMakeLists.txt#L541)) |
-| Rule6-Rampentransport, fehlgeschlagene Commands, signierte Höhen, Mid-edge-Restore und deterministische Fortsetzung | [RampTransportTests.cpp:21–39](../../tests/RampTransportTests.cpp#L21), [125–128](../../tests/RampTransportTests.cpp#L125); `ramp-transport` ([CMakeLists.txt:1181–1184](../../CMakeLists.txt#L1181)) |
-| Bridge-Transport und Rendering | [BridgeTransportTests.cpp](../../tests/BridgeTransportTests.cpp), [BridgeRenderingTests.cpp](../../tests/BridgeRenderingTests.cpp); `bridge-transport`, `bridge-rendering-pixels` ([CMakeLists.txt:529–536](../../CMakeLists.txt#L529)) |
-| Menüsettings/Load/Kopieupgrades und expliziter Bridge-Opt-in | [MenuSessionTests.cpp:303](../../tests/MenuSessionTests.cpp#L303), [521–558](../../tests/MenuSessionTests.cpp#L521), [MenuMapRulesTests.cpp:365–392](../../tests/MenuMapRulesTests.cpp#L365); `menu-session-flow` und `menu-map-rules-selection` ([CMakeLists.txt:436](../../CMakeLists.txt#L436)) |
-| Produktionspainter statt nur isolierter Hilfsfunktion | [SceneCompositionTests.cpp](../../tests/SceneCompositionTests.cpp), [UnifiedPainterTests.cpp](../../tests/UnifiedPainterTests.cpp); `scene-composition-production-pixels`, `unified-map-sandbox-pixels` ([CMakeLists.txt:973–990](../../CMakeLists.txt#L973)) |
+Tax is authored direct collection of pre-tick `occupants * prepared TaxRate`
+every 816 ticks, without an invented TaxOffice. Upkeep is 2 Funds per installed
+required worker every 400 placement-relative ticks in Rules10/11 and every 816
+in Rule12, including pause, fire and unstaffing.
+Cumulative per-type taxable units and actual arrival/transition witnesses constrain
+restore; they are bounded proofs rather than full event journals. Existing Funds
+and accounting counters are the sole monetary authority. Purchases need available
+Funds; real upkeep may cause debt. Overflow is checked before tick mutation.
+The authored live goal needs six occupied non-burning Houses, one current Common
+PlainCottage 5+, 50 residents, actual positive tax and nonnegative Funds.
+[Tax evidence](../reverse/original-house-tax-contract.md) does not establish full
+original taxation or original campaign goals.
 
-Diese Architekturkarte belegt ausschließlich den aktuellen OpenEmperor-Pfad. Die Existenz eines künftigen Model-Parsers, Originaltimer, 15 produktiver Hausstufen oder vollständiger Originalwarenketten wird damit nicht behauptet. Der selektive Fork-Vergleich und seine Original-Beweisgrenzen stehen im separaten OE-00-Gap-Report. Kein Bestandteil dieser Teilanalyse liest oder kopiert proprietäre Model-/Sprite-/EXE-Bytes in Git.
+Original House art uses verified type/body-compatible sprites for types 3–17;
+empty 2×2 Elite plots retain named fallbacks. Eager preparation validates source,
+layout, anchors and alpha within existing budgets. Drawing/picking share prepared
+resolution and actual signed-height body; no graphical field enters a save.
+Other buildings/walkers retain fallbacks; [image evidence](../reverse/original-house-visuals.md)
+is separate from native human acceptance.
+
+## Save safety and developer checks
+
+Schemas26–28 validate complete identities, map/mask/policy/model binding, paid origin,
+geometry, route/progress, capacities, conservation, timing and finance before
+publication. Unknown/duplicate/missing/mistyped fields, incompatible revisions,
+unsupported authority and impossible histories fail atomically; 8 MiB document and
+32-level nesting limits remain. Recovery requires explicit OriginalProduction
+access: a protected start and up to five 1200-tick checkpoints; opening one forks
+history while preserving the source. LegacyOnly remains the API default.
+
+See [testing.md](../testing.md) for build/sanitizer setup. With a configured `build` and your own data:
+
+```sh
+ctest --test-dir build --output-on-failure -R '^original-'
+cmake --build build --parallel 2 --target openemperor-original-longplay-acceptance
+python3 tools/test_original_longplay.py --binary build/openemperor-original-longplay-acceptance --data /path/to/game --output .local/original-economy/oe32/longplay-check --scenario starter --ticks 20000
+```
+
+The [paid progression check](paid-progression.md) uses the same runner with
+`--scenario progression` and a new output under `.local/original-economy/oe34/`.
+It waits for the actual World goal, then measures at least 20000 additional ticks;
+goal acceptance and long-term operating stability are reported separately.
+
+`sh tools/play_original_economy.sh --help` documents the empty developer session;
+the play guide covers the menu starter. Dedicated runners remain under
+`tools/test_original_*.py`; [core comparison](core-parity.md) covers pinned fork checks.
+`tools/original_economy_baseline.py verify` needs the immutable [baseline lock](baseline-lock.json)
+and private reference; never regenerate hashes to conceal legacy changes.
+Reports belong under ignored `.local/`. Missing data, synthetic controls, software
+screenshots, native delivery and human acceptance retain separate statuses.

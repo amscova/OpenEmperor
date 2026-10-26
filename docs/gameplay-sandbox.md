@@ -31,6 +31,12 @@ V1. The [cliff/ramp visual starter](rendering/cliff-ramp-integration.md) uses
 explicitly authored terrain, not verified original-map slopes. Bridge/Ramp
 selection, preview and owned links do not migrate older saves or defaults.
 
+**O Original economy** selects the separate optional Rule10/schema26 experiment.
+The [player guide](original-economy/player-handoff.md) covers its paid starter,
+real deliveries, house development and recovery; its current limits differ from
+the authored City systems above. Historical rules7–9 and their schemas remain
+frozen; see the [versioned contracts](original-economy/architecture-map.md).
+
 ## Legacy profiles and save compatibility
 
 These profiles remain selectable/readable for compatibility; their milestone
@@ -240,4 +246,4 @@ For visual inspection, `Z` cycles the sandbox camera through 1×, 2× and 4× ar
 
 The first alpha froze the authored `sandbox-industry-v5` scope: two Clay sources, two Pottery works, one warehouse, four households, five couriers, roads with live rerouting/removal, and OpenEmperor schema-5 save/load. City-v6 layers its schema-6 economy rules over that stable simulation without changing Industry-v5. City-v7 adds only its schema-7 Food and House-development rules without changing City-v6. Neither profile claims compatibility with Emperor's simulation or savegames.
 
-The long acceptance test uses ordinary commands and the production `World::tick()` path for 100,000 ticks. Two independently constructed Worlds receive the same fixed command schedule, including road removals and replacements, and are compared throughout. Checkpoints cover direct snapshots, immediate `World::restore`, real JSON serialization, exact pre-tick equality, deterministic save bytes, and continued execution. Existing conservation and navigation validation is supplemented in the driver with bounded stock, reservations, IDs, courier roles, paths, positions, phases, and target checks. See [alpha readiness](alpha-readiness.md).
+The long acceptance test uses ordinary commands and the production `World::tick()` path for 100,000 ticks. Two independently constructed Worlds receive the same fixed command schedule, including road removals and replacements, and are compared throughout. Checkpoints cover direct snapshots, immediate `World::restore`, real JSON serialization, exact pre-tick equality, deterministic save bytes, and continued execution. Existing conservation and navigation validation is supplemented in the driver with bounded stock, reservations, IDs, courier roles, paths, positions, phases, and target checks. See [automated checks](testing.md#build-and-automated-checks).

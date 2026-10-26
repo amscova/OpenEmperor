@@ -14,6 +14,10 @@ namespace openemperor::persistence {
 inline constexpr std::size_t recovery_checkpoint_limit=5;
 inline constexpr std::uintmax_t recovery_storage_budget_bytes=256ULL*1024ULL*1024ULL;
 
+// A session capability, never serialized and never inferred from a saved rule.
+// Existing callers retain the frozen development-generation refusal.
+enum class RecoveryAccess { LegacyOnly, OriginalProduction };
+
 struct RecoveryParent {
     std::string history_id;
     std::uint64_t sequence=0;
@@ -59,7 +63,8 @@ struct RecoveryWriteFaults {
 class RecoveryStore {
 public:
     RecoveryStore(std::filesystem::path app_root,std::filesystem::path data_root,
-                  std::uintmax_t budget=recovery_storage_budget_bytes);
+                  std::uintmax_t budget=recovery_storage_budget_bytes,
+                  RecoveryAccess access=RecoveryAccess::LegacyOnly);
     std::string create_history(const SaveDocument& document,
                                const std::vector<std::uint8_t>& buildable,
                                std::optional<RecoveryParent> parent=std::nullopt,
@@ -74,6 +79,7 @@ public:
 private:
     std::filesystem::path app_root_,data_root_,recovery_root_;
     std::uintmax_t budget_;
+    RecoveryAccess access_;
 };
 
 } // namespace openemperor::persistence

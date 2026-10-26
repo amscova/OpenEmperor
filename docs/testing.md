@@ -8,7 +8,7 @@ OpenEmperor saves are JSON documents; original Emperor savegames are unsupported
 ## Build and automated checks
 
 From the repository root, with the dependencies described in the
-[build guide](../README.md#build-on-macos):
+[build guide](../README.md):
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DOPENEMPEROR_USE_SYSTEM_SDL3=ON
@@ -39,6 +39,24 @@ documented with the affected feature, for example
 [Service coverage](city-v16-service-coverage.md) or
 [joined ramp rendering](rendering/multi-ramp-integration.md). A finite scripted
 scenario does not prove every layout, long-play outcome or original-game parity.
+
+For a bounded original-map start and paid transport fixtures:
+
+```sh
+sh tools/test_map_playability.sh /path/to/emperor "Chang-an Zhou"
+sh tools/test_map_playability.sh /path/to/emperor Handan
+sh tools/test_map_playability.sh /path/to/emperor Badaling
+```
+
+Run one at a time. The launcher builds the current Release app and creates a
+fresh ignored test root. New Sandbox uses City-v16 rule 4/policy 2 and Empty
+City: scenery with zero Sandbox buildings, residents or walkers is expected.
+Its optional A–E technical saves retain historical rule 3/policy 1. Load
+`B-paid-courier` and press Space for a real Clay trip, or `C-paid-supply` for
+the paid compact starter. An unavailable exact map or legal fixture reports
+its preparation error rather than substituting a fabricated map. These finite
+checks establish technical behavior, not full map or human acceptance; use
+[road diagnostics](road-connectivity-diagnostics.md) to inspect a concrete route.
 
 ## Manual play and persistence
 

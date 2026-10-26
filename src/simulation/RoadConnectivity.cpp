@@ -151,7 +151,7 @@ std::vector<BuildingId> road_connectivity_targets(const World& world,CourierId i
         [id](const auto& value) { return value.id==id; });
     if (found==couriers.end()) return result;
     for (const auto& target:world.buildings())
-        if (target.id!=found->owner && courier_can_target(found->role,target))
+        if (target.id!=found->owner && courier_can_target(found->role,target,world.profile(),world.rule_version()))
             result.push_back(target.id);
     std::sort(result.begin(),result.end());
     return result;

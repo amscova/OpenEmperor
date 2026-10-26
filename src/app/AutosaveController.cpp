@@ -14,12 +14,12 @@ std::uint64_t due_after(std::uint64_t tick) {
 }
 AutosaveController::AutosaveController(std::filesystem::path app_root,
                                        std::filesystem::path data_root,bool enabled,
-                                       std::uintmax_t budget)
+                                       std::uintmax_t budget,persistence::RecoveryAccess access)
     : app_root_(std::move(app_root)),data_root_(std::move(data_root)),budget_(budget),
-      enabled_(enabled) {}
+      access_(access),enabled_(enabled) {}
 
 persistence::RecoveryStore& AutosaveController::store() {
-    if (!store_) store_=std::make_unique<persistence::RecoveryStore>(app_root_,data_root_,budget_);
+    if (!store_) store_=std::make_unique<persistence::RecoveryStore>(app_root_,data_root_,budget_,access_);
     return *store_;
 }
 
@@ -42,6 +42,13 @@ AutosaveResult AutosaveController::begin(const persistence::SaveDocument& docume
             "Autosave failed; previous recovery points are unchanged. "+last_error_,
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-before)};
     }
+}
+
+AutosaveResult AutosaveController::capture_failed(std::uint64_t tick,const std::string& error) {
+    if (!enabled_) return {};
+    last_observed_tick_=tick;next_due_tick_=due_after(tick);last_error_=error;
+    return {AutosaveResult::Kind::Failed,
+        "Autosave failed; previous recovery points are unchanged. "+last_error_,{}};
 }
 
 AutosaveResult AutosaveController::poll(const persistence::SaveDocument& document,

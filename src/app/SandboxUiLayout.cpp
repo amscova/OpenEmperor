@@ -32,7 +32,7 @@ bool Layout::ui_at(double x,double y) const {
         panel.contains(x,y);
 }
 
-Layout make_layout(int width,int height,int window_width,int window_height,bool open,bool fire_watch,bool desirability,bool water,bool health,bool income,bool service,bool bridges,bool ramps) {
+Layout make_layout(int width,int height,int window_width,int window_height,bool open,bool fire_watch,bool desirability,bool water,bool health,bool income,bool service,bool bridges,bool ramps,bool original_production,bool industry_page,bool original_fire_protection) {
     Layout out;
     out.scale=std::max(1,static_cast<int>(std::lround(std::min(
         width/static_cast<double>(std::max(1,window_width)),
@@ -41,9 +41,35 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
     const int top=std::min(height,(income ? 80:52)*unit);
     const int status=std::min(std::max(0,height-top),24*unit);
     const bool wrapped_tools=width<(health ? 2440:water ? 2180:fire_watch ? 1980:1800)*unit;
-    const int tool_count=10+(fire_watch ? 1:0)+(desirability ? 1:0)+(water ? 2:0)+(health ? 2:0)+(service ? 1:0)+(bridges ? 1:0)+(ramps ? 1:0);
-    const int tool_columns=wrapped_tools ? (health ? 4:5):tool_count;
-    const int tool_rows=wrapped_tools ? (service ? (tool_count+tool_columns-1)/tool_columns:
+    std::vector<Action> tools={Action::Select,Action::Road,Action::Clay,
+        Action::Pottery,Action::Warehouse,Action::RemoveRoad,Action::Household,Action::Farm,
+        Action::ServicePost,Action::Market};
+    if (original_production) tools[7]=Action::OriginalAncestorShrine;
+    if (fire_watch) tools.push_back(original_production ? Action::OriginalWaterWell:Action::FireWatch);
+    if (desirability) tools.push_back(Action::Desirability);
+    if (water) { tools.push_back(Action::Well); tools.push_back(original_production ? Action::OriginalDaoistShrine:Action::Water); }
+    if (health) { tools.push_back(Action::HealthPost); tools.push_back(original_production ? Action::OriginalBuddhistShrine:Action::Health); }
+    if (service) tools.push_back(original_production ? Action::OriginalConfucianAcademy:Action::ServiceOverlay);
+    if (bridges) tools.push_back(Action::Bridge);
+    if (ramps) tools.push_back(Action::Ramp);
+    if (original_production) {
+        tools.push_back(Action::OriginalHempFarm);tools.push_back(Action::OriginalHempField);
+        tools.push_back(Action::OriginalFoodFarm);tools.push_back(Action::OriginalWheatField);tools.push_back(Action::OriginalMilletField);
+        tools.push_back(Action::OriginalMusicSchool);tools.push_back(Action::OriginalAcrobatSchool);tools.push_back(Action::OriginalDramaSchool);
+    }
+    if (original_production) {
+        if (original_fire_protection) tools.push_back(Action::FireWatch);
+        tools.push_back(Action::ToggleIndustryPage);
+        if (industry_page) tools={Action::Select,Action::Road,Action::RemoveRoad,Action::Household,Action::Warehouse,Action::Market,
+            Action::OriginalLoggingShed,Action::OriginalBronzeSmelter,Action::OriginalBronzewareMaker,
+            Action::OriginalLacquerwareMaker,Action::OriginalPaperMaker,Action::OriginalWeaver,
+            Action::OriginalTeaCuringShed,Action::OriginalLacquerRefinery,Action::OriginalSilkwormShed,
+            Action::OriginalTeaBush,Action::OriginalLacquerTree,Action::OriginalMulberryTree,
+            Action::OriginalElitePlot,Action::ToggleIndustryPage};
+    }
+    const int tool_count=static_cast<int>(tools.size());
+    const int tool_columns=wrapped_tools ? (original_production ? 5:health ? 4:5):tool_count;
+    const int tool_rows=wrapped_tools ? ((service || original_production) ? (tool_count+tool_columns-1)/tool_columns:
         (health ? 4:fire_watch ? 3:2)):1;
     const int toolbar=std::min(std::max(0,height-top-status),(tool_rows+1)*36*unit);
     out.top={0,0,width,top};
@@ -54,16 +80,6 @@ Layout make_layout(int width,int height,int window_width,int window_height,bool 
     out.panel={width-panel_width,top,panel_width,std::max(0,height-top-status-toolbar)};
     out.map={0,top,std::max(0,width-panel_width),out.panel.h};
     out.panel_toggle={std::max(0,width-96*unit),8*unit,88*unit,32*unit};
-    std::vector<Action> tools={Action::Select,Action::Road,Action::Clay,
-        Action::Pottery,Action::Warehouse,Action::RemoveRoad,Action::Household,Action::Farm,
-        Action::ServicePost,Action::Market};
-    if (fire_watch) tools.push_back(Action::FireWatch);
-    if (desirability) tools.push_back(Action::Desirability);
-    if (water) { tools.push_back(Action::Well); tools.push_back(Action::Water); }
-    if (health) { tools.push_back(Action::HealthPost); tools.push_back(Action::Health); }
-    if (service) tools.push_back(Action::ServiceOverlay);
-    if (bridges) tools.push_back(Action::Bridge);
-    if (ramps) tools.push_back(Action::Ramp);
     out.buttons.resize(tools.size()+(income ? 11:10));
     constexpr std::array<Action,8> controls={Action::Pause,Action::Step,Action::Speed1,
         Action::Speed2,Action::Speed4,Action::Reset,Action::Save,Action::Load};

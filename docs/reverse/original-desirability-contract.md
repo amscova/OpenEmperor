@@ -176,5 +176,5 @@ The current paid Vacant container's explicit original status is zero. Applying
 the observed status1/3 predicate would reject it before its spread fields are
 read. Neither its House-type binding nor the separate Vacant/Shelter evolution
 alias grants influence-source authority. Authored World-object identities,
-construction, restore and financing remain governed by the unchanged
-[OE-12 blocker decision](../original-economy/desirability-integration-blockers.md).
+construction, restore and financing require the separately versioned
+[runtime contracts](../original-economy/architecture-map.md#houses-geometry-finance-and-presentation).

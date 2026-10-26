@@ -1,41 +1,68 @@
-# OpenEmperor 0.1.0-alpha.2 candidate known issues
+# Known issues
 
-Only current limitations and outstanding acceptance checks are listed here.
+OpenEmperor is an alpha. Supported sandbox behavior does not establish
+complete original-game compatibility.
 
-- **Human acceptance:** the Xia/Handan checklist remains incomplete for pointer selection, road dragging, modal focus/resize handling and external-display interaction. Human original-map/Road and full-city long-play acceptance remain unverified. Scripted checks do not close these acceptance items. See [the input checklist](docs/testing-input-acceptance.md), [multi-map acceptance](docs/map-playability-acceptance.md), [original roads](docs/original-roads.md) and [bounded technical long-play](docs/city-v16-longplay-stability.md).
+- **Original economy is experimental.** Rules10/11/12 are opt-in and include authored
+  immigration, workforce, recipes, harvesting and school-to-house visits.
+  Original venue/performer chains and illness are missing. Houses and productive
+  buildings cannot yet be demolished; incompatible development saves are refused.
+- **Rule10 has no purchasable fire protection.** Natural fires temporarily remove
+  occupied Houses from the live goal while `PlaceFireWatch` is refused. The
+  [paid progression check](docs/original-economy/paid-progression.md) reaches the goal
+  and supplies six Houses in a finite window; its fixed plan still loses Funds over time.
+  Separate Rule11 offers the authored paid FireWatch/Inspector contract; this
+  does not establish original Inspector's Tower124 identity or profitable economy.
+  Its bounded arrival/tax provenance has a finite capacity; see
+  [fire protection](docs/original-economy/oe36-fire-protection.md).
+  Separate [Rule12](docs/original-economy/oe37-sustainable-economy.md) adds three
+  paid Food chains and authored monthly installed upkeep. Existing Rules10/11
+  and saves retain their contracts; a cheaper invoice does not guarantee supply
+  or profitability for arbitrary cities. Its measured twelve-House plan sustains
+  current needs and positive operations for 100000 post-maturity ticks; higher
+  stages and unlimited stability remain unproven.
+- **Original sprites are incomplete.** Supported House stages use verified art;
+  several other buildings, plants and walkers retain fallbacks. Empty Elite plots
+  have no matching original body until their larger footprint materializes.
+  Building animation, profession mappings and some pivots remain unverified.
+- **High-tier progression has a bounded Rule12 blocker.** The
+  [paid high-tier check](docs/original-economy/oe38-paid-high-tier-progression.md)
+  reaches Common10 through actual purchases and deliveries, but does not hold it
+  continuously for the following20400 ticks: Hemp distribution and intermittent
+  Ceramics delivery cause devolutions despite positive operating cashflow.
+  An exact source/footprint bound gives DES≤79 for a materialized4×4 Elite House;
+  the unchanged16→17 entry needs80. This blocks Elite17 in the current Normal
+  Rule12 adapter, not in original Emperor. No historical rule or model is changed.
+  The unchanged four-house Xia starter without expansion loses money and misses
+  Food demands in the measured long run; it needs active development.
+- **Service capacity is limited.** Larger cities can miss Service deadlines
+  despite continuous Post activity. Current coverage does not guarantee coverage
+  at the next demand; universal fairness and full-city balance remain unverified.
+- **Original saves and campaigns are unsupported.** Original residents and NPC
+  simulation are not imported. Two of the 167 audited maps still fail conservative
+  occupancy validation; other unsupported source states are refused.
+- **Road and transport coverage is incomplete.** Original bridges, ramps,
+  wall-top roads, mixed water-road terrain and unknown road styles are not fully
+  supported. Owned Bridges and Ramps require explicit rule profiles and have
+  bounded geometry; safe removal, shipping and Ferry transport are unavailable.
+- **Original terrain heights remain unresolved.** The playable source-cell ramp
+  prototype uses original sprites, but their surface and anchors do not yet fit
+  production RampLinks. Production ramp banks and cliff cuts are authored;
+  full original cliff, height and natural-surface fidelity remain open.
+- **Some restored structures use previews or fallbacks.** Great Wall context,
+  wall/Tower/gate states, quarry depth and shore-landing lifecycle are incomplete.
+  Earthen-wall and quarry previews do not reproduce the original restored state.
+- **Rendering is approximate.** First-draw anchors, foreground ordering and
+  interpenetrating sprites can differ from the original. SG3 mirror references
+  are unsupported; sprite shadows are not bit-identical to original RGB555 output.
+  Automatic visual profiles recognise only the pinned GOG-derived asset revision.
+- **Manual acceptance remains open.** Native pointer/focus/resize behavior,
+  external displays, original-map visuals and sustained human play still need
+  acceptance. Automated checks do not establish these results.
+- **macOS distribution is local development only.** The app is ad-hoc signed,
+  without Developer ID signing or notarization. Independent clean-Mac and
+  Finder/Gatekeeper acceptance remain unverified.
 
-- **Player population report:** the exact reported18-House/60-resident state and current Service8/Pottery11 causes remain unresolved without an explicitly authorized player SaveDocument. Scenario A was NOT RUN. The separate reconstructed Service outage/recovery does not establish the player's cause. See [population and workforce evidence](docs/city-v16-longplay-stability.md).
-
-- **Service capacity and acceptance:** the unchanged rule4 private-cursor rotation misses99/450 Service deadlines in the exact recovered18-House Xia window, despite holding the goal and nearly continuous two-Post utilization. Other paid14–20-House layouts also lose coverage; no violation of the current route contract was confirmed. The normal V overlay now distinguishes current coverage, expiry risk and actual missing coverage. Experimental targeting is tool-only; travel-aware improves larger samples but worsens ten-House continuous coverage, so a versioned upgrade, universal fairness and manual UI/full-city acceptance remain open. See [Service coverage and endurance](docs/city-v16-service-coverage.md).
-
-- **Unresolved player reports:** Oliver's exact Chang-an save/actions/selected cell, Anyang file identity, Handan-versus-Handan_S identity and Handan/Badaling start or loaded-save choice remain unverified. The separately reported Food gap has no established cause in his actual state. See [the multi-map acceptance report](docs/map-playability-acceptance.md) and [map-variant evidence](docs/original-roads.md#bounded-classification).
-
-- **Original-road limits:** importing original bridges/water-road hints, ramps, wall-top roads, bare `0x40`, unknown mixed terrain and occupied/marker cells remains unsupported; height and gate-side restrictions still apply. Unknown/upgraded historical styles (including `0x61f`) and missing profiles retain named historical visual fallback. Complete style/terrain transitions and rotated road visuals remain unsupported. See [transport limits](docs/original-roads.md#bounded-classification) and [Road visual limits](docs/rendering/original-road-visuals.md).
-
-- **Ramp V1 limits:** explicit rule6 supports owned paid single-level land edges and schema22 persistence; the complete167-map audit has zero eligible differing-height normal-land pairs, so original-map traversal acceptance remains unavailable. The [complete asset audit](docs/rendering/original-ramp-asset-audit.md) now verifies original ramp233–236 and road-dependent237–244 selectors. Their native source-cell artwork does not directly fit the saved center-to-center RampLink surface at the current anchor; original surface/feet and complete normalization remain unresolved. Authored matching lateral ramps share cutouts and native road-derived earth material; stretched UV streaks and identical immediate-neighbor strips were corrected and visually checked, but bounded grain, regular exterior road curbs and authored gray cliffs remain. Fixed2:1 projection makes two ascending orientations edge-on, so the complete requested visual matrix does not pass original/natural-surface acceptance. Arbitrary cliffs/multilevel/curved/intersecting/water ramps, safe demolition and native/human visual/input acceptance remain open. See [current four-ramp comparison](docs/rendering/multi-ramp-integration.md) and [implemented gameplay scope](docs/city-v16-ramps.md).
-
-- **Bridge V1 limits:** explicit rule 5 supports owned straight crossings over 1..8 water cells, transport and schema 21 persistence. Whole-span removal, special water, curves/intersections, water ramps, shipping/Ferries and verified original bridge artwork/traversal remain unsupported. Native bridge construction/human acceptance remains a short manual check after desktop-focus takeover stopped automation. See [implemented scope and starter](docs/city-v16-bridges.md).
-
-- **Unsupported original maps:** the current complete167-map census prepares165 and refuses two known conflicts, with zero Bounds or Unknown-Occupancy first failures. MPcanal4's Dirt61/62 against Monument19 remains unresolved with six independently invalid bounds sources; Luoyang WJin retains seven Dirt/GateHouse/Tower conflicts plus Gate110's invalid origin/reference. MPWall1_S, MP42, MP27, Chizhou and Chang-an Sui now prepare through exact independently evidenced nonphysical outside-source contracts, retaining all IDs/states/coordinates/references and adding no playable cells or World owners. All160 preceding policies/legacy contracts remain exact. Other unevidenced state/schema combinations, ResWall/ResGate variants, structural/interior overlaps and unsupported gate heights still refuse atomically. Scripted paid transport/F5-F9/restart passes for the five new maps and Guangzhou are technical acceptance; full-corpus rendering/gameplay and human acceptance remain open. See [the five-map bounds report](docs/reverse/original-bounds-compatibility.md), [the historical conflict report](docs/reverse/original-occupancy-conflicts.md) and [map compatibility](docs/map-permissions-compatibility.md).
-
-- **Quarry restored-state limits:** the bounded static depth-255 preview now removes MPWall1_S’s36 numbered quarry tiles. Original mode-1 rendering, restored/extracted depth stages, unmatched topology and complete original first-draw parity remain unresolved; unsupported groups/geometry/decode keep historical fallback. See [quarry selector evidence](docs/reverse/quarry-presentation.md) and [the before/after check](docs/rendering/mpwall1-s-quarry-placeholders.md).
-
-- **Ordinary wall/Tower/gate limits:** Tower states/views/lifecycle beyond the supported static camera-zero body and joins, isolated cap-only Tower decoration, restored `cResWall`/`cResGate` selectors/composition, ResGate passage, Type-256 wall components beyond `0x4c9` variant 5, and gate states/views/lifecycle outside the validated static layouts remain unsupported. Supported saved General singleton presentation does not establish restored body verification. ResGate parsing/protection creates no GateHouse corridor or Tower join. See [MP56 visual scope](docs/rendering/mp56-original-structure-fallbacks.md), [ResGate limits](docs/reverse/resgate-parser-occupancy.md#bounded-protected-occupancy), [Tower join limits](docs/reverse/ordinary-tower-wall-joins.md), [Tower body limits](docs/reverse/ordinary-towers.md#separate-unresolved-scope) and [wall/gate limits](docs/reverse/ordinary-wall-gates.md).
-
-- **Great Wall restore context:** standalone maps lack independently verified original mode/current-player-goal context. Automatic therefore retains historical fallback; original restored rendering and unsupported Type-1 map layouts remain open. On MPWall1 and MPWall1_S this leaves three Gate components (12 cells) as flat placeholders. Explicit `preview-earthen` activates all53 components and removes those gate placeholders; it is a presentation preview. The generic starter now accepts that explicit choice: `sh tools/test_remaining_occupancy.sh DATA --map MPWall1_S preview-earthen`. See [the tested MPWall1_S starter](docs/reverse/mpwall1-industrial151-occupancy.md#mpwall1_s-gate-preview-starter-2026-10-13) and [restore-context limits](docs/reverse/great-wall-restore-context.md).
-
-- **Ruined phase-2 Road preview:** Badaling and Handan each contain four unsupported pieces whose selector requests variants 40/41 from a Ruined group containing only 0–39. This preview combination retains historical fallback; it is not a missing-file error. See [the bounded diagnosis](docs/reverse/great-wall-restore-context.md#ruined-phase-2-road-compatibility-2026-10-05).
-
-- **Landscape and scene fidelity:** original first-draw occupancy/anchors, height normalization, historical-overlay eligibility and complete elevation/landscape reproduction remain unresolved. Whole-image sorting is approximate for interpenetrating artwork requiring separate front/back components. See [map fidelity](docs/reverse/map-first-draw.md) and [scene composition](docs/rendering/scene-composition.md).
-
-- **Shore-landing limits:** the supported land-side bodies use saved historical General group0x48c land-body variants0..3 with complete canonical 2x2 geometry; existing independent piers remain separate. Other variants/families/states, original Ferry placement/restore/lifecycle and ship/water transport are unresolved or unsupported. Historical artwork is not original Ferry simulation or first-draw parity. Human/native visual acceptance remains open. See [bounded shore landing scope](docs/rendering/mp34-shore-landing-visuals.md) and [the Guangzhou follow-up](docs/rendering/guangzhou-shore-landing-visuals.md).
-
-- **Original visual identities and building states:** building/walker profession mappings, House-stage identity, animation timing and pivots are not fully verified. Original one-cell Well/HealthPost identities for legacy profiles remain unresolved. Original building animation and evolving Wells remain unsupported. See [building visuals](docs/building-visual-profile.md), [presentation research](docs/reverse/original-presentation-correction.md) and [walker profiles](docs/walker-visual-profile.md).
-
-- **SG3 mirror-reference decoding:** original mirror-reference records cannot be decoded directly. See [walker format limits](docs/walker-visual-profile.md).
-
-- **Omega shadow precision:** the byte-59 sprite shadow approximation uses black RGBA with alpha 128; source-over rounding is not bit-identical to the original RGB555 destination-halving result. An original-game side-by-side capture remains unavailable. See [shadow presentation](docs/walker-visual-profile.md).
-
-- **Original compatibility:** original Emperor savegames and importing original residents/NPC simulation are unsupported. Automatic original-sprite profiles recognise only the pinned GOG-derived asset revision; other revisions use presentation fallbacks. Original gameplay parity remains incomplete. See [save architecture](docs/architecture.md) and [asset compatibility](docs/architecture.md#compatibility-resources-and-presentation).
-
-- **macOS distribution acceptance:** the developer app is ad-hoc signed, without Developer ID signing or notarization. Finder/Gatekeeper launch and an independent clean-Mac run remain unverified. See [packaging limits](docs/macos-packaging.md).
+The [original-economy player guide](docs/original-economy/player-handoff.md)
+explains the current starter. [Documentation](docs/README.md) links to the
+supported rules and technical evidence.

@@ -5,6 +5,8 @@
 #include "simulation/OriginalEconomyState.h"
 #include "simulation/OriginalInfluenceState.h"
 #include "simulation/OriginalGoodsState.h"
+#include "simulation/OriginalProductionState.h"
+#include "simulation/OriginalHousingDiagnosis.h"
 #include "simulation/original/Desirability.h"
 
 #include "core/PerformanceDiagnostics.h"
@@ -179,6 +181,8 @@ struct Rules {
     static constexpr std::size_t health_post_limit = 2;
     static constexpr std::size_t city_v15_building_limit = 46;
     static constexpr std::size_t city_v15_courier_limit = 26;
+    static constexpr std::size_t original_production_building_limit = 82;
+    static constexpr std::size_t original_production_courier_limit = 58;
     static constexpr std::uint64_t health_risk_step_ticks = 100;
     static constexpr int health_risk_threshold = 100;
     static constexpr std::uint64_t health_protection_ticks = 2400;
@@ -222,27 +226,52 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version);
 inline constexpr std::uint32_t kOriginalEconomyRuleVersion=7;
 inline constexpr std::uint32_t kOriginalInfluenceRuleVersion=8;
 inline constexpr std::uint32_t kOriginalGoodsRuleVersion=9;
+inline constexpr std::uint32_t kOriginalProductionRuleVersion=10;
+inline constexpr std::uint32_t kOriginalFireProtectionRuleVersion=11;
+inline constexpr std::uint32_t kOriginalSustainableRuleVersion=12;
+constexpr bool original_sustainable_economy_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalSustainableRuleVersion;
+}
+constexpr bool original_fire_protection_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && (version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
+}
+constexpr std::size_t original_food_farm_limit(RulesProfile profile,std::uint32_t version) {
+    return original_sustainable_economy_enabled(profile,version) ? 3U:2U;
+}
+constexpr std::size_t original_food_stock_limit(RulesProfile profile,std::uint32_t version) {
+    return 24U+original_food_farm_limit(profile,version);
+}
+constexpr std::size_t original_food_trip_limit(RulesProfile profile,std::uint32_t version) {
+    return 4U+original_food_farm_limit(profile,version);
+}
+inline constexpr std::int64_t original_production_starting_treasury=12000;
+constexpr bool original_production_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && (version==kOriginalProductionRuleVersion ||
+        version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
+}
 inline constexpr std::int64_t original_influence_starting_treasury=2000;
 inline constexpr std::int64_t original_influence_source_cost=60;
 inline constexpr std::size_t original_influence_source_limit=4;
 inline constexpr std::size_t original_influence_purchase_limit=33;
 constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
-        (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion);
+        (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion ||
+         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
 }
 constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && version==kOriginalGoodsRuleVersion;
+    return profile==RulesProfile::CityV16 && (version==kOriginalGoodsRuleVersion ||
+        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
 }
 constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
-         version==kOriginalGoodsRuleVersion);
+         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion);
 }
 constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9);
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12);
 }
 constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9);
+    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12);
 }
 
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
@@ -250,14 +279,29 @@ constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
         Rules::starting_treasury;
 }
 constexpr std::int64_t starting_treasury_for(RulesProfile profile,std::uint32_t version) {
-    return original_influence_enabled(profile,version) ? original_influence_starting_treasury:
+    return original_production_enabled(profile,version) ? original_production_starting_treasury:
+        original_influence_enabled(profile,version) ? original_influence_starting_treasury:
         starting_treasury_for(profile);
 }
 
 enum class Object : std::uint8_t {
     Empty, Road, Workshop, Warehouse, ClaySource, Pottery, Household, Farm, ServicePost, Market,
-    FireWatch, Well, HealthPost, OriginalInfluenceSource
+    FireWatch, Well, HealthPost, OriginalInfluenceSource, OriginalHempFarm, OriginalHempField,
+    OriginalFoodFarm, OriginalWheatField, OriginalMilletField, OriginalAncestorShrine214, OriginalWaterWell72,
+    OriginalDaoistShrine215, OriginalBuddhistShrine217, OriginalConfucianAcademy219,
+    OriginalMusicSchool211, OriginalAcrobatSchool212, OriginalDramaSchool213,
+    OriginalLoggingShed38, OriginalBronzeSmelter39, OriginalBronzewareMaker42, OriginalLacquerwareMaker44, OriginalPaperMaker45, OriginalWeaver47, OriginalTeaCuringShed237, OriginalLacquerRefinery238, OriginalSilkwormShed239, OriginalTeaBush26, OriginalLacquerTree27, OriginalMulberryTree28,
+    OriginalElitePlot, OriginalEliteHouse
 };
+// Classification for the opt-in original production adapter. Older rule
+// admission continues to reject the appended Elite body/command identities.
+constexpr bool original_elite_house_kind(Object kind) noexcept {
+    return kind==Object::OriginalElitePlot || kind==Object::OriginalEliteHouse;
+}
+constexpr bool original_house_kind(Object kind) noexcept {
+    return kind==Object::Household || original_elite_house_kind(kind);
+}
+std::optional<original::ModelBuilding> original_influence_model(Object kind);
 enum class TransportCellSource : std::uint8_t {
     None, SandboxRoad, OriginalMapRoad, FixedGatePassage, SandboxBridge
 };
@@ -267,6 +311,10 @@ struct BuildingFootprint {
     int width=1;
     int height=1;
     bool operator==(const BuildingFootprint&) const = default;
+};
+struct OriginalEliteMaterializationStatus {
+    bool pending=false,ready=false;
+    BuildDiagnostic diagnostic;
 };
 struct OriginalInfluenceContribution {
     BuildingId building_id=static_cast<BuildingId>(0);
@@ -319,9 +367,17 @@ enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySour
                          RemoveRoad, PlaceHousehold, PlaceFarm, PlaceServicePost, PlaceMarket,
                          SetBuildingOperation, SetBuildingWorkforcePriority, DemolishBuilding,
                          PlaceFireWatch, PlaceWell, PlaceHealthPost, PlaceBridge, RemoveBridge, PlaceRamp, RemoveRamp,
-                         PlaceOriginalInfluenceSource };
+                         PlaceOriginalInfluenceSource, PlaceOriginalHempFarm, PlaceOriginalHempField,
+                         PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField, PlaceOriginalAncestorShrine, PlaceOriginalWaterWell,
+                         PlaceOriginalDaoistShrine, PlaceOriginalBuddhistShrine, PlaceOriginalConfucianAcademy,
+                         PlaceOriginalMusicSchool, PlaceOriginalAcrobatSchool, PlaceOriginalDramaSchool,
+                         PlaceOriginalLoggingShed, PlaceOriginalBronzeSmelter, PlaceOriginalBronzewareMaker, PlaceOriginalLacquerwareMaker, PlaceOriginalPaperMaker, PlaceOriginalWeaver, PlaceOriginalTeaCuringShed, PlaceOriginalLacquerRefinery, PlaceOriginalSilkwormShed, PlaceOriginalTeaBush, PlaceOriginalLacquerTree, PlaceOriginalMulberryTree, PlaceOriginalElitePlot };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
+// Fixed identities of active paid industry bodies; no file/model lookup here.
+std::optional<original::ModelBuilding> original_industry_model(Object kind);
+bool original_industry_source(Object kind);
+bool original_industry_plant(Object kind);
 struct Command {
     CommandType type;
     Cell cell{};
@@ -367,7 +423,11 @@ enum class CourierId : std::uint32_t { Clay=1, Pottery=2, Household=3, Food=6, S
 enum class CourierRole : std::uint8_t {
     None=0, Clay=1, Pottery=2, Household=3, Food=4, Service=5,
     MarketPotteryInbound=6, MarketFoodInbound=7,
-    MarketPotteryDistribution=8, MarketFoodDistribution=9, FireInspector=10, HealthWorker=11
+    MarketPotteryDistribution=8, MarketFoodDistribution=9, FireInspector=10, HealthWorker=11,
+    OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14, OriginalAncestor=15, OriginalWater=16,
+    OriginalDaoist=17, OriginalBuddhist=18, OriginalConfucian=19,
+    OriginalMusic=20, OriginalAcrobat=21, OriginalDrama=22,
+    OriginalLuxuryToWarehouse=23, OriginalAuxToWarehouse=24, OriginalAuxSupplier=25
 };
 enum class CourierDispatchStatus : std::uint8_t {
     Ready,
@@ -435,7 +495,11 @@ struct MaintenanceProjection {
     std::optional<std::int64_t> interval_cost,funds_after_interval;
 };
 bool fire_eligible(Object kind);
+// The authored Watch becomes a combustible target only in the explicit Rule11 contract.
+bool fire_eligible(Object kind,RulesProfile profile,std::uint32_t rule_version);
 bool courier_can_target(CourierRole role,const BuildingState& target);
+bool courier_can_target(CourierRole role,const BuildingState& target,
+                        RulesProfile profile,std::uint32_t rule_version);
 struct CourierState {
     CourierId id=CourierId::Clay;
     CourierRole role=CourierRole::None;
@@ -560,6 +624,7 @@ struct WorldSnapshot {
     std::optional<OriginalEconomyState> original_economy;
     std::optional<OriginalInfluenceState> original_influence;
     std::optional<OriginalGoodsState> original_goods;
+    std::optional<OriginalProductionState> original_production;
     bool operator==(const WorldSnapshot&) const = default;
 };
 struct ResourceInventory {
@@ -577,11 +642,29 @@ public:
     bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
     bool original_influence_enabled() const { return simulation::original_influence_enabled(profile_,rule_version_); }
     bool original_goods_enabled() const { return simulation::original_goods_enabled(profile_,rule_version_); }
+    bool original_production_enabled() const { return simulation::original_production_enabled(profile_,rule_version_); }
+    bool original_fire_protection_enabled() const { return simulation::original_fire_protection_enabled(profile_,rule_version_); }
+    bool original_sustainable_economy_enabled() const { return simulation::original_sustainable_economy_enabled(profile_,rule_version_); }
+    // Authored installed liability: Rule12 uses one existing 816t economy
+    // month; historical generations retain their exact 400t invoice clock.
+    std::uint64_t original_worker_upkeep_interval() const {
+        return original_sustainable_economy_enabled() ? original_tax_interval_ticks:original_worker_upkeep_interval_ticks;
+    }
     const std::optional<OriginalEconomyState>& original_economy_state() const { return original_economy_; }
     const std::optional<OriginalInfluenceState>& original_influence_state() const { return original_influence_; }
     const std::optional<OriginalGoodsState>& original_goods_state() const { return original_goods_; }
+    const std::optional<OriginalProductionState>& original_production_state() const { return original_production_; }
+    OriginalEliteMaterializationStatus original_elite_materialization_status(BuildingId house) const;
+    OriginalServiceAvailability original_service_availability(BuildingId house,original::ServiceRole role) const;
+    OriginalHousingDiagnosis original_housing_diagnosis(BuildingId house) const;
+    std::array<OriginalHousingRowDiagnosis,original::house_row_count> original_housing_decision_matrix(BuildingId house) const;
+    OriginalAuxBalance original_auxiliary_balance(OriginalAuxMaterial material) const;
+    int original_auxiliary_cargo(CourierId id) const;
     OriginalGoodsBalance original_goods_balance(original::Goods good) const;
     std::array<OriginalGoodsBalance,original::goods_count> original_goods_balances() const;
+    int original_courier_cargo(CourierId courier) const;
+    int original_food_cargo(CourierId courier) const;
+    std::optional<original::Goods> original_courier_good(CourierId courier) const;
     // Transient on-demand test/diagnostic observation, never save authority.
     std::uint64_t original_influence_cache_build_count() const { return original_influence_cache_build_count_; }
     OriginalInfluenceProvenance original_influence_provenance(BuildingId household) const;
@@ -628,6 +711,25 @@ public:
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
     static void validate_original_goods_snapshot(const WorldSnapshot& snapshot);
+    static World create_original_production_development(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_production_development(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static void validate_original_production_snapshot(const WorldSnapshot& snapshot);
+    static void validate_original_fire_protection_snapshot(const WorldSnapshot& snapshot);
+    // Explicit authored paid fire protection; historical Rule10 factories remain Rule10-only.
+    static World create_original_fire_protection(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_fire_protection(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    // Explicit authored capacity/finance generation; historical factories never migrate.
+    static World create_original_sustainable_economy(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
+    static World restore_original_sustainable_economy(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -674,6 +776,8 @@ public:
     std::uint64_t taxes_collected_total() const { return taxes_collected_total_; }
     std::uint64_t construction_spent_total() const { return construction_spent_total_; }
     std::uint64_t maintenance_spent_total() const { return maintenance_spent_total_; }
+    OriginalHouseTaxStatus original_house_tax_status(BuildingId id) const;
+    OriginalGoalStatus original_goal_status() const;
     std::int64_t current_maintenance_rate() const;
     std::optional<std::uint64_t> maintenance_due_in(BuildingId id) const;
     MaintenanceProjection maintenance_projection(
@@ -788,7 +892,7 @@ private:
     CommandResult execute_original_influence_command(Command command,bool refresh_after);
     bool original_influence_finance_valid() const;
     void rebuild_original_influence_cache();
-    int original_influence_value_at(Cell origin) const;
+    int original_influence_value_at(Cell origin,int side=2) const;
     std::size_t index(Cell cell) const;
     bool permission_edge_allowed(Cell from,Cell to) const;
     BuildBlocker ramp_land_blocker(Cell cell) const;
@@ -805,6 +909,92 @@ private:
     const std::vector<Cell>* route_for_revision();
     void refresh_routes();
     void tick_production_v2();
+    void advance_clay_pottery_production();
+    void tick_original_production();
+    void preflight_original_fire_tick() const;
+    void record_original_fire_dispatch(const CourierState& courier);
+    void record_original_fire_arrival(const CourierState& courier);
+    void record_original_fire_step(const CourierState& courier);
+    void validate_original_industry_model() const;
+    static void validate_original_industry_snapshot(const WorldSnapshot& snapshot);
+    void validate_original_industry_state() const;
+    void update_original_industry();
+    CommandResult validate_original_industry_command(Command command) const;
+    bool original_auxiliary_courier(CourierRole role) const;
+    CourierDispatchDecision original_auxiliary_dispatch_status(const CourierState& courier) const;
+    void dispatch_original_auxiliary(CourierState& courier);
+    void arrive_original_auxiliary(CourierState& courier);
+    void cancel_original_auxiliary(BuildingId owner);
+    bool original_clay_dispatch_available(CourierId id) const;
+    void record_original_clay_dispatch(const CourierState& courier);
+    void record_original_clay_arrival(const CourierState& courier);
+    bool original_academy_paper_available(BuildingId provider) const;
+    void consume_original_academy_paper(BuildingId provider);
+    void consume_original_house_goods();
+    void validate_original_consumption_model() const;
+    static void validate_original_consumption_snapshot(const WorldSnapshot& snapshot);
+    void admit_original_residents();
+    bool original_production_finance_valid() const;
+    int original_ceramics_stock(BuildingId owner) const;
+    int original_typed_stock(BuildingId owner,original::Goods good) const;
+    void receive_original_ceramics(BuildingId warehouse,int amount);
+    std::array<OriginalGoodsBalance,original::goods_count> original_production_goods_balances() const;
+    bool original_market_courier(CourierRole role) const;
+    int original_market_headroom(BuildingId owner,original::Goods good=original::Goods::Ceramics) const;
+    std::optional<original::Goods> original_market_dispatch_good(const CourierState& courier,BuildingId target) const;
+    CourierDispatchDecision original_market_dispatch_status(const CourierState& courier) const;
+    void dispatch_original_market(CourierState& courier);
+    void arrive_original_market(CourierState& courier);
+    void cancel_original_market(BuildingId owner);
+    static void validate_original_market_snapshot(const WorldSnapshot& snapshot);
+    void validate_original_market_state() const;
+    CommandResult validate_original_hemp_command(Command command) const;
+    void advance_original_hemp();
+    void validate_original_hemp_model() const;
+    static void validate_original_hemp_snapshot(const WorldSnapshot& snapshot);
+    CommandResult validate_original_food_command(Command command) const;
+    void validate_original_food_model() const;
+    static void validate_original_food_snapshot(const WorldSnapshot& snapshot);
+    void validate_original_food_state() const;
+    void advance_original_food();
+    void consume_original_food();
+    bool original_food_courier(CourierRole role) const;
+    int original_food_stock(BuildingId owner) const;
+    int original_food_headroom(BuildingId owner) const;
+    CourierDispatchDecision original_food_dispatch_status(const CourierState& courier) const;
+    void dispatch_original_food(CourierState& courier);
+    void arrive_original_food(CourierState& courier);
+    void cancel_original_food(BuildingId owner);
+    void validate_original_services_model() const;
+    static void validate_original_services_snapshot(const WorldSnapshot& snapshot);
+    void validate_original_services_state() const;
+    bool original_service_courier(CourierRole role) const;
+    CourierDispatchDecision original_service_dispatch_status(const CourierState& courier) const;
+    void dispatch_original_service(CourierState& courier);
+    void arrive_original_service(CourierState& courier);
+    void decay_original_services();
+    void validate_original_water_model() const;
+    static void validate_original_water_snapshot(const WorldSnapshot&);
+    void validate_original_water_state() const;
+    bool original_water_courier(CourierRole) const;
+    CourierDispatchDecision original_water_dispatch_status(const CourierState&) const;
+    void dispatch_original_water(CourierState&);
+    void arrive_original_water(CourierState&);
+    void evaluate_original_water();
+    void decay_original_water();
+    static void validate_original_water_evaluation_provenance(const WorldSnapshot&,BuildingId,std::uint64_t,
+        const std::optional<OriginalWaterWitness>&,bool);
+    void validate_original_water_evaluation_provenance(BuildingId,std::uint64_t,
+        const std::optional<OriginalWaterWitness>&,bool) const;
+    static void validate_original_housing_snapshot(const WorldSnapshot&);
+    void validate_original_housing_model();
+    void validate_original_housing_state() const;
+    void evaluate_original_houses();
+    static void validate_original_finance_snapshot(const WorldSnapshot&);
+    void validate_original_finance_model() const;
+    bool original_finance_history_valid() const;
+    void book_original_finance_tick(std::uint64_t next);
+    std::int64_t original_worker_upkeep(BuildingId id) const;
     std::int64_t household_demand_tax(const BuildingState& home,std::uint64_t resulting_count) const;
     HouseholdDemandStatus household_demand_status(
         const BuildingState& home,std::uint64_t evaluation_tick) const;
@@ -832,6 +1022,7 @@ private:
     std::optional<OriginalEconomyState> original_economy_;
     std::optional<OriginalInfluenceState> original_influence_;
     std::optional<OriginalGoodsState> original_goods_;
+    std::optional<OriginalProductionState> original_production_;
     std::shared_ptr<const OriginalInfluenceCache> original_influence_cache_;
     std::uint64_t original_influence_cache_build_count_=0;
     std::shared_ptr<const original::OriginalRulesModel> original_rules_model_;

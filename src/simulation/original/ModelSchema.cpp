@@ -49,6 +49,18 @@ HouseRowId model_row(ModelHouse house) {
 
 std::string_view model_label(ModelBuilding building) {
     switch (building) {
+    case ModelBuilding::LoggingShed: return "Logging Shed";
+    case ModelBuilding::BronzeSmelter: return "Bronze Smelter";
+    case ModelBuilding::BronzewareMaker: return "Bronzeware Maker";
+    case ModelBuilding::LacquerwareMaker: return "Lacquerware Maker";
+    case ModelBuilding::PaperMaker: return "Paper Maker";
+    case ModelBuilding::Weaver: return "Weaver";
+    case ModelBuilding::TeaCuringShed: return "Tea Curing Shed";
+    case ModelBuilding::LacquerRefinery: return "Lacquer Refinery";
+    case ModelBuilding::SilkwormShed: return "Silkworm Shed";
+    case ModelBuilding::TeaBush: return "Tea Bush";
+    case ModelBuilding::LacquerTree: return "Lacquer Tree";
+    case ModelBuilding::MulberryTree: return "Mulberry Tree";
     case ModelBuilding::ClayPit: return "Clay Pit";
     case ModelBuilding::Kiln: return "Kiln";
     case ModelBuilding::Warehouse: return "Warehouse";
@@ -56,6 +68,18 @@ std::string_view model_label(ModelBuilding building) {
     case ModelBuilding::Well: return "Well";
     case ModelBuilding::Farmhouse: return "Farmhouse";
     case ModelBuilding::HerbalistsStall: return "Herbalist's Stall";
+    case ModelBuilding::AcupuncturistsClinic: return "Acupuncturist's Clinic";
+    case ModelBuilding::MusicSchool: return "Music  School";
+    case ModelBuilding::AcrobatSchool: return "Acrobat School";
+    case ModelBuilding::DramaSchool: return "Drama School";
+    case ModelBuilding::AncestralShrine: return "Ancestral Shrine";
+    case ModelBuilding::DaoistShrine: return "Daoist Shrine";
+    case ModelBuilding::BuddhistShrine: return "Buddhist Shrine";
+    case ModelBuilding::ConfucianAcademy: return "Confucian Academny";
+    case ModelBuilding::HempFarm: return "Hemp Farm";
+    case ModelBuilding::HempField: return "Hemp Field";
+    case ModelBuilding::WheatField: return "Wheat Field";
+    case ModelBuilding::MilletField: return "Millet Field";
     }
     throw std::out_of_range("invalid named original building ID");
 }

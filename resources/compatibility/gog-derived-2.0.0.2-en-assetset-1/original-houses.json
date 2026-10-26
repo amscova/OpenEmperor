@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "mode": "original_house_stages",
+  "selection": "canonical_static_variant_0",
+  "anchor_policy": "type30_front_cell",
+  "evidence": "Pinned original House setter518de0 and native marker/body/Type30 chain. Actual types3..17, static variant0 representative; Vacant2 explicitly unresolved. See docs/reverse/original-house-visuals.md. No per-instance variation or whole-scene parity claim.",
+  "files": [
+    {
+      "path": "DATA/China_General.sg3",
+      "sha256": "c9ae527102c312098cbfe82932ce1b39c6c96692981c874dc853306835583e46"
+    },
+    {
+      "path": "DATA/China_General.555",
+      "sha256": "3cb09cd2c954eb355e2253482845e7117b353c24506575795bcaa1fe45db33f2"
+    }
+  ],
+  "stages": [
+    {
+      "house_type": 2,
+      "original_side": 2,
+      "fallback": "Vacant2 creation group0x47a and setter group0x471 differ; named authored fallback"
+    },
+    {
+      "house_type": 3,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1509,
+      "width": 158,
+      "height": 83,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        63
+      ],
+      "group_key": 1137,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x8232f8 group0x471; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 4,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1511,
+      "width": 158,
+      "height": 96,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        76
+      ],
+      "group_key": 1138,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x8232fc group0x472; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 5,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1513,
+      "width": 158,
+      "height": 94,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        74
+      ],
+      "group_key": 1139,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x823300 group0x473; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 6,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1515,
+      "width": 158,
+      "height": 110,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        90
+      ],
+      "group_key": 1140,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x823304 group0x474; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 7,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1517,
+      "width": 158,
+      "height": 111,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        91
+      ],
+      "group_key": 1141,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x823308 group0x475; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 8,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1519,
+      "width": 158,
+      "height": 132,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        112
+      ],
+      "group_key": 1142,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x82330c group0x476; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 9,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1521,
+      "width": 158,
+      "height": 139,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        119
+      ],
+      "group_key": 1143,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x823310 group0x477; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 10,
+      "original_side": 2,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1523,
+      "width": 158,
+      "height": 162,
+      "base_bytes": 12800,
+      "ground_anchor": [
+        79,
+        142
+      ],
+      "group_key": 1144,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x823314 group0x478; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 11,
+      "original_side": 4,
+      "fallback": "Original Elite11 image requires side4; temporary side2 Elite plot uses authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1525,
+      "width": 318,
+      "height": 168,
+      "base_bytes": 51200,
+      "ground_anchor": [
+        159,
+        148
+      ],
+      "group_key": 1145,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x854138 group0x479; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 12,
+      "original_side": 4,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1526,
+      "width": 318,
+      "height": 193,
+      "base_bytes": 51200,
+      "ground_anchor": [
+        159,
+        173
+      ],
+      "group_key": 1147,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x85413c group0x47b; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 13,
+      "original_side": 4,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1528,
+      "width": 318,
+      "height": 194,
+      "base_bytes": 51200,
+      "ground_anchor": [
+        159,
+        174
+      ],
+      "group_key": 1148,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x854140 group0x47c; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 14,
+      "original_side": 4,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1530,
+      "width": 318,
+      "height": 213,
+      "base_bytes": 51200,
+      "ground_anchor": [
+        159,
+        193
+      ],
+      "group_key": 1196,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x854144 group0x4ac; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 15,
+      "original_side": 4,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1532,
+      "width": 318,
+      "height": 224,
+      "base_bytes": 51200,
+      "ground_anchor": [
+        159,
+        204
+      ],
+      "group_key": 1150,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x854148 group0x47e; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 16,
+      "original_side": 4,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1534,
+      "width": 318,
+      "height": 228,
+      "base_bytes": 51200,
+      "ground_anchor": [
+        159,
+        208
+      ],
+      "group_key": 1151,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x85414c group0x47f; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    },
+    {
+      "house_type": 17,
+      "original_side": 4,
+      "fallback": "Verified original House image unavailable for the actual footprint; authored fallback",
+      "archive": "DATA/China_General.sg3",
+      "image_index": 1536,
+      "width": 318,
+      "height": 253,
+      "base_bytes": 51200,
+      "ground_anchor": [
+        159,
+        233
+      ],
+      "group_key": 1152,
+      "variant": 0,
+      "evidence": "Pinned EXE6373328b: actual House setter518de0, 0x854150 group0x480; slot2 shared runtime lookup. Static variant0 representative; native Type30 front-cell anchor, no animation."
+    }
+  ]
+}

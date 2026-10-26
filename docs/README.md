@@ -1,32 +1,21 @@
 # Documentation
 
-## Build, play and test
+Start with the [quick start](../README.md) and [known issues](../KNOWN_ISSUES.md).
 
-- [Repository quick start](../README.md): build, launch and controls.
-- [Sandbox guide](gameplay-sandbox.md): sessions, saves, current and legacy profiles.
-- [City systems](city-systems.md): economy, logistics, workforce, fire, quality, water and health.
-- [City-v16](city-v16.md): maintenance, debt and explicit rule versions.
-- [Testing](testing.md), [native input acceptance](testing-input-acceptance.md) and [macOS packaging](macos-packaging.md).
-- [Known issues](../KNOWN_ISSUES.md): current limits and unresolved acceptance.
+## Playing
 
-## Current city features
+- [Sandbox guide](gameplay-sandbox.md): sessions, controls, saves and profiles.
+- [Original-economy player guide](original-economy/player-handoff.md): paid starter, house development and manual checks.
+- [City systems](city-systems.md) and [City-v16 rules](city-v16.md): production, logistics, workforce, services and upkeep.
 
-- [Income/start guidance](economy-start-guidance.md) and [long-play diagnosis](city-v16-longplay-stability.md).
-- [Service coverage](city-v16-service-coverage.md) and [paid goal playthrough](city-v16-playthrough.md).
-- [Original roads](original-roads.md), [gate passages](gate-passages.md) and [connectivity diagnosis](road-connectivity-diagnostics.md).
-- [Bridges](city-v16-bridges.md), [ramps](city-v16-ramps.md) and [joined ramp graphics](rendering/multi-ramp-integration.md).
+## Development
 
-## Rendering and developer references
+- [Architecture](architecture.md) and [Original economy](original-economy/architecture-map.md): engine boundaries, persistence and versioned runtime contracts.
+- [Economy and fire diagnosis](original-economy/oe35-economy-fire-diagnosis.md): paid strategy comparisons, capital reach and fire-protection limits.
+- [Versioned fire protection](original-economy/oe36-fire-protection.md): paid Rule11 Watches, actual Inspector visits, schema27 and measured effects.
+- [Sustainable economy](original-economy/oe37-sustainable-economy.md): Rule12 capacity and upkeep, paid twelve-House plan and finite operating-window acceptance.
+- [Testing](testing.md): builds, automated checks and manual acceptance.
+- [macOS packaging](macos-packaging.md): local app bundles and distribution limits.
+- [Reverse-engineering evidence](reverse/README.md): original formats and supported source contracts.
 
-- [Architecture](architecture.md), [scene format](scene-format.md) and [scene composition](rendering/scene-composition.md).
-- [Stored graphics](stored-graphics-preview.md), [road ground/occlusion](rendering/road-ground-occlusion.md) and [original road visuals](rendering/original-road-visuals.md).
-- [Building](building-visual-profile.md), [road](road-visual-profile.md) and [walker](walker-visual-profile.md) profile formats.
-- [Fire](fire-visuals.md), [Inspector](fire-inspector-visuals.md), [Market](market-walker-visuals.md), [Service](service-walker-visuals.md) and [Health](health-walker-visuals.md) visuals.
-- [Input delivery](input-reliability.md), [road responsiveness](road-responsiveness.md) and [texture compatibility](rendering/texture-compatibility.md).
-- [Map selection](map-selection-compatibility.md), [map permissions](map-permissions-compatibility.md) and [playability checks](map-playability-acceptance.md).
-- [Reverse-engineering evidence](reverse/README.md).
-
-Old City-v6 through City-v15 milestone reports and local alpha-candidate diaries
-are consolidated into the guides above. Historical code and save contracts stay
-supported; removed report text remains available in Git history. Published
-[alpha.1 release notes](releases/0.1.0-alpha.1.md) retain their historical scope.
+Implementation history and completed task reports remain available in Git history.

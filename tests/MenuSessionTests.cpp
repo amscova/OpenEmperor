@@ -640,7 +640,17 @@ int main(int argc,char* argv[]) {
             check(reset.state()==Menu::State::MainMenu &&
                   openemperor::menu::read_settings(t.root/"app").needs_reset,
                   "unknown settings overwritten at startup");
-            click(reset,600,490); // Explicit Reset preferences button
+            check(reset.render(),"render actual preferences-reset control");
+            const auto reset_rect=reset.diagnostic_button_rect("Reset preferences");
+            const auto sustainable_rect=reset.diagnostic_button_rect("S Sustainable economy");
+            check(reset_rect && sustainable_rect && !SDL_HasRectIntersectionFloat(&*reset_rect,&*sustainable_rect),
+                  "preferences reset overlaps the explicit sustainable-economy choice");
+            const auto menu_scale=1.5F*std::max(1.0F,SDL_GetWindowPixelDensity(window));
+            float reset_x=0,reset_y=0;
+            check(SDL_RenderCoordinatesToWindow(renderer,(reset_rect->x+reset_rect->w/2)*menu_scale,
+                (reset_rect->y+reset_rect->h/2)*menu_scale,&reset_x,&reset_y),"map actual preferences-reset control");
+            reset.handle_event(mouse(SDL_EVENT_MOUSE_BUTTON_DOWN,reset_x,reset_y));
+            reset.handle_event(mouse(SDL_EVENT_MOUSE_BUTTON_UP,reset_x,reset_y));reset.advance();
             check(!openemperor::menu::read_settings(t.root/"app").needs_reset,"settings reset not confirmed");
             reset.shutdown();
             fs::remove(t.root/"data/DATA/China_Elevation.555");

@@ -71,7 +71,7 @@ void print_usage(const char* executable) {
               << " [--multi-tile-preview [--footprint-policy isolated|edge-byte|edge-byte-4x4]]"
               << " --render-check --report-json\n";
     std::cerr << "       " << executable << " --data <directory> --sandbox <relative.map>"
-              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16] [--sandbox-bridges|--sandbox-ramps] [--authored-terrain-sides]"
+              << " [--sandbox-rules sandbox-logistics-v1|sandbox-production-v2|sandbox-household-v3|sandbox-settlement-v4|sandbox-industry-v5|sandbox-city-v6|sandbox-city-v7|sandbox-city-v8|sandbox-city-v9|sandbox-city-v10|sandbox-city-v11|sandbox-city-v12|sandbox-city-v13|sandbox-city-v14|sandbox-city-v15|sandbox-city-v16] [--sandbox-bridges|--sandbox-ramps|--original-fire-protection|--original-sustainable-economy] [--authored-terrain-sides]"
               << " [--sandbox-demo] [--sandbox-visuals <walker-profile.json>]"
               << " [--building-visuals <building-profile.json>]"
               << " [--road-visuals <road-profile.json>]"
@@ -139,6 +139,8 @@ int main(int argc, char* argv[]) {
     bool sandbox_rules_supplied = false;
     bool sandbox_bridges = false;
     bool sandbox_ramps = false;
+    bool original_fire_protection = false;
+    bool original_sustainable_economy = false;
     bool authored_terrain_sides=false;
     bool sandbox_save_supplied = false;
     bool load_sandbox_supplied = false;
@@ -202,6 +204,10 @@ int main(int argc, char* argv[]) {
             sandbox_routing_check=true;
         } else if (argument == "--sandbox-original-economy-check" && !sandbox_original_economy_check) {
             sandbox_original_economy_check=true;
+        } else if (argument == "--original-fire-protection" && !original_fire_protection) {
+            original_fire_protection=true;
+        } else if (argument == "--original-sustainable-economy" && !original_sustainable_economy) {
+            original_sustainable_economy=true;
         } else if (argument == "--authored-terrain-sides" && !authored_terrain_sides) {
             authored_terrain_sides=true;
         } else if (argument == "--report-json" && !report_json) {
@@ -420,6 +426,12 @@ int main(int argc, char* argv[]) {
             sandbox_save_supplied || load_sandbox_supplied || sandbox_bridges || sandbox_ramps ||
             sandbox_visuals_supplied || building_visuals_supplied || road_visuals_supplied ||
             great_wall_supplied || authored_terrain_sides || app_root_supplied)) ||
+        ((original_fire_protection || original_sustainable_economy) &&
+            (!data_supplied || !sandbox_supplied || !sandbox_rules_supplied ||
+            sandbox_rules!=openemperor::simulation::RulesProfile::CityV16 || sandbox_demo ||
+            sandbox_check || sandbox_resume_check || sandbox_routing_check || sandbox_original_economy_check ||
+            load_sandbox_supplied || sandbox_bridges || sandbox_ramps || authored_terrain_sides)) ||
+        (original_fire_protection && original_sustainable_economy) ||
         (sandbox_rules_supplied && !sandbox_supplied) ||
         ((sandbox_bridges || sandbox_ramps) && (!sandbox_supplied || !sandbox_rules_supplied || sandbox_check ||
             sandbox_routing_check || sandbox_rules!=openemperor::simulation::RulesProfile::CityV16)) ||
@@ -556,12 +568,22 @@ int main(int argc, char* argv[]) {
             if (sandbox_save_supplied || load_sandbox_supplied)
                 openemperor::persistence::validate_save_target(sandbox_save_path,data_directory);
             const auto active_rule_version=initial ? initial->world.rule_version:
+                original_sustainable_economy ? openemperor::simulation::kOriginalSustainableRuleVersion:
+                original_fire_protection ? openemperor::simulation::kOriginalFireProtectionRuleVersion:
                 sandbox_ramps ? 6U:sandbox_bridges ? 5U:openemperor::simulation::current_rule_version(sandbox_rules);
             auto session=openemperor::maps::load_stored_map_session(data_directory,sandbox_path,
                 openemperor::maps::FootprintPolicy::EdgeByte4x4Preview,
                 openemperor::maps::StoredGraphicsProfile::Slot8,great_wall_mode);
-            sandbox_view=std::make_unique<openemperor::SandboxView>(std::move(session),sandbox_demo,
-                                                                    sandbox_rules,active_rule_version);
+            if (openemperor::simulation::original_sustainable_economy_enabled(sandbox_rules,active_rule_version))
+                sandbox_view=openemperor::SandboxView::create_original_sustainable_economy(
+                    std::move(session),std::nullopt,!initial);
+            else if (openemperor::simulation::original_fire_protection_enabled(sandbox_rules,active_rule_version))
+                sandbox_view=openemperor::SandboxView::create_original_fire_protection(
+                    std::move(session),std::nullopt,!initial);
+            else if (openemperor::simulation::original_production_enabled(sandbox_rules,active_rule_version))
+                sandbox_view=openemperor::SandboxView::create_original_production(std::move(session));
+            else sandbox_view=std::make_unique<openemperor::SandboxView>(std::move(session),sandbox_demo,
+                sandbox_rules,active_rule_version);
             sandbox_view->set_authored_terrain_sides(authored_terrain_sides);
             sandbox_view->configure_save(data_directory,sandbox_path,sandbox_save_path,std::move(initial));
             const auto& visuals=*sandbox_visual_selection;
@@ -582,6 +604,8 @@ int main(int argc, char* argv[]) {
                 visuals.service_walker_fallback_reason);
             sandbox_view->set_health_walker_visuals(visuals.health_walker,visuals.health_walker_source,
                 visuals.health_walker_fallback_reason);
+            sandbox_view->set_original_house_visuals(visuals.original_house,visuals.original_house_source,
+                visuals.original_house_fallback_reason);
             std::cout << "Sandbox: " << sandbox_path.generic_string()
                       << " | graphics=" << openemperor::maps::stored_graphics_slot8_profile
                       << " | footprint=edge-byte-4x4 | buildable=sandbox_buildable_v1"

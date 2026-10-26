@@ -35,6 +35,20 @@ const char* role_name(sim::CourierRole role) {
     case sim::CourierRole::MarketFoodDistribution: return "MarketFoodDistribution";
     case sim::CourierRole::FireInspector: return "FireInspector";
     case sim::CourierRole::HealthWorker: return "HealthWorker";
+    case sim::CourierRole::OriginalHempToWarehouse: return "OriginalHempToWarehouse";
+    case sim::CourierRole::OriginalFoodToMarket: return "OriginalFoodToMarket";
+    case sim::CourierRole::OriginalFoodToHouse: return "OriginalFoodToHouse";
+    case sim::CourierRole::OriginalAncestor: return "OriginalAncestor";
+    case sim::CourierRole::OriginalWater: return "OriginalWater";
+    case sim::CourierRole::OriginalDaoist: return "OriginalDaoist";
+    case sim::CourierRole::OriginalBuddhist: return "OriginalBuddhist";
+    case sim::CourierRole::OriginalConfucian: return "OriginalConfucian";
+    case sim::CourierRole::OriginalMusic: return "OriginalMusic";
+    case sim::CourierRole::OriginalAcrobat: return "OriginalAcrobat";
+    case sim::CourierRole::OriginalDrama: return "OriginalDrama";
+    case sim::CourierRole::OriginalLuxuryToWarehouse: return "OriginalLuxuryToWarehouse";
+    case sim::CourierRole::OriginalAuxToWarehouse: return "OriginalAuxToWarehouse";
+    case sim::CourierRole::OriginalAuxSupplier: return "OriginalAuxSupplier";
     }
     return "Unknown";
 }

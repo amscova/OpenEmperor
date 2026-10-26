@@ -13,6 +13,7 @@ struct OriginalInfluenceCache {
     struct Source {
         OriginalInfluenceSourceState identity;
         Cell origin;
+        BuildingFootprint footprint;
         original::SpreadSpec spread;
     };
     std::vector<Source> sources;
@@ -21,14 +22,32 @@ struct OriginalInfluenceCache {
     std::vector<original::DesirabilityMap> prefixes;
 };
 
+std::optional<original::ModelBuilding> original_influence_model(Object kind) {
+    using B=original::ModelBuilding;
+    switch (kind) {
+    case Object::OriginalInfluenceSource:
+    case Object::OriginalWaterWell72:return B::Well;
+    case Object::HealthPost:return B::HerbalistsStall;
+    case Object::ServicePost:return B::AcupuncturistsClinic;
+    case Object::OriginalMusicSchool211:return B::MusicSchool;
+    case Object::OriginalAcrobatSchool212:return B::AcrobatSchool;
+    case Object::OriginalDramaSchool213:return B::DramaSchool;
+    case Object::OriginalAncestorShrine214:return B::AncestralShrine;
+    case Object::OriginalDaoistShrine215:return B::DaoistShrine;
+    case Object::OriginalBuddhistShrine217:return B::BuddhistShrine;
+    case Object::OriginalConfucianAcademy219:return B::ConfucianAcademy;
+    default:return std::nullopt;
+    }
+}
+
 namespace {
 [[noreturn]] void invalid(const char* message) { throw std::invalid_argument(message); }
 bool source_type_valid(OriginalInfluenceSourceType type) {
     return type==OriginalInfluenceSourceType::Well72;
 }
 int contribution_at(const OriginalInfluenceCache::Source& source,Cell cell) {
-    const auto dx=std::max({source.origin.x-cell.x,0,cell.x-(source.origin.x+1)});
-    const auto dy=std::max({source.origin.y-cell.y,0,cell.y-(source.origin.y+1)});
+    const auto dx=std::max({source.origin.x-cell.x,0,cell.x-(source.origin.x+source.footprint.width-1)});
+    const auto dy=std::max({source.origin.y-cell.y,0,cell.y-(source.origin.y+source.footprint.height-1)});
     const auto ring=std::max(dx,dy);
     if (!ring || ring>std::clamp(source.spread.range,0,original::desirability_max_range) ||
         source.spread.value==0) return 0;
@@ -69,6 +88,7 @@ World World::restore_original_influence_development(const WorldSnapshot& snapsho
 
 void World::validate_original_influence_snapshot(const WorldSnapshot& s) {
     validate_original_economy_snapshot(s);
+    if (simulation::original_production_enabled(s.profile,s.rule_version)) return;
     if (!simulation::original_influence_enabled(s.profile,s.rule_version)) {
         if (s.original_influence) invalid("influence authority requires rule 8");
         return;
@@ -142,6 +162,7 @@ void World::validate_original_influence_snapshot(const WorldSnapshot& s) {
 }
 
 bool World::original_influence_finance_valid() const {
+    if (original_production_enabled()) return original_production_finance_valid();
     if (!original_influence_ || !original_economy_ || !original_rules_model_ ||
         demolition_history_!=DemolitionHistory{} || taxes_collected_total_ || maintenance_spent_total_)
         return false;
@@ -173,8 +194,13 @@ CommandResult World::validate_original_influence_command(Command command) const 
         if (!source_type_valid(command.source_type)) return reject("Unsupported original influence source type");
         if (original_influence_->sources.size()>=original_influence_source_limit)
             return reject("Original influence source limit reached");
+        if (original_production_enabled() && buildings_.size()>=Rules::original_production_building_limit)
+            return reject("Original production building collection limit reached");
         if (treasury_<original_influence_source_cost) return reject("Not enough money");
-        if (!next_building_id_ || next_building_id_>original_influence_purchase_limit)
+        if (original_production_enabled() && construction_spent_total_>UINT64_MAX-static_cast<std::uint64_t>(original_influence_source_cost))
+            return reject("Original production construction counter exhausted");
+        if (!next_building_id_ || next_building_id_>(original_production_enabled() ?
+                Rules::original_production_building_limit+original_influence_purchase_limit:original_influence_purchase_limit))
             return reject("Original influence purchase ID exhausted");
         if (!in_bounds(command.cell)) return reject("Source footprint outside sandbox grid");
         for (const auto cell:building_footprint_cells(profile_,rule_version_,Object::OriginalInfluenceSource,command.cell)) {
@@ -193,7 +219,8 @@ CommandResult World::validate_original_influence_command(Command command) const 
             [](const BuildingState& value,BuildingId id) { return value.id<id; });
         if (b==buildings_.end() || b->id!=command.building_id || !b->placed || b->kind!=Object::OriginalInfluenceSource)
             return reject("Influence source container is missing");
-        if (!couriers_.empty() || original_influence_->removed_sources.size()>=original_influence_purchase_limit)
+        if ((!original_production_enabled() && !couriers_.empty()) ||
+            original_influence_->removed_sources.size()>=original_influence_purchase_limit)
             return reject("Influence removal has unsafe actor state or exhausted history");
         for (const auto cell:building_footprint_cells(profile_,rule_version_,b->kind,b->cell))
             if (!in_bounds(cell) || object_at(cell)!=b->kind || owners_[index(cell)]!=static_cast<std::uint32_t>(b->id))
@@ -212,6 +239,7 @@ CommandResult World::execute_original_influence_command(Command command,bool ref
         BuildingState source{id,Object::OriginalInfluenceSource,command.cell,true};
         source.placed_tick=ticks_; buildings_.push_back(source);
         original_influence_->sources.push_back({id,command.source_type});
+        if (original_production_enabled()) original_production_->housing.neutral_source_origins.push_back({id,command.cell});
         for (const auto cell:building_footprint_cells(profile_,rule_version_,source.kind,source.cell)) {
             objects_[index(cell)]=source.kind; owners_[index(cell)]=static_cast<std::uint32_t>(id);
         }
@@ -244,42 +272,54 @@ void World::rebuild_original_influence_cache() {
     if (original_influence_cache_build_count_==UINT64_MAX)
         throw std::overflow_error("influence cache counter exhausted");
     auto candidate=std::make_shared<OriginalInfluenceCache>();
-    candidate->sources.reserve(original_influence_->sources.size());
-    candidate->prefixes.reserve(original_influence_->sources.size()+1);
+    auto sources=original_influence_->sources;
+    if (original_production_enabled()) {
+        for (const auto& p:original_production_->water.providers) sources.push_back({p.building_id,OriginalInfluenceSourceType::Well72});
+        for (const auto& p:original_production_->services.providers) {
+            const auto model=original_influence_model(building(p.building_id).kind);
+            if (!model) invalid("paid Provider lost its own named desirability model");
+            sources.push_back({p.building_id,static_cast<OriginalInfluenceSourceType>(*model)});
+        }
+        std::sort(sources.begin(),sources.end(),[](const auto& a,const auto& b){return a.building_id<b.building_id;});
+    }
+    candidate->sources.reserve(sources.size());candidate->prefixes.reserve(sources.size()+1);
     candidate->prefixes.emplace_back(width_,height_);
-    for (const auto& source:original_influence_->sources) {
-        if (!source_type_valid(source.type)) invalid("unsupported influence cache source");
+    for (const auto& source:sources) {
         const auto& b=building(source.building_id);
-        if (b.kind!=Object::OriginalInfluenceSource || !b.placed) invalid("influence cache source is not placed");
+        const auto model=original_influence_model(b.kind);
+        if (!model || source.type!=static_cast<OriginalInfluenceSourceType>(*model) || !b.placed ||
+            (!original_production_enabled() && b.kind!=Object::OriginalInfluenceSource)) invalid("influence cache source is not its own placed model");
+        const auto footprint=building_footprint(profile_,rule_version_,b.kind);
         const original::SpreadSpec spread{
-            original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::Desirability),
-            original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::DesirabilityStep),
-            original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::DesirabilityStepSize),
-            original_rules_model_->building_value(original::ModelBuilding::Well,original::BuildingField::DesirabilityRange)};
+            original_rules_model_->building_value(*model,original::BuildingField::Desirability),
+            original_rules_model_->building_value(*model,original::BuildingField::DesirabilityStep),
+            original_rules_model_->building_value(*model,original::BuildingField::DesirabilityStepSize),
+            original_rules_model_->building_value(*model,original::BuildingField::DesirabilityRange)};
         candidate->prefixes.push_back(candidate->prefixes.back());
-        candidate->prefixes.back().apply_source({{b.cell.x,b.cell.y,2},spread},original::WallBlocking::None);
-        candidate->sources.push_back({source,b.cell,spread});
+        candidate->prefixes.back().apply_source({{b.cell.x,b.cell.y,footprint.width},spread},original::WallBlocking::None);
+        candidate->sources.push_back({source,b.cell,footprint,spread});
     }
     original_influence_cache_=std::move(candidate);
     ++original_influence_cache_build_count_;
 }
 
-int World::original_influence_value_at(Cell origin) const {
+int World::original_influence_value_at(Cell origin,int side) const {
     if (!original_influence_enabled() || !original_influence_cache_)
         throw std::logic_error("original influence map is unavailable");
-    return original_influence_cache_->prefixes.back().building_value({origin.x,origin.y,2},0);
+    return original_influence_cache_->prefixes.back().building_value({origin.x,origin.y,side},0);
 }
 
 OriginalInfluenceProvenance World::original_influence_provenance(BuildingId household) const {
     const auto& home=building(household);
-    if (!original_influence_enabled() || !original_influence_cache_ || home.kind!=Object::Household || !home.placed)
+    if (!original_influence_enabled() || !original_influence_cache_ || !original_house_kind(home.kind) || !home.placed)
         throw std::invalid_argument("original influence provenance requires a placed rule-8 Household");
     OriginalInfluenceProvenance result;
     result.household_id=household;result.value=-101;
     result.difficulty=original_rules_model_->difficulty();
     result.model_sha256=original_rules_model_->provenance().sha256;
     const auto& cache=*original_influence_cache_;
-    for (int y=home.cell.y;y<home.cell.y+2;++y) for (int x=home.cell.x;x<home.cell.x+2;++x) {
+    const auto footprint=building_footprint(profile_,rule_version_,home.kind);
+    for (int y=home.cell.y;y<home.cell.y+footprint.height;++y) for (int x=home.cell.x;x<home.cell.x+footprint.width;++x) {
         const auto value=cache.prefixes.back().at(x,y);
         if (value>result.value) { result.value=value; result.selected_cell={x,y}; }
     }
@@ -291,7 +331,7 @@ OriginalInfluenceProvenance World::original_influence_provenance(BuildingId hous
         const auto contribution=contribution_at(source,result.selected_cell);
         if (std::clamp(std::int64_t(before)+contribution,std::int64_t{-100},std::int64_t{100})!=after)
             throw std::logic_error("influence provenance disagrees with authoritative core prefix");
-        result.sources.push_back({source.identity.building_id,source.identity.type,source.origin,{2,2},source.spread,
+        result.sources.push_back({source.identity.building_id,source.identity.type,source.origin,source.footprint,source.spread,
             before,contribution,after});
     }
     return result;

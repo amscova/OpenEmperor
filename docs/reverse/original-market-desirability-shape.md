@@ -133,6 +133,7 @@ The current API supplies one square side, not independent rectangle endpoints.
 The conditional market bounds, selector provenance and distinct arithmetic are
 now evidenced. Full saved-state admission, selector/lifecycle validity, complete
 wall/edge behavior and a paid World→original source contract remain unresolved.
-The [construction/restore/funding blockers](../original-economy/desirability-integration-blockers.md)
-continue to apply. No production core, footprint, parser, World, save, budget
-or source gate changes; no OE-13 or Gate-B release follows from these checks.
+Construction, restore and funding remain subject to the separate
+[runtime contracts](../original-economy/architecture-map.md).
+These checks change no production core, footprint, parser, World, save, budget
+or source gate and establish no release acceptance.

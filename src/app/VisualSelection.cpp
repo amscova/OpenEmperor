@@ -17,6 +17,9 @@ VisualSelection select_visual_profiles(const assets::CompatibilityResult& compat
                                        const std::filesystem::path& custom_road) {
     VisualSelection result;
     result.compatibility = compatibility;
+    result.original_house_fallback_reason=compatibility.compatible() ? compatibility.original_house_detail:
+        compatibility.detail.empty() ? "unsupported original data revision":
+        "unsupported original data: "+compatibility.detail;
     result.fire_fallback_reason=compatibility.compatible() ? compatibility.fire_detail:
         compatibility.detail.empty() ? "unsupported original data revision":
         "unsupported original data: "+compatibility.detail;
@@ -63,6 +66,11 @@ VisualSelection select_visual_profiles(const assets::CompatibilityResult& compat
             result.health_walker_source=VisualProfileSource::Builtin;
             result.health_walker_fallback_reason.clear();
         }
+        if (compatibility.original_house_compatible()) {
+            result.original_house=compatibility.profile->original_house_profile;
+            result.original_house_source=VisualProfileSource::Builtin;
+            result.original_house_fallback_reason.clear();
+        }
     }
     if (!custom_walker.empty()) {
         result.walker = custom_walker;
@@ -87,6 +95,9 @@ VisualSelection select_visual_profiles(const assets::CompatibilityResult& compat
     if (!custom_building.empty()) {
         result.building = custom_building;
         result.building_source = VisualProfileSource::Custom;
+        result.original_house.clear();
+        result.original_house_source=VisualProfileSource::Custom;
+        result.original_house_fallback_reason="Custom building profile selected; no built-in Original House supplement";
     }
     if (!custom_road.empty()) {
         result.road = custom_road;

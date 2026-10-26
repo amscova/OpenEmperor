@@ -1,5 +1,15 @@
 # Model provenance register v1 (OE-02)
 
+OE-16 additionally names `ModelBuilding::HempFarm = 192` and
+`ModelBuilding::HempField = 194`: M1 lines276/278 identify `Hemp Farm` and
+`Hemp Field`. Their raw Cost/Employees pairs are40/18 and4/0. These are
+`RAW MODEL FACT` inputs to the existing checked difficulty arithmetic.
+The explicit active preparation validates both named rows; historical
+seven-row preparation remains unchanged. Funds conversion, field ownership,
+production timing and stock bins are separately documented authored rules in
+the [runtime contracts](architecture-map.md). Resource0 does not prove a
+commodity code, recipe or production period.
+
 This register identifies file columns and ordered rows. It does not make those
 identifiers World object identities, activate Rule7, or establish original-game
 runtime parity. The reader remains independent of World, navigation and saves.
@@ -285,6 +295,5 @@ difficulties, source-label failures, checked arithmetic and every Object case.
 points through a separate text-point scanner, named access, and2255 checked
 transform queries across the real source fields. Missing optional dependencies
 produce explicit SKIP77; an existing malformed or different golden revision
-fails. These augment the always-on raw-reader tests, not replace them. Actual
-configurations and results are recorded in
-[PROGRESS.md](../codex-original-economy/PROGRESS.md).
+fails. These augment the always-on raw-reader tests, not replace them. See
+[testing.md](../testing.md) for current build and test instructions.

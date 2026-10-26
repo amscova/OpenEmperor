@@ -10,8 +10,8 @@ do not activate a new World rule, save schema or paid original supply loop.
 A matching result below means agreement on the stated input domain. It does
 not establish full Emperor behavior. Static executable observations, synthetic
 controls, the optional read-only model comparison, and unchanged legacy
-World/save contracts remain separate evidence. Executed configurations and the
-Gate A result are recorded in [PROGRESS](../codex-original-economy/PROGRESS.md).
+World/save contracts remain separate evidence. This is a historical pure-kernel
+comparison; [current runtime contracts](architecture-map.md) describe integration.
 
 ## Bound sources and classifications
 
@@ -53,7 +53,7 @@ audits; an unsupported wrapper is never counted as a matching implementation.
 
 | Capability or difference | Decision | Evidence and retained boundary |
 |---|---|---|
-| Thirteen Building fields, twenty-four House fields, fifteen ordered House rows, five difficulties | `parity` | Independent generated grammar and raw-value controls; [reader](model-reader.md). Raw access is distinct from prepared difficulty values. |
+| Thirteen Building fields, twenty-four House fields, fifteen ordered House rows, five difficulties | `parity` | Independent generated grammar and raw-value controls; [model register](model-provenance.md). Raw access is distinct from prepared difficulty values. |
 | Building percentage/truncation and House addition/clamp | `parity` | Safe-domain arithmetic agrees with the fork and the independently inspected [original model contract](../reverse/original-model-contract.md). |
 | Duplicate Building IDs, extra House numbers, inner empty values and incomplete structure | `unsupported` | These fork-accepted inputs are excluded. The fork overwrites or drops information; the reader rejects ambiguity atomically. File/line limits and precise errors are authored safety boundaries, not recovered original parser behavior. |
 | Invalid difficulty, invalid enums and overflowing edited-model arithmetic | `corrected bug` | The typed adapter rejects them; it does not clamp invalid difficulty or emulate unchecked arithmetic. These checks are authored and tested separately from valid-domain parity. |
@@ -160,6 +160,17 @@ independent fixture/input, separate expected and observed fork/current outputs,
 evidence path and assertion result. The fourth-module observation and optional
 real-model result are separate members. Summary counts describe those executed
 vectors, not the broader decision register or unimplemented gameplay.
+
+Rule11's optional fire provenance changes the World/production DTO ABI. Its
+reviewed header pins include the separate fire-state header; fresh linked
+fork/current probes retain all74 previous cases, expectations and observations,
+including the unchanged real-model digest. The authored FireWatch integration
+does not acquire original-mechanics parity from this numerical comparison.
+Rule12's separate factories and capacity/invoice queries have a reviewed World
+header pin. Fresh linked probes still pass the same74 vectors with identical
+cases, expected/observed values, fork pins and real-model digest. Its authored
+economy changes are evaluated by the separate paid-city acceptance, not this
+kernel comparison. Raw build/library provenance remains under ignored `.local/`.
 
 The comparison uses independently specified vectors and expected outcomes for
 parser values, rings, needs, House transitions, timer effects, consumption,

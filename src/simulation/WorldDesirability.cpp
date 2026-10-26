@@ -69,21 +69,23 @@ int World::household_desirability_at(Cell origin) const {
 
 int World::household_desirability(BuildingId id) const {
     const auto& home=building(id);
-    if (!home.placed || home.kind!=Object::Household)
+    if (!home.placed || !original_house_kind(home.kind))
         throw std::invalid_argument("desirability requires a placed Household");
+    if (original_influence_enabled())
+        return original_influence_value_at(home.cell,building_footprint(profile_,rule_version_,home.kind).width);
     return household_desirability_at(home.cell);
 }
 
 std::vector<DesirabilitySource> World::household_desirability_sources(BuildingId id) const {
     const auto& home=building(id);
-    if (!desirability_profile(profile_) || !home.placed || home.kind!=Object::Household)
+    if (!desirability_profile(profile_) || !home.placed || !original_house_kind(home.kind))
         throw std::invalid_argument("desirability sources require a placed City-v13 Household");
     if (original_influence_enabled()) {
         const auto explanation=original_influence_provenance(id);
         std::vector<DesirabilitySource> result;
         result.reserve(explanation.sources.size());
         for (const auto& source:explanation.sources)
-            result.push_back({source.building_id,Object::OriginalInfluenceSource,
+            result.push_back({source.building_id,building(source.building_id).kind,
                 building_distance(id,source.building_id),source.after-source.before});
         return result;
     }
