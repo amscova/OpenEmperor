@@ -1818,6 +1818,18 @@ if(BUILD_TESTING)
     add_test(NAME original-high-tier-des-bound-real COMMAND openemperor-high-tier-des-bound-tests
         --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
     set_tests_properties(original-high-tier-des-bound-real PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
+    add_executable(openemperor-desirability-investigation tools/DesirabilityInvestigation.cpp)
+    target_link_libraries(openemperor-desirability-investigation PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-desirability-investigation)
+    add_executable(openemperor-desirability-investigation-tests tests/DesirabilityInvestigationTests.cpp)
+    target_link_libraries(openemperor-desirability-investigation-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-desirability-investigation-tests)
+    add_test(NAME original-desirability-investigation-synthetic COMMAND openemperor-desirability-investigation-tests)
+    add_test(NAME original-desirability-investigation-real COMMAND openemperor-desirability-investigation-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-desirability-investigation-synthetic original-desirability-investigation-real
+        PROPERTIES TIMEOUT 300)
+    set_tests_properties(original-desirability-investigation-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-high-tier-common-supply-tests tests/HighTierCommonSupplyTests.cpp)
     target_link_libraries(openemperor-high-tier-common-supply-tests PRIVATE openemperor-original-longplay-view-support)
     openemperor_enable_warnings(openemperor-high-tier-common-supply-tests)
