@@ -643,8 +643,11 @@ int main(int argc,char* argv[]) {
             check(reset.render(),"render actual preferences-reset control");
             const auto reset_rect=reset.diagnostic_button_rect("Reset preferences");
             const auto sustainable_rect=reset.diagnostic_button_rect("S Sustainable economy");
+            const auto logistics_rect=reset.diagnostic_button_rect("M Needs-aware logistics");
             check(reset_rect && sustainable_rect && !SDL_HasRectIntersectionFloat(&*reset_rect,&*sustainable_rect),
                   "preferences reset overlaps the explicit sustainable-economy choice");
+            check(logistics_rect && !SDL_HasRectIntersectionFloat(&*reset_rect,&*logistics_rect),
+                  "preferences reset overlaps the explicit market-logistics choice");
             const auto menu_scale=1.5F*std::max(1.0F,SDL_GetWindowPixelDensity(window));
             float reset_x=0,reset_y=0;
             check(SDL_RenderCoordinatesToWindow(renderer,(reset_rect->x+reset_rect->w/2)*menu_scale,

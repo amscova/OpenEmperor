@@ -90,6 +90,13 @@ simulation::World restore_original_sustainable_economy(
     std::vector<std::uint8_t> buildable,
     std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
     std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+// Schema29/Rule13 retains existing inventories and monotone courier cursors;
+// its authored needs-aware selection never relabels historical saves.
+simulation::World restore_original_market_logistics(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& document);
 SaveDocument upgrade_city_v11_v3_to_v4(const SaveDocument& document);
 simulation::World restore_save(const SaveDocument& document,

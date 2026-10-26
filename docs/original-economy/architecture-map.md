@@ -14,8 +14,9 @@ parity remains partial; see [the play guide](player-handoff.md) and [Known Issue
 | Rule10 / schema26 / revision27 | Current explicit paid economy; incompatible development revisions are refused. |
 | Rule11 / schema27 / revision27 | Separate explicit paid economy with authored FireWatch and actual Inspector visits; bounded fire/tax provenance. |
 | Rule12 / schema28 / revision27 | Separate explicit sustainable-economy contract: three paid Food Farm/Field chains and installed-worker upkeep every 816 placement-relative ticks; retains paid Rule11 fire protection. |
+| Rule13 / schema29 / revision27 | Separate authored needs-aware Warehouse/Market goods selection; inherits Rule12's economy, fire protection and existing limits. |
 
-Rules1–9 and schemas1–25 retain their identities and canonical bytes. City-v11
+Rules1–12 and schemas1–28 retain their identities and canonical bytes. City-v11
 Rule3 and City-v16 Rule4 defaults are unchanged; no automatic migration opts older
 saves into Original economy. Bridge/Ramp infrastructure retains its existing contracts.
 Rule11 inherits the unchanged Rule10 economic values and uses its own fire guard;
@@ -25,6 +26,15 @@ Rule12 has a separate create/restore and menu/CLI choice. It preserves original
 model values, taxes, harvest periods, needs, immigration, goods, services and fire
 mechanics. Only its authored Food count and upkeep interval differ; see the
 [sustainable-economy contract](oe37-sustainable-economy.md). No save is migrated.
+
+Rule13 has its own exact create/restore, **M Needs-aware logistics** menu entry
+and `--original-market-logistics` CLI option. Its selection policy is authored,
+not recovered Emperor behavior. Original model values, prices, production,
+consumption, taxes, 816-tick installed upkeep, three Food chains, fire protection,
+body/courier bounds and physical transport remain inherited from Rule12.
+The [market diagnosis](oe39-market-diagnosis.md) records the Rule12 cause;
+the separate [retention assessment](oe39-market-retention.md) evaluates Rule13
+without treating a new selector as proof of sustained supply or fire safety.
 
 `ModelData` reads the selected installation's `Model/EmperorBuildingModels.txt`
 within its canonical root: regular file, at most 256 KiB, lines at most 4096 bytes,
@@ -100,6 +110,22 @@ arrivals fail. Pause/disconnect preserves cargo and begun-edge safety, using the
 same navigator for return and paid road repair. Goods/target rotation is bounded;
 finite visit tests do not prove universal starvation freedom.
 
+Only Rule13 replaces Warehouse-to-Market/Paper and Market-to-House commodity
+selection. It queries actual occupied, operating, non-burning Houses, their
+current model needs, incoming reservations and physically reachable cached routes.
+Missing current goods precede current-stock buffers and usable next-stage goods;
+next-stage eligibility uses actual DES and non-goods requirements, without a
+Common-to-Elite conversion. A half-full House buffer triggers refill; a missing
+current need takes precedence even above that threshold. Bronze/Lacquer
+alternatives include actual stock and incoming commitments. Within a tier,
+normalized stock per need precedes the existing saved target/good cursor for
+deterministic tie rotation. Warehouse selection accounts for a staffed Market's
+reachable House demand, its pool and incoming cargo; the staffed Paper input
+chain remains available. This adds no actor, stock, grant or saved demand cache.
+House capacity remains eight per good, cargo four and road movement five ticks
+per edge. Loading, reservation, cancellation, return and actual-arrival authority
+remain unchanged; no finite comparison proves universal fairness.
+
 Recipes and 80-productive-tick harvest periods are authored. Every required input
 is debited atomically with output credit: Wood+internal Ore→Bronze;
 Bronze+Clay→Bronzeware; Lacquer+Wood→Lacquerware; RawSilk→Silk; Hemp→Paper.
@@ -110,7 +136,7 @@ five auxiliary materials, not extra House goods. Exact source evidence is in
 Food has separate Wheat/Millet quantities, cargo and arrival witnesses. Authored
 crop scores 20/80 feed the original quality blend only on positive House delivery.
 Rules10/11 admit two paid Food Farms with one uniquely owned adjacent Field
-each; Rule12 admits three within the unchanged global body/courier bounds.
+each; Rules12/13 admit three within the unchanged global body/courier bounds.
 Stock depletion resets quality; an authored sink consumes one unit per occupied
 House at 0/7 boundaries and records real misses. Six-goods consumption uses the
 current model row independently per good: Bronze/Lacquer satisfy needs as OR,
@@ -148,7 +174,7 @@ only neutral Well72 influence sources have the existing no-refund removal path.
 Tax is authored direct collection of pre-tick `occupants * prepared TaxRate`
 every 816 ticks, without an invented TaxOffice. Upkeep is 2 Funds per installed
 required worker every 400 placement-relative ticks in Rules10/11 and every 816
-in Rule12, including pause, fire and unstaffing.
+in Rules12/13, including pause, fire and unstaffing.
 Cumulative per-type taxable units and actual arrival/transition witnesses constrain
 restore; they are bounded proofs rather than full event journals. Existing Funds
 and accounting counters are the sole monetary authority. Purchases need available
@@ -167,13 +193,19 @@ is separate from native human acceptance.
 
 ## Save safety and developer checks
 
-Schemas26–28 validate complete identities, map/mask/policy/model binding, paid origin,
+Schemas26–29 validate complete identities, map/mask/policy/model binding, paid origin,
 geometry, route/progress, capacities, conservation, timing and finance before
 publication. Unknown/duplicate/missing/mistyped fields, incompatible revisions,
 unsupported authority and impossible histories fail atomically; 8 MiB document and
 32-level nesting limits remain. Recovery requires explicit OriginalProduction
 access: a protected start and up to five 1200-tick checkpoints; opening one forks
 history while preserving the source. LegacyOnly remains the API default.
+
+Schema29 requires exact Rule13 identity and
+`rules.market_logistics: "authored-needs-aware-market-v1"`. A missing or unknown
+marker, or merely relabelling an old rule/schema header, fails closed. The marker
+identifies immutable policy, not additional mutable authority. Rule12 remains exactly schema28;
+F5/F9, menu load and Recovery retain each saved generation without conversion.
 
 See [testing.md](../testing.md) for build/sanitizer setup. With a configured `build` and your own data:
 

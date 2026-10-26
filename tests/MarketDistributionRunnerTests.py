@@ -177,7 +177,7 @@ def paid_control(variant="common-reserved"):
     command("Market", 9, 9, [9, 5], 140, 0, 3)
     warmup = {"final": {"funds": 12020, "construction": world["construction_spent_total"]}}
     world["treasury"] = 12020  # Authored metadata only, never injected into World.
-    near = variant == "common-near-chain"
+    near = variant in ("common-near-chain", "common-compact-chain")
     command("Clay", 3, 4, [18, 0] if near else [0, 0], 120, 20000, 4)
     command("Pottery", 4, 5, [18, 2] if near else [22, 2], 180, 20000, 5)
     if variant == "common-priority":
@@ -186,15 +186,19 @@ def paid_control(variant="common-reserved"):
             row = command("Logistics priority", 11, None, body["cell"], 0, 20000)
             row.update(building_id=ident, selected_building_id=ident, workforce_priority=0)
             body["workforce_priority"] = 0
-    if near or variant == "common-short-route":
-        for y in range(4): command("Near chain road" if near else "Market shortcut road", 0, None,
-                                   [17, y] if near else [8, y+5], 2, 20000)
+    if near:
+        for y in range(4): command("Near chain road", 0, None, [17, y], 2, 20000)
+    if variant in ("common-short-route", "common-compact-chain"):
+        for y in range(5, 9): command("Market shortcut road", 0, None, [8, y], 2, 20000)
+    if variant == "common-compact-chain":
+        command("Second Market", 9, 9, [17, 7], 140, 20000, 6)
+        command("Second Market connection", 0, None, [17, 8], 2, 20000)
     return report, world, warmup, {}
 
 
 class PaidVariantEvidenceGuards(unittest.TestCase):
     def test_ordinary_priority_and_route_commands_remain_actual_paid_receipts(self):
-        for variant in ("common-reserved", "common-priority", "common-near-chain", "common-short-route"):
+        for variant in ("common-reserved", "common-priority", "common-near-chain", "common-short-route", "common-compact-chain"):
             runner.review_paid_commands(*paid_control(variant))
 
     def rejects(self, variant, mutate):
@@ -217,6 +221,59 @@ class PaidVariantEvidenceGuards(unittest.TestCase):
     def test_new_strategy_receipts_do_not_widen_legacy_checker(self):
         args = paid_control("common-short-route")
         with self.assertRaises(Exception): runner.high.review_paid_commands(*args)
+
+    def test_compact_plan_does_not_get_free_or_duplicate_infrastructure(self):
+        self.rejects("common-compact-chain", lambda r, w: r["expansion_commands"][-2].update(cost=0))
+        self.rejects("common-compact-chain", lambda r, w: r["expansion_commands"][-1].update(relative_cell=[17, 7], cell=[17, 7]))
+
+
+def generation_control(rule):
+    descriptor = {"id": "sandbox-city-v16", "version": rule}
+    if rule == 13: descriptor["market_logistics"] = "authored-needs-aware-market-v1"
+    return {"format": "openemperor-sandbox-save", "schema_version": 29 if rule == 13 else 28,
+            "rules": descriptor, "profiles": {"map_permissions": {"version": 3}},
+            "world": {"original_production": {"development_revision": 27}}}
+
+
+class ExplicitMarketGenerationGuards(unittest.TestCase):
+    def test_generations_require_their_own_complete_identity(self):
+        for rule in (12, 13): runner.baseline.review_generation(generation_control(rule), rule)
+
+    def test_schema28_cannot_be_relabelled29(self):
+        doc = generation_control(12); doc["schema_version"] = 29; doc["rules"]["version"] = 13
+        with self.assertRaises(Exception): runner.baseline.review_generation(doc, 13)
+
+    def test_missing_wrong_or_additional_descriptor_is_refused(self):
+        for value in (None, "original-emperor", 1):
+            doc = generation_control(13)
+            if value is None: del doc["rules"]["market_logistics"]
+            else: doc["rules"]["market_logistics"] = value
+            with self.assertRaises(Exception): runner.baseline.review_generation(doc, 13)
+        doc = generation_control(13); doc["rules"]["free_couriers"] = True
+        with self.assertRaises(Exception): runner.baseline.review_generation(doc, 13)
+
+    def test_schema29_does_not_load_as_historical_rule12(self):
+        with self.assertRaises(Exception): runner.baseline.review_generation(generation_control(13), 12)
+        doc = generation_control(12); doc["rules"]["market_logistics"] = "authored-needs-aware-market-v1"
+        with self.assertRaises(Exception): runner.baseline.review_generation(doc, 12)
+
+    def test_rule13_rejects_schema28_or_policy_change(self):
+        doc = generation_control(13); doc["schema_version"] = 28
+        with self.assertRaises(Exception): runner.baseline.review_generation(doc, 13)
+
+    def test_generation_identity_rejects_float_or_boolean_numbers(self):
+        for key, value in (("schema_version", 29.0), ("schema_version", True)):
+            doc = generation_control(13); doc[key] = value
+            with self.assertRaises(Exception): runner.baseline.review_generation(doc, 13)
+        doc = generation_control(13); doc["rules"]["version"] = 13.0
+        with self.assertRaises(Exception): runner.baseline.review_generation(doc, 13)
+        doc = generation_control(13); doc["profiles"]["map_permissions"]["version"] = 2
+        with self.assertRaises(Exception): runner.baseline.review_generation(doc, 13)
+
+    def test_explicit_new_rule_is_required_in_transport_trace(self):
+        args = transport_control(); args[0]["rule"] = 13
+        runner.review_trace(*args, rule=13)
+        with self.assertRaises(Exception): runner.review_trace(*args)
 
 
 def supply_control():

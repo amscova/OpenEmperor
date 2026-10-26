@@ -37,6 +37,16 @@ real deliveries, house development and recovery; its current limits differ from
 the authored City systems above. Historical rules7–9 and their schemas remain
 frozen; see the [versioned contracts](original-economy/architecture-map.md).
 
+**F Original fire protection**, **S Sustainable economy** and **M Needs-aware
+logistics** explicitly select Rule11/schema27, Rule12/schema28 and Rule13/schema29.
+Rule13 inherits Rule12's three paid Food chains, 816-tick installed-worker upkeep
+and authored fire protection, changing only Warehouse/Market goods selection.
+Its direct CLI option is `--original-market-logistics` with `--sandbox`, `--data`
+and `--sandbox-rules sandbox-city-v16`. Saved generations and general defaults
+remain unchanged; [market diagnosis](original-economy/oe39-market-diagnosis.md)
+and [retention assessment](original-economy/oe39-market-retention.md) separate
+measured logistics from long-term progression and fire safety.
+
 ## Legacy profiles and save compatibility
 
 These profiles remain selectable/readable for compatibility; their milestone
@@ -64,6 +74,13 @@ removal gives no refund; rejected/unchanged commands spend nothing.
 | City-v16 rule 4 | 20 | 1300 | Original road/map permission policy 2 | City-v13 goal |
 | City-v16 rule 5 | 21 | 1300 | Authored Bridges, policy 3 | City-v13 goal |
 | City-v16 rule 6 | 22 | 1300 | Authored Ramps, policy 3 | City-v13 goal |
+| City-v16 rule 7 | 23 | 1300 | Frozen original House/model development, policy 3 | No active paid original economy |
+| City-v16 rule 8 | 24 | 2000 | Frozen paid Well72 desirability sources, policy 3 | No active paid original economy |
+| City-v16 rule 9 | 25 | 2000 | Frozen neutral six-goods ledger, policy 3 | No active paid original economy |
+| City-v16 rule 10 | 26 | 12000 | Paid original-model production, House evolution and finance; revision27/policy3 | Six occupied non-burning Houses, Common type5+, population50, collected tax and nonnegative Funds |
+| City-v16 rule 11 | 27 | 12000 | Rule10 economy plus authored paid FireWatch/Inspector | Rule10 goal |
+| City-v16 rule 12 | 28 | 12000 | Three Food chains; installed-worker upkeep every 816 ticks; Rule11 fire protection | Rule10 goal |
+| City-v16 rule 13 | 29 | 12000 | Authored needs-aware Warehouse/Market goods selection; inherits Rule12's unchanged economy and bounds | Rule10 goal |
 
 Schemas 1–9 keep their historical fixed collection/one-cell semantics. City-v7
 has ten building/six courier entries; City-v8/v9 have eleven/seven. City-v6–8
@@ -72,6 +89,12 @@ requires only Pottery, City-v7 adds Food, City-v8 adds Service. From City-v10,
 entities are sorted by stable monotone IDs, core foundations are 2×2 and each
 courier has its own cyclic target cursor. No historical profile acquires a later
 feature on ordinary load.
+
+Original-economy schemas23–29 require their exact explicit rule generation.
+Schema29 additionally requires the immutable
+`rules.market_logistics: "authored-needs-aware-market-v1"` identity; it stores no
+new demand authority and does not convert schema28 cities. Manual F5/F9 and
+Recovery preserve the selected generation.
 
 The two explicitly confirmed City-v11 copy upgrades are rule 2→3 (schema 11→12,
 initializing Running/Normal controls) and rule 3→4 (schema 12→13, adding demolition

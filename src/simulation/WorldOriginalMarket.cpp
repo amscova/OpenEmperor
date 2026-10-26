@@ -1,5 +1,7 @@
 #include "simulation/World.h"
 #include "simulation/OriginalIndustryGoodsContext.h"
+#include "simulation/OriginalMarketPolicy.h"
+#include "simulation/original/OriginalRulesModel.h"
 
 #include <algorithm>
 #include <array>
@@ -210,7 +212,91 @@ void World::validate_original_market_state() const {
         original_production_->house_consumption);
 }
 
+std::pair<CourierDispatchDecision,std::optional<original::Goods>> World::original_needs_market_selection(const CourierState& c) const {
+    const auto* previous=row(*original_goods_,c.id);
+    if(previous&&previous->transfer.sequence==UINT64_MAX)return {{CourierDispatchStatus::NoStock,{}},{}};
+    bool stocked=false;
+    for(unsigned g=0;g<original::goods_count;++g)stocked|=original_typed_stock(c.owner,static_cast<original::Goods>(g))>0;
+    if(!stocked)return {{CourierDispatchStatus::NoStock,{}},{}};
+    std::array<const BuildingState*,Rules::city_v10_household_limit> targets{};std::size_t count=0;
+    for(const auto& b:buildings_)if(courier_can_target(c.role,b)) {
+        if(count==targets.size())invalid("needs-aware target bound exceeded");targets[count++]=&b;
+    }
+    if(!count)return {{CourierDispatchStatus::NoTarget,{}},{}};
+    const auto pairs=count*original::goods_count;std::size_t start=0;
+    if(previous) {
+        const auto found=std::find_if(targets.begin(),targets.begin()+static_cast<std::ptrdiff_t>(count),
+            [&](const auto* b){return b->id==previous->target;});
+        if(found==targets.begin()+static_cast<std::ptrdiff_t>(count))invalid("needs-aware cursor lost its purchased target");
+        start=(static_cast<std::size_t>(found-targets.begin())*original::goods_count+static_cast<std::size_t>(previous->good)+1)%pairs;
+    }
+    constexpr auto bound=Rules::city_v10_household_limit;
+    std::array<std::array<std::optional<MarketNeed>,original::goods_count>,bound> needs{};
+    const auto& homes=original_economy_->houses;
+    if(homes.size()>bound)invalid("needs-aware House bound exceeded");
+    for(std::size_t h=0;h<homes.size();++h) {
+        const auto& body=building(homes[h].building_id);
+        if(!body.operating_enabled||building_on_fire(body.id)||homes[h].house.occupants<=0)continue;
+        auto actual=homes[h].house;
+        actual.desirability=static_cast<std::int8_t>(original_influence_value_at(body.cell,
+            building_footprint(profile_,rule_version_,body.kind).width));
+        std::array<int,original::goods_count> commitments{};
+        for(unsigned g=0;g<original::goods_count;++g)commitments[g]=incoming(*original_goods_,body.id,static_cast<original::Goods>(g));
+        for(unsigned g=0;g<original::goods_count;++g)
+            needs[h][g]=original_market_need(original_rules_model_->house_rules(),actual,static_cast<original::Goods>(g),commitments);
+    }
+    const auto has_route=[](const CourierState& actor,BuildingId target) {
+        const auto route=std::lower_bound(actor.dynamic_target_routes.begin(),actor.dynamic_target_routes.end(),target,
+            [](const auto& value,BuildingId id){return value.first<id;});
+        return route!=actor.dynamic_target_routes.end()&&route->first==target&&route->second.has_value();
+    };
+    std::array<MarketChoice,bound*original::goods_count> choices{};std::size_t used=0;
+    bool demand=false,room=false;
+    for(std::size_t t=0;t<count;++t) {
+        const auto& target=*targets[t];
+        if(!target.operating_enabled||building_on_fire(target.id))continue;
+        for(unsigned g=0;g<original::goods_count;++g) {
+            const auto good=static_cast<original::Goods>(g);std::optional<MarketNeed> need;
+            if(c.role==CourierRole::MarketPotteryDistribution) {
+                const auto h=std::lower_bound(homes.begin(),homes.end(),target.id,[](const auto& home,BuildingId id){return home.building_id<id;});
+                if(h!=homes.end()&&h->building_id==target.id)need=needs[static_cast<std::size_t>(h-homes.begin())][g];
+            } else if(target.kind==Object::Market) {
+                // The Warehouse supplier prepares only goods usable by a real
+                // reachable household of this paid Market. Both transport legs
+                // use the same need query and actual incoming commitments.
+                const auto outbound=std::find_if(couriers_.begin(),couriers_.end(),[&](const auto& actor){
+                    return actor.owner==target.id&&actor.role==CourierRole::MarketPotteryDistribution;});
+                if(outbound==couriers_.end()||workers_assigned(target.id)<workforce_required(target.id))continue;
+                const int pool=original_typed_stock(target.id,good)+incoming(*original_goods_,target.id,good);
+                if(pool>Rules::courier_capacity)continue;
+                for(std::size_t h=0;h<homes.size();++h)if(needs[h][g]&&has_route(*outbound,homes[h].building_id)) {
+                    const auto& wanted=*needs[h][g];
+                    if(!need||wanted.tier<need->tier)need=MarketNeed{wanted.tier,pool+wanted.stock,wanted.demand};
+                    else if(wanted.tier==need->tier){need->stock+=wanted.stock;need->demand+=wanted.demand;}
+                }
+            } else if(target.kind==Object::OriginalPaperMaker45&&good==original::Goods::Hemp&&
+                      workers_assigned(target.id)==workforce_required(target.id)) {
+                // Keep the existing paid Paper input chain possible. It has a
+                // real staffed producer; the two-unit input threshold is an
+                // authored buffer, not a changed recipe quantity. No Paper
+                // or Confucian service is granted by this supply decision.
+                const int pool=original_typed_stock(target.id,good)+incoming(*original_goods_,target.id,good);
+                if(pool<=Rules::courier_capacity)need=MarketNeed{pool<2?0U:1U,pool,2};
+            }
+            if(!need)continue;demand=true;
+            if(capacity(target.kind,good)<=0||original_typed_stock(c.owner,good)<=0||original_market_headroom(target.id,good)<=0)continue;
+            room=true;if(!has_route(c,target.id))continue;
+            choices[used++]={t*original::goods_count+g,*need};
+        }
+    }
+    const auto chosen=choose_original_market_pair(std::span(choices).first(used),start,pairs);
+    if(!chosen)return {{!demand?CourierDispatchStatus::NoTarget:room?CourierDispatchStatus::NoRoad:CourierDispatchStatus::TargetFull,{}},{}};
+    return {{CourierDispatchStatus::Ready,targets[*chosen/original::goods_count]->id},static_cast<original::Goods>(*chosen%original::goods_count)};
+}
+
 CourierDispatchDecision World::original_market_dispatch_status(const CourierState& c) const {
+    if(original_market_logistics_enabled()&&(c.role==CourierRole::MarketPotteryInbound||c.role==CourierRole::MarketPotteryDistribution))
+        return original_needs_market_selection(c).first;
     const auto& source=building(c.owner);
     const auto* previous=row(*original_goods_,c.id);
     if (previous && previous->transfer.sequence==UINT64_MAX) return {CourierDispatchStatus::NoStock,{}};
@@ -262,6 +348,10 @@ CourierDispatchDecision World::original_market_dispatch_status(const CourierStat
 }
 
 std::optional<original::Goods> World::original_market_dispatch_good(const CourierState& c,BuildingId target) const {
+    if(original_market_logistics_enabled()&&(c.role==CourierRole::MarketPotteryInbound||c.role==CourierRole::MarketPotteryDistribution)) {
+        const auto selection=original_needs_market_selection(c);
+        return selection.first.selected_target==target?selection.second:std::nullopt;
+    }
     const auto* previous=row(*original_goods_,c.id);
     // A different selected target is entered at column0. Returning to the
     // previous target continues after its previous good, including full wrap.

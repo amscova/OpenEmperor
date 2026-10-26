@@ -43,6 +43,23 @@ Ticks nach der Anlaufphase; vier volle 20400-Tick-Fenster erwirtschaften je 1950
 Funds nach sämtlichem Unterhalt. Das belegt diesen begrenzten Bauplan, keinen
 Gewinn für jede Stadt oder einen vollständigen Aufstieg zu höchsten Hausstufen.
 
+**M Needs-aware logistics** startet ausdrücklich **Rule13 / Schema29 / Policy3**.
+Der Modus behält die drei Food-Ketten, den 816-Tick-Unterhalt, Brandschutz,
+Preise und Transportgrenzen von Rule12. Warehouse und Market wählen Waren
+nach tatsächlichem Hausbedarf: fehlender aktueller Bedarf zuerst, danach
+Vorrat und erfüllbare nächste Stufen. Erst echte Lieferankünfte füllen die
+Häuser. Die Auswahl ist eine eigene OpenEmperor-Regel; bestehende Rule12-Städte
+werden nicht umgestellt. Der direkte Start mit bezahltem Starter lautet:
+
+```sh
+./build/openemperor --data /pfad/zur/Emperor-Installation --sandbox Cities/Xia.map --sandbox-rules sandbox-city-v16 --original-market-logistics
+```
+
+Die [Marktdiagnose](oe39-market-diagnosis.md) erklärt die gemessenen Rule12-Lücken.
+Die [separate Langzeitbewertung](oe39-market-retention.md) hält Warenversorgung,
+Hausstufen, Brände und Finanzierung auseinander; der neue Modus allein belegt
+keine durchgängige Versorgung oder brandsichere Stadt.
+
 Der [bezahlte High-Tier-Ausbau](oe38-paid-high-tier-progression.md) erreicht
 Common10 (Luxurious Apartment). In den geprüften20400 Folgeticks entstehen
 Hemp-/Ceramics-Lücken und Rückentwicklungen trotz positivem Betriebssaldo;
@@ -87,6 +104,8 @@ ein begrenztes Versorgungsfenster; Brände und laufende Verluste bleiben offen.
 pausiert. Nach einem Neustart **L Load Save → Open selected** wählen.
 Difficulty, Modell- und Kartenquelle müssen passen. Alte Entwicklungsrevisionen
 werden mit Diagnose verweigert; ein fehlgeschlagener Ladevorgang erhält die Stadt.
+Rule10/11/12/13 laden jeweils ihren eigenen Stand mit Schema26/27/28/29.
+F5/F9 und Recovery ändern dabei keine Regelgeneration.
 
 **Autosave: ON** im Hauptmenü aktiviert Recovery: ein geschützter Startpunkt
 und bis zu fünf Checkpoints im Abstand von **60 simulierten Sekunden**.
@@ -111,6 +130,8 @@ Der letzte Stand bleibt speicherbar. Grenzen und Messwerte stehen im
 [Brandschutzvertrag](oe36-fire-protection.md).
 Rule12 verwendet denselben begrenzten Brandschutz und eine eigene Save-Version;
 auch seine sparsamere Finanzierung garantiert keinen Gewinn für jeden Ausbau.
+Rule13 übernimmt diese Grenzen. Seine bedarfsabhängige Warenauswahl erhöht weder
+Hauslager noch Kurierzahl, Transportmenge, Geschwindigkeit oder Brandschutz.
 
 Rezepte, Ernte, Zuzug/Worker und Schule→Haus-Besuche enthalten eigene Regeln.
 Originale Veranstaltungs-/Performer-Abläufe und Krankheit fehlen. Mehrere

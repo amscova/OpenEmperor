@@ -423,6 +423,16 @@ std::unique_ptr<SandboxView> SandboxView::create_original_sustainable_economy(
     result->original_paid_starter_=paid_starter;
     return result;
 }
+std::unique_ptr<SandboxView> SandboxView::create_original_market_logistics(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original market-logistics difficulty");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalMarketLogisticsRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
 
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version)
@@ -535,7 +545,8 @@ void SandboxView::load_now() {
          (original_requested_difficulty_ &&
           document.world.original_economy->model_source->difficulty!=*original_requested_difficulty_)))
         throw std::runtime_error("Saved original difficulty differs from this running session");
-    auto replacement=original_sustainable_economy() ?
+    auto replacement=original_market_logistics() ?
+        persistence::restore_original_market_logistics(document,data_root_,buildable_mask_) : original_sustainable_economy() ?
         persistence::restore_original_sustainable_economy(document,data_root_,buildable_mask_) : original_fire_protection() ?
         persistence::restore_original_fire_protection(document,data_root_,buildable_mask_) : original_production_fixture() ?
         persistence::restore_original_production_development(document,data_root_,buildable_mask_) : original_goods_fixture() ?
@@ -632,7 +643,9 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(original_sustainable_economy() ?
+        world_=std::make_unique<simulation::World>(original_market_logistics() ?
+            persistence::restore_original_market_logistics(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) : original_sustainable_economy() ?
             persistence::restore_original_sustainable_economy(*initial_save_,data_root_,
                 buildable_mask_,std::move(permissions)) : original_fire_protection() ?
             persistence::restore_original_fire_protection(*initial_save_,data_root_,
@@ -651,6 +664,10 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (original_market_logistics()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_market_logistics(
+            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal))));
     } else if (original_sustainable_economy()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_sustainable_economy(
             std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
@@ -704,7 +721,8 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(original_sustainable_economy())title+=" | save schema 28 | authored sustainable economy + fire protection";
+    if(original_market_logistics())title+=" | save schema 29 | authored needs-aware market logistics";
+    else if(original_sustainable_economy())title+=" | save schema 28 | authored sustainable economy + fire protection";
     else if(original_fire_protection())title+=" | save schema 27 | original economy + authored fire protection";
     else if(original_production_fixture())title+=" | save schema 26 | original economy development "+
         std::to_string(simulation::kOriginalProductionDevelopmentRevision);
@@ -6021,7 +6039,8 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(original_sustainable_economy())overview+=" | Policy 3 | Save 28 | Authored sustainable economy";
+        if(original_market_logistics())overview+=" | Policy 3 | Save 29 | Authored market logistics";
+        else if(original_sustainable_economy())overview+=" | Policy 3 | Save 28 | Authored sustainable economy";
         else if(original_fire_protection())overview+=" | Policy 3 | Save 27 | Authored fire protection";
         else if(original_production_fixture())overview+=" | Policy 3 | Save 26 | Production development "+
             std::to_string(simulation::kOriginalProductionDevelopmentRevision);

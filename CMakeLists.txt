@@ -258,6 +258,7 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalProduction.cpp
     src/simulation/WorldOriginalFinance.cpp
     src/simulation/WorldOriginalMarket.cpp
+    src/simulation/OriginalMarketPolicy.cpp
     src/simulation/WorldOriginalHemp.cpp
     src/simulation/WorldOriginalFood.cpp
     src/simulation/WorldWater.cpp
@@ -1776,6 +1777,20 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-market-distribution-acceptance PRIVATE openemperor-original-longplay-view-support)
     openemperor_enable_warnings(openemperor-market-distribution-acceptance)
     add_dependencies(openemperor-market-distribution-acceptance openemperor)
+    add_executable(openemperor-market-needs-policy-tests tests/MarketNeedsPolicyTests.cpp)
+    target_link_libraries(openemperor-market-needs-policy-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-market-needs-policy-tests)
+    add_test(NAME original-market-needs-policy COMMAND openemperor-market-needs-policy-tests)
+    add_executable(openemperor-market-logistics-version-tests tests/MarketLogisticsVersionTests.cpp)
+    target_link_libraries(openemperor-market-logistics-version-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-market-logistics-version-tests)
+    add_test(NAME original-market-logistics-version-save COMMAND openemperor-market-logistics-version-tests)
+    set_tests_properties(original-market-logistics-version-save PROPERTIES TIMEOUT 240)
+    add_executable(openemperor-market-logistics-transport-tests tests/MarketLogisticsTransportTests.cpp)
+    target_link_libraries(openemperor-market-logistics-transport-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-market-logistics-transport-tests)
+    add_test(NAME original-market-logistics-transport COMMAND openemperor-market-logistics-transport-tests)
+    set_tests_properties(original-market-logistics-transport PROPERTIES TIMEOUT 600)
     if(Python3_Interpreter_FOUND)
         add_test(NAME original-market-distribution-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
             -s "${CMAKE_SOURCE_DIR}/tests" -p MarketDistributionRunnerTests.py)

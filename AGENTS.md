@@ -32,6 +32,10 @@
   rules7/8/9 retain schemas23/24/25. Sustainable economy is a separate explicit
   rule12/policy3/schema28 opt-in: three paid Food chains and authored installed
   upkeep every 816 ticks; rules10/11 retain their two-chain/400-tick contracts.
+  Authored needs-aware market logistics is a separate explicit rule13/policy3/
+  schema29 opt-in. It inherits Rule12's economy, fire protection and unchanged
+  bounds; only goods selection changes. Require the schema29 contract marker,
+  exact generation restores and separate menu/CLI selection; never migrate Rule12.
 - Saves are OpenEmperor JSON, never original Emperor savegames. Validate complete
   identities, versions, source hashes, geometry, accounting, goods, paths and limits
   before atomic publication. Derived indexes/caches do not become saved authority.

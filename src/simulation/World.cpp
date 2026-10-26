@@ -407,7 +407,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=12;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=13;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -444,6 +444,8 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v11{11,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==kOriginalFireProtectionRuleVersion) return city_v16_v11;
     static constexpr ProfileRules city_v16_v12{12,32,64,32,5,800};
+    static constexpr ProfileRules city_v16_v13{13,32,64,32,5,800};
+    if (original_market_logistics_enabled(profile,version)) return city_v16_v13;
     if (original_sustainable_economy_enabled(profile,version)) return city_v16_v12;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==5) return city_v16_v5;
@@ -3944,6 +3946,7 @@ bool World::navigation_valid() const {
 
 std::string World::canonical_state() const {
     std::ostringstream out;
+    if (original_market_logistics_enabled()) out<<"original-market-logistics:13|";
     out<<static_cast<int>(profile_)<<':'<<ticks_<<':'<<command_sequence_<<':'<<road_revision_
        <<':'<<roads_placed_total_<<':'<<roads_removed_total_
        <<':'<<static_cast<unsigned>(next_household_id_)<<':'

@@ -1,9 +1,11 @@
 // Separate QA executable; the production simulation and rendering are reused.
 #define OE_HIGH_TIER_PROOF_DIRECTORY "oe39"
 #define OE_HIGH_TIER_REUSE_ONLY
+#define OE_MARKET_LOGISTICS_QA
 #include "HighTierProgressionAcceptance.cpp"
 #undef OE_HIGH_TIER_REUSE_ONLY
 #undef OE_HIGH_TIER_PROOF_DIRECTORY
+#undef OE_MARKET_LOGISTICS_QA
 
 #include "../tests/MarketDistributionMetrics.h"
 #include "../tests/MarketDistributionStrategy.h"
@@ -13,13 +15,13 @@ namespace trace=oe_market_distribution_metrics;
 namespace high=oe_high_tier_metrics;
 namespace strategy=oe_market_distribution_strategy;
 using oe38_cli::high_checkpoint;
-constexpr const char* help="market-distribution-acceptance --mode diagnose|resume|render --data ABSOLUTE --output NEW_PRIVATE_OE39_DIRECTORY [--variant COMMON_VARIANT] [--search-ticks 30000] [--input EARNED_SAVE --target 3 --end-tick N] [--resources ABSOLUTE]";
-struct Options {std::string mode,variant="common-reserved";fs::path data,output,input,resources;unsigned target=3,search=30000,end=0;};
+constexpr const char* help="market-distribution-acceptance --mode diagnose|resume|render --data ABSOLUTE --output NEW_PRIVATE_OE39_DIRECTORY [--rule 12|13] [--variant COMMON_VARIANT] [--search-ticks 30000] [--input EARNED_SAVE --target 3 --end-tick N] [--resources ABSOLUTE]";
+struct Options {std::string mode,variant="common-reserved";fs::path data,output,input,resources;unsigned rule=12,target=3,search=30000,end=0;};
 Options options(int argc,char** argv) {
     Options a;std::map<std::string,std::string> v;
     for(int i=1;i<argc;i+=2) {
         check(i+1<argc,help);const std::string key=argv[i];
-        check(key=="--mode"||key=="--variant"||key=="--data"||key=="--output"||key=="--input"||
+        check(key=="--mode"||key=="--rule"||key=="--variant"||key=="--data"||key=="--output"||key=="--input"||
             key=="--resources"||key=="--target"||key=="--search-ticks"||key=="--end-tick",help);
         check(v.emplace(key,argv[i+1]).second,"Duplicate market proof argument");
     }
@@ -28,11 +30,11 @@ Options options(int argc,char** argv) {
     if(v.contains("--variant"))a.variant=v.at("--variant");check(strategy::common_variant(a.variant),help);
     for(const auto& [key,path]:{std::pair{"--data",&a.data},{"--output",&a.output},{"--input",&a.input},{"--resources",&a.resources}})
         if(v.contains(key))*path=fs::absolute(v.at(key));
-    for(const auto& [key,n]:{std::pair{"--target",&a.target},{"--search-ticks",&a.search},{"--end-tick",&a.end}})if(v.contains(key)) {
+    for(const auto& [key,n]:{std::pair{"--rule",&a.rule},{"--target",&a.target},{"--search-ticks",&a.search},{"--end-tick",&a.end}})if(v.contains(key)) {
         const auto& text=v.at(key);const auto parsed=std::from_chars(text.data(),text.data()+text.size(),*n);
         check(parsed.ec==std::errc{}&&parsed.ptr==text.data()+text.size(),help);
     }
-    check(a.target>0&&a.search>=6000&&a.search<=60000,help);
+    check((a.rule==12||a.rule==13)&&a.target>0&&a.search>=6000&&a.search<=60000,help);
     safe(a.data);safe(a.output);check(fs::is_directory(a.data),"Original installation missing");
     check(a.output!=private_root()&&below(a.output,private_root())&&!fs::exists(a.output),"Market proof needs a new private OE39 output");
     check(!below(a.output,a.data)&&!below(a.data,a.output),"Market output overlaps original installation");
@@ -91,8 +93,8 @@ Retained retain(const q::Context& c,const fs::path& output,sim::World& w,sim::Bu
     }
     out.metrics=observed.report(w);out.transport=traced.report(w);high_checkpoint(c,output,"result",w);
     const auto entry=recovery.write_checkpoint(history,c.document(w),c.mask);
-    check(entry.loadable()&&entry.schema==28&&entry.rule_version==12,"Market proof Recovery changed historical generation");
-    auto restored=q::save::restore_original_sustainable_economy(q::save::read_save(entry.path),c.data,c.mask,c.policy,c.model);
+    check(entry.loadable()&&entry.schema==(w.rule_version()==13?29U:28U)&&entry.rule_version==w.rule_version(),"Market proof Recovery changed historical generation");
+    auto restored=restore(c,q::save::read_save(entry.path));
     check(restored.snapshot()==w.snapshot()&&q::f::read_text(entry.path)==q::f::read_text(output/"result.save.json"),"Market complete Recovery differs");
     out.recovered=true;out.cashflow=out.metrics.at("city").at("summary").at("operating_cashflow").get<std::int64_t>();
     check(out.current_unmet==out.metrics.at("summary").at("current_unmet_evaluations").get<std::uint64_t>(),
@@ -103,22 +105,22 @@ Retained retain(const q::Context& c,const fs::path& output,sim::World& w,sim::Bu
 }
 int run(int argc,char** argv) {
     const auto a=options(argc,argv);const auto target_requested=static_cast<sim::BuildingId>(a.target);
-    if(a.mode=="render") {Args render_args;render_args.mode="render";render_args.rule=12;render_args.variant="balanced-three";
+    if(a.mode=="render") {Args render_args;render_args.mode="render";render_args.rule=a.rule;render_args.variant="balanced-three";
         render_args.data=a.data;render_args.output=a.output;render_args.input=a.input;render_args.resources=a.resources;render(render_args,target_requested);return 0;}
     const auto c=q::Context::real(a.data);check(c.model->provenance().sha256=="7e51df8cd49ab39fea7397b7c1a9e7edefdc98a8f09b5e2139987346b4b972e6","Unchanged pinned Normal model required");
     const auto parsed=oe::original::load_model_data(a.data);check(bool(parsed),"Independent original model preparation failed");
     const oe::original::HouseEvolutionRules rules(*parsed.model,oe::original::Difficulty::Normal);
     fs::create_directories(a.output);
     if(a.mode=="resume") {
-        const auto bytes=q::f::read_text(a.input);auto w=q::save::restore_original_sustainable_economy(q::save::read_save(a.input),c.data,c.mask,c.policy,c.model);
-        const auto begin=w.ticks(),sequence=w.command_sequence();check(w.rule_version()==12&&a.end>begin&&a.end-begin<=20400,"Resume needs exact Rule12 seed and bounded real endpoint");
+        const auto bytes=q::f::read_text(a.input);auto w=restore(c,q::save::read_save(a.input));
+        const auto begin=w.ticks(),sequence=w.command_sequence();check(w.rule_version()==a.rule&&a.end>begin&&a.end-begin<=20400,"Resume needs its exact selected rule and bounded real endpoint");
         high_checkpoint(c,a.output,"resume-start",w);check(q::f::read_text(a.output/"resume-start.save.json")==bytes,"Resume changed literal complete input SaveDocument");
         if(entered(w,target_requested)&&high::history(w,target_requested).first_transitions[7]->evaluation.tick==w.ticks())high_checkpoint(c,a.output,"first-success",w);
         const auto retained=retain(c,a.output,w,target_requested,rules,a.end,false);q::authority(w);
         check(w.command_sequence()==sequence&&q::f::read_text(a.input)==bytes,"Resume issued commands or changed protected input");
         write(a.output/"report.json",{{"format","openemperor-high-tier-resume-v1"},{"technical_status","PASS"},
             {"target",a.target},{"begin_tick",begin},{"end_tick",w.ticks()},{"retention_ticks",w.ticks()-begin},
-            {"rule",12},{"schema",28},{"policy",3},{"revision",27},{"snapshot_injection",false},{"input_preserved",true},
+            {"rule",a.rule},{"schema",a.rule==13?29:28},{"policy",3},{"revision",27},{"snapshot_injection",false},{"input_preserved",true},
             {"command_sequence_unchanged",true},{"complete_recovery_equality",retained.recovered},{"target_lost_ticks",retained.target_lost},
             {"type_lost_ticks",retained.type_lost},{"goal_loss_ticks",retained.goal_lost},{"minimum_retention_funds",retained.minimum},
             {"operating_cashflow",retained.cashflow},{"sustained_supply",retained.sustained_supply},
@@ -126,7 +128,7 @@ int run(int argc,char** argv) {
                 {"hemp_unmet",retained.hemp_unmet},{"ceramics_unmet",retained.ceramics_unmet}}},
             {"native_human","NOT_RUN"}});return 0;
     }
-    auto w=sim::World::create_original_sustainable_economy(c.policy,c.model);const auto origin=player::origin(c);
+    auto w=fresh(c,a.rule);const auto origin=player::origin(c);
     const auto initial_commands=player::build(w,"balanced-three",origin);metrics::Observation warmup(w);
     while(w.ticks()<20000){warmup.before(w);w.tick();warmup.after(w);}check(player::maturity(w).at("ready").get<bool>(),"Market proof failed to earn OE37 maturity");
     write(a.output/"warmup.json",warmup.report(w));const auto expansion=strategy::build_common(w,origin,a.variant);const auto target=expansion.target;
@@ -151,7 +153,7 @@ int run(int argc,char** argv) {
         {"common10",reached?"PASS":"PARTIAL"},{"elite17","BLOCKED"},{"elite_entry_bound",bound},
         {"retention",reached?(retained.target_lost?"PARTIAL":"PASS"):"NOT_RUN"},
         {"financial_stability",reached?(retained.cashflow>=0&&retained.minimum>=0?"PASS":"FAIL"):"PARTIAL"},
-        {"original_parity","PARTIAL"},{"rule",12},{"schema",28},{"policy",3},{"revision",27},{"variant",a.variant},
+        {"original_parity","PARTIAL"},{"rule",a.rule},{"schema",a.rule==13?29:28},{"policy",3},{"revision",27},{"variant",a.variant},
         {"snapshot_injection",false},{"initial_commands",initial_commands},{"expansion_commands",expansion.commands},
         {"target_house",static_cast<unsigned>(target)},{"first_reached",first},{"highest_actual_type",highest},{"search_ticks",first_tick-20000},
         {"retention_ticks",reached?20400:0},{"target_lost_ticks",retained.target_lost},{"type_lost_ticks",retained.type_lost},

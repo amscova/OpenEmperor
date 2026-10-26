@@ -12,7 +12,7 @@ import test_high_tier_progression as high
 
 proof, baseline = high.proof, high.baseline
 PRIVATE = proof.REPO / ".local/original-economy/oe39"
-VARIANTS = (*high.COMMON_VARIANTS, "common-near-chain", "common-priority", "common-short-route")
+VARIANTS = (*high.COMMON_VARIANTS, "common-near-chain", "common-priority", "common-short-route", "common-compact-chain")
 CHECKPOINTS = ("expansion", "first-success", "before-shortage", "first-shortage",
                "first-devolution", "active-cargo", "result")
 
@@ -41,8 +41,8 @@ def review_paid_commands(report, world, warmup, building_models):
     roads = [row for row in rows if row["command"] == "Near chain road"]
     shortcuts = [row for row in rows if row["command"] == "Market shortcut road"]
     proof.require(len(priority) == (2 if variant == "common-priority" else 0) and
-                  len(roads) == (4 if variant == "common-near-chain" else 0) and
-                  len(shortcuts) == (4 if variant == "common-short-route" else 0),
+                  len(roads) == (4 if variant in ("common-near-chain", "common-compact-chain") else 0) and
+                  len(shortcuts) == (4 if variant in ("common-short-route", "common-compact-chain") else 0),
                   "Paid variant omitted or added strategy-specific World commands")
     bodies = {row["id"]: row for row in world["buildings"]}
     expected = sorted(ident for ident, body in bodies.items() if body["kind"] in (3, 9))
@@ -106,15 +106,15 @@ def review_paid_commands(report, world, warmup, building_models):
     if shortcuts:
         proof.require([row["relative_cell"] for row in shortcuts] == [[8, y] for y in range(5, 9)],
                       "Market shortcut changed its actual paid band connection")
-    expected_cells = {"Clay": [18, 0] if variant == "common-near-chain" else [0, 0],
-                      "Pottery": [18, 2] if variant in ("common-near-pottery", "common-near-chain") else [22, 2]}
+    expected_cells = {"Clay": [18, 0] if variant in ("common-near-chain", "common-compact-chain") else [0, 0],
+                      "Pottery": [18, 2] if variant in ("common-near-pottery", "common-near-chain", "common-compact-chain") else [22, 2]}
     for name, cell in expected_cells.items():
         actual = [row for row in rows if row["command"] == name]
         proof.require(len(actual) == 1 and actual[0]["relative_cell"] == cell,
                       "Paid industrial comparison changed its declared source/route geometry")
 
 
-def review_checkpoint_list(labels, worlds, variant):
+def review_checkpoint_list(labels, worlds, variant, rule=12):
     proof.require(isinstance(labels, list) and len(labels) == len(set(labels)) and
                   all(type(label) is str and label in CHECKPOINTS for label in labels) and
                   {"expansion", "first-success", "active-cargo", "result"} <= set(labels),
@@ -130,7 +130,7 @@ def review_checkpoint_list(labels, worlds, variant):
                       "Checkpoint introduced post-expansion commands or escaped its actual retention interval")
     proof.require(worlds["active-cargo"]["original_goods"]["cargo"],
                   "Active-cargo checkpoint contains no physically loaded six-goods transport")
-    if variant == "common-reserved":
+    if variant == "common-reserved" and rule == 12:
         proof.require({"before-shortage", "first-shortage", "first-devolution"} <= set(labels) and
                       start == 27733 and worlds["first-shortage"]["ticks"] == 29008 and
                       worlds["first-devolution"]["ticks"] == 29467 and
@@ -138,12 +138,12 @@ def review_checkpoint_list(labels, worlds, variant):
                       "Unchanged Rule12 lost its frozen real entry/shortage/devolution witnesses")
 
 
-def review_resume(report, seed, final, target):
+def review_resume(report, seed, final, target, rule=12):
     proof.require(report["technical_status"] == "PASS" and report["snapshot_injection"] is False and
                   report["input_preserved"] is True and report["complete_recovery_equality"] is True and
                   report["command_sequence_unchanged"] is True and
                   all(type(report[key]) is int and report[key] == expected for key, expected in
-                      (("rule", 12), ("schema", 28), ("policy", 3), ("revision", 27),
+                      (("rule", rule), ("schema", 29 if rule == 13 else 28), ("policy", 3), ("revision", 27),
                        ("target", target), ("begin_tick", seed["ticks"]), ("end_tick", final["ticks"]))) and
                   seed["command_sequence"] == final["command_sequence"] and
                   seed["construction_spent_total"] == final["construction_spent_total"],
@@ -248,12 +248,12 @@ def review_supply(report, retention):
     return report["sustained_supply"]
 
 
-def review_trace(trace, observation, seed, final, target, model):
+def review_trace(trace, observation, seed, final, target, model, rule=12):
     begin, end = seed["ticks"], final["ticks"]
     proof.require(trace["format"] == "openemperor-market-distribution-trace-v1" and
                   trace["world_mutation_by_observer"] is False and trace["model_sha256"] == proof.MODEL_SHA and
                   all(type(trace[key]) is int and trace[key] == value for key, value in
-                      (("rule", 12), ("target", target), ("begin_tick", begin), ("end_tick", end))),
+                      (("rule", rule), ("target", target), ("begin_tick", begin), ("end_tick", end))),
                   "Actual transport trace changed source, rule, owner, clock or read-only contract")
     for label, world in (("initial", seed), ("final", final)):
         sample = trace[label]
@@ -341,11 +341,11 @@ def review_trace(trace, observation, seed, final, target, model):
 
 
 def workflow(binary, data, output, variant="common-reserved", reference=None, timeout=1800,
-             replay_checkpoints=True):
+             replay_checkpoints=True, rule=12, resources=None, creator_input=None, first_replay_only=False):
     for path in (binary, data, output, PRIVATE): proof.safe(path)
     proof.require(binary.is_file() and os.access(binary, os.X_OK) and data.is_dir(),
                   "Executable or supplied original installation is missing")
-    proof.require(variant in VARIANTS and type(timeout) is int and 1 <= timeout <= 7200 and
+    proof.require(type(rule) is int and rule in (12, 13) and variant in VARIANTS and type(timeout) is int and 1 <= timeout <= 7200 and
                   PRIVATE in output.parents and not output.exists() and
                   not any(proof.overlaps(output, p) for p in (data, binary.parent)),
                   "Fresh isolated OE39 output, reviewed variant and bounded timeout required")
@@ -353,19 +353,34 @@ def workflow(binary, data, output, variant="common-reserved", reference=None, ti
                   "Pinned unchanged original Normal model required")
     if reference is not None:
         proof.safe(reference)
-        proof.require(reference.is_dir() and proof.REPO / ".local/original-economy" in reference.parents and
+        proof.require(rule == 12 and reference.is_dir() and proof.REPO / ".local/original-economy" in reference.parents and
                       not proof.overlaps(reference, output), "Explicit immutable historical creator required")
+    if resources is not None:
+        proof.safe(resources)
+        proof.require(resources.is_dir() and not proof.overlaps(output, resources), "Protected actual rendering resources required")
+    if creator_input is not None:
+        proof.safe(creator_input)
+        proof.require(creator_input.is_dir() and PRIVATE in creator_input.parents and
+                      not proof.overlaps(output, creator_input), "Explicit protected earned OE39 creator directory required")
+    proof.require(type(first_replay_only) is bool and (not first_replay_only or replay_checkpoints),
+                  "First-entry replay cannot also be disabled")
     original, sources, executable = proof.inventory(data), proof.sources(), proof.record(binary)
     historical = proof.inventory(reference) if reference is not None else None
+    asset_identity = proof.inventory(resources) if resources is not None else None
+    earned_identity = proof.inventory(creator_input) if creator_input is not None else None
+    schema = 29 if rule == 13 else 28
     output.mkdir(parents=True)
-    result = {"format": "openemperor-market-distribution-workflow-v1", "stage": "A", "status": "FAIL",
+    result = {"format": "openemperor-market-distribution-workflow-v1", "stage": "A" if rule == 12 else "B/C", "status": "FAIL",
               "technical_status": "FAIL", "retention": "NOT_RUN", "original_parity": "PARTIAL",
-              "variant": variant, "native_human": "NOT_RUN", "rendering": "NOT_RUN",
+              "variant": variant, "rule": rule, "schema": schema, "native_human": "NOT_RUN", "rendering": "NOT_RUN",
+              "visual_inspection": "NOT_RUN",
               "sources": sources, "executable": executable, "processes": []}
+    result["creator_origin"] = "explicit earned directory" if creator_input is not None else "fresh paid commands"
+    result["requested_replay_scope"] = "first-success" if first_replay_only else "all checkpoints" if replay_checkpoints else "NOT_RUN"
     started = time.monotonic()
 
     def child(mode, folder, extra):
-        command = [str(binary), "--mode", mode, "--data", str(data), "--output", str(folder), *extra]
+        command = [str(binary), "--mode", mode, "--rule", str(rule), "--data", str(data), "--output", str(folder), *extra]
         entry = {"command": command}; result["processes"].append(entry)
         now = time.monotonic()
         try:
@@ -377,31 +392,32 @@ def workflow(binary, data, output, variant="common-reserved", reference=None, ti
         finally: entry["elapsed_seconds"] = time.monotonic()-now
 
     try:
-        creator = output / "creator"
-        report = child("diagnose", creator, ["--variant", variant])
+        creator = creator_input if creator_input is not None else output / "creator"
+        report = proof.load(creator / "report.json") if creator_input is not None else child("diagnose", creator, ["--variant", variant])
+        proof.require(report["variant"] == variant, "Earned creator differs from the explicitly requested paid variant")
         model, buildings = baseline.prepared(data / "Model/EmperorBuildingModels.txt")
         labels = report["checkpoints"]
         proof.require(isinstance(labels, list) and all(type(label) is str and label in CHECKPOINTS for label in labels),
                       "Unreviewed checkpoint path in diagnosis report")
         worlds = {}
         for label in labels:
-            worlds[label] = baseline.review_save(creator / (label+".save.json"), 12, data)
+            worlds[label] = baseline.review_save(creator / (label+".save.json"), rule, data)
             high.review_snapshot(creator / (label+".snapshot.json"), worlds[label])
-        review_checkpoint_list(labels, worlds, variant)
+        review_checkpoint_list(labels, worlds, variant, rule)
         target = integer(report["target_house"], 1)
         expansion, first, final = (worlds[key] for key in ("expansion", "first-success", "result"))
         retention = proof.load(creator / "retention.json")
         high.review_common(report, proof.load(creator / "warmup.json"), proof.load(creator / "search.json"),
-                           expansion, final, model, buildings, first, retention, review_paid_commands, VARIANTS)
+                           expansion, final, model, buildings, first, retention, review_paid_commands, VARIANTS, rule, schema)
         supply = review_supply(report, retention)
         result["transport_checks"] = {
-            "search": review_trace(proof.load(creator / "trace-search.json"), proof.load(creator / "search.json"), expansion, first, target, model),
-            "retention": review_trace(proof.load(creator / "trace-retention.json"), retention, first, final, target, model)}
+            "search": review_trace(proof.load(creator / "trace-search.json"), proof.load(creator / "search.json"), expansion, first, target, model, rule),
+            "retention": review_trace(proof.load(creator / "trace-retention.json"), retention, first, final, target, model, rule)}
         failed = [event["actual_evaluation"] for event in retention["evaluations"]
                   if not event["actual_evaluation"]["current_needs"]["needs_met"]]
         proof.require(report["first_failure"] == ({"tick": failed[0]["tick"], "actual_evaluation": failed[0]} if failed else None),
                       "First-failure claim differs from the earliest actual unmet phase39 input")
-        result["creator_recovery"] = high.review_recovery(creator, creator / "first-success.save.json", creator / "result.save.json")
+        result["creator_recovery"] = high.review_recovery(creator, creator / "first-success.save.json", creator / "result.save.json", rule, schema)
         if reference is not None:
             result["historical_literal_pairs"] = compare_files(reference, creator,
                 ("expansion.save.json", "first-success.save.json", "result.save.json",
@@ -410,27 +426,41 @@ def workflow(binary, data, output, variant="common-reserved", reference=None, ti
         if replay_checkpoints:
             for label in labels:
                 if label in ("expansion", "result"): continue
+                if first_replay_only and label != "first-success": continue
                 folder = output / ("resume-"+label); seed = worlds[label]
                 input_path = creator / (label+".save.json"); identity = proof.record(input_path)
                 resumed_report = child("resume", folder, ["--input", str(input_path), "--target", str(target), "--end-tick", str(final["ticks"])])
                 proof.require(proof.record(input_path) == identity, "Resume changed its exact earned input")
-                resumed_seed = baseline.review_save(folder / "resume-start.save.json", 12, data)
+                resumed_seed = baseline.review_save(folder / "resume-start.save.json", rule, data)
                 proof.require((folder / "resume-start.save.json").read_bytes() == input_path.read_bytes(),
                               "Canonical complete restore differs from its earned input")
                 high.review_snapshot(folder / "resume-start.snapshot.json", resumed_seed)
-                replayed = baseline.review_save(folder / "result.save.json", 12, data)
+                replayed = baseline.review_save(folder / "result.save.json", rule, data)
                 high.review_snapshot(folder / "result.snapshot.json", replayed)
-                review_resume(resumed_report, seed, replayed, target)
+                review_resume(resumed_report, seed, replayed, target, rule)
                 observed = proof.load(folder / "retention.json")
                 high.review_observation(observed, seed, replayed, target, model)
-                review_trace(proof.load(folder / "trace-retention.json"), observed, seed, replayed, target, model)
+                review_trace(proof.load(folder / "trace-retention.json"), observed, seed, replayed, target, model, rule)
                 if label == "first-success": review_supply(resumed_report, observed)
                 names = ["result.save.json", "result.snapshot.json"]
                 if label == "first-success": names += ["retention.json", "trace-retention.json"]
                 result["replays"].append({"checkpoint": label, "literal_pairs": compare_files(creator, folder, names),
-                    "recovery": high.review_recovery(folder, folder / "resume-start.save.json", folder / "result.save.json")})
+                    "recovery": high.review_recovery(folder, folder / "resume-start.save.json", folder / "result.save.json", rule, schema)})
+        result["renders"] = []
+        if resources is not None:
+            for label in ("first-success", "result"):
+                folder = output / ("render-"+label); world = worlds[label]
+                source = creator / (label+".save.json"); identity = proof.record(source)
+                rendered = child("render", folder, ["--input", str(source), "--target", str(target), "--resources", str(resources)])
+                proof.require(identity == proof.record(source) and
+                              (folder / "view.save.json").read_bytes() == source.read_bytes(),
+                              "Actual SandboxView F5/F9 changed its protected complete source save")
+                captures = high.review_render(rendered, folder, world, target, label == "first-success", rule, schema)
+                high.review_art(rendered["original_house_art"], world, target, data, resources)
+                result["renders"].append({"checkpoint": label, "report": rendered, "captures": captures})
         result.update(status="PASS", technical_status="PASS", scenario=report, retention=report["retention"], sustained_supply=supply,
-                      separate_process_continuation="PASS" if replay_checkpoints else "NOT_RUN")
+                      separate_process_continuation="PASS" if replay_checkpoints else "NOT_RUN",
+                      rendering="PASS" if result["renders"] else "NOT_RUN")
     except Exception as error:
         result["error"] = str(error)
         raise
@@ -438,8 +468,10 @@ def workflow(binary, data, output, variant="common-reserved", reference=None, ti
         result.update(elapsed_seconds=time.monotonic()-started,
                       original_bytes_modes_mtimes_unchanged=original == proof.inventory(data),
                       sources_unchanged=sources == proof.sources(), executable_unchanged=executable == proof.record(binary),
-                      historical_creator_unchanged=reference is None or historical == proof.inventory(reference))
-        if not all(result[key] for key in ("original_bytes_modes_mtimes_unchanged", "sources_unchanged", "executable_unchanged", "historical_creator_unchanged")):
+                      historical_creator_unchanged=reference is None or historical == proof.inventory(reference),
+                      resources_unchanged=resources is None or asset_identity == proof.inventory(resources),
+                      earned_creator_unchanged=creator_input is None or earned_identity == proof.inventory(creator_input))
+        if not all(result[key] for key in ("original_bytes_modes_mtimes_unchanged", "sources_unchanged", "executable_unchanged", "historical_creator_unchanged", "resources_unchanged", "earned_creator_unchanged")):
             result.update(status="FAIL", technical_status="FAIL", error="Protected original/source/executable/historical input changed")
         (output / "market-acceptance.json").write_text(json.dumps(result, indent=2)+"\n")
     proof.require(result["technical_status"] == "PASS", result.get("error", "Transport diagnosis technical gate failed"))
@@ -450,14 +482,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("binary", "data", "output"): parser.add_argument("--"+name, type=Path, required=True)
     parser.add_argument("--variant", choices=VARIANTS, default="common-reserved")
+    parser.add_argument("--rule", type=int, choices=(12, 13), default=12)
+    parser.add_argument("--resources", type=Path, help="Actual SandboxView F5/F9 and 1x/2x/4x captures")
+    parser.add_argument("--input", type=Path, help="Explicit earned creator directory for independent cross-configuration continuation")
+    parser.add_argument("--first-replay-only", action="store_true", help="Replay the full20400 ticks from first entry; other checkpoint replays NOT_RUN")
     parser.add_argument("--reference", type=Path, help="Explicit immutable OE38 common creator directory")
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--no-replay", action="store_true", help="Diagnostic only; separate-process proof NOT_RUN")
     args = parser.parse_args()
     try:
         result = workflow(*(getattr(args, key).absolute() for key in ("binary", "data", "output")),
-                          args.variant, args.reference.absolute() if args.reference else None, args.timeout, not args.no_replay)
-        print("OE39 Gate A technical " + result["technical_status"] + "; retention " + result["retention"] + "; native/human NOT_RUN")
+                          args.variant, args.reference.absolute() if args.reference else None, args.timeout, not args.no_replay,
+                          args.rule, args.resources.absolute() if args.resources else None,
+                          args.input.absolute() if args.input else None, args.first_replay_only)
+        print("OE39 technical " + result["technical_status"] + "; sustained supply " + result["sustained_supply"] + "; native/human NOT_RUN")
         return 0
     except Exception as error:
         print("OE39 FAIL: " + str(error), file=sys.stderr)
