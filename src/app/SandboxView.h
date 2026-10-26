@@ -80,6 +80,11 @@ public:
         maps::StoredMapSession session,
         std::optional<original::Difficulty> difficulty=std::nullopt,
         bool paid_starter=false);
+    // Explicit Rule14/schema30 recipient water query; requires a bound map input.
+    static std::unique_ptr<SandboxView> create_original_cardinal_water(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
     // Explicit authored Rule13/schema29 logistics, separate from Rule12 saves.
     static std::unique_ptr<SandboxView> create_original_market_logistics(
         maps::StoredMapSession session,
@@ -613,6 +618,9 @@ private:
     }
     bool original_sustainable_economy() const {
         return simulation::original_sustainable_economy_enabled(rules_,requested_rule_version_);
+    }
+    bool original_cardinal_water() const {
+        return simulation::original_cardinal_water_enabled(rules_,requested_rule_version_);
     }
     bool original_market_logistics() const {
         return simulation::original_market_logistics_enabled(rules_,requested_rule_version_);

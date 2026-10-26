@@ -41,6 +41,7 @@ public:
     bool original_setup() const { return original_new_game_; }
     bool original_fire_protection_setup() const { return original_fire_protection_new_game_; }
     bool original_sustainable_economy_setup() const { return original_sustainable_economy_new_game_; }
+    bool original_cardinal_water_setup() const { return original_cardinal_water_new_game_; }
     bool original_market_logistics_setup() const { return original_market_logistics_new_game_; }
     original::Difficulty original_difficulty() const { return original_difficulty_; }
     bool original_paid_starter() const { return original_paid_starter_; }
@@ -101,6 +102,7 @@ private:
     bool original_new_game_=false; // Session-only opt-in; never a RulesProfile/settings default.
     bool original_fire_protection_new_game_=false; // Explicit Rule11 session choice, never a default.
     bool original_sustainable_economy_new_game_=false; // Explicit Rule12, never persisted as a default.
+    bool original_cardinal_water_new_game_=false; // Explicit Rule14, never a saved default.
     bool original_market_logistics_new_game_=false; // Explicit authored Rule13, never a default.
     original::Difficulty original_difficulty_=original::Difficulty::Normal;
     bool original_paid_starter_=true;

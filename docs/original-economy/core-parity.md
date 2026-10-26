@@ -59,7 +59,7 @@ audits; an unsupported wrapper is never counted as a matching implementation.
 | Invalid difficulty, invalid enums and overflowing edited-model arithmetic | `corrected bug` | The typed adapter rejects them; it does not clamp invalid difficulty or emulate unchecked arithmetic. These checks are authored and tested separately from valid-domain parity. |
 | Square rings, footprint exclusion, clipping, ten-ring cap, sign absorption and ordered per-add saturation | `parity` | Independent distance controls and [bounded spread evidence](../reverse/original-desirability-contract.md). Source order remains significant at saturation. |
 | Nonpositive spread period | `corrected bug` | The fork never advances; the original advances after each ring. The new kernel preserves that inspected branch. |
-| Maximum over an on-map square, then explicit bonus | `parity` | Valid-domain maximum/bonus controls. The meaning of the original conditional +10 producer remains unknown. |
+| Maximum over an on-map square, then explicit bonus | `parity` | Valid-domain maximum/bonus controls. The separately researched [cardinal-water producer](oe40-desirability-investigation.md) is outside these historical numerical vectors. |
 | Off-map/oversized squares, map and source budgets, partial batch failure | `corrected bug` | Bounds, checked intermediates and atomic rejection are explicit authored guards. An out-of-map query does not invent a zero cell. |
 | Sixteen uniform wall sectors | `unverified` | The fork's corrected-centre `Intended` mode and the new opt-in `ExperimentalUniform16` are authored hypotheses. Recovered mixed units, original sectors, neighbor cases and clipped-edge behavior remain unresolved; default remains wall-free. |
 | Canonical House types/rows, ordinary verdicts, inclusive needs, bronze/lacquer OR and Daoist/Buddhist OR | `parity` | Independent type/requirement controls and [needs evidence](../reverse/original-house-needs-contract.md). Two insufficient stocks are never added into a sufficient alternative. |
@@ -171,6 +171,24 @@ header pin. Fresh linked probes still pass the same74 vectors with identical
 cases, expected/observed values, fork pins and real-model digest. Its authored
 economy changes are evaluated by the separate paid-city acceptance, not this
 kernel comparison. Raw build/library provenance remains under ignored `.local/`.
+
+Rule13/14 add explicit factories and predicates without changing the historical
+HouseholdV3/CityV7 calls used by the fourth-module probe. The Rule14 review also
+covers the immutable terrain pointer, appended influence/diagnostic fields and
+the new terrain-facts header. The comparison now pins all three affected API
+headers exactly and includes their SHA-256 identities in the public report.
+Missing, changed or symlinked headers fail before compilation. The previous
+World-header pin had not yet included Rule13; the review therefore checks the
+complete prior Rule12-to-current Rule14 API difference, rather than assuming
+the intervening generation was already certified.
+
+Fresh Release comparison against the same pinned fork retains all74 canonical
+vectors, classifications, expected/observed arrays, the fourth-module18-value
+observation and the1800-value real-model digest. Only current source/API
+fingerprints change. This validates compatibility of the historical comparison;
+it does not certify Rule13 market retention, the Rule14 terrain mechanism or
+paid Elite progression. The initial stale-header/report failures are preserved
+separately from the fresh comparison under ignored OE40 evidence.
 
 The comparison uses independently specified vectors and expected outcomes for
 parser values, rings, needs, House transitions, timer effects, consumption,

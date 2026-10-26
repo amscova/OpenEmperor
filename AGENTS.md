@@ -35,7 +35,11 @@
   Authored needs-aware market logistics is a separate explicit rule13/policy3/
   schema29 opt-in. It inherits Rule12's economy, fire protection and unchanged
   bounds; only goods selection changes. Require the schema29 contract marker,
-  exact generation restores and separate menu/CLI selection; never migrate Rule12.
+  exact generation restores and separate menu/CLI selection; never migrate Rule12. Cardinal-water
+  House desirability is a separate explicit rule14/policy3/schema30 opt-in with
+  an exact contract marker and immutable full-map-SHA-bound raw terrain context.
+  Only actual paid Common2x2/materializedElite4x4 recipients get the conditional
+  query bonus; pending plots get none. Rule13/schema29 and older saves stay exact.
 - Saves are OpenEmperor JSON, never original Emperor savegames. Validate complete
   identities, versions, source hashes, geometry, accounting, goods, paths and limits
   before atomic publication. Derived indexes/caches do not become saved authority.

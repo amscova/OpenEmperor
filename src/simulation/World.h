@@ -4,6 +4,7 @@
 #include "simulation/Ramp.h"
 #include "simulation/OriginalEconomyState.h"
 #include "simulation/OriginalInfluenceState.h"
+#include "simulation/OriginalTerrainFacts.h"
 #include "simulation/OriginalGoodsState.h"
 #include "simulation/OriginalProductionState.h"
 #include "simulation/OriginalHousingDiagnosis.h"
@@ -231,15 +232,23 @@ inline constexpr std::uint32_t kOriginalProductionRuleVersion=10;
 inline constexpr std::uint32_t kOriginalFireProtectionRuleVersion=11;
 inline constexpr std::uint32_t kOriginalSustainableRuleVersion=12;
 inline constexpr std::uint32_t kOriginalMarketLogisticsRuleVersion=13;
+inline constexpr std::uint32_t kOriginalCardinalWaterRuleVersion=14;
 inline constexpr const char* original_market_logistics_contract="authored-needs-aware-market-v1";
+inline constexpr const char* original_cardinal_water_contract="verified-cardinal-water-desirability-v1";
+constexpr bool original_cardinal_water_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalCardinalWaterRuleVersion;
+}
 constexpr bool original_market_logistics_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && version==kOriginalMarketLogisticsRuleVersion;
 }
+constexpr bool original_market_selection_enabled(RulesProfile profile,std::uint32_t version) {
+    return original_market_logistics_enabled(profile,version) || original_cardinal_water_enabled(profile,version);
+}
 constexpr bool original_sustainable_economy_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion);
+    return profile==RulesProfile::CityV16 && (version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion);
 }
 constexpr bool original_fire_protection_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion);
+    return profile==RulesProfile::CityV16 && (version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion);
 }
 constexpr std::size_t original_food_farm_limit(RulesProfile profile,std::uint32_t version) {
     return original_sustainable_economy_enabled(profile,version) ? 3U:2U;
@@ -253,7 +262,7 @@ constexpr std::size_t original_food_trip_limit(RulesProfile profile,std::uint32_
 inline constexpr std::int64_t original_production_starting_treasury=12000;
 constexpr bool original_production_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && (version==kOriginalProductionRuleVersion ||
-        version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion);
+        version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion);
 }
 inline constexpr std::int64_t original_influence_starting_treasury=2000;
 inline constexpr std::int64_t original_influence_source_cost=60;
@@ -262,22 +271,22 @@ inline constexpr std::size_t original_influence_purchase_limit=33;
 constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion ||
-         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion);
+         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion);
 }
 constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && (version==kOriginalGoodsRuleVersion ||
-        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion);
+        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion);
 }
 constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
-         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion);
+         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion);
 }
 constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13);
+    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13 || version==14);
 }
 constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13);
+    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13 || version==14);
 }
 
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
@@ -337,12 +346,16 @@ struct OriginalInfluenceProvenance {
     original::Difficulty difficulty=original::Difficulty::Normal;
     std::string model_sha256;
     std::vector<OriginalInfluenceContribution> sources;
+    int raw_value=0,cardinal_water_bonus=0;
+    std::string source_map_sha256;
 };
 struct OriginalInfluenceCache;
 struct OriginalInfluenceInspection {
     Cell selected_cell{};
     int value=0;
     std::vector<OriginalInfluenceContribution> entries;
+    int raw_value=0,cardinal_water_bonus=0;
+    std::string source_map_sha256;
 };
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind);
 std::vector<Cell> building_footprint_cells(RulesProfile profile,std::uint32_t rule_version,Object kind,Cell origin);
@@ -652,6 +665,8 @@ public:
     bool original_fire_protection_enabled() const { return simulation::original_fire_protection_enabled(profile_,rule_version_); }
     bool original_sustainable_economy_enabled() const { return simulation::original_sustainable_economy_enabled(profile_,rule_version_); }
     bool original_market_logistics_enabled() const { return simulation::original_market_logistics_enabled(profile_,rule_version_); }
+    bool original_cardinal_water_enabled() const { return simulation::original_cardinal_water_enabled(profile_,rule_version_); }
+    bool original_market_selection_enabled() const { return simulation::original_market_selection_enabled(profile_,rule_version_); }
     // Authored installed liability: Rule12 uses one existing 816t economy
     // month; historical generations retain their exact 400t invoice clock.
     std::uint64_t original_worker_upkeep_interval() const {
@@ -676,6 +691,9 @@ public:
     std::uint64_t original_influence_cache_build_count() const { return original_influence_cache_build_count_; }
     OriginalInfluenceProvenance original_influence_provenance(BuildingId household) const;
     OriginalInfluenceInspection original_influence_inspection(BuildingId household) const;
+    int original_house_influence_value(BuildingId household) const;
+    int original_house_cardinal_water_bonus(BuildingId household) const;
+    std::shared_ptr<const OriginalTerrainFacts> original_terrain_facts() const { return original_terrain_facts_; }
     std::shared_ptr<const original::OriginalRulesModel> original_rules_model() const { return original_rules_model_; }
     bool bridges_supported() const { return bridges_rule_enabled(profile_,rule_version_); }
     bool ramps_supported() const { return ramps_rule_enabled(profile_,rule_version_); }
@@ -743,6 +761,13 @@ public:
     static World restore_original_market_logistics(const WorldSnapshot& snapshot,
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
+    static World create_original_cardinal_water(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model,
+        std::shared_ptr<const OriginalTerrainFacts> terrain);
+    static World restore_original_cardinal_water(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model,
+        std::shared_ptr<const OriginalTerrainFacts> terrain);
     RulesProfile profile() const { return profile_; }
     std::uint32_t rule_version() const { return rule_version_; }
     const ProfileRules& active_rules() const { return profile_rules(profile_,rule_version_); }
@@ -897,7 +922,8 @@ private:
     World(int width,int height,std::vector<std::uint8_t> buildable,
           RulesProfile profile,std::uint32_t rule_version,
           std::shared_ptr<const MapPermissions> permissions,bool original_development=false,
-          std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+          std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+          std::shared_ptr<const OriginalTerrainFacts> terrain=nullptr);
     void update_health();
     void update_fire();
     CommandResult execute_impl(Command command,bool refresh_after,bool influence_prepared=false);
@@ -916,7 +942,8 @@ private:
     static World restore_impl(const WorldSnapshot& snapshot,std::vector<std::uint8_t> buildable,
                               std::shared_ptr<const MapPermissions> permissions,
                               bool original_development=false,
-                              std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+                              std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+                              std::shared_ptr<const OriginalTerrainFacts> terrain=nullptr);
     std::optional<std::vector<Cell>> find_road_route(Cell start,Cell goal) const;
     std::optional<std::vector<Cell>> find_route_to_building(Cell start,BuildingId target) const;
     const std::vector<Cell>* route_for_revision();
@@ -1040,6 +1067,7 @@ private:
     std::shared_ptr<const OriginalInfluenceCache> original_influence_cache_;
     std::uint64_t original_influence_cache_build_count_=0;
     std::shared_ptr<const original::OriginalRulesModel> original_rules_model_;
+    std::shared_ptr<const OriginalTerrainFacts> original_terrain_facts_;
     std::vector<Object> objects_;
     std::vector<std::uint32_t> owners_;
     std::vector<BuildingState> buildings_;

@@ -20,10 +20,10 @@ StoredMapSession load_stored_map_session(const std::filesystem::path& data_root,
                                         const std::filesystem::path& map_relative,
                                         FootprintPolicy policy, StoredGraphicsProfile profile,
                                         GreatWallPresentationMode great_wall,
-                                        const std::string& expected_input_sha256) {
+                                        const std::string& expected_input_sha256,bool bind_input) {
     const auto map_path=resolve_map_path(data_root,map_relative);
     const auto container=EmperorContainer::open(map_path);
-    const auto input_sha256=expected_input_sha256.empty() ? std::string{}:map_input_sha256(container);
+    const auto input_sha256=expected_input_sha256.empty() && !bind_input ? std::string{}:map_input_sha256(container);
     if (!expected_input_sha256.empty() && input_sha256!=expected_input_sha256)
         throw std::runtime_error("Map changed since the map-rules check. Check the selected map again.");
     if (container.multipart()) throw std::runtime_error("map browser requires standalone map");

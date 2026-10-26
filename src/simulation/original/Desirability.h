@@ -65,7 +65,8 @@ public:
                        WallBlocking blocking = WallBlocking::None);
 
     // Maximum over the whole footprint, then explicit bonus without cell clamp.
-    // The original +10 trigger is unknown; this API does not infer it.
+    // The separately versioned World recipient contract supplies its trigger;
+    // this spatial API never infers a bonus or grants building authority.
     [[nodiscard]] std::int32_t building_value(Footprint footprint,
                                               std::int32_t bonus = 0) const;
 

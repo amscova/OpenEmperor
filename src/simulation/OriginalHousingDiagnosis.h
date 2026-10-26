@@ -41,6 +41,7 @@ struct OriginalHousingDiagnosis {
     std::uint8_t actual_footprint_side=2,original_required_side=2;
     bool materialization_pending=false,materialization_ready=false;
     BuildDiagnostic materialization_diagnostic;
+    std::int32_t raw_desirability=0,cardinal_water_bonus=0;
     bool operator==(const OriginalHousingDiagnosis&) const = default;
 };
 

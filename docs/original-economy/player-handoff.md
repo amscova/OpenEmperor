@@ -62,6 +62,17 @@ aktuellen Fehlbedarf oder Rückentwicklung; der Betrieb erwirtschaftet4360 Funds
 Dabei sinken die angesparten Hemp-Bestände von94 auf67. Unbegrenzte Versorgung,
 eine brandsichere Gesamtstadt und die menschliche Abnahme bleiben offen.
 
+**W Cardinal-water economy** wählt separat **Rule14 / Schema30 / Policy3**.
+Dieser Modus übernimmt Rule13 und ergänzt den belegten Haus-DES-Bonus von10
+bei Wasser direkt am Rand des tatsächlichen Gebäudes. Diagonales Wasser zählt
+nicht. Der State-Inspector zeigt Zellwert, Wasserbonus und Gesamtsumme getrennt.
+Ein leerer Elite-Plot erhält keinen Bonus vor seiner legalen4×4-Materialisierung.
+Karte und Modell bleiben unveränderte Quellen; ältere Saves werden nicht
+umgestellt. Der neue Mechanismus allein beweist keinen bezahlten Elite17-Aufstieg.
+Die [Quellenprüfung](oe40-desirability-investigation.md) enthält die Nachweise.
+Direktstart: dieselbe CLI wie oben mit `--original-cardinal-water` statt
+`--original-market-logistics`.
+
 Der [bezahlte High-Tier-Ausbau](oe38-paid-high-tier-progression.md) erreicht
 Common10 (Luxurious Apartment). In den geprüften20400 Folgeticks entstehen
 Hemp-/Ceramics-Lücken und Rückentwicklungen trotz positivem Betriebssaldo;
@@ -106,7 +117,7 @@ ein begrenztes Versorgungsfenster; Brände und laufende Verluste bleiben offen.
 pausiert. Nach einem Neustart **L Load Save → Open selected** wählen.
 Difficulty, Modell- und Kartenquelle müssen passen. Alte Entwicklungsrevisionen
 werden mit Diagnose verweigert; ein fehlgeschlagener Ladevorgang erhält die Stadt.
-Rule10/11/12/13 laden jeweils ihren eigenen Stand mit Schema26/27/28/29.
+Rule10/11/12/13/14 laden jeweils ihren eigenen Stand mit Schema26/27/28/29/30.
 F5/F9 und Recovery ändern dabei keine Regelgeneration.
 
 **Autosave: ON** im Hauptmenü aktiviert Recovery: ein geschützter Startpunkt

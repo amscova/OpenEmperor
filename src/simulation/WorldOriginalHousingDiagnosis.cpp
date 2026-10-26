@@ -69,7 +69,9 @@ OriginalHousingDiagnosis World::original_housing_diagnosis(BuildingId id) const 
     const auto& rules=original_rules_model_->house_rules();OriginalHousingDiagnosis result;
     result.building_id=id;result.actual=found->house;result.elite_family=original_elite_house_kind(building(id).kind);
     result.actual_footprint_side=static_cast<std::uint8_t>(building_footprint(profile_,rule_version_,building(id).kind).width);
-    result.cached_desirability=original_influence_value_at(building(id).cell,result.actual_footprint_side);
+    result.raw_desirability=original_influence_value_at(building(id).cell,result.actual_footprint_side);
+    result.cardinal_water_bonus=original_house_cardinal_water_bonus(id);
+    result.cached_desirability=original_house_influence_value(id);
     result.current_row=original::house_row(result.actual.type);result.next_row=original::next_row(result.actual.type);
     auto input=result.actual;input.desirability=static_cast<std::int8_t>(result.cached_desirability);
     result.current=row_diagnosis(rules,result.current_row,input,result.elite_family);

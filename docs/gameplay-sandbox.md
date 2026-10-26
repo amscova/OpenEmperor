@@ -81,6 +81,7 @@ removal gives no refund; rejected/unchanged commands spend nothing.
 | City-v16 rule 11 | 27 | 12000 | Rule10 economy plus authored paid FireWatch/Inspector | Rule10 goal |
 | City-v16 rule 12 | 28 | 12000 | Three Food chains; installed-worker upkeep every 816 ticks; Rule11 fire protection | Rule10 goal |
 | City-v16 rule 13 | 29 | 12000 | Authored needs-aware Warehouse/Market goods selection; inherits Rule12's unchanged economy and bounds | Rule10 goal |
+| City-v16 rule 14 | 30 | 12000 | Source-bound cardinal-water House DES; inherits Rule13 and all economy/bounds | Rule10 goal |
 
 Schemas 1–9 keep their historical fixed collection/one-cell semantics. City-v7
 has ten building/six courier entries; City-v8/v9 have eleven/seven. City-v6–8

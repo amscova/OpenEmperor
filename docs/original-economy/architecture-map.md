@@ -15,8 +15,9 @@ parity remains partial; see [the play guide](player-handoff.md) and [Known Issue
 | Rule11 / schema27 / revision27 | Separate explicit paid economy with authored FireWatch and actual Inspector visits; bounded fire/tax provenance. |
 | Rule12 / schema28 / revision27 | Separate explicit sustainable-economy contract: three paid Food Farm/Field chains and installed-worker upkeep every 816 placement-relative ticks; retains paid Rule11 fire protection. |
 | Rule13 / schema29 / revision27 | Separate authored needs-aware Warehouse/Market goods selection; inherits Rule12's economy, fire protection and existing limits. |
+| Rule14 / schema30 / revision27 | Separate cardinal-water House query; inherits Rule13 logistics and unchanged economy/bounds, with immutable source terrain. |
 
-Rules1–12 and schemas1–28 retain their identities and canonical bytes. City-v11
+Rules1–13 and schemas1–29 retain their identities and canonical bytes. City-v11
 Rule3 and City-v16 Rule4 defaults are unchanged; no automatic migration opts older
 saves into Original economy. Bridge/Ramp infrastructure retains its existing contracts.
 Rule11 inherits the unchanged Rule10 economic values and uses its own fire guard;
@@ -35,6 +36,17 @@ body/courier bounds and physical transport remain inherited from Rule12.
 The [market diagnosis](oe39-market-diagnosis.md) records the Rule12 cause;
 the separate [retention assessment](oe39-market-retention.md) evaluates Rule13
 without treating a new selector as proof of sustained supply or fire safety.
+
+Rule14 has its own exact create/restore, **W Cardinal-water economy** menu entry
+and `--original-cardinal-water` option. The evidenced query adds10 once when
+raw original Terrain bit4 occurs directly outside a paid House's cardinal edge.
+Diagonal/interior water does not count. Common bodies use2×2; an empty Elite
+plot gets no bonus and the authored materialization transaction authorizes4×4.
+The immutable source-hash-bound masks are prepared eagerly, never serialized or
+read in frames/ticks. Restore independently reconstructs them from the original
+map. Cell DES remains−100…100; only this recipient query may reach110. The
+[OE40 investigation](oe40-desirability-investigation.md) separates the original
+query evidence, restricted adapter lifetime and unproven paid Elite17 progression.
 
 `ModelData` reads the selected installation's `Model/EmperorBuildingModels.txt`
 within its canonical root: regular file, at most 256 KiB, lines at most 4096 bytes,

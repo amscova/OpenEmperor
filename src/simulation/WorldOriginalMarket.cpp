@@ -238,8 +238,7 @@ std::pair<CourierDispatchDecision,std::optional<original::Goods>> World::origina
         const auto& body=building(homes[h].building_id);
         if(!body.operating_enabled||building_on_fire(body.id)||homes[h].house.occupants<=0)continue;
         auto actual=homes[h].house;
-        actual.desirability=static_cast<std::int8_t>(original_influence_value_at(body.cell,
-            building_footprint(profile_,rule_version_,body.kind).width));
+        actual.desirability=static_cast<std::int8_t>(original_house_influence_value(body.id));
         std::array<int,original::goods_count> commitments{};
         for(unsigned g=0;g<original::goods_count;++g)commitments[g]=incoming(*original_goods_,body.id,static_cast<original::Goods>(g));
         for(unsigned g=0;g<original::goods_count;++g)
@@ -295,7 +294,7 @@ std::pair<CourierDispatchDecision,std::optional<original::Goods>> World::origina
 }
 
 CourierDispatchDecision World::original_market_dispatch_status(const CourierState& c) const {
-    if(original_market_logistics_enabled()&&(c.role==CourierRole::MarketPotteryInbound||c.role==CourierRole::MarketPotteryDistribution))
+    if(original_market_selection_enabled()&&(c.role==CourierRole::MarketPotteryInbound||c.role==CourierRole::MarketPotteryDistribution))
         return original_needs_market_selection(c).first;
     const auto& source=building(c.owner);
     const auto* previous=row(*original_goods_,c.id);
@@ -348,7 +347,7 @@ CourierDispatchDecision World::original_market_dispatch_status(const CourierStat
 }
 
 std::optional<original::Goods> World::original_market_dispatch_good(const CourierState& c,BuildingId target) const {
-    if(original_market_logistics_enabled()&&(c.role==CourierRole::MarketPotteryInbound||c.role==CourierRole::MarketPotteryDistribution)) {
+    if(original_market_selection_enabled()&&(c.role==CourierRole::MarketPotteryInbound||c.role==CourierRole::MarketPotteryDistribution)) {
         const auto selection=original_needs_market_selection(c);
         return selection.first.selected_target==target?selection.second:std::nullopt;
     }

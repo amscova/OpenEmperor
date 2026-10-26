@@ -3,7 +3,7 @@
 OpenEmperor is an alpha. Supported sandbox behavior does not establish
 complete original-game compatibility.
 
-- **Original economy is experimental.** Rules10/11/12/13 are opt-in and include authored
+- **Original economy is experimental.** Rules10/11/12/13/14 are opt-in and include authored
   immigration, workforce, recipes, harvesting, school-to-house visits and Rule13
   needs-aware goods selection.
   Original venue/performer chains and illness are missing. Houses and productive
@@ -26,6 +26,11 @@ complete original-game compatibility.
   several other buildings, plants and walkers retain fallbacks. Empty Elite plots
   have no matching original body until their larger footprint materializes.
   Building animation, profession mappings and some pivots remain unverified.
+- **Rule14's water query does not establish paid Elite17 progression.** The
+  [source investigation](docs/original-economy/oe40-desirability-investigation.md)
+  verifies the conditional cardinal-edge10 bonus and separate immutable-terrain
+  adapter. Complete original terrain mutation/lifecycle parity, newly admitted
+  emitters, Market rectangles and general negative-wall shielding remain unsupported.
 - **High-tier progression has a bounded Rule12 blocker.** The
   [paid high-tier check](docs/original-economy/oe38-paid-high-tier-progression.md)
   reaches Common10 through actual purchases and deliveries, but does not hold it

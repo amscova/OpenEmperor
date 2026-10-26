@@ -1,6 +1,7 @@
 #pragma once
 
 #include "simulation/World.h"
+#include "simulation/OriginalTerrainFacts.h"
 #include "simulation/original/OriginalRulesModel.h"
 #include "platform/AtomicReplace.h"
 
@@ -27,6 +28,8 @@ struct SaveDocument {
     std::shared_ptr<const simulation::MapPermissions> prepared_permissions;
     // Session dependency only; never serialized or restored from JSON.
     std::shared_ptr<const original::OriginalRulesModel> prepared_original_rules_model;
+    // Rule14 immutable source-map dependency only; never serialized authority.
+    std::shared_ptr<const simulation::OriginalTerrainFacts> prepared_original_terrain_facts;
 };
 
 // Fault injection is used only by tests; production always uses None.
@@ -49,6 +52,10 @@ std::shared_ptr<const original::OriginalRulesModel> prepare_original_rules_model
 std::shared_ptr<const original::OriginalRulesModel> prepare_original_production_rules_model(
     const std::filesystem::path& data_root,
     original::Difficulty difficulty=original::Difficulty::Normal);
+// Complete supported original map, shared reader and full-file SHA binding.
+// Raw bit4 facts never substitute for MapPermissions or bridge eligibility.
+std::shared_ptr<const simulation::OriginalTerrainFacts> prepare_original_terrain_facts(
+    const std::filesystem::path& data_root,const std::filesystem::path& map_relative);
 // Schema 23 remains an explicit development boundary while normal Rule-7
 // sessions, ticking and restore_save are unavailable.
 simulation::World restore_original_economy_development(
@@ -97,6 +104,14 @@ simulation::World restore_original_market_logistics(
     std::vector<std::uint8_t> buildable,
     std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
     std::shared_ptr<const original::OriginalRulesModel> model=nullptr);
+// Schema30/Rule14 always rederives immutable terrain from the current source
+// map; an optional prepared context must match all source facts exactly.
+simulation::World restore_original_cardinal_water(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+    std::shared_ptr<const simulation::OriginalTerrainFacts> terrain=nullptr);
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& document);
 SaveDocument upgrade_city_v11_v3_to_v4(const SaveDocument& document);
 simulation::World restore_save(const SaveDocument& document,

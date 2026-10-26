@@ -407,7 +407,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=13;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=14;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -445,6 +445,8 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::CityV16 && version==kOriginalFireProtectionRuleVersion) return city_v16_v11;
     static constexpr ProfileRules city_v16_v12{12,32,64,32,5,800};
     static constexpr ProfileRules city_v16_v13{13,32,64,32,5,800};
+    static constexpr ProfileRules city_v16_v14{14,32,64,32,5,800};
+    if (original_cardinal_water_enabled(profile,version)) return city_v16_v14;
     if (original_market_logistics_enabled(profile,version)) return city_v16_v13;
     if (original_sustainable_economy_enabled(profile,version)) return city_v16_v12;
     static constexpr ProfileRules city_v16_v5{5,32,64,32,5,800};
@@ -459,11 +461,12 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     : World(width,height,std::move(buildable),profile,rule_version,{}) {}
 World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfile profile,
              std::uint32_t rule_version,std::shared_ptr<const MapPermissions> permissions,
-             bool original_development,std::shared_ptr<const original::OriginalRulesModel> model)
+             bool original_development,std::shared_ptr<const original::OriginalRulesModel> model,
+             std::shared_ptr<const OriginalTerrainFacts> terrain)
     : width_(width),height_(height),profile_(profile),
       rule_version_(rule_version==0 ? current_rule_version(profile):rule_version),
       buildable_(std::move(buildable)),permissions_(std::move(permissions)),
-      original_rules_model_(std::move(model)) {
+      original_rules_model_(std::move(model)),original_terrain_facts_(std::move(terrain)) {
     if (width<=0 || height<=0 || width>512 || height>512 ||
         buildable_.size()!=static_cast<std::size_t>(width)*static_cast<std::size_t>(height))
         throw std::invalid_argument("invalid bounded sandbox grid");
@@ -481,6 +484,9 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
         throw std::invalid_argument("City-v16 rule 7 runtime is not ready; use the explicit infrastructure-only development factory");
     if (!original_economy_enabled() && original_rules_model_)
         throw std::invalid_argument("original rules model requires City-v16 rule 7");
+    if (original_cardinal_water_enabled() ? (!original_terrain_facts_ || width!=OriginalTerrainFacts::width ||
+            height!=OriginalTerrainFacts::height):bool(original_terrain_facts_))
+        throw std::invalid_argument("original terrain facts require exact Rule14 and a complete 228x228 source grid");
     if (original_influence_enabled() && (!original_rules_model_ || width>228 || height>228))
         throw std::invalid_argument("original influence development requires a bound model and grid within 228");
     if (permissions_) {
@@ -1489,6 +1495,10 @@ CommandResult World::validate(Command command) const {
         return {true,false,"Original gate passage already provides a fixed connection",result.sequence,ticks_};
     if (scalable(profile_)) {
         const auto kind=placed_object(command.type);
+        if (original_cardinal_water_enabled() && kind && original_house_kind(*kind) &&
+            !original_terrain_facts_->supports_cardinal_footprint(command.cell,
+                building_footprint(profile_,rule_version_,*kind).width))
+            return blocked(BuildBlocker::OutsideMap,command.cell,"House cardinal perimeter outside original source grid");
         if (kind) for (const auto cell:building_footprint_cells(profile_,rule_version_,*kind,command.cell)) {
             if (!in_bounds(cell)) return blocked(BuildBlocker::OutsideMap,cell,"Building footprint outside sandbox grid");
             if(ramp_endpoint(cell))return blocked(BuildBlocker::SandboxOccupied,cell,"Ramp endpoint reserved for a normal road");
@@ -3946,6 +3956,8 @@ bool World::navigation_valid() const {
 
 std::string World::canonical_state() const {
     std::ostringstream out;
+    if (original_cardinal_water_enabled()) out<<original_cardinal_water_contract<<":14:"
+        <<original_terrain_facts_->source_map_sha256()<<'|';
     if (original_market_logistics_enabled()) out<<"original-market-logistics:13|";
     out<<static_cast<int>(profile_)<<':'<<ticks_<<':'<<command_sequence_<<':'<<road_revision_
        <<':'<<roads_placed_total_<<':'<<roads_removed_total_
@@ -4301,7 +4313,8 @@ World World::restore(const WorldSnapshot& s,std::shared_ptr<const MapPermissions
 World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                           std::shared_ptr<const MapPermissions> permissions,
                           bool original_development,
-                          std::shared_ptr<const original::OriginalRulesModel> model) {
+                          std::shared_ptr<const original::OriginalRulesModel> model,
+                          std::shared_ptr<const OriginalTerrainFacts> terrain) {
     performance::increment(performance::Counter::WorldRestores);
     if (!rule_version_supported(s.profile,s.rule_version))
         throw std::invalid_argument("unsupported sandbox rule version");
@@ -4318,8 +4331,8 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
     if (permissions && (permissions->width()!=s.width || permissions->height()!=s.height))
         throw std::invalid_argument("saved map permissions dimensions mismatch");
     World w=permissions ? World(s.width,s.height,permissions->building_mask(),s.profile,
-        s.rule_version,permissions,original_development,std::move(model)):
-        World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development,std::move(model));
+        s.rule_version,permissions,original_development,std::move(model),std::move(terrain)):
+        World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development,std::move(model),std::move(terrain));
     w.original_economy_=s.original_economy;
     w.original_influence_=s.original_influence;
     w.original_goods_=s.original_goods;
@@ -4432,6 +4445,10 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                      (!b.operating_enabled || b.workforce_priority!=WorkforcePriority::Normal)):
                     (!b.operating_enabled || b.workforce_priority!=WorkforcePriority::Normal)))
                 fail("invalid building operation controls");
+            if (w.original_cardinal_water_enabled() && original_house_kind(b.kind) &&
+                !w.original_terrain_facts_->supports_cardinal_footprint(b.cell,
+                    building_footprint(s.profile,s.rule_version,b.kind).width))
+                fail("saved Rule14 House cardinal perimeter exceeds its bound original terrain");
             for (const auto cell:building_footprint_cells(s.profile,s.rule_version,b.kind,b.cell)) {
                 if (b.kind==Object::OriginalEliteHouse && w.permissions_ &&
                     w.permissions_->cell_height(cell)!=w.permissions_->cell_height(b.cell))

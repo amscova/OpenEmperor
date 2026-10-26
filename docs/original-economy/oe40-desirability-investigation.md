@@ -232,3 +232,90 @@ ASan/UBSan5/5 (2.39s), zero skips**, with sanitizer build RelWithDebInfo and
 both unchanged-world certificates and constructive pure89. Original model/EXE
 bytes, modes and mtimes are unchanged across that run. These read-only/pure
 checks are not paid progression, productive persistence, SDL or human acceptance.
+
+## Rule14 adapter authority
+
+The separate marker is `verified-cardinal-water-desirability-v1`; Schema30
+also retains `authored-needs-aware-market-v1`. The exact create/restore APIs
+require complete228×228 immutable terrain facts alongside Policy3 and the
+prepared original model. General constructors cannot opt in. Source preparation
+hashes the same opened container that supplies raw terrain; save validation
+independently prepares those facts again and compares their complete masks and
+map SHA. No JSON field supplies a bonus or terrain authority.
+
+| Contract field | Rule14 behavior |
+|---|---|
+| Name and owner | Cardinal-water House query, owned by an existing paid Common House or materialized Elite House |
+| Physical geometry | Existing2×2 Common; pending Elite2×2 receives0; actual materialized Elite4×4 receives its side4 query |
+| Original reference/model | Recipient flag at Building+0x60 and query+10; existing House type/model bindings2…17 and current row needs unchanged; no new DES-emitter model ID |
+| Purchase/limits | Existing80-Funds House/Elite-plot command and20-House cap; no additional free building, duplicate source or changed33-purchase source-history limit |
+| Staffing/operation | No new workers or courier; existing service/production staffing, FireWatch and pause rules remain inherited |
+| Product/service | No stock, reservation, shipment, water service, visit, timer or household type grant |
+| IDs and transport | Existing monotone paid Building IDs,58-actor/82-body bounds, actual shared-road routes and reservations unchanged |
+| Map admission | Existing full footprint, height, protection and Policy3 predicates, plus a complete in-storage cardinal perimeter; water facts grant no building/bridge permission |
+| Value/order | Raw square maximum remains unchanged; add10 once for any cardinal raw bit4; never add an influence source or final100 clamp |
+| Lifetime | Source terrain immutable for this explicit adapter; eager side2/4 masks prepared once; fixed paid body selects its mask without tick/frame scans |
+| Housing history | Same immutable context and actual fixed footprint validate phase39 inputs; pre-evaluation/admission origin stays0; only Rule14 supports query−100…110 |
+| Removal/restore | Existing removal rights unchanged; source-hash/marker/version/context mismatches refuse before publication; no migration |
+
+The **W Cardinal-water economy** menu choice and `--original-cardinal-water`
+CLI option select14 explicitly. The State inspector separates raw cell DES,
+water bonus and total. Original map raw data is released after preparation;
+World performs no file reading. Original mutable terrain/editor/rare House
+recombination remain outside the restricted adapter.
+
+## Gate B validation evidence
+
+The actual-Xia adapter smoke pays164 Funds for a Common House at(108,77),
+ElitePlot at(130,133) and two legal Road cells. Funds remain11836. Normal
+immigration at tick120 materializes the Elite4×4; its pending bonus0 becomes10.
+At tick400 population is12 (Common7/Elite5), both actual evaluated scores are10.
+These unsupplied test homes establish no Elite17 or economic success. Complete
+tick200 rewrite, per-tick restore continuation through400, final SaveDocuments
+and snapshots are identical in Release, Debug and ASan/UBSan. The authoritative
+source files retain exact SHA/size/mode/mtime. Private proof:
+`run-01/cardinal-real-rechecks/summary.json` and `gate-b-real-*-r*/`.
+
+The first complete Release suite ran274 tests:270 passed and4 failed; the
+first sanitizer suite passed271/274. Three pre-existing version tests still
+rejected Rule13 although accepted OE39 HEAD already supported it. They now
+recognize explicit13/14, refuse unknown15, retain ordinary-constructor opt-in
+refusals and preserve historical assertions. Separate rechecks pass9/9 across
+all configurations. The fourth failure was a stale Rule12 World/API parity
+pin/report. A reviewed additive13/14 ABI contract now additionally pins the
+terrain and diagnosis headers. A fresh pinned-fork comparison passes all74
+unchanged cases, the historical18-value HousingView observation and1800-value
+real-model digest. The30 contract tests pass; numeric vectors and every
+historical public report section are unchanged. Initial failures are retained.
+
+After correcting these harness contracts and registering the real-Xia smoke,
+Release and ASan/UBSan each pass all5 corrected/additional CTests. Their complete
+initial suites plus the corrected rechecks cover all275 registered cases with
+no remaining failed case or skip. The initial Debug run was interrupted before
+completion to replace stale binaries; its new full275-case run is recorded
+separately: **275/275 PASS, zero skips,1365.42s**.
+
+The existing Rule13 `common-near-pottery` city is independently continued from
+earned tick22837 to43237 using the current binaries in all three configurations.
+The20,400-tick results, complete saves/snapshots, transport traces and retention
+metrics equal the accepted OE39 creator. Common10 remains supplied and Funds
+rise10995→15355; this finite window does not establish indefinite supply.
+All36 new render PNGs equal accepted PNG bytes; representative images were
+opened and inspected. F5/F9 and all input/source/binary/resource guards pass.
+Other historical checkpoint replays were not rerun. Proof:
+`run-01/oe39-compat/summary.json`; actual outputs are under the existing OE39
+tool's required ignored root as `oe40-compat-{release,debug,sanitize}-01`.
+
+Initial harness problems are preserved separately: private-method access in a
+new test, a minimum-size menu/footer overlap, real-smoke JSON comparison and
+SDL-hint runner precedence errors. Their corrected tests pass without widening
+World permissions or changing game values. Research static checkers did not
+execute Emperor.exe. No native/human acceptance is inferred from these runs.
+
+The final Debug suite passes275/275 in1365.42s with zero skips. The complete
+Release/sanitizer initial runs plus corrected reruns cover the same275 distinct
+current cases; this is not mislabeled as a single full zero-failure rerun.
+`run-01/gate-b-acceptance.json` reconciles exact case names and commands. All639
+frozen implementation/harness records and the complete1464-file original input
+inventory match. **Gate B: PASS.** Paid Elite17, its retention and native/human
+acceptance remain untested at this implementation boundary.

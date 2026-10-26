@@ -5,7 +5,7 @@
 
 namespace openemperor::simulation {
 
-// Authored Rule13 selection only. No stock, arrival, clock or saved authority.
+// Authored Rule13 selection, inherited by Rule14. No stock, arrival, clock or saved authority.
 // Rows are canonical (target, good) pairs supplied by World from cached routes.
 struct MarketNeed {
     unsigned tier=3; // 0: missing current; 1: current buffer; 2: usable next row.

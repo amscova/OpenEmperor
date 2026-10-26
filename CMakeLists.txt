@@ -263,7 +263,8 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalFood.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
-target_sources(openemperor-simulation PRIVATE src/simulation/OriginalEconomyStarter.cpp)
+target_sources(openemperor-simulation PRIVATE src/simulation/OriginalEconomyStarter.cpp
+    src/simulation/OriginalTerrainFacts.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
 # Read-only model parser shared by bounded preparation and source fingerprints.
@@ -1818,6 +1819,23 @@ if(BUILD_TESTING)
     add_test(NAME original-high-tier-des-bound-real COMMAND openemperor-high-tier-des-bound-tests
         --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
     set_tests_properties(original-high-tier-des-bound-real PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
+    add_executable(openemperor-cardinal-water-real-tests tests/CardinalWaterRealTests.cpp)
+    target_link_libraries(openemperor-cardinal-water-real-tests PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-cardinal-water-real-tests)
+    add_test(NAME original-cardinal-water-paid-xia COMMAND openemperor-cardinal-water-real-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-cardinal-water-paid-xia PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
+    add_executable(openemperor-cardinal-water-tests tests/CardinalWaterTests.cpp)
+    target_link_libraries(openemperor-cardinal-water-tests PRIVATE openemperor-recovery ZLIB::ZLIB)
+    openemperor_enable_warnings(openemperor-cardinal-water-tests)
+    add_test(NAME original-cardinal-water-world-save COMMAND openemperor-cardinal-water-tests)
+    add_test(NAME original-cardinal-water-real COMMAND openemperor-cardinal-water-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-cardinal-water-world-save original-cardinal-water-real PROPERTIES TIMEOUT 300)
+    add_executable(openemperor-cardinal-water-core-tests tests/CardinalWaterCoreTests.cpp)
+    target_link_libraries(openemperor-cardinal-water-core-tests PRIVATE openemperor-simulation)
+    openemperor_enable_warnings(openemperor-cardinal-water-core-tests)
+    add_test(NAME original-cardinal-water-core COMMAND openemperor-cardinal-water-core-tests)
     add_executable(openemperor-desirability-investigation tools/DesirabilityInvestigation.cpp)
     target_link_libraries(openemperor-desirability-investigation PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-desirability-investigation)

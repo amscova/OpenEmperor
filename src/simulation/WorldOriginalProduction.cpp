@@ -155,6 +155,36 @@ World World::create_original_market_logistics(std::shared_ptr<const MapPermissio
     auto world=create_original_sustainable_economy(std::move(permissions),std::move(model));
     world.rule_version_=kOriginalMarketLogisticsRuleVersion;return world;
 }
+World World::create_original_cardinal_water(std::shared_ptr<const MapPermissions> permissions,
+    std::shared_ptr<const original::OriginalRulesModel> model,
+    std::shared_ptr<const OriginalTerrainFacts> terrain) {
+    if (!permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model || !terrain)
+        invalid("original cardinal-water creation requires policy3, prepared model and immutable terrain facts");
+    const auto capacity=model->house_rules().row_capacity(original::ModelHouse::Shelter);
+    if (capacity<=0 || capacity>INT16_MAX) invalid("invalid original cardinal-water Shelter capacity");
+    const auto width=permissions->width(),height=permissions->height();auto mask=permissions->building_mask();
+    World world(width,height,std::move(mask),RulesProfile::CityV16,kOriginalCardinalWaterRuleVersion,
+        std::move(permissions),true,std::move(model),std::move(terrain));
+    world.original_production_->fire_protection.emplace();
+    world.validate_original_hemp_model();world.validate_original_food_model();world.validate_original_consumption_model();
+    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();world.validate_original_industry_model();
+    world.validate_original_finance_model();world.rebuild_original_influence_cache();return world;
+}
+World World::restore_original_cardinal_water(const WorldSnapshot& snapshot,
+    std::shared_ptr<const MapPermissions> permissions,
+    std::shared_ptr<const original::OriginalRulesModel> model,
+    std::shared_ptr<const OriginalTerrainFacts> terrain) {
+    if (!simulation::original_cardinal_water_enabled(snapshot.profile,snapshot.rule_version) ||
+        !permissions || permissions->policy_version()!=kBridgesMapPermissionsPolicyVersion || !model || !terrain)
+        invalid("original cardinal-water restore requires exact rule14, policy3, model and terrain facts");
+    const auto capacity=model->house_rules().row_capacity(original::ModelHouse::Shelter);
+    if (capacity<=0 || capacity>INT16_MAX) invalid("invalid original cardinal-water Shelter capacity");
+    validate_original_production_snapshot(snapshot);
+    auto world=restore_impl(snapshot,{},std::move(permissions),true,std::move(model),std::move(terrain));
+    world.validate_original_hemp_model();world.validate_original_food_model();world.validate_original_consumption_model();
+    world.validate_original_services_model();world.validate_original_water_model();world.validate_original_housing_model();world.validate_original_industry_model();
+    world.validate_original_finance_model();return world;
+}
 World World::restore_original_fire_protection(const WorldSnapshot& snapshot,
     std::shared_ptr<const MapPermissions> permissions,
     std::shared_ptr<const original::OriginalRulesModel> model) {
@@ -457,6 +487,8 @@ OriginalEliteMaterializationStatus World::original_elite_materialization_status(
         status.diagnostic={blocker,cell,{}};return status;
     };
     const auto& b=*found;
+    if (original_cardinal_water_enabled() && !original_terrain_facts_->supports_cardinal_footprint(b.cell,4))
+        return blocked(BuildBlocker::OutsideMap,b.cell);
     if (road_revision_==UINT64_MAX) return blocked(BuildBlocker::CounterExhausted,b.cell);
     // Guard untrusted bounds before adding any offsets. The geometry query
     // neither reserves cells nor advances a preparation/immigration phase.
