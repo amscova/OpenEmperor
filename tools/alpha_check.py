@@ -8,12 +8,14 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
 import zipfile
 from pathlib import Path
+
+from package_macos import checked_path, fresh_output_paths
+from verify_macos_bundle import COMPATIBILITY_FILES
 
 ROOT = Path(__file__).resolve().parent.parent
 REPORT = ROOT / ".local/reports/alpha-check.json"
@@ -65,12 +67,11 @@ def ctest_count(output: str) -> int:
 
 
 def configure(build: Path, build_type: str, jobs: int, system_sdl: bool,
-              sanitizers: bool = False, fresh: bool = False) -> dict[str, object]:
-    if fresh and build.exists():
-        shutil.rmtree(build)
+              sanitizers: bool = False, data: Path | None = None) -> dict[str, object]:
     args = ["cmake", "-S", str(ROOT), "-B", str(build),
             f"-DCMAKE_BUILD_TYPE={build_type}", "-DCMAKE_OSX_ARCHITECTURES=arm64",
-            f"-DOPENEMPEROR_ENABLE_SANITIZERS={'ON' if sanitizers else 'OFF'}"]
+            f"-DOPENEMPEROR_ENABLE_SANITIZERS={'ON' if sanitizers else 'OFF'}",
+            "-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + (str(data) if data else "")]
     if system_sdl:
         args.append("-DOPENEMPEROR_USE_SYSTEM_SDL3=ON")
     _, configure_seconds = run(args)
@@ -81,9 +82,18 @@ def configure(build: Path, build_type: str, jobs: int, system_sdl: bool,
 
 
 def test_build(build: Path, jobs: int, env: dict[str, str] | None = None) -> dict[str, object]:
+    listed, _ = run(["ctest", "--test-dir", str(build), "--show-only=json-v1"], env=env)
+    registration = json.loads(listed)
+    (build / "alpha-ctest-inventory.json").write_text(listed)
+    junit = build / "alpha-ctest.xml"
     output, elapsed = run(["ctest", "--test-dir", str(build), "--output-on-failure",
-                           "-j", str(jobs)], timeout=1800, env=env)
-    return {"result": "pass", "count": ctest_count(output),
+                           "--output-junit", str(junit), "-j", str(jobs)], timeout=1800, env=env)
+    if ctest_count(output) != len(registration["tests"]):
+        raise CheckFailure("CTest execution count differs from actual registered inventory")
+    if "***Skipped" in output or "(Skipped)" in output or "Not Run" in output:
+        raise CheckFailure("CTest skipped or omitted a registered case; see the complete JUnit/log")
+    return {"result": "pass", "count": ctest_count(output), "skipped": 0,
+            "inventory": str(build / "alpha-ctest-inventory.json"), "junit": str(junit),
             "seconds": round(elapsed, 3)}
 
 
@@ -142,6 +152,60 @@ def profile_archives(manifest: Path, data: Path) -> set[Path]:
 
     visit(document)
     return archives
+
+
+def profile_assets(manifest: Path) -> set[tuple[str, int]]:
+    """Audit declared physical identities; original decoding remains the app's job."""
+    if not manifest.is_file() or manifest.stat().st_size > 1024 * 1024:
+        raise CheckFailure("bounded selected visual metadata is missing")
+    assets: set[tuple[str, int]] = set()
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            if "archive" in value and "image_index" in value:
+                archive, image = value["archive"], value["image_index"]
+                if (not isinstance(archive, str) or Path(archive).is_absolute() or
+                        ".." in Path(archive).parts or "\\" in archive or
+                        type(image) is not int or image <= 0):
+                    raise CheckFailure("invalid physical identity in selected visual metadata")
+                assets.add((archive, image))
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(json.loads(manifest.read_text()))
+    if not assets:
+        raise CheckFailure("selected visual metadata has no physical assets")
+    return assets
+
+
+def validate_smoke_visuals(result: dict, args: argparse.Namespace, resources: Path) -> dict:
+    selected = {"walker": args.walker_visuals or resources / "walkers.json",
+                "building": args.building_visuals or resources / "buildings.json",
+                "road": args.road_visuals or resources / "roads.json"}
+    expected = {family: profile_assets(path) for family, path in selected.items()}
+    walkers = result.get("walker_visuals", {})
+    for key, filename in (("fire_inspector", "fire-inspector.json"),
+                          ("market_walkers", "market-walkers.json"),
+                          ("service_walker", "service-walker.json"),
+                          ("health_walker", "health-walker.json")):
+        if walkers.get(key, {}).get("active"):
+            expected["walker"].update(profile_assets(resources / filename))
+    buildings, roads = result.get("building_visuals", {}), result.get("road_visuals", {})
+    if (walkers.get("unique_assets") != len(expected["walker"]) or
+            buildings.get("decoded_unique_assets") != len(expected["building"]) or
+            roads.get("unique_assets") != len(expected["road"]) or roads.get("draws", 0) <= 0 or
+            (not args.road_visuals and roads.get("configured_masks") != list(range(16)))):
+        raise CheckFailure("automatic visual profiles did not decode and draw the declared physical asset set")
+    for role in ("clay_source", "pottery", "warehouse", "household"):
+        if (buildings.get("draws_by_role", {}).get(role, 0) <= 0 or
+                buildings.get("placeholder_fallbacks_by_role", {}).get(role, -1) != 0):
+            raise CheckFailure("Industry smoke did not draw the actual configured building role: " + role)
+    return {family: {"unique_physical_assets": len(assets),
+                     "metadata_sha256": sha256(selected[family])}
+            for family, assets in expected.items()}
 
 
 def original_check(args: argparse.Namespace, executable: Path) -> dict[str, object]:
@@ -208,18 +272,13 @@ def original_check(args: argparse.Namespace, executable: Path) -> dict[str, obje
         raise CheckFailure("known original data did not activate the expected automatic visual profiles")
     road_visuals = result.get("road_visuals", {})
     walker_visuals = result.get("walker_visuals", {})
-    inspector_active = walker_visuals.get("fire_inspector", {}).get("active", False)
-    expected_walker_assets = 80 if inspector_active and not args.walker_visuals else 48
-    if (walker_visuals.get("unique_assets") != expected_walker_assets or
-            result.get("building_visuals", {}).get("decoded_unique_assets") != 7 or
-            road_visuals.get("unique_assets") != 12 or
-            road_visuals.get("draws", 0) <= 0 or
-            (not args.road_visuals and road_visuals.get("configured_masks") != list(range(16)))):
-        raise CheckFailure("automatic visual profiles did not decode and draw the validated asset set")
+    declared_assets = validate_smoke_visuals(result, args, executable.parent / "resources" /
+        "Compatibility/gog-derived-2.0.0.2-en-assetset-1")
     return {"configured": True, "result": "pass", "files_verified_unchanged": len(before),
             "industry_ticks": result.get("ticks"), "frames_rendered": result.get("frames_rendered"),
             "five_courier_frames": result.get("frames_with_five_couriers"),
             "compatibility": compatibility,
+            "declared_visual_assets": declared_assets,
             "Inspector_visuals": walker_visuals.get("fire_inspector", {}),
             "candidate_city": {key: city.get(key) for key in ("rules", "rule_version",
                 "ticks_before", "ticks", "treasury_before", "treasury", "treasury_delta",
@@ -229,10 +288,14 @@ def original_check(args: argparse.Namespace, executable: Path) -> dict[str, obje
             "seconds": round(industry_elapsed + city_elapsed, 3)}
 
 
-def package_check() -> dict[str, object]:
-    output, elapsed = run([str(ROOT / "tools/package_macos.sh")], timeout=3600)
+def package_check(args: argparse.Namespace) -> dict[str, object]:
+    command = [str(ROOT / "tools/package_macos.sh"), "--build-dir", str(args.package_build_dir),
+               "--dist-dir", str(args.package_dist_dir), "--jobs", str(args.jobs)]
+    if args.data is not None:
+        command.extend(["--data", str(args.data)])
+    output, elapsed = run(command, timeout=3600)
     forbidden = {"walkers-v2.json", "alpha-check.json"}
-    app = ROOT / "dist/OpenEmperor.app"
+    app = args.package_dist_dir / "OpenEmperor.app"
     if not app.is_dir():
         raise CheckFailure("packaging did not produce OpenEmperor.app")
     bundled_paths = [path for path in app.rglob("*") if path.is_file()]
@@ -243,8 +306,7 @@ def package_check() -> dict[str, object]:
     if bundled & forbidden:
         raise CheckFailure("local visual profiles or alpha reports entered the app bundle")
     compatibility_root = app / "Contents/Resources/Compatibility/gog-derived-2.0.0.2-en-assetset-1"
-    compatibility_names = {"manifest.json", "walkers.json", "buildings.json", "roads.json",
-                           "fire.json", "fire-inspector.json"}
+    compatibility_names = COMPATIBILITY_FILES
     if (not compatibility_root.is_dir() or
             {path.name for path in compatibility_root.iterdir()} != compatibility_names):
         raise CheckFailure("packaged compatibility metadata is incomplete")
@@ -259,7 +321,7 @@ def package_check() -> dict[str, object]:
             build_info.get("architecture") != "arm64" or
             build_info.get("build_type") != "Release"):
         raise CheckFailure("packaged BuildInfo lacks alpha candidate provenance")
-    archives = sorted((ROOT / "dist").glob("OpenEmperor-*-macos-arm64.zip"),
+    archives = sorted(args.package_dist_dir.glob("OpenEmperor-*-macos-arm64.zip"),
                       key=lambda path: path.stat().st_mtime_ns)
     if not archives:
         raise CheckFailure("packaging did not produce an arm64 ZIP")
@@ -283,6 +345,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build")
     parser.add_argument("--release-build-dir", type=Path, default=ROOT / "build-alpha-release")
     parser.add_argument("--sanitize-build-dir", type=Path, default=ROOT / "build-sanitize")
+    parser.add_argument("--report", type=Path, default=REPORT,
+                        help="new JSON report path; existing evidence is never replaced")
+    parser.add_argument("--package-build-dir", type=Path, default=ROOT / "build-macos-app")
+    parser.add_argument("--package-dist-dir", type=Path, default=ROOT / "dist")
     parser.add_argument("--jobs", type=int, default=max(1, min(8, os.cpu_count() or 1)))
     parser.add_argument("--system-sdl", action="store_true",
                         help="use an installed SDL3 for all acceptance builds")
@@ -298,7 +364,19 @@ def main() -> int:
     args = parse_args()
     if args.jobs < 1:
         raise CheckFailure("--jobs must be positive")
-    REPORT.parent.mkdir(parents=True, exist_ok=True)
+    if args.data is not None:
+        args.data = checked_path(args.data)
+        if not args.data.is_dir():
+            raise CheckFailure("--data must name an existing original installation")
+    requested = {"debug": args.build_dir, "release": args.release_build_dir,
+                 "sanitize": args.sanitize_build_dir, "report": args.report}
+    if args.package:
+        requested.update(package_build=args.package_build_dir, package_dist=args.package_dist_dir)
+    paths = fresh_output_paths(requested, args.data)
+    args.report = paths["report"]
+    if args.package:
+        args.package_build_dir, args.package_dist_dir = paths["package_build"], paths["package_dist"]
+    args.report.parent.mkdir(parents=True, exist_ok=True)
     revision, _ = run(["git", "rev-parse", "HEAD"])
     status, _ = run(["git", "status", "--porcelain"])
     report: dict[str, object] = {"schema": "openemperor-alpha-check-v1",
@@ -306,14 +384,12 @@ def main() -> int:
         "original_data": {"configured": args.data is not None, "result": "not_run"}}
     started = time.monotonic()
     try:
-        debug = args.build_dir.resolve()
-        release = args.release_build_dir.resolve()
-        sanitize = args.sanitize_build_dir.resolve()
+        debug, release, sanitize = (paths[name] for name in ("debug", "release", "sanitize"))
         report["build"] = {
-            "debug": configure(debug, "Debug", args.jobs, args.system_sdl),
-            "release": configure(release, "Release", args.jobs, args.system_sdl, fresh=True),
+            "debug": configure(debug, "Debug", args.jobs, args.system_sdl, data=args.data),
+            "release": configure(release, "Release", args.jobs, args.system_sdl, data=args.data),
             "sanitize": configure(sanitize, "RelWithDebInfo", args.jobs, args.system_sdl,
-                                  sanitizers=True, fresh=True)}
+                                  sanitizers=True, data=args.data)}
         sanitizer_env = os.environ.copy()
         # Apple's ASan runtime aborts when LeakSanitizer is requested. Resource
         # lifetime is covered separately by the project-owned texture counters.
@@ -349,32 +425,32 @@ def main() -> int:
         report["original_data"] = original_check(args, release / "openemperor")
         if report["original_data"].get("compatibility"):
             report["compatibility"] = report["original_data"]["compatibility"]
-        report["packaging"] = package_check() if args.package else {
+        report["packaging"] = package_check(args) if args.package else {
             "requested": False, "result": "not_requested"}
         report["performance"] = {"result": "diagnostic", "wall_seconds":
             round(time.monotonic() - started, 3), "no_wallclock_threshold": True,
             "render_hotpath": "Sandbox draw scratch vector capacity reused"}
         report["result"] = "pass"
-        REPORT.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         print(f"PASS: {report['tests']['debug']['count']} Debug, "
               f"{report['tests']['release']['count']} Release and "
               f"{report['tests']['sanitize']['count']} sanitizer tests; "
               "100000 deterministic ticks; 3000 render frames; 100 sessions")
-        print("Report: .local/reports/alpha-check.json")
+        print("Report: " + str(args.report))
         return 0
     except (CheckFailure, OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
         report["result"] = "fail"
         report["failure"] = safe_text(str(error), args.data.resolve() if args.data else None)
         report["performance"] = {"wall_seconds": round(time.monotonic() - started, 3)}
-        REPORT.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         print("FAIL: " + report["failure"], file=sys.stderr)
-        print("Report: .local/reports/alpha-check.json", file=sys.stderr)
+        print("Report: " + str(args.report), file=sys.stderr)
         return 1
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except CheckFailure as error:
+    except (CheckFailure, ValueError, OSError) as error:
         print("FAIL: " + str(error), file=sys.stderr)
         sys.exit(1)

@@ -1174,6 +1174,10 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-alpha-endurance)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME macos-acceptance-harness COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_macos_acceptance_harness.py)
+        set_tests_properties(macos-acceptance-harness PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME original-economy-cli COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_SOURCE_DIR}/tests/test_original_economy_cli.py --executable $<TARGET_FILE:openemperor>)
         set_tests_properties(original-economy-cli PROPERTIES TIMEOUT 60
