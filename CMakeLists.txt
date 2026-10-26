@@ -624,6 +624,12 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-original-starter-menu-acceptance PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-original-starter-menu-acceptance)
+    # Explicit OE41 diagnostic; it drives the actual menu/view via SDL events.
+    add_executable(openemperor-system-playtest-acceptance EXCLUDE_FROM_ALL
+        tools/SystemPlaytestAcceptance.cpp ${original_menu_test_sources})
+    target_link_libraries(openemperor-system-playtest-acceptance PRIVATE
+        openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
+    openemperor_enable_warnings(openemperor-system-playtest-acceptance)
     target_link_libraries(openemperor-original-menu-session-tests PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-original-menu-session-tests)
