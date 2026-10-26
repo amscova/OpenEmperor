@@ -233,7 +233,22 @@ sizes, checked preset origin-base equals`229×border`; local coordinates map
 to storage index`(x+border)+228×(y+border)`, matching the existing shared map
 reader. A raw bit4 cell outside a legal paid body can trigger the query even
 when unrelated Objects, owner or extra terrain bits make it ineligible for
-bridge construction. A bridge-water boolean cannot replace this source fact.
+bridge construction. The bounded helper tests bit4 without testing the separate
+off-map marker. A bridge-water boolean cannot replace this source fact.
+
+**RAW MAP / SHARED GEOMETRY / ADAPTER LIMIT:** the actual paid Rule14 Xia site
+at(130,133) has16 legal body cells, but its two matching outside cells(133,137)
+and(134,136) contain`0x80005`, including the reference-derived`0x80000` off-map
+marker. Shared `MapGeometry.contains` excludes both; current MapPermissions
+refuse roads/buildings there. Fresh production full-grid comparison has zero
+Diamond/off-map-bit mismatches for Xia (declared84, border72). Of24 recorded
+legal4×4 bodies with cardinal bit4, ten have only on-map neighbors and fourteen
+only off-map-marked neighbors, with no mixed case; this paid site is in the
+latter group. No paid packing/Elite17 result is proved for the ten alternatives.
+The maintained [map-format contract](map-format.md#diamond-candidate-off-map-bit-and-bitmap-coordinates)
+keeps candidate geometry and off-map semantics separate. Private recheck:
+`.local/original-economy/oe40/run-01/geometry-boundary-audit/boundary-evidence.json`.
+No off-map filter or other predicate change follows from this observation.
 
 Terrain is not universally immutable in the original: a concrete producer
 at`0x4b4af0` ORs bit4. The audit does not reconstruct all triggers, post-load
@@ -244,8 +259,10 @@ and strict restore/history rules. The current authored Elite2×2 plot→4×4
 materialization has no original initializer equivalence by itself.
 
 The [OE40 investigation](../original-economy/oe40-desirability-investigation.md)
-separates a proposed Rule14/Schema30 paid-owner adapter from static original
-facts and from a constructive pure79+10=89 packing. That pure result proves
-neither map permission nor paid Elite17 progression. No new building/terrain
+separates the restricted Rule14/Schema30 adapter, its actual paid16→17 result,
+static original facts and a constructive pure79+10=89 packing. The paid boundary
+result uses unchanged stored terrain; original post-load changes remain unknown.
+It is not proof of a visible on-map shore or original-runtime Elite17. The pure
+packing alone proves neither map permission nor paid progression. No new building/terrain
 source, Market rectangle, general negative-wall shield or original save import
 is admitted by this follow-up.

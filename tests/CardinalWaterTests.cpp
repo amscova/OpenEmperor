@@ -166,10 +166,18 @@ void real_source_only(const std::filesystem::path& data) {
         check(a->cardinal_water_bonus({x,y},side)==(edge?10:0),"Real raw-word cardinal oracle differs from prepared immutable facts");
     }
 }
+void rule14_independent_placement_relative_invoice_oracle() {
+    Fixture fxt;auto w=fxt.world();for(unsigned i=0;i<7;++i)w.tick();
+    f::buy(w,{sim::CommandType::PlaceOriginalWaterWell,{60,60}});const auto paid=*w.building_owner_at({60,60});
+    const auto workers=w.workforce_required(paid);check(workers>0,"Paid invoice control has no installed workers");
+    while(w.ticks()<407)w.tick();check(w.maintenance_spent_total()==0,"Rule14 adopted a400-tick invoice");q::accounting(w);
+    while(w.ticks()<822)w.tick();check(w.maintenance_spent_total()==0,"Rule14 invoice preceded paid placement age816");q::accounting(w);
+    w.tick();check(w.maintenance_spent_total()==2U*static_cast<std::uint64_t>(workers),"Rule14 missed its first placement-relative816-tick invoice");q::accounting(w);
+}
 }
 int main(int argc,char** argv) {
     try{check(argc==1||(argc==3&&std::string_view(argv[1])=="--real"),"Use no args or --real DATA");
-        identities_and_recipient_authority();paid_lifecycle_and_persistence();if(argc==3)real_source_only(argv[2]);
+        identities_and_recipient_authority();paid_lifecycle_and_persistence();rule14_independent_placement_relative_invoice_oracle();if(argc==3)real_source_only(argv[2]);
         std::cout<<"PASS: authored paid Rule14 recipient query/lifecycle, strict Schema30/recovery and complete continuation; no paid Elite17 claim\n";return 0;
     }catch(const std::exception& e){std::cerr<<"Cardinal water FAIL: "<<e.what()<<'\n';return 1;}
 }

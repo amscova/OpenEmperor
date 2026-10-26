@@ -68,8 +68,20 @@ bei Wasser direkt am Rand des tatsächlichen Gebäudes. Diagonales Wasser zählt
 nicht. Der State-Inspector zeigt Zellwert, Wasserbonus und Gesamtsumme getrennt.
 Ein leerer Elite-Plot erhält keinen Bonus vor seiner legalen4×4-Materialisierung.
 Karte und Modell bleiben unveränderte Quellen; ältere Saves werden nicht
-umgestellt. Der neue Mechanismus allein beweist keinen bezahlten Elite17-Aufstieg.
-Die [Quellenprüfung](oe40-desirability-investigation.md) enthält die Nachweise.
+umgestellt. Ein geprüfter, regulär bezahlter Xia-Ausbau erreicht Elite17 bei
+Tick7333 mit DES70+10, erfüllten aktuellen/nächsten Bedürfnissen und 4455 Funds.
+Die folgenden 20400 Ticks halten Versorgung und Brandsicherheit nicht durch;
+der Betrieb verliert 3241 Funds, obwohl 1214 Funds übrig bleiben. Auch zwei
+zusätzliche bezahlte Märkte sichern den Aufstieg im separaten Versuch nicht.
+Das ist kein dauerhaft selbsttragender Musterbauplan. Die
+[Quellenprüfung](oe40-desirability-investigation.md) trennt Aufstieg,
+Versorgung, Finanzierung und offene menschliche Abnahme.
+Der erfolgreiche Testplatz liegt am Rand des gerenderten Kartendiamanten.
+Seine beiden auslösenden gespeicherten Randfelder enthalten`0x80005`, also
+Wasserbit4 und die Off-map-Markierung. Rule14 prüft das rohe gespeicherte Bit;
+der Erfolg belegt damit diesen Snapshot-Adapter, kein sichtbares Ufer und keinen
+Elite17-Aufstieg im Originalspiel. Originale Änderungen nach dem Kartenladen
+bleiben ungeklärt.
 Direktstart: dieselbe CLI wie oben mit `--original-cardinal-water` statt
 `--original-market-logistics`.
 
@@ -149,8 +161,10 @@ Hauslager noch Kurierzahl, Transportmenge, Geschwindigkeit oder Brandschutz.
 Rezepte, Ernte, Zuzug/Worker und Schule→Haus-Besuche enthalten eigene Regeln.
 Originale Veranstaltungs-/Performer-Abläufe und Krankheit fehlen. Mehrere
 Gebäude und Walker nutzen Fallbackbilder; passende Hausbilder decken Typen3–17
-ab. Common10 wurde bezahlt erreicht; Elite17 bleibt durch den beschriebenen
-Rule12-DES-Vertrag blockiert. Die native menschliche Abnahme bleibt offen.
+ab. Common10 und separat in Rule14 auch Elite17 wurden bezahlt erreicht.
+Der beschriebene DES79-Blocker bleibt für Rule12/13 unverändert; Rule14s
+Elite17-Versorgung und Finanzierung sind noch nicht dauerhaft nachgewiesen.
+Die native menschliche Abnahme bleibt offen.
 Der unveränderte Vier-Haus-Plan ohne
 Ausbau verlor im gemessenen100k-Lauf Geld und verpasste Food-Bedarfe; er ist
 keine dauerhaft selbsttragende Musterstadt. Weitere Grenzen stehen in

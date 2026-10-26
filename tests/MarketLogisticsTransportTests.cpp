@@ -7,6 +7,7 @@
 #undef OE_MARKET_LOGISTICS_AUTHORITY_TEST
 
 #include "simulation/OriginalIndustryGoodsContext.h"
+#include "MarketDistributionMetrics.h"
 
 namespace {
 std::string market_model() {
@@ -121,9 +122,43 @@ void no_workers_and_natural_fire() {
     for(int i=0;i<30;++i){w.tick();copy.tick();check(w.snapshot()==copy.snapshot(),"Rule13 natural-fire full-save continuation diverged");}
     authority(w);fixture.unchanged_source();
 }
+void staged_trace_unoccupied_admission_and_new_paid_actors() {
+    Fixture fixture(market_model());auto w=fixture.world();
+    for(int x=0;x<24;++x)buy(w,sim::CommandType::PlaceRoad,{x,8});
+    const auto target=buy(w,sim::CommandType::PlaceOriginalElitePlot,{0,4});
+    for(int x=6;x<18;x+=3)buy(w,sim::CommandType::PlaceHousehold,{x,6});
+    oe_market_distribution_metrics::Observation observed(w,target,fixture.model->house_rules());
+    const auto tick=[&]{observed.before(w);w.tick();observed.after(w);};
+    while(w.ticks()<119)tick();
+    check(home(w,target).house.occupants==0&&observed.report(w).at("evaluation_samples").empty(),
+        "Unoccupied trace invented an original House evaluation");
+    while(w.ticks()<150)tick();
+    const auto before=observed.report(w);
+    check(home(w,target).house.occupants>0&&!before.at("evaluation_samples").empty(),
+        "Trace missed actual paid Elite admission followed by occupied phase39");
+    const auto samples=before.at("evaluation_samples").size();
+    const auto clay=buy(w,sim::CommandType::PlaceClaySource,{0,9});
+    buy(w,sim::CommandType::PlacePottery,{3,9});
+    const auto warehouse=buy(w,sim::CommandType::PlaceWarehouse,{6,9});
+    buy(w,sim::CommandType::PlaceMarket,{9,9});
+    while(w.ticks()<900)tick();
+    const auto after=observed.report(w);bool actual_new_dispatch=false;
+    for(const auto& event:after.at("transfer_events"))if(event.at("event")=="dispatch_load"&&
+        (event.at("source")==static_cast<unsigned>(clay)||event.at("source")==static_cast<unsigned>(warehouse)))actual_new_dispatch=true;
+    check(after.at("evaluation_samples").size()>samples&&actual_new_dispatch,
+        "Staged trace lost earlier evaluations or the first actual dispatch of a newly paid actor");
+    authority(w);fixture.unchanged_source();
+
+    auto late=fixture.world();for(int x=0;x<6;++x)buy(late,sim::CommandType::PlaceRoad,{x,8});
+    const auto empty=buy(late,sim::CommandType::PlaceOriginalElitePlot,{0,4});
+    oe_market_distribution_metrics::Observation stale(late,empty,fixture.model->house_rules());
+    buy(late,sim::CommandType::PlaceClaySource,{0,9});late.tick();
+    refuses([&]{stale.before(late);}); // Its owner was not paid in this observed tick.
+}
 }
 int main() {
     try {
+        staged_trace_unoccupied_admission_and_new_paid_actors();
         typed_pause_and_stale_cursor();typed_road_cut_and_paid_repair();no_workers_and_natural_fire();
         paid_single_goods_or(false);paid_single_goods_or(true);paid_paper_confucian_and_expiry();
         paid_native_cargo_road_repair();paid_single_religion_and_natural_source_fire(true);

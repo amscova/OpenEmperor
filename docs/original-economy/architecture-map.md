@@ -45,8 +45,16 @@ plot gets no bonus and the authored materialization transaction authorizes4×4.
 The immutable source-hash-bound masks are prepared eagerly, never serialized or
 read in frames/ticks. Restore independently reconstructs them from the original
 map. Cell DES remains−100…100; only this recipient query may reach110. The
-[OE40 investigation](oe40-desirability-investigation.md) separates the original
-query evidence, restricted adapter lifetime and unproven paid Elite17 progression.
+[OE40 investigation](oe40-desirability-investigation.md) separates original
+query evidence and restricted adapter lifetime from actual paid Xia/Normal16→17
+at tick7333 (raw70+10, current/next needs met). Its following 20,400 ticks lose
+supply/type/fire retention and have −3241 operating cashflow; stable Elite17
+retention and financing remain unproved. Historical Rule12/13's source-only
+DES79 bound is unchanged; no old save or model is migrated.
+The measured site's bit4 neighbors also carry stored`0x80000` and lie outside
+the shared Diamond. Its legal body and paid result establish the immutable raw
+snapshot adapter, not a visible shoreline or original post-load/runtime parity;
+the evidenced helper has no off-map filter and the predicate remains unchanged.
 
 `ModelData` reads the selected installation's `Model/EmperorBuildingModels.txt`
 within its canonical root: regular file, at most 256 KiB, lines at most 4096 bytes,
@@ -148,7 +156,7 @@ five auxiliary materials, not extra House goods. Exact source evidence is in
 Food has separate Wheat/Millet quantities, cargo and arrival witnesses. Authored
 crop scores 20/80 feed the original quality blend only on positive House delivery.
 Rules10/11 admit two paid Food Farms with one uniquely owned adjacent Field
-each; Rules12/13 admit three within the unchanged global body/courier bounds.
+each; Rules12/13/14 admit three within the unchanged global body/courier bounds.
 Stock depletion resets quality; an authored sink consumes one unit per occupied
 House at 0/7 boundaries and records real misses. Six-goods consumption uses the
 current model row independently per good: Bronze/Lacquer satisfy needs as OR,
@@ -186,7 +194,7 @@ only neutral Well72 influence sources have the existing no-refund removal path.
 Tax is authored direct collection of pre-tick `occupants * prepared TaxRate`
 every 816 ticks, without an invented TaxOffice. Upkeep is 2 Funds per installed
 required worker every 400 placement-relative ticks in Rules10/11 and every 816
-in Rules12/13, including pause, fire and unstaffing.
+in Rules12/13/14, including pause, fire and unstaffing.
 Cumulative per-type taxable units and actual arrival/transition witnesses constrain
 restore; they are bounded proofs rather than full event journals. Existing Funds
 and accounting counters are the sole monetary authority. Purchases need available
@@ -205,7 +213,7 @@ is separate from native human acceptance.
 
 ## Save safety and developer checks
 
-Schemas26–29 validate complete identities, map/mask/policy/model binding, paid origin,
+Schemas26–30 validate complete identities, map/mask/policy/model binding, paid origin,
 geometry, route/progress, capacities, conservation, timing and finance before
 publication. Unknown/duplicate/missing/mistyped fields, incompatible revisions,
 unsupported authority and impossible histories fail atomically; 8 MiB document and

@@ -109,6 +109,19 @@ public:
     }
     void before(const sim::World& w) {
         before_tick_=w.ticks();
+        // A staged player recipe can buy an actor after this observer began.
+        // Only a genuinely new, unused paid actor may establish a baseline;
+        // existing IDs retain every prior observed transfer/status value.
+        for(const auto& c:w.couriers())if(traced(c.role)&&!prior_.contains(c.id)) {
+            const auto& paid=w.building(c.owner);
+            const auto used=[&](const auto& rows){return std::any_of(rows.begin(),rows.end(),[&](const auto& r){return r.transfer.courier_id==c.id;});};
+            check(paid.placed&&paid.placed_tick==w.ticks()&&c.target==c.owner&&c.phase==sim::CourierPhase::IdleAtWorkshop&&
+                c.cargo==0&&c.reserved==0&&c.path.empty()&&c.path_vertex==0&&c.edge_progress==0&&
+                !c.last_dispatched_target&&!c.last_dispatched_pottery&&c.reroute_attempts==0&&
+                !used(w.original_goods_state()->reservations)&&!used(w.original_goods_state()->cargo)&&
+                !used(w.original_production_state()->industry.clay_trips),"New trace actor is not a newly paid unused idle courier");
+            auto& p=prior_[c.id];p.phase=c.phase;p.status=w.courier_dispatch_status(c.id).status;p.target=c.target;
+        }
         for(const auto& h:w.original_economy_state()->houses)house_before_[h.building_id]=h.house;
     }
     void after(const sim::World& w) {
@@ -122,7 +135,7 @@ public:
                 {"before_tick",matrix::state(house_before_.at(h.building_id))},{"after_tick",matrix::state(h.house)},
                 {"actual_consumed",delta},{"cumulative_consumed",now}});consumed_[h.building_id]=now;
         }
-        if(dispatch->evolution) {
+        if(dispatch->evolution&&oe_starter_fixture::house(w,target_).occupants>0) {
             const auto& e=high::history(w,target_).last_evaluation;
             check(e&&e->tick==w.ticks(),"Market trace missed the real target phase39 input");
             auto value=sample(w,true);value["actual_evaluation"]=high::evaluation(*e,rules_);evaluations_.push_back(std::move(value));
