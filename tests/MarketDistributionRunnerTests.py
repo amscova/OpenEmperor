@@ -156,6 +156,61 @@ class CompleteReplayEvidenceGuards(unittest.TestCase):
             runner.high.review_common(report, {}, {}, {}, {}, [], {})
 
 
+def checkpoint_control(rule=13, start=22837):
+    """Authored manifest only; never a World or a gameplay witness."""
+    times = {"expansion": 20000, "first-success": start, "active-cargo": start+1,
+             "result": start+20400}
+    if start < 28800 <= start+20400: times["before-shortage"] = 28800
+    if rule == 13:
+        times.update({label: tick for label, tick in runner.FORMER_PROBLEM_CHECKPOINTS.items()
+                      if start < tick <= start+20400})
+    elif start == 27733:
+        times.update({"first-shortage": 29008, "first-devolution": 29467})
+    worlds = {label: {"ticks": tick, "command_sequence": 116, "construction_spent_total": 2588,
+                      "original_goods": {"cargo": [{"amount": 1}] if label == "active-cargo" else []}}
+              for label, tick in times.items()}
+    return list(times), worlds, "common-reserved" if rule == 12 else "common-near-pottery", rule
+
+
+class FormerProblemWindowReplayGuards(unittest.TestCase):
+    def test_rule13_requires_both_real_historical_problem_instants(self):
+        runner.review_checkpoint_list(*checkpoint_control())
+
+    def test_missing_problem_checkpoint_cannot_claim_full_window_coverage(self):
+        for name in runner.FORMER_PROBLEM_CHECKPOINTS:
+            args = checkpoint_control(); args[0].remove(name); del args[1][name]
+            with self.assertRaisesRegex(RuntimeError, "Former Rule12 problem checkpoint"):
+                runner.review_checkpoint_list(*args)
+
+    def test_problem_checkpoint_cannot_change_or_swap_saved_clock(self):
+        for name in runner.FORMER_PROBLEM_CHECKPOINTS:
+            args = checkpoint_control(); args[1][name]["ticks"] += 1
+            with self.assertRaisesRegex(RuntimeError, "Former Rule12 problem checkpoint"):
+                runner.review_checkpoint_list(*args)
+        args = checkpoint_control()
+        first, second = runner.FORMER_PROBLEM_CHECKPOINTS
+        args[1][first], args[1][second] = args[1][second], args[1][first]
+        with self.assertRaisesRegex(RuntimeError, "Former Rule12 problem checkpoint"):
+            runner.review_checkpoint_list(*args)
+
+    def test_rule12_retains_its_original_manifest_without_successor_labels(self):
+        runner.review_checkpoint_list(*checkpoint_control(12, 27733))
+        for name, tick in runner.FORMER_PROBLEM_CHECKPOINTS.items():
+            args = checkpoint_control(12, 27733)
+            args[0].append(name); args[1][name] = copy.deepcopy(args[1]["first-success"])
+            args[1][name]["ticks"] = tick
+            with self.assertRaisesRegex(RuntimeError, "Former Rule12 problem checkpoint"):
+                runner.review_checkpoint_list(*args)
+
+    def test_outside_retention_instants_cannot_be_forged_as_new_checkpoints(self):
+        args = checkpoint_control(start=35000)
+        runner.review_checkpoint_list(*args)
+        args[0].append("former-shortage-window")
+        args[1]["former-shortage-window"] = copy.deepcopy(args[1]["first-success"])
+        with self.assertRaisesRegex(RuntimeError, "Former Rule12 problem checkpoint"):
+            runner.review_checkpoint_list(*args)
+
+
 def paid_control(variant="common-reserved"):
     report = {"variant": variant, "initial_commands": [], "expansion_commands": []}
     world = {"buildings": [], "roads": [], "construction_spent_total": 0, "command_sequence": 0, "treasury": 12000}

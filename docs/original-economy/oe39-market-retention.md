@@ -4,15 +4,17 @@ Rule13 is an explicit **City-v16 / Schema29 / Policy3 / revision27** successor
 with authored needs-aware goods selection. The [diagnosis](oe39-market-diagnosis.md)
 establishes the unchanged Rule12 failure and the paid comparisons that justify
 this intervention. Starting HEAD is `81bc9218958f7ade116fc43d3df80975c1206e67`;
-Gate A is committed as `36eb328` on `feat/oe39-market-retention`.
+Gate A is committed as `36eb328`, Gate B as `ed38390`, on
+`feat/oe39-market-retention`.
 
-The measured Rule13 `common-near-pottery` candidate holds purchased House#3 at
+**Gates A, B and C: PASS for the measured bounded contract.** The paid Rule13
+`common-near-pottery` plan holds purchased House#3 at
 Luxurious Apartment10 for **20400 consecutive ticks**, with400 actual current-need
 evaluations passing, no devolution and no target fire. Its operating window earns
-4360 Funds. **Gate C is not yet accepted:** the current candidate evidence is a
-guarded creator with complete save/readback and Recovery; the required independent
-process continuations, cross-configuration checks and actual Sandbox captures
-remain NOT_RUN at this checkpoint. Original Emperor runtime parity remains PARTIAL.
+4360 Funds. Independent complete process continuations, Release/Debug/ASan+UBSan
+comparisons and inspected actual Sandbox captures pass. This proves the finite
+paid plan; indefinite goods self-sufficiency remains unproven and original Emperor
+runtime parity remains PARTIAL.
 
 ## Separate versioned contract
 
@@ -110,7 +112,7 @@ not a comparison at an identical calendar interval.
 |12 `common-compact-chain`|22480|42880|100 /10 /12903|295|12965−9700 =+3265|PARTIAL|
 |13 `common-reserved`|24979|45379|0 /0 /0|65|13896−9500 =+4396|PARTIAL: fire|
 |13 `common-compact-chain`|21460|41860|0 /0 /0|295|13956−9700 =+4256|PARTIAL: fire|
-|13 `common-near-pottery`|22837|43237|0 /0 /0|0|13860−9500 =**+4360**|PASS in creator; Gate C pending|
+|13 `common-near-pottery`|22837|43237|0 /0 /0|0|13860−9500 =**+4360**|PASS, independently reproduced|
 
 The compact recipe pays877 expansion,2746 total: near Clay/Pottery, four roads
 at(17,0)..(17,3), the Market shortcut(8,5)..(8,8), and a second Market/connection
@@ -158,7 +160,7 @@ observed interarrival gaps are2030/1980/1849 ticks respectively; the saved physi
 buffers and actual evaluations, not an assumed delivery deadline, establish supply.
 Boundary intervals are censored separately in the private observations.
 
-## Finite horizon and remaining acceptance
+## Finite horizon
 
 The near-Pottery city uses **earned Hemp buffers**: total Hemp stock+cargo falls
 94→67 while493 new units are harvested and520 consumed. The reserved and compact
@@ -169,15 +171,70 @@ capacity warning, not a reason to invent stock or raise a Farm cap. The measured
 20400-tick supply and positive cashflow are real; indefinite high-tier goods
 self-sufficiency is not demonstrated.
 
-Current private candidate evidence is
-`.local/original-economy/oe39/gate-b-rule13-near-pottery-01/market-acceptance.json`.
-It records technical and strict creator supply PASS, complete canonical save/
-readback and Recovery equality, unchanged original bytes/modes/mtimes and unchanged
-source/executable identity. Separate-process continuation and Sandbox rendering
-are explicitly NOT_RUN in this probe. The reserved Rule12 reproduction under
-the new executable, `gate-b-rule12-preserved-01`, retains the original27733/29008/
-29467 witnesses, five independent restores and eight literal historical OE38
-artifact comparisons. Historical failures are not redefined as successes.
+## Independent saves, rendering and regressions
+
+Canonical private acceptance is
+`.local/original-economy/oe39/gate-c-release-01/market-acceptance.json`.
+A fresh Release creator buys the full plan, captures its exact actual9→10 entry,
+then runs the20400-tick window. Five separate processes restore earned complete
+Schema29 saves and reach the byte-identical final SaveDocument and snapshot:
+
+| Restored checkpoint | Actual tick | Scope |
+|---|---:|---|
+|First success|22837|Exact live9→10 entry, before any retention tick|
+|Active cargo|22838|Physical loaded cargo on a begun edge|
+|Before shortage|28800|Before the historical first shortage/devolution|
+|Former shortage window|29008|The exact former Rule12 first-failure tick|
+|Former before devolution|29466|One tick before the historical29467 devolution|
+
+The first-success process also reproduces the complete retention metrics and
+transport trace literally. Debug and ASan+UBSan independently restore this same
+protected Release first-entry save and simulate the full20400 ticks, with identical
+final saves, snapshots, metrics and traces. Total:20 literal continuation pairs,
+seven exact restored starts and16 complete Recovery publications across eight
+histories. No process imports a changed stock, resident, timer or Funds field.
+
+| Workflow | Processes | Measured elapsed | Result |
+|---|---:|---:|---|
+|`gate-c-release-01`|Fresh creator, five restores, two renders:8|60.56s|PASS|
+|`gate-c-debug-01`|One full20400 restore, two renders:3|324.66s|PASS|
+|`gate-c-sanitize-01`|One full20400 restore, two renders:3|130.44s|PASS; no sanitizer findings|
+
+Each configuration loads the earned first-success and final saves in the actual
+SandboxView, selects House#3 through SDL input, checks State/Needs/Goods/Visits,
+and performs F5/F9. Complete World/save bytes remain unchanged. State captures use
+1×/2×/4×; the other tabs use2×, giving12 PNGs per configuration. All12 Release
+PNGs were opened and visually inspected. The24 Debug/Sanitizer PNGs are literally
+identical to the corresponding inspected Release images. Both checkpoints show
+actual type10 with original `China_General.sg3` image1523, shared anchor(79,142),
+positive original House draws and zero authored House fallbacks. Other objects
+retain existing fallbacks; this does not establish full-scene original parity.
+The private visual-review record is `gate-c-visual-review.json`.
+
+Gate B passes26 focused Release CTests and six each in Debug and ASan+UBSan.
+They cover the pure policy, exact version/schema/marker, adversarial restore,
+paid transport, disconnection/repair, cancellation, fire, staffing, Paper/OR and
+menu/save paths. The initial finance-oracle failure was corrected to recognize
+the inherited Rule13 816-tick invoice; no production invoice or model was altered.
+Gate C adds seven passing Release regressions and40 new runner guards alongside
+48 historical OE38 and19 OE37 guards. Wrong former-window clocks, missing
+checkpoints and Rule12 use of Rule13-only checkpoint labels are refused.
+
+The new executable still reproduces frozen Rule12 entry27733, first shortage29008
+and devolution29467. Five restores and eight literal historical OE38 artifact pairs
+remain identical;62 complete authored legacy SaveDocument files also retain their
+bytes. The unchanged Rule12 OE37 baseline is simulated for100000 post-maturity
+ticks; its complete emitted summary equals the earlier OE38/OE37 result, including
+zero current unmet needs/devolutions/fires and four consecutive+1950 operating
+windows. This is summary equality for that fresh regression, not a new claim of
+full baseline-event-journal equality. Raw stdout and the independent comparison
+are private in `gate-c-release-regressions.full.log` and
+`gate-c-100k-baseline-comparison.json`.
+
+All workflows retain source/executable/resources and earned-source identities;
+the supplied1464 original files,819711091 bytes, retain their complete bytes,
+modes and mtimes. Original assets, model tables, saves, traces and PNGs remain
+under ignored `.local/`. Historical failures are not redefined as successes.
 
 Build with [testing.md](../testing.md) and the original-model test root, then use a
 fresh output directory. This command requests the complete process workflow;
@@ -188,8 +245,16 @@ House selection and1×/2×/4× captures:
 python3 -B tools/test_market_distribution.py --binary /absolute/build/openemperor-market-distribution-acceptance --data /absolute/Emperor --rule 13 --variant common-near-pottery --resources /absolute/build/resources --output "$PWD/.local/original-economy/oe39/retention-new"
 ```
 
-Gate C still requires independent literal full SaveDocument/snapshot/Recovery
-continuations at the earned first entry, active cargo and former failure window,
-the relevant Release/Debug/ASan+UBSan regression results, and opened/inspected
-Sandbox captures. Native/human acceptance is separate and NOT_RUN. No original
-runtime parity, Elite17 change or unlimited fairness claim is made here.
+To compare another compiled configuration against that protected earned creator:
+
+```sh
+python3 -B tools/test_market_distribution.py --binary /absolute/other-build/openemperor-market-distribution-acceptance --data /absolute/Emperor --rule 13 --variant common-near-pottery --input "$PWD/.local/original-economy/oe39/retention-new/creator" --first-replay-only --resources /absolute/other-build/resources --output "$PWD/.local/original-economy/oe39/continuation-new"
+```
+
+Only Release performs a fresh complete creator and all five checkpoint restores
+in this final matrix; Debug/Sanitizer perform the full20400 first-entry replay.
+Fresh full Debug/Sanitizer creators and additional100k Debug/Sanitizer regressions
+are NOT_RUN. macOS LeakSanitizer, other operating systems and native/human play
+acceptance are NOT_RUN. The inspected software-rendered SDL captures do not
+substitute for those checks. Elite17 and original venue/illness/source-lifecycle
+work remain outside this contract; no unlimited supply or fairness claim is made.

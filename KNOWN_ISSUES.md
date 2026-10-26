@@ -3,8 +3,9 @@
 OpenEmperor is an alpha. Supported sandbox behavior does not establish
 complete original-game compatibility.
 
-- **Original economy is experimental.** Rules10/11/12 are opt-in and include authored
-  immigration, workforce, recipes, harvesting and school-to-house visits.
+- **Original economy is experimental.** Rules10/11/12/13 are opt-in and include authored
+  immigration, workforce, recipes, harvesting, school-to-house visits and Rule13
+  needs-aware goods selection.
   Original venue/performer chains and illness are missing. Houses and productive
   buildings cannot yet be demolished; incompatible development saves are refused.
 - **Rule10 has no purchasable fire protection.** Natural fires temporarily remove
@@ -33,6 +34,12 @@ complete original-game compatibility.
   An exact source/footprint bound gives DES≤79 for a materialized4×4 Elite House;
   the unchanged16→17 entry needs80. This blocks Elite17 in the current Normal
   Rule12 adapter, not in original Emperor. No historical rule or model is changed.
+  Separate [Rule13 market logistics](docs/original-economy/oe39-market-retention.md)
+  holds paid Common10 for20400 consecutive ticks in the tested near-Pottery plan,
+  with no current unmet needs or devolutions across twelve Houses and positive
+  operating cashflow. It uses earned Hemp buffers (94→67); indefinite high-tier
+  self-sufficiency and universal fairness remain unproven. Other city buildings
+  still experience fires. This does not change the Elite17/DES contract.
   The unchanged four-house Xia starter without expansion loses money and misses
   Food demands in the measured long run; it needs active development.
 - **Service capacity is limited.** Larger cities can miss Service deadlines

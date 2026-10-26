@@ -84,6 +84,11 @@ Retained retain(const q::Context& c,const fs::path& output,sim::World& w,sim::Bu
         if(actual_unmet&&out.first_failure.is_null())out.first_failure={{"tick",w.ticks()},{"actual_evaluation",high::evaluation(*e,rules)}};
         if(diagnostic_checkpoints) {
             if(w.ticks()==28800)save("before-shortage");
+            // Explicit earned successors at the historical Rule12 failure
+            // instants. These are saves of the live Rule13 World, never an
+            // injected shortage or a changed historical Rule12 checkpoint.
+            if(w.rule_version()==13&&w.ticks()==29008)save("former-shortage-window");
+            if(w.rule_version()==13&&w.ticks()==29466)save("former-before-devolution");
             if(!cargo_saved&&std::any_of(w.couriers().begin(),w.couriers().end(),[&](const auto& actor){
                 return sim::original_industry_goods::typed(actor.role)&&actor.phase==sim::CourierPhase::ToWarehouse&&
                     actor.edge_progress>0&&w.original_courier_cargo(actor.id)>0;})) {save("active-cargo");cargo_saved=true;}

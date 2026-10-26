@@ -221,12 +221,14 @@ Emperor's complete source manager follows. The paid empty Plot observer and
 synthetic-geography materialization regressions establish their own narrower
 scope; they are not a real Xia13→17 playthrough.
 
-Any future Rule13/Schema29 proposal needs a separately approved source contract:
+Any future Elite-extension generation needs a separately approved source contract:
 identify and verify an additional original DES source/lifecycle or an explicitly
 authored alternative; define its complete placement, cap, accounting, transport
 and restore authority; preserve Rule12 and its saves exactly. An arbitrary +1
 bonus, lowered80 threshold, raised cap, overlapping footprint or Common→Elite
-conversion is not authorized by this diagnosis. No Rule13 behavior is implemented.
+conversion is not authorized by this diagnosis. OE38 implements no Rule13 behavior.
+Subsequent [OE39](oe39-market-retention.md) uses Rule13/Schema29 for authored
+market selection only, retaining this DES contract without an Elite extension.
 
 Reproduce either finite paid Common scenario with a new directory:
 

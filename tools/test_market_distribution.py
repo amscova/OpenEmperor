@@ -14,7 +14,9 @@ proof, baseline = high.proof, high.baseline
 PRIVATE = proof.REPO / ".local/original-economy/oe39"
 VARIANTS = (*high.COMMON_VARIANTS, "common-near-chain", "common-priority", "common-short-route", "common-compact-chain")
 CHECKPOINTS = ("expansion", "first-success", "before-shortage", "first-shortage",
-               "first-devolution", "active-cargo", "result")
+               "first-devolution", "active-cargo", "result", "former-shortage-window",
+               "former-before-devolution")
+FORMER_PROBLEM_CHECKPOINTS = {"former-shortage-window": 29008, "former-before-devolution": 29466}
 
 
 def integer(value, minimum=0):
@@ -130,6 +132,11 @@ def review_checkpoint_list(labels, worlds, variant, rule=12):
                       "Checkpoint introduced post-expansion commands or escaped its actual retention interval")
     proof.require(worlds["active-cargo"]["original_goods"]["cargo"],
                   "Active-cargo checkpoint contains no physically loaded six-goods transport")
+    for label, tick in FORMER_PROBLEM_CHECKPOINTS.items():
+        required = rule == 13 and start < tick <= end
+        proof.require((label in worlds) is required and
+                      (not required or type(worlds[label]["ticks"]) is int and worlds[label]["ticks"] == tick),
+                      "Former Rule12 problem checkpoint is missing, mistimed or admitted into the wrong generation/window")
     if variant == "common-reserved" and rule == 12:
         proof.require({"before-shortage", "first-shortage", "first-devolution"} <= set(labels) and
                       start == 27733 and worlds["first-shortage"]["ticks"] == 29008 and

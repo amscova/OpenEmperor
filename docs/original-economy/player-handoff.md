@@ -56,9 +56,11 @@ werden nicht umgestellt. Der direkte Start mit bezahltem Starter lautet:
 ```
 
 Die [Marktdiagnose](oe39-market-diagnosis.md) erklärt die gemessenen Rule12-Lücken.
-Die [separate Langzeitbewertung](oe39-market-retention.md) hält Warenversorgung,
-Hausstufen, Brände und Finanzierung auseinander; der neue Modus allein belegt
-keine durchgängige Versorgung oder brandsichere Stadt.
+Der dort [geprüfte bezahlte Ausbau](oe39-market-retention.md) mit näherer Töpferei
+hält Common10 von Tick22837 bis43237. Alle zwölf Häuser bleiben im Fenster ohne
+aktuellen Fehlbedarf oder Rückentwicklung; der Betrieb erwirtschaftet4360 Funds.
+Dabei sinken die angesparten Hemp-Bestände von94 auf67. Unbegrenzte Versorgung,
+eine brandsichere Gesamtstadt und die menschliche Abnahme bleiben offen.
 
 Der [bezahlte High-Tier-Ausbau](oe38-paid-high-tier-progression.md) erreicht
 Common10 (Luxurious Apartment). In den geprüften20400 Folgeticks entstehen
