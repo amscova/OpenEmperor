@@ -331,12 +331,13 @@ def review_first_common(reached, first, target):
     return witness
 
 
-def review_common(report, warmup, search, expansion, final, model, buildings, first=None, retention=None):
+def review_common(report, warmup, search, expansion, final, model, buildings, first=None, retention=None,
+                  paid_review=review_paid_commands, variants=COMMON_VARIANTS):
     proof.require(report["format"] == "openemperor-paid-high-tier-common-v1" and
                   report["technical_status"] == "PASS" and report["snapshot_injection"] is False and
                   all(type(report[key]) is int and report[key] == value for key, value in
                       (("rule", 12), ("schema", 28), ("policy", 3), ("revision", 27))) and
-                  report["variant"] in COMMON_VARIANTS and report["common10"] in ("PASS", "PARTIAL") and
+                  report["variant"] in variants and report["common10"] in ("PASS", "PARTIAL") and
                   report["elite17"] in ("PARTIAL", "BLOCKED") and report["original_parity"] == "PARTIAL",
                   "Invalid Common scenario contract or invented full-parity claim")
     if "elite_entry_bound" in report:
@@ -347,7 +348,7 @@ def review_common(report, warmup, search, expansion, final, model, buildings, fi
     proof.require(expansion["ticks"] == 20000 and owned(expansion, target)["house"]["type"] < 10 and
                   all(owned(w, target)["house"]["type"] < 11 for w in (expansion, final)),
                   "Common target was pre-granted or crossed its separate family")
-    review_paid_commands(report, expansion, warmup, buildings)
+    paid_review(report, expansion, warmup, buildings)
     proof.require(report["final_tick"] == final["ticks"] and report["final_funds"] == final["treasury"] and
                   report["final_type"] == owned(final, target)["house"]["type"] and
                   final["construction_spent_total"] == expansion["construction_spent_total"] and

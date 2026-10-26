@@ -162,8 +162,10 @@ For `common-reserved`,194 of400 target evaluations miss current needs: all194
 miss Hemp and29 also miss Ceramics. No other current need, DES or timer fails.
 The first missing Hemp evaluation is tick29008; the actual tenth consecutive
 failed input at29467 causes10→9. All18 target devolutions include missing Hemp.
-At29008 the Warehouse holds28 Hemp with4 committed incoming (effective capacity32),
-both Farms have stock and their carts report target-full, while the Market's
+At29008 the Warehouse holds28 Hemp with4 units of outgoing cargo reserving
+source-return space (effective capacity32), not4 incoming Hemp. OE39's exact
+transfer trace resolves this earlier description; the historical metrics stay unchanged.
+Both Farms have stock and their carts report target-full, while the Market's
 sole goods distributor is returning from another House over a22-vertex path.
 The target has no Hemp or Ceramics. Warehouse Hemp is at least28 in392/400
 samples while Market Hemp is zero in239/400. Global Hemp stock plus cargo grows
