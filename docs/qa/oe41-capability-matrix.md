@@ -31,6 +31,21 @@ of all menu functions. Conditional controls retain their own execution status.
 Hotkeys and CLI branches are cataloged from their real handlers; source-only
 entries remain `NOT_RUN` until a corresponding current invocation is recorded.
 
+The October28 metadata audit preserves the original272-entry catalog at
+`.local/oe41/resume-01/inventory-before-extension.json` and extends the working
+catalog to329 records. The57 added records cover AssetBrowser, MapBrowser,
+MapDebugView and SceneView keys/window/pointer handlers and the four delegated
+`--menu-check` modes. All48 top-level main-parser flags remain represented.
+Every entry now has an explicit numeric or context-dependent profile/rule scope;
+319 records link related registered CTests and their actual Release result.
+Those links describe supporting contract coverage, not execution of the same
+native/app action. The app-action totals remain60 `PASS`,261 `NOT_RUN` and8
+`UNSUPPORTED`; none of the new browser/child-mode rows was marked executed by
+source inspection. Prototype records remain separate from productive gameplay.
+The bounded menu/toolbar traversal passes, while complete browser/native
+interaction coverage remains partial. Exact checks are in
+`.local/oe41/resume-01/evidence-audit.json`.
+
 The final runtime traversal is
 `run-01/inventory-runtime-04/report.json`:569 menu context rows and708 toolbar
 context rows, with67 observed menu action IDs (including dynamic rows),57 toolbar
@@ -68,6 +83,18 @@ Its events are scripted application evidence. Captures become visual-review
 evidence only after opening and inspecting them. Native pointer/window delivery
 and a human playtest remain independent results; neither is inferred from this
 catalog or from a CTest count.
+
+The October28 native continuation is **PARTIAL**, not wholly unexecuted:
+three actual Cocoa/Metal CMake.app processes exercised paid Rule12 starter
+creation, held-arrow/zoom/resize, OS fullscreen, keyboard play to7952/167
+residents, complete F5/F9 and new-process active-Hemp restoration, then a
+same-process Rule5/Chang-an Sui load. Pointer construction was blocked by an
+observed automation-delivery mismatch before app conversion. CUA reported
+“The user changed app”; all later desktop automation stopped and the third app
+remains live under user control. Human acceptance is **NOT_RUN**. These later
+observations do not blanket-change the source-only browser/catalog rows to
+PASS. Exact scope and gaps are in [the playtest report](oe41-playtest-report.md)
+and `.local/oe41/resume-01/native-summary.json`.
 
 The current guarded binary is SHA256
 `3c60e4dc78f82097954cec073071da4309fcf8797694176f3912787f46fc6f7f`.
