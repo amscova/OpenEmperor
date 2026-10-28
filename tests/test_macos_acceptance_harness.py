@@ -149,6 +149,25 @@ class OutputIsolation(unittest.TestCase):
             with self.assertRaisesRegex(alpha.CheckFailure, "skipped or omitted"):
                 alpha.test_build(build, 2)
 
+    def test_outer_budget_preserves_each_registered_timeout(self):
+        registration = {"tests": [
+            {"name": "original-menu-session-flow", "properties": [{"name": "TIMEOUT", "value": 120.0}]},
+            {"name": "long-check", "properties": [{"name": "TIMEOUT", "value": 1800.0}]},
+            {"name": "untimed-check", "properties": []}]}
+        before = copy.deepcopy(registration)
+        budget = alpha.ctest_outer_budget(registration)
+        self.assertEqual(budget["seconds"], 3720)
+        self.assertEqual(registration, before)
+        self.assertEqual(registration["tests"][0]["properties"][0]["value"], 120.0)
+        self.assertFalse(budget["individual_timeouts_modified"])
+        self.assertEqual(alpha.ctest_outer_budget({"tests": []})["seconds"], 1800)
+
+    def test_invalid_declared_case_budget_fails_closed(self):
+        for value in (True, -1, "not-a-duration", float("inf"), float("nan")):
+            with self.subTest(value=value), self.assertRaises(alpha.CheckFailure):
+                alpha.ctest_outer_budget({"tests": [{"name": "bad", "properties":
+                    [{"name": "TIMEOUT", "value": value}]}]})
+
 
 class OptionalOriginalScope(unittest.TestCase):
     def setUp(self):

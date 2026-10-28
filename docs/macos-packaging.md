@@ -90,6 +90,11 @@ the original-data status `NOT_CONFIGURED`. Completed synthetic checks remain
 usable, but the overall report is `partial`/`synthetic_only`, not a full original
 PASS. Unexpected skips still fail. The runner retains the
 actual registered-test inventory and complete JUnit output in each build.
+The outer CTest process budget uses the sum of actual registered case deadlines,
+with the former 1,800-second allowance retained for the untimed group and as a
+minimum. This lets a long complete suite finish; every individual CMake test
+deadline remains exact, including the 120-second original-menu check. The report
+records this aggregate budget separately from observed durations.
 Existing builds, reports and distributions are never deleted or replaced.
 Without explicit paths, the historical default names are used only if fresh.
 

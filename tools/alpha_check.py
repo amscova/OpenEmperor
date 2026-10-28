@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -123,14 +124,48 @@ def ctest_result_scope(registration: dict, junit: Path, *, original_data_configu
             "not_run_original_cases": not_run}
 
 
+def ctest_outer_budget(registration: dict) -> dict[str, object]:
+    """Bound the whole process without changing any registered test deadline."""
+    explicit = 0.0
+    untimed = 0
+    for test in registration["tests"]:
+        properties = {item["name"]: item["value"] for item in test.get("properties", [])}
+        value = properties.get("TIMEOUT")
+        if value is None:
+            untimed += 1
+            continue
+        if isinstance(value, bool):
+            raise CheckFailure("invalid registered CTest TIMEOUT")
+        try:
+            seconds = float(value)
+        except (TypeError, ValueError) as error:
+            raise CheckFailure("invalid registered CTest TIMEOUT") from error
+        if not math.isfinite(seconds) or seconds < 0:
+            raise CheckFailure("invalid registered CTest TIMEOUT")
+        if seconds == 0:
+            untimed += 1
+        else:
+            explicit += seconds
+    if not math.isfinite(explicit):
+        raise CheckFailure("registered CTest aggregate TIMEOUT is not finite")
+    # A serial sum is conservative even for CTest resource locks/RUN_SERIAL.
+    # The old whole-command allowance remains for the untimed group, not each case.
+    allowance = 1800 if untimed else 0
+    return {"seconds": max(1800, math.ceil(explicit) + allowance),
+            "explicit_case_timeout_sum": explicit, "untimed_cases": untimed,
+            "untimed_group_allowance": allowance, "individual_timeouts_modified": False}
+
+
 def test_build(build: Path, jobs: int, env: dict[str, str] | None = None, *,
                original_data_configured: bool = True) -> dict[str, object]:
     listed, _ = run(["ctest", "--test-dir", str(build), "--show-only=json-v1"], env=env)
     registration = json.loads(listed)
     (build / "alpha-ctest-inventory.json").write_text(listed)
     junit = build / "alpha-ctest.xml"
+    outer_budget = ctest_outer_budget(registration)
     output, elapsed = run(["ctest", "--test-dir", str(build), "--output-on-failure",
-                           "--output-junit", str(junit), "-j", str(jobs)], timeout=1800, env=env)
+                           "--output-junit", str(junit), "-j", str(jobs)],
+                          timeout=outer_budget["seconds"], env=env)
     if ctest_count(output) != len(registration["tests"]):
         raise CheckFailure("CTest execution count differs from actual registered inventory")
     if original_data_configured and ("***Skipped" in output or "(Skipped)" in output or "Not Run" in output):
@@ -141,6 +176,7 @@ def test_build(build: Path, jobs: int, env: dict[str, str] | None = None, *,
     scoped = ctest_result_scope(registration, junit, original_data_configured=original_data_configured,
                                model_root=model_root)
     return {**scoped,
+            "outer_command_budget": outer_budget,
             "inventory": str(build / "alpha-ctest-inventory.json"), "junit": str(junit),
             "seconds": round(elapsed, 3)}
 
