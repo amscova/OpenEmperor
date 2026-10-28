@@ -24,10 +24,14 @@ python3 tools/alpha_check.py --system-sdl --jobs 2
 python3 tools/alpha_check.py --system-sdl --jobs 2 --package --data /path/to/emperor
 ```
 
-The runner uses `build/` for Debug and recreates `build-alpha-release/` and
-`build-sanitize/` for Release and ASan/UBSan. Keep unrelated files out of these
-build directories; the corresponding `--*-build-dir` options select alternatives.
-Its report is `.local/reports/alpha-check.json`. It runs the registered tests,
+The default build directories are `build/`, `build-alpha-release/` and
+`build-sanitize/`. Build, report and package destinations must be new paths;
+existing outputs are preserved. Select isolated paths with `--build-dir`,
+`--release-build-dir`, `--sanitize-build-dir`, `--report`,
+`--package-build-dir` and `--package-dist-dir`. See the
+[packaging guide](macos-packaging.md#alpha-acceptance) for a complete command.
+The default report is `.local/reports/alpha-check.json`. The runner records the
+actual registered-test inventory and JUnit results. It runs the registered tests,
 100,000-tick deterministic endurance with real JSON roundtrips, render stress
 and repeated menu/session lifecycles. The optional data check verifies the
 original files it actually uses remain unchanged. On macOS LeakSanitizer is

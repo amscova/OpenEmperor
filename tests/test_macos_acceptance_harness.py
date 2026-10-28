@@ -74,6 +74,29 @@ class OutputIsolation(unittest.TestCase):
                 self.assertIn("-DOPENEMPEROR_ENABLE_SANITIZERS=" + ("ON" if sanitized else "OFF"), cmake)
                 self.assertEqual(call.call_args_list[1].args[0][-2:], ["--parallel", "2"])
 
+    def test_optional_configuration_does_not_override_default_with_invalid_empty_root(self):
+        with mock.patch.object(alpha, "run", return_value=("", 0)) as call:
+            alpha.configure(self.root / "debug", "Debug", 2, True)
+        self.assertFalse(any(arg.startswith("-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=")
+                             for arg in call.call_args_list[0].args[0]))
+
+    def test_package_optional_data_default_and_explicit_forwarding(self):
+        for data in (None, self.root / "supplied-original"):
+            args = argparse.Namespace(build_dir=self.root / "new-build", dist_dir=self.root / "new-dist",
+                                      data=data, jobs=2)
+            with self.subTest(data=data), mock.patch.object(package, "parse_args", return_value=args), \
+                 mock.patch.object(package.sys, "platform", "darwin"), \
+                 mock.patch.object(package.shutil, "which", return_value="/test/tool"), \
+                 mock.patch.object(package, "call", side_effect=["arm64\n", "configured", "built"]) as call, \
+                 mock.patch("builtins.print"):
+                # Stop at the deliberately absent build output; no subprocess/build ran.
+                with self.assertRaises(FileNotFoundError):
+                    package.main()
+            command = call.call_args_list[1].args
+            overrides = [v for v in command if v.startswith("-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=")]
+            self.assertEqual(overrides, [] if data is None else
+                             ["-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + str(data)])
+
     def test_notice_is_owned_by_actual_linked_version(self):
         actual = self.root / "Cellar/openssl@4/4.0.3"
         (actual / "lib").mkdir(parents=True)
@@ -125,6 +148,93 @@ class OutputIsolation(unittest.TestCase):
         with mock.patch.object(alpha, "run", side_effect=outputs):
             with self.assertRaisesRegex(alpha.CheckFailure, "skipped or omitted"):
                 alpha.test_build(build, 2)
+
+
+class OptionalOriginalScope(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="oe-alpha-scope-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.model = self.root / "missing-original"
+        self.registration = {"tests": [
+            {"name": "synthetic-check", "command": ["synthetic"]},
+            {"name": "original-model-data-real", "command": ["model-test", "--real", str(self.model)],
+             "properties": [{"name": "SKIP_RETURN_CODE", "value": 77}]}]}
+        self.junit = self.root / "results.xml"
+        self.junit.write_text('<testsuite><testcase name="synthetic-check"/>'
+            '<testcase name="original-model-data-real"><skipped message="SKIP_RETURN_CODE=77"/>'
+            '</testcase></testsuite>')
+
+    def scope(self, registration=None, configured=False):
+        return alpha.ctest_result_scope(registration or self.registration, self.junit,
+            original_data_configured=configured, model_root=self.model)
+
+    def test_only_declared_missing_original_is_reported_not_run(self):
+        result = self.scope()
+        self.assertEqual((result["result"], result["passed"], result["skipped"]), ("synthetic_pass", 1, 1))
+        self.assertEqual(result["original_data_status"], "NOT_CONFIGURED")
+        self.assertEqual(result["not_run_original_cases"][0]["status"], "NOT_RUN")
+
+    def test_explicit_data_never_permits_a_skip(self):
+        with self.assertRaises(alpha.CheckFailure):
+            self.scope(configured=True)
+
+    def test_unexpected_skip_contracts_fail_closed(self):
+        variants = []
+        changed = copy.deepcopy(self.registration)
+        changed["tests"][1]["properties"][0]["value"] = 0
+        variants.append(changed)
+        changed = copy.deepcopy(self.registration)
+        changed["tests"][1]["command"][-1] = "different-input"
+        variants.append(changed)
+        changed = copy.deepcopy(self.registration)
+        changed["tests"][1]["properties"].append({"name": "DISABLED", "value": True})
+        variants.append(changed)
+        changed = copy.deepcopy(self.registration)
+        changed["tests"][1]["command"][-2] = "--unrelated"
+        variants.append(changed)
+        for registration in variants:
+            with self.subTest(registration=registration), self.assertRaises(alpha.CheckFailure):
+                self.scope(registration)
+
+    def test_existing_model_cannot_explain_an_optional_skip(self):
+        (self.model / "Model").mkdir(parents=True)
+        (self.model / "Model/EmperorBuildingModels.txt").write_text("independent test marker")
+        with self.assertRaises(alpha.CheckFailure):
+            self.scope()
+
+    def test_partial_junit_cannot_pass(self):
+        self.junit.write_text('<testsuite><testcase name="synthetic-check"/></testsuite>')
+        with self.assertRaises(alpha.CheckFailure):
+            self.scope()
+
+    def test_non_original_skip_is_unexpected_even_without_data(self):
+        self.junit.write_text('<testsuite><testcase name="synthetic-check"><skipped/></testcase>'
+                              '<testcase name="original-model-data-real"/></testsuite>')
+        with self.assertRaises(alpha.CheckFailure):
+            self.scope()
+
+    def test_optional_main_reports_partial_not_global_original_pass(self):
+        args = argparse.Namespace(data=None, jobs=1, package=False, system_sdl=True,
+            build_dir=self.root / "debug", release_build_dir=self.root / "release",
+            sanitize_build_dir=self.root / "sanitize", report=self.root / "report.json")
+        result = {"result": "synthetic_pass", "passed": 1, "count": 2, "skipped": 1,
+                  "original_data_status": "NOT_CONFIGURED"}
+        with mock.patch.object(alpha, "parse_args", return_value=args), \
+             mock.patch.object(alpha, "run", side_effect=[("test-revision", 0), ("", 0), ("Mach-O arm64", 0)]), \
+             mock.patch.object(alpha, "configure", return_value={}), \
+             mock.patch.object(alpha, "test_build", return_value=result) as tests, \
+             mock.patch.object(alpha, "endurance", return_value={"json_roundtrips": 12}), \
+             mock.patch.object(alpha, "render_stress", return_value={}), \
+             mock.patch.object(alpha, "session_stress", return_value={}), \
+             mock.patch.object(alpha, "original_check", return_value={"configured": False, "result": "not_configured"}), \
+             mock.patch("builtins.print"):
+            self.assertEqual(alpha.main(), 0)
+        report = json.loads(args.report.read_text())
+        self.assertEqual(report["result"], "partial")
+        self.assertEqual(report["acceptance_scope"], "synthetic_only")
+        self.assertFalse(report["full_original_acceptance"])
+        self.assertTrue(all(call.kwargs["original_data_configured"] is False for call in tests.call_args_list))
 
 
 class VisualMetadata(unittest.TestCase):

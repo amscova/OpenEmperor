@@ -82,8 +82,13 @@ Use new build, report and package paths for a complete isolated run:
 python3 -B tools/alpha_check.py --system-sdl --jobs 2 --data /absolute/path/to/Emperor --build-dir "$PWD/.local/alpha-new/debug" --release-build-dir "$PWD/.local/alpha-new/release" --sanitize-build-dir "$PWD/.local/alpha-new/sanitize" --report "$PWD/.local/alpha-new/report.json" --package --package-build-dir "$PWD/.local/alpha-new/package-build" --package-dist-dir "$PWD/.local/alpha-new/dist"
 ```
 
-`--data` also configures the original-model CTests in every build; a skipped
-registered case cannot become a full acceptance PASS. The runner retains the
+`--data` also configures the original-model CTests in every build; any skip with
+that explicit input fails acceptance. Without `--data`, the existing CMake model
+root default is retained. Declared `--real` tests that return their registered77
+because that default model is missing are individually reported `NOT_RUN`, with
+the original-data status `NOT_CONFIGURED`. Completed synthetic checks remain
+usable, but the overall report is `partial`/`synthetic_only`, not a full original
+PASS. Unexpected skips still fail. The runner retains the
 actual registered-test inventory and complete JUnit output in each build.
 Existing builds, reports and distributions are never deleted or replaced.
 Without explicit paths, the historical default names are used only if fresh.

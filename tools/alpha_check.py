@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from package_macos import checked_path, fresh_output_paths
@@ -70,8 +71,9 @@ def configure(build: Path, build_type: str, jobs: int, system_sdl: bool,
               sanitizers: bool = False, data: Path | None = None) -> dict[str, object]:
     args = ["cmake", "-S", str(ROOT), "-B", str(build),
             f"-DCMAKE_BUILD_TYPE={build_type}", "-DCMAKE_OSX_ARCHITECTURES=arm64",
-            f"-DOPENEMPEROR_ENABLE_SANITIZERS={'ON' if sanitizers else 'OFF'}",
-            "-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + (str(data) if data else "")]
+            f"-DOPENEMPEROR_ENABLE_SANITIZERS={'ON' if sanitizers else 'OFF'}"]
+    if data is not None:
+        args.append("-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + str(data))
     if system_sdl:
         args.append("-DOPENEMPEROR_USE_SYSTEM_SDL3=ON")
     _, configure_seconds = run(args)
@@ -81,7 +83,48 @@ def configure(build: Path, build_type: str, jobs: int, system_sdl: bool,
             "build_seconds": round(build_seconds, 3)}
 
 
-def test_build(build: Path, jobs: int, env: dict[str, str] | None = None) -> dict[str, object]:
+def ctest_result_scope(registration: dict, junit: Path, *, original_data_configured: bool,
+                       model_root: Path | None = None) -> dict[str, object]:
+    try:
+        cases = ET.parse(junit).getroot().findall(".//testcase")
+    except (OSError, ET.ParseError) as error:
+        raise CheckFailure("CTest did not produce a readable complete JUnit result") from error
+    tests = {test["name"]: test for test in registration["tests"]}
+    if (len(tests) != len(registration["tests"]) or len(cases) != len(tests) or
+            {case.get("name") for case in cases} != set(tests)):
+        raise CheckFailure("CTest JUnit omits, duplicates or adds a registered case")
+    missing_model = model_root is not None and (
+        not model_root.exists() or not (model_root / "Model").exists() or
+        not (model_root / "Model/EmperorBuildingModels.txt").exists())
+    not_run = []
+    for case in cases:
+        name = case.get("name")
+        if case.find("failure") is not None or case.find("error") is not None:
+            raise CheckFailure("CTest JUnit contains a failed case: " + str(name))
+        skipped = case.find("skipped")
+        if skipped is None:
+            if case.get("status") in {"notrun", "disabled"}:
+                raise CheckFailure("CTest omitted a registered case: " + str(name))
+            continue
+        test = tests[name]
+        properties = {item["name"]: item["value"] for item in test.get("properties", [])}
+        command = test.get("command", [])
+        allowed = (not original_data_configured and missing_model and name.startswith("original-") and
+                   str(properties.get("SKIP_RETURN_CODE")) == "77" and
+                   not properties.get("DISABLED", False) and len(command) >= 3 and
+                   command[-2:] == ["--real", str(model_root)])
+        if not allowed:
+            raise CheckFailure("CTest skipped an unexpected or configured-original case: " + str(name))
+        not_run.append({"name": name, "status": "NOT_RUN", "reason": "Original model NOT_CONFIGURED",
+                        "ctest_skip_message": skipped.get("message", ""), "model_root": str(model_root)})
+    return {"result": "pass" if original_data_configured else "synthetic_pass",
+            "count": len(cases), "passed": len(cases) - len(not_run), "skipped": len(not_run),
+            "original_data_status": "PASS" if original_data_configured else "NOT_CONFIGURED",
+            "not_run_original_cases": not_run}
+
+
+def test_build(build: Path, jobs: int, env: dict[str, str] | None = None, *,
+               original_data_configured: bool = True) -> dict[str, object]:
     listed, _ = run(["ctest", "--test-dir", str(build), "--show-only=json-v1"], env=env)
     registration = json.loads(listed)
     (build / "alpha-ctest-inventory.json").write_text(listed)
@@ -90,9 +133,14 @@ def test_build(build: Path, jobs: int, env: dict[str, str] | None = None) -> dic
                            "--output-junit", str(junit), "-j", str(jobs)], timeout=1800, env=env)
     if ctest_count(output) != len(registration["tests"]):
         raise CheckFailure("CTest execution count differs from actual registered inventory")
-    if "***Skipped" in output or "(Skipped)" in output or "Not Run" in output:
+    if original_data_configured and ("***Skipped" in output or "(Skipped)" in output or "Not Run" in output):
         raise CheckFailure("CTest skipped or omitted a registered case; see the complete JUnit/log")
-    return {"result": "pass", "count": ctest_count(output), "skipped": 0,
+    cache = build / "CMakeCache.txt"
+    match = re.search(r"^OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT:[^=]+=(.*)$", cache.read_text(), re.MULTILINE)
+    model_root = Path(match.group(1)) if match and match.group(1) else None
+    scoped = ctest_result_scope(registration, junit, original_data_configured=original_data_configured,
+                               model_root=model_root)
+    return {**scoped,
             "inventory": str(build / "alpha-ctest-inventory.json"), "junit": str(junit),
             "seconds": round(elapsed, 3)}
 
@@ -396,9 +444,11 @@ def main() -> int:
         leak_detection = "0" if sys.platform == "darwin" else "1"
         sanitizer_env["ASAN_OPTIONS"] = f"detect_leaks={leak_detection}:halt_on_error=1"
         sanitizer_env["UBSAN_OPTIONS"] = "halt_on_error=1:print_stacktrace=1"
-        report["tests"] = {"debug": test_build(debug, args.jobs),
-                           "release": test_build(release, args.jobs),
-                           "sanitize": test_build(sanitize, args.jobs, sanitizer_env)}
+        configured = args.data is not None
+        report["tests"] = {"debug": test_build(debug, args.jobs, original_data_configured=configured),
+                           "release": test_build(release, args.jobs, original_data_configured=configured),
+                           "sanitize": test_build(sanitize, args.jobs, sanitizer_env,
+                                                  original_data_configured=configured)}
         report["simulation"] = {"debug": endurance(debug), "release": endurance(release),
                                 "sanitize": endurance(sanitize, sanitizer_env)}
         report["save_resume"] = {"result": "pass", "checkpoints": 12,
@@ -430,11 +480,14 @@ def main() -> int:
         report["performance"] = {"result": "diagnostic", "wall_seconds":
             round(time.monotonic() - started, 3), "no_wallclock_threshold": True,
             "render_hotpath": "Sandbox draw scratch vector capacity reused"}
-        report["result"] = "pass"
+        report["acceptance_scope"] = "full_data" if configured else "synthetic_only"
+        report["full_original_acceptance"] = configured
+        report["result"] = "pass" if configured else "partial"
         args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-        print(f"PASS: {report['tests']['debug']['count']} Debug, "
-              f"{report['tests']['release']['count']} Release and "
-              f"{report['tests']['sanitize']['count']} sanitizer tests; "
+        label = "PASS" if configured else "SYNTHETIC PASS; ORIGINAL NOT_CONFIGURED"
+        print(f"{label}: {report['tests']['debug']['passed']} Debug, "
+              f"{report['tests']['release']['passed']} Release and "
+              f"{report['tests']['sanitize']['passed']} sanitizer tests; "
               "100000 deterministic ticks; 3000 render frames; 100 sessions")
         print("Report: " + str(args.report))
         return 0

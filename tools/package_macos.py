@@ -330,8 +330,9 @@ def main(argv=None):
             raise RuntimeError("required build tool missing: " + tool)
     cmake_args = ("cmake", "-S", str(ROOT), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release",
                   "-DCMAKE_OSX_ARCHITECTURES=arm64", f"-DCMAKE_OSX_DEPLOYMENT_TARGET={MIN_OS}",
-                  "-DOPENEMPEROR_BUILD_MACOS_APP=ON", "-DOPENEMPEROR_USE_SYSTEM_SDL3=ON",
-                  "-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + (str(args.data) if args.data else ""))
+                  "-DOPENEMPEROR_BUILD_MACOS_APP=ON", "-DOPENEMPEROR_USE_SYSTEM_SDL3=ON")
+    if args.data is not None:
+        cmake_args += ("-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + str(args.data),)
     print(call(*cmake_args), flush=True)
     print(call("cmake", "--build", str(build), "--parallel", str(args.jobs)), flush=True)
     build_info = json.loads((build / "generated/BuildInfo.json").read_text())
