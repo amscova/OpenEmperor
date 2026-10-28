@@ -78,6 +78,10 @@ complete original-game compatibility.
   interpenetrating sprites can differ from the original. SG3 mirror references
   are unsupported; sprite shadows are not bit-identical to original RGB555 output.
   Automatic visual profiles recognise only the pinned GOG-derived asset revision.
+- **Long inspector lists can overlap operation controls.** The scripted
+  [system playtest](docs/qa/oe41-playtest-report.md) reproduces this at
+  1280×800 with Market7 selected. The controls still execute, but list and
+  demolition-hint text can obscure the lower panel.
 - **Manual acceptance remains open.** Native pointer/focus/resize behavior,
   external displays, original-map visuals and sustained human play still need
   acceptance. Automated checks do not establish these results.
