@@ -44,6 +44,9 @@ void preflight(const Args& a){
 }
 void write(const fs::path& path,const Json& value){check(!fs::exists(path),"Preserve previous proof artifact");q::f::write_text(path,value.dump(2)+"\n");}
 sim::World fresh(const q::Context& c,unsigned rule){
+#ifdef OE_MARKET_LOGISTICS_QA
+    if(rule==13)return sim::World::create_original_market_logistics(c.policy,c.model);
+#endif
     if(rule==11)return sim::World::create_original_fire_protection(c.policy,c.model);
 #ifdef OE37_BASELINE
     throw std::invalid_argument("Frozen OE36 baseline does not implement Rule12");
@@ -52,6 +55,9 @@ sim::World fresh(const q::Context& c,unsigned rule){
 #endif
 }
 sim::World restore(const q::Context& c,const q::save::SaveDocument& d){
+#ifdef OE_MARKET_LOGISTICS_QA
+    if(d.world.rule_version==13)return q::save::restore_original_market_logistics(d,c.data,c.mask,c.policy,c.model);
+#endif
     if(d.world.rule_version==11)return q::save::restore_original_fire_protection(d,c.data,c.mask,c.policy);
 #ifdef OE37_BASELINE
     throw std::invalid_argument("Frozen OE36 baseline cannot restore Rule12");
@@ -107,7 +113,11 @@ void key(oe::SandboxView& v,SDL_Keycode code){SDL_Event e{};e.type=SDL_EVENT_KEY
 void center(oe::SandboxView& v,oe::scene::Point at){for(unsigned i=0;i<1000;++i){const auto map=v.layout().map;const auto cam=v.camera();const double dx=map.x+map.w*.5-at.x*cam.zoom-cam.offset.x,dy=map.y+map.h*.5-at.y*cam.zoom-cam.offset.y;if(std::abs(dx)<.01&&std::abs(dy)<.01)return;oe::SandboxView::PanKeyState held{};if(std::abs(dx)>.01){held.left=dx>0;held.right=dx<0;v.update(std::min(.05,std::abs(dx)/400),held);}else{held.up=dy>0;held.down=dy<0;v.update(std::min(.05,std::abs(dy)/400),held);}}throw std::runtime_error("Actual camera steering failed");}
 void render_house(const Args& a,const std::string& input,
         const q::save::SaveDocument& saved,oe::SandboxView& view,SDL_Renderer* renderer,sim::BuildingId target){
-    check(a.rule==12&&view.world().rule_version()==12,"Focused House capture requires explicit Rule12");
+    check((a.rule==12
+#ifdef OE_MARKET_LOGISTICS_QA
+        ||a.rule==13
+#endif
+        )&&view.world().rule_version()==a.rule,"Focused House capture requires its explicit original economy generation");
     const auto& body=view.world().building(target);const auto& house=q::house(view.world(),target);
     const auto actual_type=static_cast<unsigned>(house.type);
     check(body.placed&&body.kind==sim::Object::Household&&house.occupants>0&&actual_type>=3&&actual_type<=10,
@@ -185,7 +195,7 @@ void render_house(const Args& a,const std::string& input,
     key(view,SDLK_F5);frozen();const auto art=view.original_house_display_stats();
     const auto slot=actual_type-2;
     write(a.output/"report.json",{{"format","openemperor-high-tier-view-v1"},{"status","PASS"},
-        {"rule",12},{"schema",28},{"policy",3},{"revision",27},{"tick",view.world().ticks()},
+        {"rule",a.rule},{"schema",a.rule==13?29:28},{"policy",3},{"revision",27},{"tick",view.world().ticks()},
         {"target_house",static_cast<unsigned>(target)},{"actual_type",actual_type},{"actual_sandbox_renderer",true},
         {"backend",SDL_GetRendererName(renderer)},{"complete_f5_f9_equality",true},{"world_unchanged",true},
         {"input_preserved",true},{"selected_via_sdl_list",true},{"sections_via_sdl_input",true},
@@ -203,6 +213,9 @@ void render(const Args& a,std::optional<sim::BuildingId> focus_house=std::nullop
     fs::create_directories(a.output);const auto target=a.output/"view.save.json";q::f::write_text(target,input);Sdl sdl;
     auto session=oe::maps::load_stored_map_session(c.data,c.map_relative,oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8);const oe::maps::MapGeometry geometry(session.map.declared_map_size);
     auto v=[&] {
+#ifdef OE_MARKET_LOGISTICS_QA
+        if(a.rule==13)return oe::SandboxView::create_original_market_logistics(std::move(session),oe::original::Difficulty::Normal,false);
+#endif
         if(a.rule==11)return oe::SandboxView::create_original_fire_protection(std::move(session),oe::original::Difficulty::Normal,false);
 #ifdef OE37_BASELINE
         throw std::invalid_argument("Frozen OE36 renderer does not implement Rule12");

@@ -43,6 +43,48 @@ Ticks nach der Anlaufphase; vier volle 20400-Tick-Fenster erwirtschaften je 1950
 Funds nach sämtlichem Unterhalt. Das belegt diesen begrenzten Bauplan, keinen
 Gewinn für jede Stadt oder einen vollständigen Aufstieg zu höchsten Hausstufen.
 
+**M Needs-aware logistics** startet ausdrücklich **Rule13 / Schema29 / Policy3**.
+Der Modus behält die drei Food-Ketten, den 816-Tick-Unterhalt, Brandschutz,
+Preise und Transportgrenzen von Rule12. Warehouse und Market wählen Waren
+nach tatsächlichem Hausbedarf: fehlender aktueller Bedarf zuerst, danach
+Vorrat und erfüllbare nächste Stufen. Erst echte Lieferankünfte füllen die
+Häuser. Die Auswahl ist eine eigene OpenEmperor-Regel; bestehende Rule12-Städte
+werden nicht umgestellt. Der direkte Start mit bezahltem Starter lautet:
+
+```sh
+./build/openemperor --data /pfad/zur/Emperor-Installation --sandbox Cities/Xia.map --sandbox-rules sandbox-city-v16 --original-market-logistics
+```
+
+Die [Marktdiagnose](oe39-market-diagnosis.md) erklärt die gemessenen Rule12-Lücken.
+Der dort [geprüfte bezahlte Ausbau](oe39-market-retention.md) mit näherer Töpferei
+hält Common10 von Tick22837 bis43237. Alle zwölf Häuser bleiben im Fenster ohne
+aktuellen Fehlbedarf oder Rückentwicklung; der Betrieb erwirtschaftet4360 Funds.
+Dabei sinken die angesparten Hemp-Bestände von94 auf67. Unbegrenzte Versorgung,
+eine brandsichere Gesamtstadt und die menschliche Abnahme bleiben offen.
+
+**W Cardinal-water economy** wählt separat **Rule14 / Schema30 / Policy3**.
+Dieser Modus übernimmt Rule13 und ergänzt den belegten Haus-DES-Bonus von10
+bei Wasser direkt am Rand des tatsächlichen Gebäudes. Diagonales Wasser zählt
+nicht. Der State-Inspector zeigt Zellwert, Wasserbonus und Gesamtsumme getrennt.
+Ein leerer Elite-Plot erhält keinen Bonus vor seiner legalen4×4-Materialisierung.
+Karte und Modell bleiben unveränderte Quellen; ältere Saves werden nicht
+umgestellt. Ein geprüfter, regulär bezahlter Xia-Ausbau erreicht Elite17 bei
+Tick7333 mit DES70+10, erfüllten aktuellen/nächsten Bedürfnissen und 4455 Funds.
+Die folgenden 20400 Ticks halten Versorgung und Brandsicherheit nicht durch;
+der Betrieb verliert 3241 Funds, obwohl 1214 Funds übrig bleiben. Auch zwei
+zusätzliche bezahlte Märkte sichern den Aufstieg im separaten Versuch nicht.
+Das ist kein dauerhaft selbsttragender Musterbauplan. Die
+[Quellenprüfung](oe40-desirability-investigation.md) trennt Aufstieg,
+Versorgung, Finanzierung und offene menschliche Abnahme.
+Der erfolgreiche Testplatz liegt am Rand des gerenderten Kartendiamanten.
+Seine beiden auslösenden gespeicherten Randfelder enthalten`0x80005`, also
+Wasserbit4 und die Off-map-Markierung. Rule14 prüft das rohe gespeicherte Bit;
+der Erfolg belegt damit diesen Snapshot-Adapter, kein sichtbares Ufer und keinen
+Elite17-Aufstieg im Originalspiel. Originale Änderungen nach dem Kartenladen
+bleiben ungeklärt.
+Direktstart: dieselbe CLI wie oben mit `--original-cardinal-water` statt
+`--original-market-logistics`.
+
 Der [bezahlte High-Tier-Ausbau](oe38-paid-high-tier-progression.md) erreicht
 Common10 (Luxurious Apartment). In den geprüften20400 Folgeticks entstehen
 Hemp-/Ceramics-Lücken und Rückentwicklungen trotz positivem Betriebssaldo;
@@ -87,6 +129,8 @@ ein begrenztes Versorgungsfenster; Brände und laufende Verluste bleiben offen.
 pausiert. Nach einem Neustart **L Load Save → Open selected** wählen.
 Difficulty, Modell- und Kartenquelle müssen passen. Alte Entwicklungsrevisionen
 werden mit Diagnose verweigert; ein fehlgeschlagener Ladevorgang erhält die Stadt.
+Rule10/11/12/13/14 laden jeweils ihren eigenen Stand mit Schema26/27/28/29/30.
+F5/F9 und Recovery ändern dabei keine Regelgeneration.
 
 **Autosave: ON** im Hauptmenü aktiviert Recovery: ein geschützter Startpunkt
 und bis zu fünf Checkpoints im Abstand von **60 simulierten Sekunden**.
@@ -111,12 +155,16 @@ Der letzte Stand bleibt speicherbar. Grenzen und Messwerte stehen im
 [Brandschutzvertrag](oe36-fire-protection.md).
 Rule12 verwendet denselben begrenzten Brandschutz und eine eigene Save-Version;
 auch seine sparsamere Finanzierung garantiert keinen Gewinn für jeden Ausbau.
+Rule13 übernimmt diese Grenzen. Seine bedarfsabhängige Warenauswahl erhöht weder
+Hauslager noch Kurierzahl, Transportmenge, Geschwindigkeit oder Brandschutz.
 
 Rezepte, Ernte, Zuzug/Worker und Schule→Haus-Besuche enthalten eigene Regeln.
 Originale Veranstaltungs-/Performer-Abläufe und Krankheit fehlen. Mehrere
 Gebäude und Walker nutzen Fallbackbilder; passende Hausbilder decken Typen3–17
-ab. Common10 wurde bezahlt erreicht; Elite17 bleibt durch den beschriebenen
-Rule12-DES-Vertrag blockiert. Die native menschliche Abnahme bleibt offen.
+ab. Common10 und separat in Rule14 auch Elite17 wurden bezahlt erreicht.
+Der beschriebene DES79-Blocker bleibt für Rule12/13 unverändert; Rule14s
+Elite17-Versorgung und Finanzierung sind noch nicht dauerhaft nachgewiesen.
+Die native menschliche Abnahme bleibt offen.
 Der unveränderte Vier-Haus-Plan ohne
 Ausbau verlor im gemessenen100k-Lauf Geld und verpasste Food-Bedarfe; er ist
 keine dauerhaft selbsttragende Musterstadt. Weitere Grenzen stehen in

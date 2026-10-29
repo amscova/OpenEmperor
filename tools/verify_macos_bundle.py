@@ -15,7 +15,7 @@ RESOURCE_FILES = {"BuildInfo.json", "LICENSE-SDL.txt", "LICENSE-OpenSSL.txt",
 COMPATIBILITY_ID = "gog-derived-2.0.0.2-en-assetset-1"
 COMPATIBILITY_FILES = {"manifest.json", "walkers.json", "buildings.json", "roads.json", "fire.json",
                        "fire-inspector.json", "market-walkers.json", "service-walker.json",
-                       "health-walker.json"}
+                       "health-walker.json", "original-houses.json"}
 FORBIDDEN_COMPATIBILITY_SUFFIXES = {".sg3", ".555", ".map", ".pak", ".exe", ".png",
                                     ".jpg", ".jpeg", ".bmp", ".rgba", ".raw"}
 MAX_COMPATIBILITY_JSON_BYTES = 256 * 1024
@@ -26,11 +26,20 @@ def run(*args):
                           stderr=subprocess.PIPE).stdout
 
 
+def unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate compatibility JSON key: " + key)
+        result[key] = value
+    return result
+
+
 def validate_compatibility_json(path):
     if path.stat().st_size > MAX_COMPATIBILITY_JSON_BYTES:
         raise ValueError("compatibility JSON exceeds size limit: " + path.name)
     try:
-        document = json.loads(path.read_text())
+        document = json.loads(path.read_text(), object_pairs_hook=unique_json_object)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ValueError("invalid compatibility JSON: " + path.name) from error
 
@@ -50,6 +59,69 @@ def validate_compatibility_json(path):
                 raise ValueError("unsafe path in compatibility JSON: " + value)
     visit(document)
     return document
+
+
+def validate_original_house_metadata(manifest, documents):
+    """Check shipped metadata, without pretending a bundle contains SG3 proof."""
+    optional = manifest.get("optional_original_houses")
+    sources = {"DATA/China_General.sg3": "c9ae527102c312098cbfe82932ce1b39c6c96692981c874dc853306835583e46",
+               "DATA/China_General.555": "3cb09cd2c954eb355e2253482845e7117b353c24506575795bcaa1fe45db33f2"}
+    if (not isinstance(optional, dict) or set(optional) != {"profile", "core_files"} or
+            optional.get("profile") != "original-houses.json" or
+            optional.get("core_files") != list(sources)):
+        raise ValueError("original House supplement declaration changed")
+    document = documents["original-houses.json"]
+    if (not isinstance(document, dict) or
+            set(document) != {"schema_version", "mode", "selection", "anchor_policy", "evidence", "files", "stages"} or
+            type(document.get("schema_version")) is not int or document["schema_version"] != 1 or
+            document.get("mode") != "original_house_stages" or
+            document.get("selection") != "canonical_static_variant_0" or
+            document.get("anchor_policy") != "type30_front_cell" or
+            not isinstance(document.get("evidence"), str) or not 1 <= len(document["evidence"]) <= 512):
+        raise ValueError("original House schema/selection/anchor metadata changed")
+    files = document.get("files")
+    if (not isinstance(files, list) or len(files) != 2 or
+            any(not isinstance(v, dict) or set(v) != {"path", "sha256"} or
+                not isinstance(v.get("path"), str) or not isinstance(v.get("sha256"), str) for v in files) or
+            {v["path"]: v["sha256"] for v in files} != sources):
+        raise ValueError("original House independent source fingerprints changed")
+    stages = document.get("stages")
+    if not isinstance(stages, list) or len(stages) != 16:
+        raise ValueError("original House requires16 explicit stages")
+    seen, images = set(), set()
+    for stage in stages:
+        if not isinstance(stage, dict) or type(stage.get("house_type")) is not int:
+            raise ValueError("original House stage type is invalid")
+        kind = stage["house_type"]
+        if kind not in range(2, 18) or kind in seen:
+            raise ValueError("original House stage identity is missing or duplicated")
+        seen.add(kind)
+        side = 2 if kind < 11 else 4
+        if (type(stage.get("original_side")) is not int or stage["original_side"] != side or
+                not isinstance(stage.get("fallback"), str) or not 1 <= len(stage["fallback"]) <= 512):
+            raise ValueError("original House family/body/fallback changed")
+        if kind == 2:
+            if set(stage) != {"house_type", "original_side", "fallback"}:
+                raise ValueError("unresolved Vacant2 must remain an explicit fallback")
+            continue
+        keys = {"house_type", "original_side", "fallback", "archive", "image_index", "width", "height",
+                "base_bytes", "ground_anchor", "group_key", "variant", "evidence"}
+        if (set(stage) != keys or stage.get("archive") != "DATA/China_General.sg3" or
+                any(type(stage.get(k)) is not int for k in
+                    ("image_index", "width", "height", "base_bytes", "group_key", "variant"))):
+            raise ValueError("original House sprite identity fields are invalid")
+        group = (0x471 + kind - 3 if kind <= 10 else
+                 {11: 0x479, 12: 0x47b, 13: 0x47c, 14: 0x4ac}.get(kind, 0x47e + kind - 15))
+        if (not 0 < stage["image_index"] <= 0xffffffff or stage["image_index"] in images or
+                stage["group_key"] != group or stage["variant"] != 0 or
+                stage["width"] != 80 * side - 2 or not 40 * side <= stage["height"] <= 4096 or
+                stage["base_bytes"] != 3200 * side * side or
+                not isinstance(stage["ground_anchor"], list) or
+                any(type(v) is not int for v in stage["ground_anchor"]) or
+                stage["ground_anchor"] != [40 * side - 1, stage["height"] - 20] or
+                not isinstance(stage["evidence"], str) or not 1 <= len(stage["evidence"]) <= 512):
+            raise ValueError("original House static registration or Type30 geometry changed")
+        images.add(stage["image_index"])
 
 
 def validate_civilian_supplement(manifest, documents, section, filename, schema,
@@ -320,6 +392,7 @@ def verify(app, signature=True, required_arch="arm64"):
     validate_civilian_supplement(manifest, compatibility_documents,
         "optional_health_walkers", "health-walker.json", 6, "health_worker", "health", 2925,
         "curated-sprmain-health-worker-walk")
+    validate_original_house_metadata(manifest, compatibility_documents)
     build_info_path = contents / "Resources" / "BuildInfo.json"
     try:
         build_info = json.loads(build_info_path.read_text())

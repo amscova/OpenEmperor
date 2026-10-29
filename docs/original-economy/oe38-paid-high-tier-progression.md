@@ -162,8 +162,10 @@ For `common-reserved`,194 of400 target evaluations miss current needs: all194
 miss Hemp and29 also miss Ceramics. No other current need, DES or timer fails.
 The first missing Hemp evaluation is tick29008; the actual tenth consecutive
 failed input at29467 causes10→9. All18 target devolutions include missing Hemp.
-At29008 the Warehouse holds28 Hemp with4 committed incoming (effective capacity32),
-both Farms have stock and their carts report target-full, while the Market's
+At29008 the Warehouse holds28 Hemp with4 units of outgoing cargo reserving
+source-return space (effective capacity32), not4 incoming Hemp. OE39's exact
+transfer trace resolves this earlier description; the historical metrics stay unchanged.
+Both Farms have stock and their carts report target-full, while the Market's
 sole goods distributor is returning from another House over a22-vertex path.
 The target has no Hemp or Ceramics. Warehouse Hemp is at least28 in392/400
 samples while Market Hemp is zero in239/400. Global Hemp stock plus cargo grows
@@ -219,12 +221,14 @@ Emperor's complete source manager follows. The paid empty Plot observer and
 synthetic-geography materialization regressions establish their own narrower
 scope; they are not a real Xia13→17 playthrough.
 
-Any future Rule13/Schema29 proposal needs a separately approved source contract:
+Any future Elite-extension generation needs a separately approved source contract:
 identify and verify an additional original DES source/lifecycle or an explicitly
 authored alternative; define its complete placement, cap, accounting, transport
 and restore authority; preserve Rule12 and its saves exactly. An arbitrary +1
 bonus, lowered80 threshold, raised cap, overlapping footprint or Common→Elite
-conversion is not authorized by this diagnosis. No Rule13 behavior is implemented.
+conversion is not authorized by this diagnosis. OE38 implements no Rule13 behavior.
+Subsequent [OE39](oe39-market-retention.md) uses Rule13/Schema29 for authored
+market selection only, retaining this DES contract without an Elite extension.
 
 Reproduce either finite paid Common scenario with a new directory:
 

@@ -22,6 +22,7 @@ StoredMapSession load_stored_map_session(const std::filesystem::path& data_root,
                                         FootprintPolicy policy,
                                         StoredGraphicsProfile profile = StoredGraphicsProfile::Base,
                                         GreatWallPresentationMode great_wall = GreatWallPresentationMode::Automatic,
-                                        const std::string& expected_input_sha256 = {});
+                                        const std::string& expected_input_sha256 = {},
+                                        bool bind_input = false);
 
 } // namespace openemperor::maps

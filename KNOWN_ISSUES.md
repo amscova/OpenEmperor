@@ -3,8 +3,9 @@
 OpenEmperor is an alpha. Supported sandbox behavior does not establish
 complete original-game compatibility.
 
-- **Original economy is experimental.** Rules10/11/12 are opt-in and include authored
-  immigration, workforce, recipes, harvesting and school-to-house visits.
+- **Original economy is experimental.** Rules10/11/12/13/14 are opt-in and include authored
+  immigration, workforce, recipes, harvesting, school-to-house visits and Rule13
+  needs-aware goods selection.
   Original venue/performer chains and illness are missing. Houses and productive
   buildings cannot yet be demolished; incompatible development saves are refused.
 - **Rule10 has no purchasable fire protection.** Natural fires temporarily remove
@@ -25,14 +26,35 @@ complete original-game compatibility.
   several other buildings, plants and walkers retain fallbacks. Empty Elite plots
   have no matching original body until their larger footprint materializes.
   Building animation, profession mappings and some pivots remain unverified.
+- **Rule14 reaches paid Elite17, but stable supply and financing remain open.** The
+  [source investigation](docs/original-economy/oe40-desirability-investigation.md)
+  records actual Xia/Normal16→17 at tick7333 with raw70+water10, current/next
+  needs met and 4455 Funds. Its following 20400 ticks lose Food, medical and
+  fire retention and have −3241 operating cashflow; positive final Funds do not
+  prove profitable operations. A separate two-additional-Market control still
+  misses Tea at the House despite upstream stock. These are finite measured
+  recipes, not a global impossibility or fairness proof. Historical Rule12/13's
+  DES79 bound remains unchanged. The successful site uses stored`0x80005`
+  neighbors outside the shared Diamond: this raw-snapshot adapter result does
+  not prove a visible shoreline or original post-load/runtime Elite17.
+  Complete original terrain mutation/lifecycle
+  parity, newly admitted emitters, Market rectangles and general negative-wall
+  shielding remain unsupported.
 - **High-tier progression has a bounded Rule12 blocker.** The
   [paid high-tier check](docs/original-economy/oe38-paid-high-tier-progression.md)
   reaches Common10 through actual purchases and deliveries, but does not hold it
-  continuously for the following20400 ticks: Hemp distribution and intermittent
+  continuously for the following 20400 ticks: Hemp distribution and intermittent
   Ceramics delivery cause devolutions despite positive operating cashflow.
   An exact source/footprint bound gives DES≤79 for a materialized4×4 Elite House;
   the unchanged16→17 entry needs80. This blocks Elite17 in the current Normal
   Rule12 adapter, not in original Emperor. No historical rule or model is changed.
+  Separate [Rule13 market logistics](docs/original-economy/oe39-market-retention.md)
+  holds paid Common10 for20400 consecutive ticks in the tested near-Pottery plan,
+  with no current unmet needs or devolutions across twelve Houses and positive
+  operating cashflow. It uses earned Hemp buffers (94→67); indefinite high-tier
+  self-sufficiency and universal fairness remain unproven. Other city buildings
+  still experience fires. This does not change historical Rule12/13's Elite17/DES
+  contract; Rule14's separately selected water-query result is described above.
   The unchanged four-house Xia starter without expansion loses money and misses
   Food demands in the measured long run; it needs active development.
 - **Service capacity is limited.** Larger cities can miss Service deadlines

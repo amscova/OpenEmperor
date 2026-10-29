@@ -113,8 +113,10 @@ After the footprint result is stored, a nonzero building byte at offset `+0x60`
 causes an additional ten points. There is no subsequent −100/100 clamp in this
 routine. The result is stored in a signed-byte field, so this observation does
 not establish arbitrary unbounded bonuses or safe behavior beyond that field's
-domain. The meaning and lifecycle of the bonus flag are outside this bounded
-study. A pure query can accept an explicitly supplied bonus while documenting
+domain. The meaning and lifecycle of the bonus flag were outside the original
+OE-03 study; the bounded OE40 follow-up below identifies its cardinal-water
+initializer and archive prefix without claiming complete runtime parity.
+A pure query can accept an explicitly supplied bonus while documenting
 its own checked result domain; it must not silently clamp the query back to the
 cell range or infer that every building receives the original ten-point bonus.
 
@@ -178,3 +180,89 @@ read. Neither its House-type binding nor the separate Vacant/Shelter evolution
 alias grants influence-source authority. Authored World-object identities,
 construction, restore and financing require the separately versioned
 [runtime contracts](../original-economy/architecture-map.md#houses-geometry-finance-and-presentation).
+
+## OE40 follow-up: cardinal-water recipient query
+
+This follow-up uses exactly the EXE/model SHA-256 pins above. It does not
+retroactively enlarge OE-03's historical acceptance or the current paid
+Rule12/Rule13 source inventory. Private repeat evidence is
+`.local/original-economy/oe40/run-01/bonus-research/bonus-evidence.json` and its
+`check_bonus_evidence.py`;32 bounded static windows cover2,637 unique
+instructions /7,375 bytes,118 assertions and zero PE-byte mismatches. The
+original was not executed and its bytes, size, mode and mtime remain unchanged.
+
+The House vtable`0x7aba38` uses initializer`0x428aa0` at slot`+0x94`.
+`0x428b5f–0x428b8f` passes the actual side to helper`0x4baee0` and writes
+its boolean result at Building`+0x60`. The checked side table assigns2 to
+Common types2…10 and4 to Elite types11…17. Helper`0x4baee0–0x4baf33`
+examines raw Terrain dwords at`0xf6a9e0` for bit`0x4`. Its six bounded
+side tables contain exactly the4×side cardinal outside-edge cells: no
+diagonal corner or footprint interior. One or many matching edge cells yield
+the same one-bit flag. Objects at`0xf37da0`, wall flags, model FengShui and
+bridge eligibility are different predicates.
+
+The status1/3 recipient query`0x4acd10–0x4ace14` stores the signed footprint
+maximum at`+0x5e`, then adds10 if`+0x60` is nonzero. It has no House/Elite
+exclusion and no final cell-range clamp. House verdict`0x51a2d0–0x51a322`
+reads that signed score; scheduler`0x4ac47a–0x4ac49d` orders source rebuild,
+query and verdict. The checked cell domain−100…100 plus this single bonus
+fits−90…110 in a signed byte. A new adapter may bound the combined domain to
+−100…110; this observation grants neither arbitrary bonuses nor historical
+World acceptance of scores above100.
+
+Base reset`0x426e60` clears the flag; copy`0x426ea0–0x427080` preserves it.
+The Base writer and independent default/schema5/schema4/schema3 readers
+agree through54 serialized fields, placing the one-byte runtime`+0x60` flag
+at **Base archive byte87**, counting from its schema word. This is distinct
+from source-link word`+0x3c` at Base byte54. The ordinary same-family House
+setter`0x518de0–0x518ee8` has no direct flag access or helper call; this does
+not prove every indirect resize, recombination or load-repair lifecycle.
+
+The type11 placement caller explicitly selects that type at`0x4b1fba` before
+calling`0x516be0` at`0x4b1fdc`. That preflight uses16 side4 footprint cells,
+the same helper bonus, then model row9 field1. It establishes an Elite
+placement query path, not all original placement/funding requirements or the
+later Impressive16→Heavenly17 transition. Global direct-call scanning finds
+two helper callers (`0x428b82`, `0x516c97`) and no absolute helper-pointer
+occurrence; this does not exclude aliased/indirect writers.
+
+Original loader`0x52ea13` sends207,936 unchanged bytes through raw reader
+`0x780533` into`0xf6a9e0`:228×228 little-endian32-bit Terrain words at
+logical map offset261455, separate from Objects. For all five supported map
+sizes, checked preset origin-base equals`229×border`; local coordinates map
+to storage index`(x+border)+228×(y+border)`, matching the existing shared map
+reader. A raw bit4 cell outside a legal paid body can trigger the query even
+when unrelated Objects, owner or extra terrain bits make it ineligible for
+bridge construction. The bounded helper tests bit4 without testing the separate
+off-map marker. A bridge-water boolean cannot replace this source fact.
+
+**RAW MAP / SHARED GEOMETRY / ADAPTER LIMIT:** the actual paid Rule14 Xia site
+at(130,133) has16 legal body cells, but its two matching outside cells(133,137)
+and(134,136) contain`0x80005`, including the reference-derived`0x80000` off-map
+marker. Shared `MapGeometry.contains` excludes both; current MapPermissions
+refuse roads/buildings there. Fresh production full-grid comparison has zero
+Diamond/off-map-bit mismatches for Xia (declared84, border72). Of24 recorded
+legal4×4 bodies with cardinal bit4, ten have only on-map neighbors and fourteen
+only off-map-marked neighbors, with no mixed case; this paid site is in the
+latter group. No paid packing/Elite17 result is proved for the ten alternatives.
+The maintained [map-format contract](map-format.md#diamond-candidate-off-map-bit-and-bitmap-coordinates)
+keeps candidate geometry and off-map semantics separate. Private recheck:
+`.local/original-economy/oe40/run-01/geometry-boundary-audit/boundary-evidence.json`.
+No off-map filter or other predicate change follows from this observation.
+
+Terrain is not universally immutable in the original: a concrete producer
+at`0x4b4af0` ORs bit4. The audit does not reconstruct all triggers, post-load
+processing, editor/terraform changes or later flag repair. An OpenEmperor
+adapter therefore needs an **explicit immutable-terrain lifetime**, verified
+source-map identity, exact owned body, bounded initialization/cache lifecycle
+and strict restore/history rules. The current authored Elite2×2 plot→4×4
+materialization has no original initializer equivalence by itself.
+
+The [OE40 investigation](../original-economy/oe40-desirability-investigation.md)
+separates the restricted Rule14/Schema30 adapter, its actual paid16→17 result,
+static original facts and a constructive pure79+10=89 packing. The paid boundary
+result uses unchanged stored terrain; original post-load changes remain unknown.
+It is not proof of a visible on-map shore or original-runtime Elite17. The pure
+packing alone proves neither map permission nor paid progression. No new building/terrain
+source, Market rectangle, general negative-wall shield or original save import
+is admitted by this follow-up.

@@ -309,6 +309,23 @@ int World::original_influence_value_at(Cell origin,int side) const {
     return original_influence_cache_->prefixes.back().building_value({origin.x,origin.y,side},0);
 }
 
+int World::original_house_cardinal_water_bonus(BuildingId household) const {
+    const auto& home=building(household);
+    if (!original_influence_enabled() || !home.placed || !original_house_kind(home.kind))
+        throw std::invalid_argument("original House query requires an actual paid House");
+    if (!original_cardinal_water_enabled() || home.kind==Object::OriginalElitePlot) return 0;
+    if (!original_terrain_facts_) throw std::logic_error("Rule14 lost immutable terrain facts");
+    return original_terrain_facts_->cardinal_water_bonus(home.cell,
+        building_footprint(profile_,rule_version_,home.kind).width);
+}
+
+int World::original_house_influence_value(BuildingId household) const {
+    const auto& home=building(household);
+    const auto bonus=original_house_cardinal_water_bonus(household);
+    return original_influence_value_at(home.cell,
+        building_footprint(profile_,rule_version_,home.kind).width)+bonus;
+}
+
 OriginalInfluenceProvenance World::original_influence_provenance(BuildingId household) const {
     const auto& home=building(household);
     if (!original_influence_enabled() || !original_influence_cache_ || !original_house_kind(home.kind) || !home.placed)
@@ -334,12 +351,17 @@ OriginalInfluenceProvenance World::original_influence_provenance(BuildingId hous
         result.sources.push_back({source.identity.building_id,source.identity.type,source.origin,source.footprint,source.spread,
             before,contribution,after});
     }
+    result.raw_value=result.value;
+    result.cardinal_water_bonus=original_house_cardinal_water_bonus(household);
+    result.value+=result.cardinal_water_bonus;
+    if (original_cardinal_water_enabled()) result.source_map_sha256=original_terrain_facts_->source_map_sha256();
     return result;
 }
 
 OriginalInfluenceInspection World::original_influence_inspection(BuildingId household) const {
     auto provenance=original_influence_provenance(household);
-    return {provenance.selected_cell,provenance.value,std::move(provenance.sources)};
+    return {provenance.selected_cell,provenance.value,std::move(provenance.sources),
+        provenance.raw_value,provenance.cardinal_water_bonus,std::move(provenance.source_map_sha256)};
 }
 
 } // namespace openemperor::simulation

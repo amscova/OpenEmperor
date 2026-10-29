@@ -1,6 +1,9 @@
 // The OE37 baseline protocol is deliberately reused without another simulator.
 // Only this executable's explicit private evidence directory differs.
-#define OE_SUSTAINABLE_PROOF_DIRECTORY "oe38"
+#ifndef OE_HIGH_TIER_PROOF_DIRECTORY
+#define OE_HIGH_TIER_PROOF_DIRECTORY "oe38"
+#endif
+#define OE_SUSTAINABLE_PROOF_DIRECTORY OE_HIGH_TIER_PROOF_DIRECTORY
 #define main oe37_baseline_main
 #include "SustainableEconomyAcceptance.cpp"
 #undef main
@@ -238,6 +241,7 @@ int continuation(int argc,char** argv) {
 }
 }
 
+#ifndef OE_HIGH_TIER_REUSE_ONLY
 int main(int argc,char** argv) {
     try {
         for(int i=1;i+1<argc;++i)if(std::string_view(argv[i])=="--mode"&&std::string_view(argv[i+1])=="matrix")
@@ -254,3 +258,4 @@ int main(int argc,char** argv) {
         return oe37_baseline_main(argc,argv);
     }catch(const std::exception& e){std::cerr<<"High-tier progression FAIL: "<<e.what()<<'\n';return 1;}
 }
+#endif

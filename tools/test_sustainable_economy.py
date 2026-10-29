@@ -81,16 +81,26 @@ def finance_events(metrics, seed, final):
                       "Profitable subwindow differs from actual invoices and payments")
 
 
-def review_save(path, rule, data):
-    proof.safe(path)
-    d = proof.load(path)
+def review_generation(d, rule):
+    proof.require(type(rule) is int and rule in (11, 12, 13), "Unsupported explicit economy generation")
+    descriptor = {"id": "sandbox-city-v16", "version": rule}
+    if rule == 13: descriptor["market_logistics"] = "authored-needs-aware-market-v1"
     w = d["world"]
     proof.require(d["format"] == "openemperor-sandbox-save" and
-                  d["schema_version"] == (28 if rule == 12 else 27) and
-                  d["rules"] == {"id": "sandbox-city-v16", "version": rule} and
+                  all(type(value) is int for value in (d["schema_version"], d["rules"]["version"],
+                      d["profiles"]["map_permissions"]["version"], w["original_production"]["development_revision"])) and
+                  d["schema_version"] == (29 if rule == 13 else 28 if rule == 12 else 27) and
+                  d["rules"] == descriptor and
                   d["profiles"]["map_permissions"]["version"] == 3 and
                   w["original_production"]["development_revision"] == 27,
                   "Saved rule/schema/policy/revision changed")
+    return w
+
+
+def review_save(path, rule, data):
+    proof.safe(path)
+    d = proof.load(path)
+    w = review_generation(d, rule)
     proof.require(d["map"]["relative_path"] == "Cities/Xia.map" and
                   d["map"]["sha256"] == proof.digest(data / "Cities/Xia.map"),
                   "Saved original map identity changed")
@@ -138,7 +148,7 @@ def review_save(path, rule, data):
         held += sum(integer(c["amount"], "Invalid cargo", 0) for c in goods["cargo"] if c["good"] == g)
         proof.require(total["produced"] == held + total["consumed"], "Goods conservation failed")
     food = w["original_production"]["food"]
-    cap = 3 if rule == 12 else 2
+    cap = 3 if rule in (12, 13) else 2
     proof.require(len(food["farms"]) <= cap and len(food["stocks"]) <= 24 + cap and
                   len(food["trips"]) <= 4 + cap, "Food authority exceeds its versioned bound")
     for crop in range(2):

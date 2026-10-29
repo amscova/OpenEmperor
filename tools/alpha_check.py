@@ -6,14 +6,18 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from package_macos import checked_path, fresh_output_paths
+from verify_macos_bundle import COMPATIBILITY_FILES
 
 ROOT = Path(__file__).resolve().parent.parent
 REPORT = ROOT / ".local/reports/alpha-check.json"
@@ -65,12 +69,12 @@ def ctest_count(output: str) -> int:
 
 
 def configure(build: Path, build_type: str, jobs: int, system_sdl: bool,
-              sanitizers: bool = False, fresh: bool = False) -> dict[str, object]:
-    if fresh and build.exists():
-        shutil.rmtree(build)
+              sanitizers: bool = False, data: Path | None = None) -> dict[str, object]:
     args = ["cmake", "-S", str(ROOT), "-B", str(build),
             f"-DCMAKE_BUILD_TYPE={build_type}", "-DCMAKE_OSX_ARCHITECTURES=arm64",
             f"-DOPENEMPEROR_ENABLE_SANITIZERS={'ON' if sanitizers else 'OFF'}"]
+    if data is not None:
+        args.append("-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + str(data))
     if system_sdl:
         args.append("-DOPENEMPEROR_USE_SYSTEM_SDL3=ON")
     _, configure_seconds = run(args)
@@ -80,10 +84,100 @@ def configure(build: Path, build_type: str, jobs: int, system_sdl: bool,
             "build_seconds": round(build_seconds, 3)}
 
 
-def test_build(build: Path, jobs: int, env: dict[str, str] | None = None) -> dict[str, object]:
+def ctest_result_scope(registration: dict, junit: Path, *, original_data_configured: bool,
+                       model_root: Path | None = None) -> dict[str, object]:
+    try:
+        cases = ET.parse(junit).getroot().findall(".//testcase")
+    except (OSError, ET.ParseError) as error:
+        raise CheckFailure("CTest did not produce a readable complete JUnit result") from error
+    tests = {test["name"]: test for test in registration["tests"]}
+    if (len(tests) != len(registration["tests"]) or len(cases) != len(tests) or
+            {case.get("name") for case in cases} != set(tests)):
+        raise CheckFailure("CTest JUnit omits, duplicates or adds a registered case")
+    missing_model = model_root is not None and (
+        not model_root.exists() or not (model_root / "Model").exists() or
+        not (model_root / "Model/EmperorBuildingModels.txt").exists())
+    not_run = []
+    for case in cases:
+        name = case.get("name")
+        if case.find("failure") is not None or case.find("error") is not None:
+            raise CheckFailure("CTest JUnit contains a failed case: " + str(name))
+        skipped = case.find("skipped")
+        if skipped is None:
+            if case.get("status") in {"notrun", "disabled"}:
+                raise CheckFailure("CTest omitted a registered case: " + str(name))
+            continue
+        test = tests[name]
+        properties = {item["name"]: item["value"] for item in test.get("properties", [])}
+        command = test.get("command", [])
+        allowed = (not original_data_configured and missing_model and name.startswith("original-") and
+                   str(properties.get("SKIP_RETURN_CODE")) == "77" and
+                   not properties.get("DISABLED", False) and len(command) >= 3 and
+                   command[-2:] == ["--real", str(model_root)])
+        if not allowed:
+            raise CheckFailure("CTest skipped an unexpected or configured-original case: " + str(name))
+        not_run.append({"name": name, "status": "NOT_RUN", "reason": "Original model NOT_CONFIGURED",
+                        "ctest_skip_message": skipped.get("message", ""), "model_root": str(model_root)})
+    return {"result": "pass" if original_data_configured else "synthetic_pass",
+            "count": len(cases), "passed": len(cases) - len(not_run), "skipped": len(not_run),
+            "original_data_status": "PASS" if original_data_configured else "NOT_CONFIGURED",
+            "not_run_original_cases": not_run}
+
+
+def ctest_outer_budget(registration: dict) -> dict[str, object]:
+    """Bound the whole process without changing any registered test deadline."""
+    explicit = 0.0
+    untimed = 0
+    for test in registration["tests"]:
+        properties = {item["name"]: item["value"] for item in test.get("properties", [])}
+        value = properties.get("TIMEOUT")
+        if value is None:
+            untimed += 1
+            continue
+        if isinstance(value, bool):
+            raise CheckFailure("invalid registered CTest TIMEOUT")
+        try:
+            seconds = float(value)
+        except (TypeError, ValueError) as error:
+            raise CheckFailure("invalid registered CTest TIMEOUT") from error
+        if not math.isfinite(seconds) or seconds < 0:
+            raise CheckFailure("invalid registered CTest TIMEOUT")
+        if seconds == 0:
+            untimed += 1
+        else:
+            explicit += seconds
+    if not math.isfinite(explicit):
+        raise CheckFailure("registered CTest aggregate TIMEOUT is not finite")
+    # A serial sum is conservative even for CTest resource locks/RUN_SERIAL.
+    # The old whole-command allowance remains for the untimed group, not each case.
+    allowance = 1800 if untimed else 0
+    return {"seconds": max(1800, math.ceil(explicit) + allowance),
+            "explicit_case_timeout_sum": explicit, "untimed_cases": untimed,
+            "untimed_group_allowance": allowance, "individual_timeouts_modified": False}
+
+
+def test_build(build: Path, jobs: int, env: dict[str, str] | None = None, *,
+               original_data_configured: bool = True) -> dict[str, object]:
+    listed, _ = run(["ctest", "--test-dir", str(build), "--show-only=json-v1"], env=env)
+    registration = json.loads(listed)
+    (build / "alpha-ctest-inventory.json").write_text(listed)
+    junit = build / "alpha-ctest.xml"
+    outer_budget = ctest_outer_budget(registration)
     output, elapsed = run(["ctest", "--test-dir", str(build), "--output-on-failure",
-                           "-j", str(jobs)], timeout=1800, env=env)
-    return {"result": "pass", "count": ctest_count(output),
+                           "--output-junit", str(junit), "-j", str(jobs)],
+                          timeout=outer_budget["seconds"], env=env)
+    if ctest_count(output) != len(registration["tests"]):
+        raise CheckFailure("CTest execution count differs from actual registered inventory")
+    if original_data_configured and ("***Skipped" in output or "(Skipped)" in output or "Not Run" in output):
+        raise CheckFailure("CTest skipped or omitted a registered case; see the complete JUnit/log")
+    cache = build / "CMakeCache.txt"
+    match = re.search(r"^OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT:[^=]+=(.*)$", cache.read_text(), re.MULTILINE)
+    model_root = Path(match.group(1)) if match and match.group(1) else None
+    scoped = ctest_result_scope(registration, junit, original_data_configured=original_data_configured,
+                               model_root=model_root)
+    return {**scoped,
+            "outer_command_budget": outer_budget,
+            "inventory": str(build / "alpha-ctest-inventory.json"), "junit": str(junit),
             "seconds": round(elapsed, 3)}
 
 
@@ -142,6 +236,60 @@ def profile_archives(manifest: Path, data: Path) -> set[Path]:
 
     visit(document)
     return archives
+
+
+def profile_assets(manifest: Path) -> set[tuple[str, int]]:
+    """Audit declared physical identities; original decoding remains the app's job."""
+    if not manifest.is_file() or manifest.stat().st_size > 1024 * 1024:
+        raise CheckFailure("bounded selected visual metadata is missing")
+    assets: set[tuple[str, int]] = set()
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            if "archive" in value and "image_index" in value:
+                archive, image = value["archive"], value["image_index"]
+                if (not isinstance(archive, str) or Path(archive).is_absolute() or
+                        ".." in Path(archive).parts or "\\" in archive or
+                        type(image) is not int or image <= 0):
+                    raise CheckFailure("invalid physical identity in selected visual metadata")
+                assets.add((archive, image))
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(json.loads(manifest.read_text()))
+    if not assets:
+        raise CheckFailure("selected visual metadata has no physical assets")
+    return assets
+
+
+def validate_smoke_visuals(result: dict, args: argparse.Namespace, resources: Path) -> dict:
+    selected = {"walker": args.walker_visuals or resources / "walkers.json",
+                "building": args.building_visuals or resources / "buildings.json",
+                "road": args.road_visuals or resources / "roads.json"}
+    expected = {family: profile_assets(path) for family, path in selected.items()}
+    walkers = result.get("walker_visuals", {})
+    for key, filename in (("fire_inspector", "fire-inspector.json"),
+                          ("market_walkers", "market-walkers.json"),
+                          ("service_walker", "service-walker.json"),
+                          ("health_walker", "health-walker.json")):
+        if walkers.get(key, {}).get("active"):
+            expected["walker"].update(profile_assets(resources / filename))
+    buildings, roads = result.get("building_visuals", {}), result.get("road_visuals", {})
+    if (walkers.get("unique_assets") != len(expected["walker"]) or
+            buildings.get("decoded_unique_assets") != len(expected["building"]) or
+            roads.get("unique_assets") != len(expected["road"]) or roads.get("draws", 0) <= 0 or
+            (not args.road_visuals and roads.get("configured_masks") != list(range(16)))):
+        raise CheckFailure("automatic visual profiles did not decode and draw the declared physical asset set")
+    for role in ("clay_source", "pottery", "warehouse", "household"):
+        if (buildings.get("draws_by_role", {}).get(role, 0) <= 0 or
+                buildings.get("placeholder_fallbacks_by_role", {}).get(role, -1) != 0):
+            raise CheckFailure("Industry smoke did not draw the actual configured building role: " + role)
+    return {family: {"unique_physical_assets": len(assets),
+                     "metadata_sha256": sha256(selected[family])}
+            for family, assets in expected.items()}
 
 
 def original_check(args: argparse.Namespace, executable: Path) -> dict[str, object]:
@@ -208,18 +356,13 @@ def original_check(args: argparse.Namespace, executable: Path) -> dict[str, obje
         raise CheckFailure("known original data did not activate the expected automatic visual profiles")
     road_visuals = result.get("road_visuals", {})
     walker_visuals = result.get("walker_visuals", {})
-    inspector_active = walker_visuals.get("fire_inspector", {}).get("active", False)
-    expected_walker_assets = 80 if inspector_active and not args.walker_visuals else 48
-    if (walker_visuals.get("unique_assets") != expected_walker_assets or
-            result.get("building_visuals", {}).get("decoded_unique_assets") != 7 or
-            road_visuals.get("unique_assets") != 12 or
-            road_visuals.get("draws", 0) <= 0 or
-            (not args.road_visuals and road_visuals.get("configured_masks") != list(range(16)))):
-        raise CheckFailure("automatic visual profiles did not decode and draw the validated asset set")
+    declared_assets = validate_smoke_visuals(result, args, executable.parent / "resources" /
+        "Compatibility/gog-derived-2.0.0.2-en-assetset-1")
     return {"configured": True, "result": "pass", "files_verified_unchanged": len(before),
             "industry_ticks": result.get("ticks"), "frames_rendered": result.get("frames_rendered"),
             "five_courier_frames": result.get("frames_with_five_couriers"),
             "compatibility": compatibility,
+            "declared_visual_assets": declared_assets,
             "Inspector_visuals": walker_visuals.get("fire_inspector", {}),
             "candidate_city": {key: city.get(key) for key in ("rules", "rule_version",
                 "ticks_before", "ticks", "treasury_before", "treasury", "treasury_delta",
@@ -229,10 +372,14 @@ def original_check(args: argparse.Namespace, executable: Path) -> dict[str, obje
             "seconds": round(industry_elapsed + city_elapsed, 3)}
 
 
-def package_check() -> dict[str, object]:
-    output, elapsed = run([str(ROOT / "tools/package_macos.sh")], timeout=3600)
+def package_check(args: argparse.Namespace) -> dict[str, object]:
+    command = [str(ROOT / "tools/package_macos.sh"), "--build-dir", str(args.package_build_dir),
+               "--dist-dir", str(args.package_dist_dir), "--jobs", str(args.jobs)]
+    if args.data is not None:
+        command.extend(["--data", str(args.data)])
+    output, elapsed = run(command, timeout=3600)
     forbidden = {"walkers-v2.json", "alpha-check.json"}
-    app = ROOT / "dist/OpenEmperor.app"
+    app = args.package_dist_dir / "OpenEmperor.app"
     if not app.is_dir():
         raise CheckFailure("packaging did not produce OpenEmperor.app")
     bundled_paths = [path for path in app.rglob("*") if path.is_file()]
@@ -243,8 +390,7 @@ def package_check() -> dict[str, object]:
     if bundled & forbidden:
         raise CheckFailure("local visual profiles or alpha reports entered the app bundle")
     compatibility_root = app / "Contents/Resources/Compatibility/gog-derived-2.0.0.2-en-assetset-1"
-    compatibility_names = {"manifest.json", "walkers.json", "buildings.json", "roads.json",
-                           "fire.json", "fire-inspector.json"}
+    compatibility_names = COMPATIBILITY_FILES
     if (not compatibility_root.is_dir() or
             {path.name for path in compatibility_root.iterdir()} != compatibility_names):
         raise CheckFailure("packaged compatibility metadata is incomplete")
@@ -259,7 +405,7 @@ def package_check() -> dict[str, object]:
             build_info.get("architecture") != "arm64" or
             build_info.get("build_type") != "Release"):
         raise CheckFailure("packaged BuildInfo lacks alpha candidate provenance")
-    archives = sorted((ROOT / "dist").glob("OpenEmperor-*-macos-arm64.zip"),
+    archives = sorted(args.package_dist_dir.glob("OpenEmperor-*-macos-arm64.zip"),
                       key=lambda path: path.stat().st_mtime_ns)
     if not archives:
         raise CheckFailure("packaging did not produce an arm64 ZIP")
@@ -283,6 +429,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build")
     parser.add_argument("--release-build-dir", type=Path, default=ROOT / "build-alpha-release")
     parser.add_argument("--sanitize-build-dir", type=Path, default=ROOT / "build-sanitize")
+    parser.add_argument("--report", type=Path, default=REPORT,
+                        help="new JSON report path; existing evidence is never replaced")
+    parser.add_argument("--package-build-dir", type=Path, default=ROOT / "build-macos-app")
+    parser.add_argument("--package-dist-dir", type=Path, default=ROOT / "dist")
     parser.add_argument("--jobs", type=int, default=max(1, min(8, os.cpu_count() or 1)))
     parser.add_argument("--system-sdl", action="store_true",
                         help="use an installed SDL3 for all acceptance builds")
@@ -298,7 +448,19 @@ def main() -> int:
     args = parse_args()
     if args.jobs < 1:
         raise CheckFailure("--jobs must be positive")
-    REPORT.parent.mkdir(parents=True, exist_ok=True)
+    if args.data is not None:
+        args.data = checked_path(args.data)
+        if not args.data.is_dir():
+            raise CheckFailure("--data must name an existing original installation")
+    requested = {"debug": args.build_dir, "release": args.release_build_dir,
+                 "sanitize": args.sanitize_build_dir, "report": args.report}
+    if args.package:
+        requested.update(package_build=args.package_build_dir, package_dist=args.package_dist_dir)
+    paths = fresh_output_paths(requested, args.data)
+    args.report = paths["report"]
+    if args.package:
+        args.package_build_dir, args.package_dist_dir = paths["package_build"], paths["package_dist"]
+    args.report.parent.mkdir(parents=True, exist_ok=True)
     revision, _ = run(["git", "rev-parse", "HEAD"])
     status, _ = run(["git", "status", "--porcelain"])
     report: dict[str, object] = {"schema": "openemperor-alpha-check-v1",
@@ -306,23 +468,23 @@ def main() -> int:
         "original_data": {"configured": args.data is not None, "result": "not_run"}}
     started = time.monotonic()
     try:
-        debug = args.build_dir.resolve()
-        release = args.release_build_dir.resolve()
-        sanitize = args.sanitize_build_dir.resolve()
+        debug, release, sanitize = (paths[name] for name in ("debug", "release", "sanitize"))
         report["build"] = {
-            "debug": configure(debug, "Debug", args.jobs, args.system_sdl),
-            "release": configure(release, "Release", args.jobs, args.system_sdl, fresh=True),
+            "debug": configure(debug, "Debug", args.jobs, args.system_sdl, data=args.data),
+            "release": configure(release, "Release", args.jobs, args.system_sdl, data=args.data),
             "sanitize": configure(sanitize, "RelWithDebInfo", args.jobs, args.system_sdl,
-                                  sanitizers=True, fresh=True)}
+                                  sanitizers=True, data=args.data)}
         sanitizer_env = os.environ.copy()
         # Apple's ASan runtime aborts when LeakSanitizer is requested. Resource
         # lifetime is covered separately by the project-owned texture counters.
         leak_detection = "0" if sys.platform == "darwin" else "1"
         sanitizer_env["ASAN_OPTIONS"] = f"detect_leaks={leak_detection}:halt_on_error=1"
         sanitizer_env["UBSAN_OPTIONS"] = "halt_on_error=1:print_stacktrace=1"
-        report["tests"] = {"debug": test_build(debug, args.jobs),
-                           "release": test_build(release, args.jobs),
-                           "sanitize": test_build(sanitize, args.jobs, sanitizer_env)}
+        configured = args.data is not None
+        report["tests"] = {"debug": test_build(debug, args.jobs, original_data_configured=configured),
+                           "release": test_build(release, args.jobs, original_data_configured=configured),
+                           "sanitize": test_build(sanitize, args.jobs, sanitizer_env,
+                                                  original_data_configured=configured)}
         report["simulation"] = {"debug": endurance(debug), "release": endurance(release),
                                 "sanitize": endurance(sanitize, sanitizer_env)}
         report["save_resume"] = {"result": "pass", "checkpoints": 12,
@@ -349,32 +511,35 @@ def main() -> int:
         report["original_data"] = original_check(args, release / "openemperor")
         if report["original_data"].get("compatibility"):
             report["compatibility"] = report["original_data"]["compatibility"]
-        report["packaging"] = package_check() if args.package else {
+        report["packaging"] = package_check(args) if args.package else {
             "requested": False, "result": "not_requested"}
         report["performance"] = {"result": "diagnostic", "wall_seconds":
             round(time.monotonic() - started, 3), "no_wallclock_threshold": True,
             "render_hotpath": "Sandbox draw scratch vector capacity reused"}
-        report["result"] = "pass"
-        REPORT.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-        print(f"PASS: {report['tests']['debug']['count']} Debug, "
-              f"{report['tests']['release']['count']} Release and "
-              f"{report['tests']['sanitize']['count']} sanitizer tests; "
+        report["acceptance_scope"] = "full_data" if configured else "synthetic_only"
+        report["full_original_acceptance"] = configured
+        report["result"] = "pass" if configured else "partial"
+        args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        label = "PASS" if configured else "SYNTHETIC PASS; ORIGINAL NOT_CONFIGURED"
+        print(f"{label}: {report['tests']['debug']['passed']} Debug, "
+              f"{report['tests']['release']['passed']} Release and "
+              f"{report['tests']['sanitize']['passed']} sanitizer tests; "
               "100000 deterministic ticks; 3000 render frames; 100 sessions")
-        print("Report: .local/reports/alpha-check.json")
+        print("Report: " + str(args.report))
         return 0
     except (CheckFailure, OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
         report["result"] = "fail"
         report["failure"] = safe_text(str(error), args.data.resolve() if args.data else None)
         report["performance"] = {"wall_seconds": round(time.monotonic() - started, 3)}
-        REPORT.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         print("FAIL: " + report["failure"], file=sys.stderr)
-        print("Report: .local/reports/alpha-check.json", file=sys.stderr)
+        print("Report: " + str(args.report), file=sys.stderr)
         return 1
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except CheckFailure as error:
+    except (CheckFailure, ValueError, OSError) as error:
         print("FAIL: " + str(error), file=sys.stderr)
         sys.exit(1)

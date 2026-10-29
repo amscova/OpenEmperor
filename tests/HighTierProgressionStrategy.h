@@ -18,7 +18,7 @@ struct Receipt {
     Json commands=Json::array();
 };
 
-inline Receipt build_common(sim::World& w,sim::Cell origin,std::string_view variant) {
+inline Receipt build_common(sim::World& w,sim::Cell origin,std::string_view variant,sim::Cell clay_origin={0,0}) {
     check(common_variant(variant)&&w.original_sustainable_economy_enabled()&&w.ticks()==20000,
           "Common expansion requires the actual earned Rule12 tick20000 city");
     Receipt result;const auto owner=w.building_owner_at(paid::at(origin,6,2));
@@ -43,7 +43,7 @@ inline Receipt build_common(sim::World& w,sim::Cell origin,std::string_view vari
         std::tuple{sim::CommandType::PlaceOriginalMusicSchool,sim::Cell{15,0},"Music"},
         std::tuple{sim::CommandType::PlaceServicePost,sim::Cell{12,5},"Acupuncture"},
         std::tuple{sim::CommandType::PlaceOriginalAcrobatSchool,sim::Cell{21,5},"Acrobat"},
-        std::tuple{sim::CommandType::PlaceClaySource,sim::Cell{0,0},"Clay"}})buy({type,cell},name);
+        std::tuple{sim::CommandType::PlaceClaySource,clay_origin,"Clay"}})buy({type,cell},name);
     buy({sim::CommandType::PlacePottery,variant=="common-near-pottery"?sim::Cell{18,2}:sim::Cell{22,2}},"Pottery");
     const auto tea=buy({sim::CommandType::PlaceOriginalTeaCuringShed,{15,5}},"Tea curing shed");
     check(tea.has_value(),"Paid Tea producer has no typed owner");

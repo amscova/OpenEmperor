@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <limits>
 
 namespace openemperor::sandbox_ui {
 
@@ -30,6 +32,110 @@ std::optional<Action> Layout::button_at(double x,double y) const {
 bool Layout::ui_at(double x,double y) const {
     return top.contains(x,y) || toolbar.contains(x,y) || status.contains(x,y) ||
         panel.contains(x,y);
+}
+
+namespace {
+int bounded_int(std::int64_t value) {
+    return static_cast<int>(std::clamp(value,std::int64_t{0},
+        std::int64_t{std::numeric_limits<int>::max()}));
+}
+int row_height(std::size_t rows,int stride) {
+    const auto limit=static_cast<std::size_t>(std::numeric_limits<int>::max()/stride);
+    return rows>limit ? std::numeric_limits<int>::max():static_cast<int>(rows)*stride;
+}
+Rect contained_rect(Rect rect,Rect panel) {
+    if (rect.w<=0 || rect.h<=0 || rect.x<panel.x || rect.y<panel.y ||
+        std::int64_t{rect.x}+rect.w>std::int64_t{panel.x}+panel.w ||
+        std::int64_t{rect.y}+rect.h>std::int64_t{panel.y}+panel.h) return {};
+    return rect;
+}
+Rect inspector_row(std::size_t index,std::size_t count,int origin,int stride,
+                   int scroll,Rect viewport) {
+    if (index>=count || index>static_cast<std::size_t>(std::numeric_limits<int>::max()/stride))
+        return {};
+    const auto y=std::int64_t{origin}+static_cast<int>(index)*stride-scroll;
+    if (y<std::numeric_limits<int>::min() || y>std::numeric_limits<int>::max()) return {};
+    return visible_text_row(static_cast<int>(y),stride,viewport);
+}
+} // namespace
+
+Rect visible_text_row(int y,int height,Rect viewport) {
+    if (height<=0 || viewport.w<=0 || viewport.h<=0 || y<viewport.y ||
+        std::int64_t{y}+height>std::int64_t{viewport.y}+viewport.h) return {};
+    return {viewport.x,y,viewport.w,height};
+}
+
+Rect InspectorLayout::list_row_rect(std::size_t index) const {
+    return inspector_row(index,list_rows,list_y-2*scale,18*scale,scroll,content);
+}
+Rect InspectorLayout::detail_row_rect(std::size_t index) const {
+    return inspector_row(index,detail_rows,detail_y,17*scale,scroll,content);
+}
+Rect InspectorLayout::hint_row_rect(std::size_t index) const {
+    return inspector_row(index,hint_rows,hint_y,17*scale,hint_scroll,hints);
+}
+std::optional<std::size_t> InspectorLayout::list_row_at(double x,double y) const {
+    if (!std::isfinite(x) || !std::isfinite(y) || !content.contains(x,y)) return std::nullopt;
+    const double relative=y-list_y+2*scale+scroll;
+    if (relative<0 || relative>=static_cast<double>(list_rows)*18*scale) return std::nullopt;
+    const auto index=static_cast<std::size_t>(relative/(18*scale));
+    if (list_row_rect(index).contains(x,y)) return index;
+    return std::nullopt;
+}
+
+InspectorLayout make_inspector_layout(Rect panel,int scale,std::size_t buildings,
+    std::size_t details,std::size_t hint_rows,bool status_first,bool operations,
+    bool demolition,int scroll,int hint_scroll) {
+    InspectorLayout out;
+    // Actual UI scales are small; this also keeps every fixed offset bounded.
+    out.scale=std::clamp(scale,1,std::numeric_limits<int>::max()/1024);
+    const int unit=out.scale;
+    out.list_rows=buildings;out.detail_rows=details;
+    out.hint_rows=demolition ? hint_rows:0;
+    panel.w=std::max(0,panel.w);panel.h=std::max(0,panel.h);
+    const int bottom=bounded_int(std::int64_t{panel.y}+panel.h);
+    const int fixed_top=std::min(bottom,bounded_int(std::int64_t{panel.y}+44*unit));
+    const Rect fixed_bounds{panel.x,fixed_top,panel.w,std::max(0,bottom-fixed_top)};
+    const int text_width=std::max(0,panel.w-20*unit);
+    const int text_x=bounded_int(std::int64_t{panel.x}+10*unit);
+    // Preserve the historical two-line footer and its control positions. Long
+    // hints may use at most four rows / one quarter of the panel; the remainder
+    // is a separate bounded scroll document instead of displacing all details.
+    const int hint_budget=std::min(68*unit,panel.h/4);
+    const int hint_height=demolition ? std::min(hint_budget,
+        std::max(34*unit,row_height(hint_rows,17*unit))):0;
+    const int extra=std::max(0,hint_height-34*unit);
+    int content_bottom=bottom-8*unit;
+    if (demolition) {
+        out.demolition=contained_rect({text_x,bottom-78*unit-extra,text_width,28*unit},fixed_bounds);
+        out.hints=contained_rect({text_x,bottom-42*unit-extra,text_width,hint_height},fixed_bounds);
+        out.hint_y=out.hints.y;
+        content_bottom=bottom-(operations ? 180:90)*unit-extra;
+    } else if (operations) content_bottom=bottom-104*unit;
+    if (operations) {
+        out.operation_toggle=contained_rect({text_x,
+            bottom-(demolition ? 168:92)*unit-extra,text_width,28*unit},fixed_bounds);
+        const int gap=4*unit,width=std::max(0,(text_width-2*gap)/3);
+        for (int i=0;i<3;++i) out.operation_priorities[static_cast<std::size_t>(i)]=
+            contained_rect({text_x+i*(width+gap),bottom-(demolition ? 124:48)*unit-extra,
+                width,28*unit},fixed_bounds);
+    }
+    const int content_top=std::min(bottom,bounded_int(std::int64_t{panel.y}+40*unit));
+    out.content={text_x,content_top,text_width,std::max(0,content_bottom-content_top)};
+    const int list_height=row_height(buildings,18*unit);
+    const int detail_height=row_height(details,17*unit);
+    out.list_y=bounded_int(std::int64_t{content_top}+(status_first ?
+        std::int64_t{12*unit}+detail_height:6*unit));
+    out.detail_y=bounded_int(std::int64_t{content_top}+(status_first ?
+        6*unit:std::int64_t{12*unit}+list_height));
+    const int document_bottom=std::max(
+        buildings ? bounded_int(std::int64_t{out.list_y}+list_height):content_top,
+        details ? bounded_int(std::int64_t{out.detail_y}+detail_height):content_top);
+    out.scroll_limit=std::max(0,document_bottom-content_top-out.content.h);
+    out.hint_scroll_limit=std::max(0,row_height(out.hint_rows,17*unit)-out.hints.h);
+    out.scroll=std::clamp(scroll,0,out.scroll_limit);
+    out.hint_scroll=std::clamp(hint_scroll,0,out.hint_scroll_limit);
+    return out;
 }
 
 Layout make_layout(int width,int height,int window_width,int window_height,bool open,bool fire_watch,bool desirability,bool water,bool health,bool income,bool service,bool bridges,bool ramps,bool original_production,bool industry_page,bool original_fire_protection) {

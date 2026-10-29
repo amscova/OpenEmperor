@@ -266,6 +266,8 @@ inline HouseInspection inspect_house(const simulation::World& world,simulation::
     detail::line(state,"Residents "+std::to_string(d.actual.occupants)+" | admit cap "+std::to_string(d.admission_capacity));
     detail::line(state,"Census capacity "+std::to_string(d.census_capacity));
     detail::line(state,"Current cached DES "+std::to_string(d.cached_desirability)+" | last checked "+std::to_string(d.actual.desirability));
+    if (world.original_cardinal_water_enabled())
+        detail::line(state,"Cell DES "+std::to_string(d.raw_desirability)+" + water "+std::to_string(d.cardinal_water_bonus)+" = "+std::to_string(d.cached_desirability));
     detail::line(state,"DES low "+std::to_string(d.current.low)+" | high "+std::to_string(d.current.high));
     detail::line(state,"Devolve counter "+std::to_string(d.actual.devolve_counter)+" / "+std::to_string(d.devolve_limit));
     if (d.awaiting_admission) detail::line(state,"Await actual immigration; empty checks skip");

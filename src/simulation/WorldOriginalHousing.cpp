@@ -49,10 +49,10 @@ void add(std::uint64_t& total,std::uint64_t value) {
 std::uint64_t admission_opportunities(std::uint64_t first,std::uint64_t through) {
     return through<first ? 0:1+(through-first)/40;
 }
-void basic_input(const original::HouseState& input) {
+void basic_input(const original::HouseState& input,bool cardinal_water) {
     if (!original::is_house_type(input.type) || input.type<original::HouseType::Shelter ||
         input.type==original::HouseType::EliteUnoccupied || input.occupants<=0 || input.devolve_counter>original::devolve_limit(input.type) ||
-        input.desirability<-100 || input.desirability>100 || input.food_quality>80)
+        input.desirability<-100 || input.desirability>(cardinal_water ? 110:100) || input.food_quality>80)
         invalid("unsupported occupied Housing evaluation input");
     for (std::size_t g=0;g<original::goods_count;++g) {
         const auto stock=original::goods_stock(input,static_cast<original::Goods>(g));
@@ -201,7 +201,7 @@ void World::validate_original_housing_snapshot(const WorldSnapshot& s) {
         if (first>s.ticks || first<b.placed_tick || first-b.placed_tick<120 || (first-b.placed_tick-120)%40 ||
             !occupied_type(b.kind,h.house.type) || h.house.occupants<=0 || h.original_status!=3 || !h.access_enabled || h.cycle_phase)
             invalid("Housing admission must preserve its paid family and real120+40k opportunity");
-        basic_input(h.house);
+        basic_input(h.house,simulation::original_cardinal_water_enabled(s.profile,s.rule_version));
         const auto initial_index=row_index(admitted_type(b.kind));const auto& initial=row.first_transitions[initial_index];
         OriginalHousingEvaluation expected_admission;expected_admission.tick=first;expected_admission.input=empty;
         if (!initial || initial->kind!=OriginalHousingTransitionKind::Admission || initial->evaluation!=expected_admission ||
@@ -246,7 +246,7 @@ void World::validate_original_housing_snapshot(const WorldSnapshot& s) {
         if (row.consumption_rows[initial_index].events<original_housing_consumption_events(initial_until)-original_housing_consumption_events(first-1))
             invalid("Housing consumption omitted mandatory initial-type events");
         for (const auto* proof:proofs) {
-            const auto& e=*proof;basic_input(e.input);
+            const auto& e=*proof;basic_input(e.input,simulation::original_cardinal_water_enabled(s.profile,s.rule_version));
             if (!occupied_type(b.kind,e.input.type) || e.tick<first || e.tick>s.ticks ||
                 original_housing_evaluation_tick(e.tick)!=e.tick || e.input.occupants>h.house.occupants)
                 invalid("Housing evaluation has impossible paid family/occupied phase");
@@ -288,7 +288,10 @@ void World::validate_original_housing_model() {
         for (int y=0;y<2;++y) for (int x=0;x<2;++x)
             if (!permissions_->building_allowed({source.origin.x+x,source.origin.y+y})) invalid("historical neutral source origin violates immutable permissions");
     std::map<std::uint64_t,original::DesirabilityMap> maps;
-    const auto desirability=[&](std::uint64_t tick,Cell cell,int side) {
+    const auto desirability=[&](std::uint64_t tick,BuildingId recipient) {
+        const auto& body=building(recipient);
+        const auto cell=body.cell;
+        const auto side=building_footprint(profile_,rule_version_,body.kind).width;
         auto found=maps.find(tick);
         if (found==maps.end()) {
             struct Source {BuildingId id;Cell origin;BuildingFootprint footprint;original::ModelBuilding model;};
@@ -313,7 +316,7 @@ void World::validate_original_housing_model() {
             }
             found=maps.emplace(tick,std::move(map)).first;
         }
-        return found->second.building_value({cell.x,cell.y,side});
+        return found->second.building_value({cell.x,cell.y,side},original_house_cardinal_water_bonus(recipient));
     };
     for (std::size_t i=0;i<original_economy_->houses.size();++i) {
         const auto& home=original_economy_->houses[i];const auto& row=original_production_->housing.houses[i];
@@ -364,7 +367,7 @@ void World::validate_original_housing_model() {
             check_population(e.input.occupants,e.tick);
             if (abandoned_needs_always_met && e.input.type==original::HouseType::EliteAbandoned && e.input.devolve_counter)
                 invalid("Housing Abandoned counter cannot accumulate when its model needs are always met");
-            if (e.input.desirability!=desirability(e.tick,b.cell,building_footprint(profile_,rule_version_,b.kind).width))
+            if (e.input.desirability!=desirability(e.tick,b.id))
                 invalid("Housing historical desire differs from actual paid sources at phase39");
         };
         if (row.last_evaluation) check_evaluation(*row.last_evaluation);
@@ -398,9 +401,7 @@ void World::evaluate_original_houses() {
     for (std::size_t i=0;i<original_economy_->houses.size();++i) {
         auto& home=original_economy_->houses[i];if (!home.house.occupants) continue;
         auto& row=original_production_->housing.houses[i];OriginalHousingEvaluation proof;
-        const auto& body=building(home.building_id);
-        home.house.desirability=static_cast<std::int8_t>(original_influence_value_at(body.cell,
-            building_footprint(profile_,rule_version_,body.kind).width));
+        home.house.desirability=static_cast<std::int8_t>(original_house_influence_value(home.building_id));
         proof.tick=ticks_;proof.input=home.house;
         for (std::size_t r=0;r<roles.size();++r) {
             const auto w=std::find_if(original_production_->services.witnesses.begin(),original_production_->services.witnesses.end(),

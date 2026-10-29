@@ -18,6 +18,7 @@
 #include "simulation/OriginalEconomyStarter.h"
 #include "simulation/original/OriginalRulesModel.h"
 #include "simulation/OriginalIndustryGoodsContext.h"
+#include "simulation/OriginalTerrainFacts.h"
 #include "simulation/OriginalHousingDiagnosis.h"
 
 #include <SDL3/SDL.h>
@@ -423,6 +424,28 @@ std::unique_ptr<SandboxView> SandboxView::create_original_sustainable_economy(
     result->original_paid_starter_=paid_starter;
     return result;
 }
+std::unique_ptr<SandboxView> SandboxView::create_original_cardinal_water(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original cardinal-water difficulty");
+    if (session.input_sha256.empty())
+        throw std::invalid_argument("Rule14 requires a source-bound map session");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalCardinalWaterRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
+std::unique_ptr<SandboxView> SandboxView::create_original_market_logistics(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original market-logistics difficulty");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalMarketLogisticsRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
 
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version)
@@ -535,7 +558,9 @@ void SandboxView::load_now() {
          (original_requested_difficulty_ &&
           document.world.original_economy->model_source->difficulty!=*original_requested_difficulty_)))
         throw std::runtime_error("Saved original difficulty differs from this running session");
-    auto replacement=original_sustainable_economy() ?
+    auto replacement=original_cardinal_water() ?
+        persistence::restore_original_cardinal_water(document,data_root_,buildable_mask_) : original_market_logistics() ?
+        persistence::restore_original_market_logistics(document,data_root_,buildable_mask_) : original_sustainable_economy() ?
         persistence::restore_original_sustainable_economy(document,data_root_,buildable_mask_) : original_fire_protection() ?
         persistence::restore_original_fire_protection(document,data_root_,buildable_mask_) : original_production_fixture() ?
         persistence::restore_original_production_development(document,data_root_,buildable_mask_) : original_goods_fixture() ?
@@ -630,9 +655,17 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
             geometry_,buildable_mask_,initial_save_ ?
                 initial_save_->map_permissions_policy_version:
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
+    std::shared_ptr<const simulation::OriginalTerrainFacts> terrain;
+    if (original_cardinal_water())
+        terrain=std::make_shared<const simulation::OriginalTerrainFacts>(
+            original_map_.terrain_raw.values,expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(original_sustainable_economy() ?
+        world_=std::make_unique<simulation::World>(original_cardinal_water() ?
+            persistence::restore_original_cardinal_water(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions),nullptr,std::move(terrain)) : original_market_logistics() ?
+            persistence::restore_original_market_logistics(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions)) : original_sustainable_economy() ?
             persistence::restore_original_sustainable_economy(*initial_save_,data_root_,
                 buildable_mask_,std::move(permissions)) : original_fire_protection() ?
             persistence::restore_original_fire_protection(*initial_save_,data_root_,
@@ -651,6 +684,14 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (original_cardinal_water()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_cardinal_water(
+            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal)),std::move(terrain)));
+    } else if (original_market_logistics()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_market_logistics(
+            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal))));
     } else if (original_sustainable_economy()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_sustainable_economy(
             std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
@@ -704,7 +745,9 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(original_sustainable_economy())title+=" | save schema 28 | authored sustainable economy + fire protection";
+    if(original_cardinal_water())title+=" | save schema 30 | cardinal-water desirability";
+    else if(original_market_logistics())title+=" | save schema 29 | authored needs-aware market logistics";
+    else if(original_sustainable_economy())title+=" | save schema 28 | authored sustainable economy + fire protection";
     else if(original_fire_protection())title+=" | save schema 27 | original economy + authored fire protection";
     else if(original_production_fixture())title+=" | save schema 26 | original economy development "+
         std::to_string(simulation::kOriginalProductionDevelopmentRevision);
@@ -1739,6 +1782,7 @@ void SandboxView::update_layout(bool preserve_center) {
         camera_.offset.y+=layout_.map.y;
     }
     panel_scroll_=0;
+    inspector_hint_scroll_=0;
     income_scroll_=0;
     original_house_scroll_=0;
     if (preserve_center) {
@@ -2390,17 +2434,23 @@ void SandboxView::cancel_gesture() {
     budget_button_pressed_.reset();
 }
 
+sandbox_ui::InspectorLayout SandboxView::inspector_layout() const {
+    if (!layout_.panel_open || income_open_ || !world_ || original_house_inspector_active()) return {};
+    const auto id=selected_building();
+    const bool operations=id && world_->operation_controls_supported() &&
+        simulation::World::operation_controllable(world_->building(*id).kind);
+    const bool demolition=id && world_->demolition_supported();
+    return sandbox_ui::make_inspector_layout(layout_.panel,layout_.scale,placed_buildings().size(),
+        inspection_lines().size(),demolition ? demolition_hint_lines().size():0,
+        status_first_selected(),operations,demolition,panel_scroll_,inspector_hint_scroll_);
+}
+
 sandbox_ui::Rect SandboxView::operation_toggle_rect() const {
-    return {layout_.panel.x+10*layout_.scale,
-            layout_.panel.y+layout_.panel.h-(world_->demolition_supported() ? 168:92)*layout_.scale-demolition_hint_extra_height(),
-            std::max(0,layout_.panel.w-20*layout_.scale),28*layout_.scale};
+    return inspector_layout().operation_toggle;
 }
 
 sandbox_ui::Rect SandboxView::operation_priority_rect(int index) const {
-    const int gap=4*layout_.scale;
-    const int width=std::max(0,(layout_.panel.w-20*layout_.scale-2*gap)/3);
-    return {layout_.panel.x+10*layout_.scale+index*(width+gap),
-            layout_.panel.y+layout_.panel.h-(world_->demolition_supported() ? 124:48)*layout_.scale-demolition_hint_extra_height(),width,28*layout_.scale};
+    return inspector_layout().operation_priorities.at(static_cast<std::size_t>(index));
 }
 
 std::optional<SandboxView::OperationAction> SandboxView::operation_action_at(double x,double y) const {
@@ -2429,9 +2479,7 @@ void SandboxView::perform_operation_action(OperationAction action) {
 }
 
 sandbox_ui::Rect SandboxView::demolition_button_rect() const {
-    return {layout_.panel.x+10*layout_.scale,
-        layout_.panel.y+layout_.panel.h-78*layout_.scale-demolition_hint_extra_height(),
-        std::max(0,layout_.panel.w-20*layout_.scale),28*layout_.scale};
+    return inspector_layout().demolition;
 }
 void SandboxView::request_demolition() {
     const auto id=selected_building();
@@ -2968,6 +3016,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
             pointer_=point;
             if (layout_.panel.contains(point->x,point->y)) {
                 if (original_house_inspector_active()) {
+                    cancel_gesture();
                     if (input_focused_ && !walker_diagnostic_open_) {
                         const double next=original_house_scroll_-std::trunc(double(event.wheel.y))*24*layout_.scale;
                         original_house_scroll_=static_cast<int>(std::clamp(next,0.0,double(original_house_scroll_limit())));
@@ -2975,15 +3024,24 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                     refresh_hover();
                     return;
                 }
-                const auto rows=income_open_ ? income_lines().size():
-                    placed_buildings().size()+inspection_lines().size();
-                const int total=56*layout_.scale+static_cast<int>(rows)*18*layout_.scale;
-                const int limit=std::max(0,total-layout_.panel.h);
-                // Preserve integral-notch scrolling without narrowing an
-                // untrusted float or overflowing the scaled scroll delta.
-                auto& scroll=income_open_ ? income_scroll_:panel_scroll_;
-                const double next=scroll-std::trunc(double(event.wheel.y))*24*layout_.scale;
-                scroll=static_cast<int>(std::clamp(next,0.0,double(limit)));
+                // A scroll is a layout boundary for an armed inspector press.
+                cancel_gesture();
+                if (income_open_) {
+                    const int total=56*layout_.scale+static_cast<int>(income_lines().size())*18*layout_.scale;
+                    const int limit=std::max(0,total-layout_.panel.h);
+                    const double next=income_scroll_-std::trunc(double(event.wheel.y))*24*layout_.scale;
+                    income_scroll_=static_cast<int>(std::clamp(next,0.0,double(limit)));
+                } else {
+                    const auto panel=inspector_layout();
+                    const bool hints=panel.hints.h>0 && point->y>=panel.hints.y && point->y<panel.hints.y+panel.hints.h;
+                    if (hints || (point->y>=panel.content.y && point->y<panel.content.y+panel.content.h)) {
+                        auto& scroll=hints ? inspector_hint_scroll_:panel_scroll_;
+                        const int current=hints ? panel.hint_scroll:panel.scroll;
+                        const int limit=hints ? panel.hint_scroll_limit:panel.scroll_limit;
+                        const double next=current-std::trunc(double(event.wheel.y))*24*layout_.scale;
+                        scroll=static_cast<int>(std::clamp(next,0.0,double(limit)));
+                    }
+                }
             }
             else if (layout_.map.contains(point->x,point->y) && !road_start_ && !bridge_start_ && !ramp_start_)
                 camera_.zoom_at(*point,std::pow(1.15,event.wheel.y));
@@ -3032,11 +3090,9 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         if (layout_.ui_at(pointer_->x,pointer_->y)) {
             ui_pressed_=true;
             if (!income_open_ && layout_.panel.contains(pointer_->x,pointer_->y)) {
-                const int relative=static_cast<int>(pointer_->y)-building_list_y()+panel_scroll_;
-                if (relative>=0) {
+                if (const auto index=inspector_layout().list_row_at(pointer_->x,pointer_->y)) {
                     const auto entries=placed_buildings();
-                    const auto index=static_cast<std::size_t>(relative/(18*layout_.scale));
-                    if (index<entries.size()) pressed_building_=entries[index];
+                    if (*index<entries.size()) pressed_building_=entries[*index];
                 }
             }
             return;
@@ -3100,13 +3156,12 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                 return;
             }
             if (pressed_building_ && pointer_ && layout_.panel.contains(pointer_->x,pointer_->y)) {
-                const int relative=static_cast<int>(pointer_->y)-building_list_y()+panel_scroll_;
+                const auto index=inspector_layout().list_row_at(pointer_->x,pointer_->y);
                 const auto entries=placed_buildings();
-                if (relative>=0) {
-                    const auto index=static_cast<std::size_t>(relative/(18*layout_.scale));
-                    if (index<entries.size() && entries[index]==*pressed_building_)
-                        { clear_visual_selection(); selected_=world_->building(*pressed_building_).cell; income_open_=false; }
+                if (index && *index<entries.size() && entries[*index]==*pressed_building_) {
+                    clear_visual_selection(); selected_=world_->building(*pressed_building_).cell; income_open_=false;
                     panel_scroll_=0;
+                    inspector_hint_scroll_=0;
                     original_house_scroll_=0;
                 }
             }
@@ -3133,7 +3188,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
             selected_=cell;
         } else if (cell) {
             if (tool_==(simulation::production_profile(rules_) ? 5:4)) {
-                if (selected_!=cell) { panel_scroll_=0;original_house_scroll_=0; }
+                if (selected_!=cell) { panel_scroll_=0;inspector_hint_scroll_=0;original_house_scroll_=0; }
                 clear_visual_selection();
                 selected_=cell;
             }
@@ -3204,7 +3259,7 @@ simulation::CommandResult SandboxView::execute(simulation::Command command) {
         if (result.changed) { clear_visual_selection(); selected_.reset(); cancel_gesture(); refresh_hover(true); }
     } else if (command.type!=simulation::CommandType::SetBuildingOperation &&
         command.type!=simulation::CommandType::SetBuildingWorkforcePriority) {
-        if (selected_!=command.cell) { panel_scroll_=0;original_house_scroll_=0; }
+        if (selected_!=command.cell) { panel_scroll_=0;inspector_hint_scroll_=0;original_house_scroll_=0; }
         clear_visual_selection();
         selected_=command.cell;
     }
@@ -3319,7 +3374,7 @@ void SandboxView::clear_visual_selection() {
 void SandboxView::clear_hidden_walker_selection() {
     if (simulation::production_profile(rules_) && selected_walker_ &&
         !walker_live_visible(world_->courier(*selected_walker_))) {
-        clear_visual_selection(); selected_.reset(); panel_scroll_=0;original_house_scroll_=0;
+        clear_visual_selection(); selected_.reset(); panel_scroll_=0;inspector_hint_scroll_=0;original_house_scroll_=0;
     }
 }
 void SandboxView::record_visual_hit(const DrawInstance& instance) {
@@ -3478,7 +3533,7 @@ bool SandboxView::select_visual(scene::Point screen) {
     const auto stored=background_.hit_test_item(screen,visual_hit_camera_,
         road_ground_replacements_,static_cast<std::size_t>(world_->width()));
     if (!dynamic && !stored) return false;
-    clear_visual_selection(); panel_scroll_=0;original_house_scroll_=0;
+    clear_visual_selection(); panel_scroll_=0;inspector_hint_scroll_=0;original_house_scroll_=0;
     if (dynamic && (!stored || !visual_hit_unified_ || stored->key<dynamic->key)) {
         selected_=dynamic->cell; selected_walker_=dynamic->walker;
     } else {
@@ -4371,7 +4426,7 @@ void SandboxView::request_road_connectivity_diagnosis() {
     road_connectivity_courier_=chosen->courier;
     road_connectivity_target_candidate_=chosen->candidate;
     ++road_connectivity_check_count_;
-    panel_scroll_=0;income_open_=false;panel_open_=true;update_layout(true);
+    panel_scroll_=0;inspector_hint_scroll_=0;income_open_=false;panel_open_=true;update_layout(true);
     last_message_=std::string("Road check: ")+
         simulation::road_connectivity_category_name(road_connectivity_report_->category)+
         "; G checks the next compatible target";
@@ -4569,10 +4624,6 @@ std::string SandboxView::original_house_overlay_legend() const {
     }
     return {};
 }
-int SandboxView::building_list_y() const {
-    return layout_.panel.y+(status_first_selected() ?
-        52+static_cast<int>(inspection_lines().size())*17:46)*layout_.scale;
-}
 std::vector<std::string> SandboxView::demolition_hint_lines() const {
     const auto id=selected_building();
     if (!id) return {};
@@ -4588,10 +4639,6 @@ std::vector<std::string> SandboxView::demolition_hint_lines() const {
             "Waiting for the Inspector to return.":"Inspector is still on patrol.";
     }
     return wrap_panel_lines({hint});
-}
-int SandboxView::demolition_hint_extra_height() const {
-    if (!selected_building() || !world_->demolition_supported()) return 0;
-    return std::max(0,static_cast<int>(demolition_hint_lines().size())-2)*17*layout_.scale;
 }
 std::vector<std::string> SandboxView::inspection_lines() const {
     std::vector<std::string> lines;
@@ -6021,7 +6068,9 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(original_sustainable_economy())overview+=" | Policy 3 | Save 28 | Authored sustainable economy";
+        if(original_cardinal_water())overview+=" | Policy 3 | Save 30 | Cardinal-water DES";
+        else if(original_market_logistics())overview+=" | Policy 3 | Save 29 | Authored market logistics";
+        else if(original_sustainable_economy())overview+=" | Policy 3 | Save 28 | Authored sustainable economy";
         else if(original_fire_protection())overview+=" | Policy 3 | Save 27 | Authored fire protection";
         else if(original_production_fixture())overview+=" | Policy 3 | Save 26 | Production development "+
             std::to_string(simulation::kOriginalProductionDevelopmentRevision);
@@ -6272,75 +6321,80 @@ bool SandboxView::draw_hud() {
                        fire_watch_selected() ? "FIRE WATCH INSPECTOR":
                        status_first_selected() ? "HOUSE INSPECTOR":"BUILDINGS",
                        layout_.panel.w-20*layout_.scale)) return false;
+        const auto panel=inspector_layout();
+        if (panel.content.h>0 &&
+            !draw_text(layout_.panel.x+10*layout_.scale,layout_.panel.y+29*layout_.scale,
+                (panel.scroll_limit || panel.hint_scroll_limit) ? "Wheel: scroll panel areas":"List / details",layout_.panel.w-20*layout_.scale)) return false;
         const auto entries=placed_buildings();
         for (std::size_t i=0;i<entries.size();++i) {
+            const auto row=panel.list_row_rect(i);
+            if (row.h<=0) continue;
             const auto& b=world_->building(entries[i]);
-            const int y=building_list_y()+static_cast<int>(i)*18*layout_.scale-panel_scroll_;
-            const int list_bottom=layout_.panel.y+layout_.panel.h-
-                (status_first_selected() ? 180*layout_.scale+demolition_hint_extra_height():0);
-            if (y<layout_.panel.y+40*layout_.scale || y+10*layout_.scale>=list_bottom) continue;
             const std::string text=std::to_string(static_cast<unsigned>(b.id))+" "+
                 object_name(b.kind)+" ("+std::to_string(b.cell.x)+","+
                 std::to_string(b.cell.y)+")";
-            if (selected_building()==entries[i]) {
-                if (!fill({layout_.panel.x+4*layout_.scale,y-2*layout_.scale,
-                    layout_.panel.w-8*layout_.scale,16*layout_.scale},{34,92,113,255})) return false;
-            }
+            if (selected_building()==entries[i] && !fill(row,{34,92,113,255})) return false;
             if (!SDL_SetRenderDrawColor(renderer_,235,240,250,255) ||
-                !draw_text(layout_.panel.x+10*layout_.scale,y,text,
+                !draw_text(layout_.panel.x+10*layout_.scale,row.y+2*layout_.scale,text,
                            layout_.panel.w-20*layout_.scale)) return false;
         }
-        const int detail_y=(status_first_selected() ? layout_.panel.y+46*layout_.scale:
-            layout_.panel.y+52*layout_.scale+static_cast<int>(entries.size())*18*layout_.scale)-panel_scroll_;
         const auto details=inspection_lines();
-        const auto controls_id=selected_building();
-        const bool show_operation_controls=controls_id && world_->operation_controls_supported() &&
-            simulation::World::operation_controllable(world_->building(*controls_id).kind);
-        const bool show_demolition=controls_id && world_->demolition_supported();
-        const int detail_bottom=layout_.panel.y+layout_.panel.h-
-            (show_demolition ? (show_operation_controls ? 180:90)*layout_.scale:
-             show_operation_controls ? 104*layout_.scale:0)-demolition_hint_extra_height();
         for (std::size_t i=0;i<details.size();++i) {
-            const int y=detail_y+static_cast<int>(i)*17*layout_.scale;
-            if (y<layout_.panel.y+(status_first_selected() ? 40*layout_.scale:0) ||
-                y+10*layout_.scale>=detail_bottom) continue;
+            const auto row=panel.detail_row_rect(i);
+            if (row.h<=0) continue;
             if (!SDL_SetRenderDrawColor(renderer_,205,225,238,255) ||
-                !draw_text(layout_.panel.x+10*layout_.scale,y,details[i],
+                !draw_text(layout_.panel.x+10*layout_.scale,row.y,details[i],
                            layout_.panel.w-20*layout_.scale)) return false;
         }
-        if (show_demolition) {
+        const auto controls_id=selected_building();
+        if (controls_id && panel.demolition.h>0) {
             const auto demolition=world_->demolition_status(*controls_id);
-            const auto rect=demolition_button_rect();
+            const auto rect=panel.demolition;
             if (!fill(rect,demolition.allowed ? SDL_Color{117,65,45,255}:SDL_Color{55,55,61,255}) ||
                 !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
                 !draw_text(rect.x+6*layout_.scale,rect.y+9*layout_.scale,"Demolish",rect.w-12*layout_.scale)) return false;
-            const auto hints=demolition_hint_lines();
-            for (std::size_t i=0;i<hints.size();++i)
-                if (!draw_text(rect.x,rect.y+(36+static_cast<int>(i)*17)*layout_.scale,
-                    hints[i],rect.w)) return false;
         }
-        if (show_operation_controls) {
-            const auto& selected=world_->building(*controls_id);
-            if (simulation::World::operation_controllable(selected.kind)) {
-                const auto toggle=operation_toggle_rect();
-                if (!fill(toggle,{38,82,105,255}) ||
-                    !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
-                    !draw_text(toggle.x+6*layout_.scale,toggle.y+9*layout_.scale,
-                        selected.operating_enabled ? "Pause operation":"Resume operation",
-                        toggle.w-12*layout_.scale)) return false;
-                constexpr std::array<const char*,3> labels{"High","Normal","Low"};
-                for (int i=0;i<3;++i) {
-                    const auto priority=static_cast<simulation::WorkforcePriority>(i);
-                    const auto rect=operation_priority_rect(i);
-                    if (!fill(rect,selected.workforce_priority==priority ?
-                        SDL_Color{38,100,125,255}:SDL_Color{38,58,77,255}) ||
-                        !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
-                        !draw_text(rect.x+5*layout_.scale,rect.y+9*layout_.scale,
-                                   labels[static_cast<std::size_t>(i)],
-                                   rect.w-10*layout_.scale)) return false;
-                }
+        if (controls_id && panel.hints.h>0) {
+            if (!SDL_SetRenderDrawColor(renderer_,245,247,250,255)) return false;
+            const auto hints=demolition_hint_lines();
+            for (std::size_t i=0;i<hints.size();++i) {
+                const auto row=panel.hint_row_rect(i);
+                if (row.h>0 && !draw_text(row.x,row.y,hints[i],row.w)) return false;
             }
         }
+        if (controls_id) {
+            const auto& selected=world_->building(*controls_id);
+            const auto toggle=panel.operation_toggle;
+            if (toggle.h>0 && (!fill(toggle,{38,82,105,255}) ||
+                !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
+                !draw_text(toggle.x+6*layout_.scale,toggle.y+9*layout_.scale,
+                    selected.operating_enabled ? "Pause operation":"Resume operation",
+                    toggle.w-12*layout_.scale))) return false;
+            constexpr std::array<const char*,3> labels{"High","Normal","Low"};
+            for (int i=0;i<3;++i) {
+                const auto priority=static_cast<simulation::WorkforcePriority>(i);
+                const auto rect=panel.operation_priorities[static_cast<std::size_t>(i)];
+                if (rect.h<=0) continue;
+                if (!fill(rect,selected.workforce_priority==priority ?
+                    SDL_Color{38,100,125,255}:SDL_Color{38,58,77,255}) ||
+                    !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
+                    !draw_text(rect.x+5*layout_.scale,rect.y+9*layout_.scale,
+                               labels[static_cast<std::size_t>(i)],rect.w-10*layout_.scale)) return false;
+            }
+        }
+        // Prepared row bounds provide clipping without a scaled SDL clip leaking
+        // through draw_text's temporary render scale. The thumb marks both ranges.
+        const auto scrollbar=[&](sandbox_ui::Rect viewport,int position,int limit) {
+            if (limit<=0 || viewport.h<=0) return true;
+            const int width=3*layout_.scale;
+            const int thumb=std::min(viewport.h,std::max(12*layout_.scale,
+                static_cast<int>(double(viewport.h)*viewport.h/(viewport.h+double(limit)))));
+            const int y=viewport.y+static_cast<int>(double(position)*(viewport.h-thumb)/limit);
+            return fill({layout_.panel.x+layout_.panel.w-6*layout_.scale,viewport.y,width,viewport.h},{38,58,77,255}) &&
+                fill({layout_.panel.x+layout_.panel.w-6*layout_.scale,y,width,thumb},{140,181,200,255});
+        };
+        if (!scrollbar(panel.content,panel.scroll,panel.scroll_limit) ||
+            !scrollbar(panel.hints,panel.hint_scroll,panel.hint_scroll_limit)) return false;
     }
     if (debug_open_) {
         if (!SDL_SetRenderDrawColor(renderer_,255,230,150,255)) return false;

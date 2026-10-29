@@ -1,12 +1,23 @@
 # Local macOS arm64 development app
 
 Run `tools/package_macos.sh` on an Apple Silicon Mac with Xcode Command Line
-Tools, CMake, Homebrew SDL3, OpenSSL 3 and nlohmann/json installed. It configures
+Tools, CMake, Homebrew SDL3, OpenSSL and nlohmann/json installed. It configures
 `build-macos-app/` in Release with `OPENEMPEROR_BUILD_MACOS_APP=ON` and explicit
 arm64/macOS 26.0 deployment settings. The ordinary `build/` CLI configuration
 is untouched. The current 26.0 minimum follows the embedded Homebrew SDL3 and
 libcrypto builds; it is checked against every embedded Mach-O. The tested OS
 version is recorded separately in `dist/package-report.json`.
+
+Build and distribution destinations must be new paths; existing evidence is
+preserved. For an isolated local candidate with real-data checks:
+
+```sh
+sh tools/package_macos.sh --build-dir "$PWD/.local/package-new/build" --dist-dir "$PWD/.local/package-new/dist" --data /absolute/path/to/Emperor --jobs 2
+```
+
+The defaults remain `build-macos-app/` and `dist/` when they do not yet exist.
+Linked path components, overlapping outputs, maintained source directories and
+paths overlapping the supplied original installation are refused before building.
 
 The package build installs only `OpenEmperor.app` into its own temporary stage.
 CMake `fixup_bundle` copies actual non-system dynamic dependencies into
@@ -15,8 +26,10 @@ The verifier checks every Mach-O dependency and RPATH recursively, resolves
 each non-system `@rpath`/loader/executable reference inside the bundle, checks
 arm64 and minimum OS, rejects unlisted resources and escaping symlinks, and
 verifies the final signature. System Apple libraries are left to macOS.
-The script includes the installed SDL, OpenSSL and nlohmann/json license files
-and records their versions. zlib is supplied by macOS here, while nlohmann/json
+The script binds SDL and OpenSSL notices to the actual resolved linked libraries,
+and the nlohmann/json notice to the configured CMake dependency. It records
+versions and hashes rather than guessing a Homebrew OpenSSL major version.
+zlib is supplied by macOS here, while nlohmann/json
 is a header-only compile-time dependency.
 
 The stage is signed ad hoc, inside out. It is moved to a path with spaces
@@ -63,6 +76,37 @@ LICENSE file; choosing one is a prerequisite for public distribution, outside
 this packaging milestone.
 # Alpha acceptance
 
-Run `python3 tools/alpha_check.py --system-sdl --package` for the synthetic alpha acceptance plus the existing package pipeline. The package step remains the authority for relocation, dependency/RPATH checks, arm64, ad-hoc signature integrity, ZIP extraction, and synthetic app smoke. The alpha runner additionally rejects `walkers-v2.json`, `buildings.json`, `roads.json`, and `alpha-check.json` if any appears in the produced app or ZIP. Local visual profiles and `.local/reports/` are development inputs and must never be bundled.
+Use new build, report and package paths for a complete isolated run:
+
+```sh
+python3 -B tools/alpha_check.py --system-sdl --jobs 2 --data /absolute/path/to/Emperor --build-dir "$PWD/.local/alpha-new/debug" --release-build-dir "$PWD/.local/alpha-new/release" --sanitize-build-dir "$PWD/.local/alpha-new/sanitize" --report "$PWD/.local/alpha-new/report.json" --package --package-build-dir "$PWD/.local/alpha-new/package-build" --package-dist-dir "$PWD/.local/alpha-new/dist"
+```
+
+`--data` also configures the original-model CTests in every build; any skip with
+that explicit input fails acceptance. Without `--data`, the existing CMake model
+root default is retained. Declared `--real` tests that return their registered77
+because that default model is missing are individually reported `NOT_RUN`, with
+the original-data status `NOT_CONFIGURED`. Completed synthetic checks remain
+usable, but the overall report is `partial`/`synthetic_only`, not a full original
+PASS. Unexpected skips still fail. The runner retains the
+actual registered-test inventory and complete JUnit output in each build.
+The outer CTest process budget uses the sum of actual registered case deadlines,
+with the former 1,800-second allowance retained for the untimed group and as a
+minimum. This lets a long complete suite finish; every individual CMake test
+deadline remains exact, including the 120-second original-menu check. The report
+records this aggregate budget separately from observed durations.
+Existing builds, reports and distributions are never deleted or replaced.
+Without explicit paths, the historical default names are used only if fresh.
+
+The package step remains the authority for relocation, dependency/RPATH checks,
+arm64, ad-hoc signature integrity, ZIP extraction and app smoke. The alpha runner
+checks the maintained ten-file metadata pack, including the bounded original
+House contract, and rejects unlisted original payloads, saves and local reports.
+Shipped `buildings.json`/`roads.json` compatibility metadata is intentional; custom
+local visual profiles and `.local/` reports never become bundle resources.
+Current original-smoke asset counts are checked against distinct physical
+identities in the selected metadata and actual role draws, not historical fixed
+asset totals. Actual original-game semantic verification remains in the existing
+runtime/source tests; a metadata-only bundle contains no original SG3 payload.
 
 The package is still a local development preview. Developer ID signing, notarization, independent clean-Mac verification, and publication readiness remain outside this milestone.

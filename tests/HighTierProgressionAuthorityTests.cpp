@@ -19,6 +19,11 @@ namespace save=openemperor::persistence;
 namespace perf=openemperor::performance;
 using Json=nlohmann::json;
 using f::check;
+#ifdef OE_MARKET_LOGISTICS_AUTHORITY_TEST
+constexpr unsigned authority_rule=13,authority_schema=29;
+#else
+constexpr unsigned authority_rule=12,authority_schema=28;
+#endif
 
 // These are explicitly authored model/geography controls. All positive state
 // still comes from normal paid commands and real ticks. Passing this boundary
@@ -33,12 +38,22 @@ struct Fixture {
         f::write_text(root.data/"Model/EmperorBuildingModels.txt",model_bytes);
         model=save::prepare_original_production_rules_model(root.data,orig::Difficulty::Normal);
     }
-    sim::World world() const {return sim::World::create_original_sustainable_economy(policy,model);}
+    sim::World world() const {
+#ifdef OE_MARKET_LOGISTICS_AUTHORITY_TEST
+        return sim::World::create_original_market_logistics(policy,model);
+#else
+        return sim::World::create_original_sustainable_economy(policy,model);
+#endif
+    }
     save::SaveDocument document(const sim::World& w) const {
         return save::make_document(root.data,f::map_relative,policy->building_mask(),w);
     }
     sim::World restore(const save::SaveDocument& d) const {
+#ifdef OE_MARKET_LOGISTICS_AUTHORITY_TEST
+        return save::restore_original_market_logistics(d,root.data,policy->building_mask(),policy,model);
+#else
         return save::restore_original_sustainable_economy(d,root.data,policy->building_mask(),policy,model);
+#endif
     }
     void unchanged_source() const {
         check(f::read_text(root.data/"Model/EmperorBuildingModels.txt")==model_bytes,
@@ -68,7 +83,7 @@ sim::BuildingId buy(sim::World& w,sim::CommandType kind,sim::Cell cell) {
 }
 void through(sim::World& w,std::uint64_t tick) {while(w.ticks()<tick)w.tick();}
 void authority(const sim::World& w) {
-    check(w.rule_version()==12 && w.original_sustainable_economy_enabled() &&
+    check(w.rule_version()==authority_rule && w.original_sustainable_economy_enabled() &&
           w.navigation_valid() && w.population_valid() && w.production_balance_valid() &&
           w.city_economy_valid() && w.fire_state_valid(),"Rule12 paid authority invariant failed");
     for(const auto& balance:w.original_goods_balances())check(balance.conserved,"House authority test lost physical goods mass");
@@ -148,7 +163,7 @@ sim::World disk_roundtrip(const Fixture& fixture,const sim::World& w,const f::fs
     save::write_save(path,original,fixture.root.data,fixture.policy->building_mask());
     const auto bytes=f::read_text(path);const auto parsed=save::read_save(path);
     f::same_document(original,parsed);
-    check(parsed.source_schema_version==28 && parsed.world.rule_version==12 &&
+    check(parsed.source_schema_version==authority_schema && parsed.world.rule_version==authority_rule &&
           parsed.world.original_production->development_revision==27 &&
           parsed.map_permissions_policy_version==3,"Rule12 House disk boundary changed its exact generation");
     auto copy=fixture.restore(parsed);check(copy.snapshot()==before && w.snapshot()==before,

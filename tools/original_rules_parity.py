@@ -26,6 +26,14 @@ HOUSING_SIMULATION_DEPENDENCIES = ("original-rules-model", "original-desirabilit
                                    "original-goods-ledger", "original-goods-rules",
                                    "original-service-rules",
                                    "original-house-evolution", "original-model")
+# Reviewed additive Rule13/14 API: the actual fourth-module probe retains its
+# historical HouseholdV3/CityV7 calls. Matching archives are freshly linked;
+# these exact headers do not certify the new rules' gameplay or terrain logic.
+REVIEWED_HOUSING_WORLD_API_GIT_BLOBS = {
+    "World.h": "fd8bddeee42b2b0dd2e4d91cdd460fef71820ac1",
+    "OriginalTerrainFacts.h": "1a24ed7cb80a0152560b76d9445c04e5b0829ed5",
+    "OriginalHousingDiagnosis.h": "62d1ebd836ae700c3f790ef993c155b589d2a3d1",
+}
 # OE-00's independently retrieved, pinned file identities. A mutable local
 # manifest is not trusted as the source of the expected hashes.
 FORK_SHA256 = {
@@ -434,7 +442,23 @@ def current_source_hashes() -> dict[str,str]:
     sources = list(module.glob("*.h")) + list(module.glob("*.cpp"))
     sources += list((ROOT / "tools/original-rules-parity").glob("*.cpp")) + [Path(__file__).resolve(), ROOT / "src/simulation/OriginalEconomyState.h", ROOT / "src/simulation/OriginalInfluenceState.h", ROOT / "src/simulation/OriginalGoodsState.h", ROOT / "src/simulation/OriginalProductionState.h", ROOT / "src/simulation/OriginalFoodState.h", ROOT / "src/simulation/OriginalServicesState.h", ROOT / "src/simulation/OriginalWaterState.h", ROOT / "src/simulation/OriginalHousingState.h", ROOT / "src/simulation/OriginalIndustryState.h", ROOT / "src/simulation/OriginalFinanceState.h"]
     sources.append(ROOT / "src/simulation/OriginalFireProtectionState.h")
+    sources += [ROOT / "src/simulation" / name for name in REVIEWED_HOUSING_WORLD_API_GIT_BLOBS]
     return {str(path.relative_to(ROOT)):sha256(path) for path in sorted(sources)}
+
+
+def validate_housing_world_api(root: Path = ROOT) -> dict[str,str]:
+    """Fail closed on any unreviewed World or directly affected DTO header."""
+    actual = {}
+    for name, expected in REVIEWED_HOUSING_WORLD_API_GIT_BLOBS.items():
+        header = root / "src/simulation" / name
+        if header.is_symlink() or not header.is_file() or header.stat().st_size > 512*1024:
+            raise ValueError(f"World API drift: fourth-module header is missing/unsafe: {name}")
+        data = header.read_bytes()
+        blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+        if blob != expected:
+            raise ValueError(f"World API drift: fourth-module adapter needs a reviewed compatibility contract: {name}")
+        actual[name] = blob
+    return actual
 
 
 def real_model_path(data: Path) -> Path | None:
@@ -463,17 +487,11 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
     libraries = housing_link_libraries(library)
     if any(not path.is_file() for path in libraries):
         raise ValueError("matching prebuilt simulation library/dependencies are missing; build the selected configuration first")
-    # OE37: Rule12 adds explicit capacity/interval queries and strict factories.
-    # Its authored balance changes do not alter any historical numerical probe.
-    # Only the public World/production DTO ABI changes; all numerical kernels
-    # and independently specified historical probe expectations stay unchanged.
-    # Additive model rows/DTOs require matching ABI pins; every pure numerical kernel
-    # and the legacy HouseholdV3/CityV7 probe behavior remain unchanged.
-    # the probe keeps its unchanged HouseholdV3/CityV7 calls and observations.
-    # Recompile against matching archives and pin their exact public ABI headers.
-    world_blob = hashlib.sha1(b"blob " + str((ROOT / "src/simulation/World.h").stat().st_size).encode() + b"\0" + (ROOT / "src/simulation/World.h").read_bytes()).hexdigest()
-    if world_blob != "f2a62fd2f65c4da93accb38fd062eca832b496d0":
-        raise ValueError("World API drift: fourth-module adapter needs a reviewed compatibility contract")
+    # OE40 reviewed the prior Rule12 header through additive Rule13/14 APIs,
+    # immutable terrain ownership and appended diagnostic fields. No historical
+    # numerical vector or fourth-module observation is changed by that review.
+    reviewed_world_api = validate_housing_world_api()
+    world_blob = reviewed_world_api["World.h"]
     dto = ROOT / "src/simulation/OriginalEconomyState.h"
     dto_blob = hashlib.sha1(b"blob " + str(dto.stat().st_size).encode() + b"\0" + dto.read_bytes()).hexdigest()
     if dto_blob != "4c66306ee98c5408524187e910066d35a72ae857":
@@ -536,6 +554,7 @@ def run_comparison(args: argparse.Namespace, output: Path) -> dict[str, Any]:
         model_header_blobs[name] = actual
     library_hashes = {str(path.resolve()):sha256(path) for path in libraries}
     report["build_provenance"] = {"simulation_library":str(library.resolve()),"sha256":sha256(library),"housing_link_libraries":library_hashes,"world_header_git_blob":world_blob,"original_state_git_blob":dto_blob,"original_influence_state_git_blob":influence_blob,"original_goods_state_git_blob":goods_blob,"original_production_state_git_blob":production_blob}
+    report["build_provenance"]["reviewed_housing_world_api_git_blobs"] = reviewed_world_api
     report["build_provenance"]["water_housing_header_git_blobs"] = added_header_blobs
     report["build_provenance"]["production_model_header_git_blobs"] = model_header_blobs
     report["build_provenance"]["original_food_state_git_blob"] = food_blob

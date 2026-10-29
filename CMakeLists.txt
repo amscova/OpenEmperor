@@ -270,11 +270,13 @@ add_library(openemperor-simulation STATIC
     src/simulation/WorldOriginalProduction.cpp
     src/simulation/WorldOriginalFinance.cpp
     src/simulation/WorldOriginalMarket.cpp
+    src/simulation/OriginalMarketPolicy.cpp
     src/simulation/WorldOriginalHemp.cpp
     src/simulation/WorldOriginalFood.cpp
     src/simulation/WorldWater.cpp
     src/simulation/CityStartGuidance.cpp)
-target_sources(openemperor-simulation PRIVATE src/simulation/OriginalEconomyStarter.cpp)
+target_sources(openemperor-simulation PRIVATE src/simulation/OriginalEconomyStarter.cpp
+    src/simulation/OriginalTerrainFacts.cpp)
 target_include_directories(openemperor-simulation PUBLIC src)
 openemperor_enable_warnings(openemperor-simulation)
 # Read-only model parser shared by bounded preparation and source fingerprints.
@@ -532,6 +534,12 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-elite-house-fallback-tests)
     add_test(NAME original-elite-house-fallback COMMAND openemperor-original-elite-house-fallback-tests)
     set_tests_properties(original-elite-house-fallback PROPERTIES TIMEOUT 20)
+    add_executable(openemperor-inspector-layout-tests tests/InspectorLayoutTests.cpp
+        src/app/SandboxUiLayout.cpp)
+    target_include_directories(openemperor-inspector-layout-tests PRIVATE src)
+    openemperor_enable_warnings(openemperor-inspector-layout-tests)
+    add_test(NAME inspector-layout COMMAND openemperor-inspector-layout-tests)
+    set_tests_properties(inspector-layout PROPERTIES TIMEOUT 20)
     add_executable(openemperor-sandbox-view-tests tests/SandboxViewTests.cpp
         src/app/SandboxView.cpp src/renderer/BridgeRenderer.cpp src/renderer/RampRenderer.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/FireSpriteSet.cpp src/app/WalkerPose.cpp src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
         src/app/VisualSelection.cpp
@@ -634,6 +642,12 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-original-starter-menu-acceptance PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-original-starter-menu-acceptance)
+    # Explicit OE41 diagnostic; it drives the actual menu/view via SDL events.
+    add_executable(openemperor-system-playtest-acceptance EXCLUDE_FROM_ALL
+        tools/SystemPlaytestAcceptance.cpp ${original_menu_test_sources})
+    target_link_libraries(openemperor-system-playtest-acceptance PRIVATE
+        openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
+    openemperor_enable_warnings(openemperor-system-playtest-acceptance)
     target_link_libraries(openemperor-original-menu-session-tests PRIVATE
         openemperor-recovery SDL3::SDL3 openemperor-version Threads::Threads)
     openemperor_enable_warnings(openemperor-original-menu-session-tests)
@@ -983,7 +997,8 @@ if(BUILD_TESTING)
     target_link_libraries(openemperor-original-market-transport-tests PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-original-market-transport-tests)
     add_test(NAME original-market-transport COMMAND openemperor-original-market-transport-tests)
-    set_tests_properties(original-market-transport PROPERTIES TIMEOUT 60)
+    # The full20k snapshot comparison is substantially slower without optimizer.
+    set_tests_properties(original-market-transport PROPERTIES TIMEOUT 300)
 
     add_executable(openemperor-original-market-save-tests tests/OriginalMarketSaveTests.cpp)
     target_link_libraries(openemperor-original-market-save-tests PRIVATE openemperor-recovery)
@@ -1182,6 +1197,10 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-alpha-endurance)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME macos-acceptance-harness COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_SOURCE_DIR}/tests -p test_macos_acceptance_harness.py)
+        set_tests_properties(macos-acceptance-harness PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME original-economy-cli COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_SOURCE_DIR}/tests/test_original_economy_cli.py --executable $<TARGET_FILE:openemperor>)
         set_tests_properties(original-economy-cli PROPERTIES TIMEOUT 60
@@ -1778,10 +1797,39 @@ if(BUILD_TESTING)
     add_test(NAME original-sustainable-economy-real COMMAND openemperor-sustainable-economy-acceptance
         --mode check --rule 12 --variant balanced-three --data "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}" --ticks 6000)
     set_tests_properties(original-sustainable-economy-real PROPERTIES TIMEOUT 600)
+    add_executable(openemperor-elite-desirability-acceptance tools/EliteDesirabilityAcceptance.cpp)
+    target_link_libraries(openemperor-elite-desirability-acceptance PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-elite-desirability-acceptance)
+    add_dependencies(openemperor-elite-desirability-acceptance openemperor)
+    add_test(NAME original-elite-desirability-cli COMMAND openemperor-elite-desirability-acceptance --help)
     add_executable(openemperor-high-tier-progression-acceptance tools/HighTierProgressionAcceptance.cpp)
     target_link_libraries(openemperor-high-tier-progression-acceptance PRIVATE openemperor-original-longplay-view-support)
     openemperor_enable_warnings(openemperor-high-tier-progression-acceptance)
     add_dependencies(openemperor-high-tier-progression-acceptance openemperor)
+    add_executable(openemperor-market-distribution-acceptance tools/MarketDistributionAcceptance.cpp)
+    target_link_libraries(openemperor-market-distribution-acceptance PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-market-distribution-acceptance)
+    add_dependencies(openemperor-market-distribution-acceptance openemperor)
+    add_executable(openemperor-market-needs-policy-tests tests/MarketNeedsPolicyTests.cpp)
+    target_link_libraries(openemperor-market-needs-policy-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-market-needs-policy-tests)
+    add_test(NAME original-market-needs-policy COMMAND openemperor-market-needs-policy-tests)
+    add_executable(openemperor-market-logistics-version-tests tests/MarketLogisticsVersionTests.cpp)
+    target_link_libraries(openemperor-market-logistics-version-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-market-logistics-version-tests)
+    add_test(NAME original-market-logistics-version-save COMMAND openemperor-market-logistics-version-tests)
+    set_tests_properties(original-market-logistics-version-save PROPERTIES TIMEOUT 240)
+    add_executable(openemperor-market-logistics-transport-tests tests/MarketLogisticsTransportTests.cpp)
+    target_link_libraries(openemperor-market-logistics-transport-tests PRIVATE openemperor-recovery)
+    openemperor_enable_warnings(openemperor-market-logistics-transport-tests)
+    add_test(NAME original-market-logistics-transport COMMAND openemperor-market-logistics-transport-tests)
+    set_tests_properties(original-market-logistics-transport PROPERTIES TIMEOUT 600)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME original-market-distribution-runner-contract COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s "${CMAKE_SOURCE_DIR}/tests" -p MarketDistributionRunnerTests.py)
+        set_tests_properties(original-market-distribution-runner-contract PROPERTIES TIMEOUT 30
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+    endif()
     add_executable(openemperor-high-tier-progression-matrix-tests tests/HighTierProgressionMatrixTests.cpp)
     target_link_libraries(openemperor-high-tier-progression-matrix-tests PRIVATE openemperor-persistence)
     openemperor_enable_warnings(openemperor-high-tier-progression-matrix-tests)
@@ -1803,6 +1851,35 @@ if(BUILD_TESTING)
     add_test(NAME original-high-tier-des-bound-real COMMAND openemperor-high-tier-des-bound-tests
         --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
     set_tests_properties(original-high-tier-des-bound-real PROPERTIES TIMEOUT 180 SKIP_RETURN_CODE 77)
+    add_executable(openemperor-cardinal-water-real-tests tests/CardinalWaterRealTests.cpp)
+    target_link_libraries(openemperor-cardinal-water-real-tests PRIVATE openemperor-original-longplay-view-support)
+    openemperor_enable_warnings(openemperor-cardinal-water-real-tests)
+    add_test(NAME original-cardinal-water-paid-xia COMMAND openemperor-cardinal-water-real-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-cardinal-water-paid-xia PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77)
+    add_executable(openemperor-cardinal-water-tests tests/CardinalWaterTests.cpp)
+    target_link_libraries(openemperor-cardinal-water-tests PRIVATE openemperor-recovery ZLIB::ZLIB)
+    openemperor_enable_warnings(openemperor-cardinal-water-tests)
+    add_test(NAME original-cardinal-water-world-save COMMAND openemperor-cardinal-water-tests)
+    add_test(NAME original-cardinal-water-real COMMAND openemperor-cardinal-water-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-cardinal-water-world-save original-cardinal-water-real PROPERTIES TIMEOUT 300)
+    add_executable(openemperor-cardinal-water-core-tests tests/CardinalWaterCoreTests.cpp)
+    target_link_libraries(openemperor-cardinal-water-core-tests PRIVATE openemperor-simulation)
+    openemperor_enable_warnings(openemperor-cardinal-water-core-tests)
+    add_test(NAME original-cardinal-water-core COMMAND openemperor-cardinal-water-core-tests)
+    add_executable(openemperor-desirability-investigation tools/DesirabilityInvestigation.cpp)
+    target_link_libraries(openemperor-desirability-investigation PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-desirability-investigation)
+    add_executable(openemperor-desirability-investigation-tests tests/DesirabilityInvestigationTests.cpp)
+    target_link_libraries(openemperor-desirability-investigation-tests PRIVATE openemperor-persistence)
+    openemperor_enable_warnings(openemperor-desirability-investigation-tests)
+    add_test(NAME original-desirability-investigation-synthetic COMMAND openemperor-desirability-investigation-tests)
+    add_test(NAME original-desirability-investigation-real COMMAND openemperor-desirability-investigation-tests
+        --real "${OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT}")
+    set_tests_properties(original-desirability-investigation-synthetic original-desirability-investigation-real
+        PROPERTIES TIMEOUT 300)
+    set_tests_properties(original-desirability-investigation-real PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(openemperor-high-tier-common-supply-tests tests/HighTierCommonSupplyTests.cpp)
     target_link_libraries(openemperor-high-tier-common-supply-tests PRIVATE openemperor-original-longplay-view-support)
     openemperor_enable_warnings(openemperor-high-tier-common-supply-tests)

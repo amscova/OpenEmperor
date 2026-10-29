@@ -331,12 +331,13 @@ def review_first_common(reached, first, target):
     return witness
 
 
-def review_common(report, warmup, search, expansion, final, model, buildings, first=None, retention=None):
+def review_common(report, warmup, search, expansion, final, model, buildings, first=None, retention=None,
+                  paid_review=review_paid_commands, variants=COMMON_VARIANTS, rule=12, schema=28):
     proof.require(report["format"] == "openemperor-paid-high-tier-common-v1" and
                   report["technical_status"] == "PASS" and report["snapshot_injection"] is False and
                   all(type(report[key]) is int and report[key] == value for key, value in
-                      (("rule", 12), ("schema", 28), ("policy", 3), ("revision", 27))) and
-                  report["variant"] in COMMON_VARIANTS and report["common10"] in ("PASS", "PARTIAL") and
+                      (("rule", rule), ("schema", schema), ("policy", 3), ("revision", 27))) and
+                  report["variant"] in variants and report["common10"] in ("PASS", "PARTIAL") and
                   report["elite17"] in ("PARTIAL", "BLOCKED") and report["original_parity"] == "PARTIAL",
                   "Invalid Common scenario contract or invented full-parity claim")
     if "elite_entry_bound" in report:
@@ -347,7 +348,7 @@ def review_common(report, warmup, search, expansion, final, model, buildings, fi
     proof.require(expansion["ticks"] == 20000 and owned(expansion, target)["house"]["type"] < 10 and
                   all(owned(w, target)["house"]["type"] < 11 for w in (expansion, final)),
                   "Common target was pre-granted or crossed its separate family")
-    review_paid_commands(report, expansion, warmup, buildings)
+    paid_review(report, expansion, warmup, buildings)
     proof.require(report["final_tick"] == final["ticks"] and report["final_funds"] == final["treasury"] and
                   report["final_type"] == owned(final, target)["house"]["type"] and
                   final["construction_spent_total"] == expansion["construction_spent_total"] and
@@ -481,7 +482,7 @@ def review_resume(report, seed, final, target):
                   "Independent continuation changed identity, commands, input, Recovery or actual interval")
 
 
-def review_recovery(folder, seed_path, final_path):
+def review_recovery(folder, seed_path, final_path, rule=12, schema=28):
     root = folder / "recovery-app" / "recovery"
     proof.safe(root)
     histories = list(root.glob("*/history.json"))
@@ -498,7 +499,7 @@ def review_recovery(folder, seed_path, final_path):
                       (name == "start.json" if seq == 0 else name.startswith("checkpoint-1-")) and
                       type(entry["sequence"]) is int and entry["sequence"] == seq and
                       entry["kind"] == ("start" if seq == 0 else "autosave") and
-                      entry["profile"] == "sandbox-city-v16" and entry["rule_version"] == 12 and entry["schema"] == 28 and
+                      entry["profile"] == "sandbox-city-v16" and entry["rule_version"] == rule and entry["schema"] == schema and
                       entry["map"] == "Cities/Xia.map" and entry["tick"] == world["ticks"] and
                       entry["treasury"] == world["treasury"] and
                       entry["population"] == world["original_production"]["residents_admitted"],
@@ -535,11 +536,11 @@ def review_art(art, world, target, data, resources):
                   "Focused House origin is not its finite production ground minus native anchor")
 
 
-def review_render(report, folder, world, target, demand_ten=False):
+def review_render(report, folder, world, target, demand_ten=False, rule=12, schema=28):
     actual = owned(world, target)["house"]
     proof.require(report["format"] == "openemperor-high-tier-view-v1" and report["status"] == "PASS" and
                   all(type(report[key]) is int and report[key] == value for key, value in
-                      (("target_house", target), ("actual_type", actual["type"]), ("rule", 12), ("schema", 28),
+                      (("target_house", target), ("actual_type", actual["type"]), ("rule", rule), ("schema", schema),
                        ("policy", 3), ("revision", 27), ("tick", world["ticks"]))) and
                   (not demand_ten or actual["type"] == 10) and report["complete_f5_f9_equality"] is True and
                   report["world_unchanged"] is True and report["input_preserved"] is True and

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Build and verify a local, ad-hoc-signed arm64 development app."""
+import argparse
 import hashlib
 import json
 import os
 import plistlib
+import re
 import shutil
 import struct
 import subprocess
@@ -18,6 +20,103 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build-macos-app"
 DIST = ROOT / "dist"
 MIN_OS = "26.0"
+
+
+def checked_path(path):
+    """Refuse linked components before canonicalization can hide them."""
+    path = Path(path)
+    if ".." in path.parts:
+        raise ValueError("parent traversal is not an output/input path: " + str(path))
+    path = path.absolute()
+    for component in (path, *path.parents):
+        if component.is_symlink():
+            raise ValueError("symbolic link in output/input path: " + str(component))
+    return path
+
+
+def fresh_output_paths(paths, data=None):
+    checked = {name: checked_path(path) for name, path in paths.items()}
+    if data is None and (ROOT / ".local/gog-extracted/app").is_dir():
+        data = ROOT / ".local/gog-extracted/app"
+    data = checked_path(data) if data is not None else None
+    for name, path in checked.items():
+        if path.exists():
+            raise ValueError(name + " must be a new path; existing output is preserved: " + str(path))
+        if path == ROOT or ROOT.is_relative_to(path):
+            raise ValueError(name + " cannot replace the repository or its parents")
+        for directory in (".git", "src", "tests", "tools", "resources", "docs", "cmake"):
+            if path.is_relative_to(ROOT / directory):
+                raise ValueError(name + " overlaps maintained repository inputs")
+        if data is not None and (path.is_relative_to(data) or data.is_relative_to(path)):
+            raise ValueError(name + " overlaps original input data")
+        for parent in path.parents:
+            if parent.exists() and not parent.is_dir():
+                raise ValueError(name + " has a non-directory parent")
+        for other_name, other in checked.items():
+            if name != other_name and (path.is_relative_to(other) or other.is_relative_to(path)):
+                raise ValueError(name + " overlaps " + other_name)
+    return checked
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--build-dir", type=Path, default=BUILD)
+    parser.add_argument("--dist-dir", type=Path, default=DIST)
+    parser.add_argument("--data", type=Path,
+                        help="read-only original installation for real-data tests")
+    parser.add_argument("--jobs", type=int, default=6)
+    args = parser.parse_args(argv)
+    if args.jobs < 1:
+        raise ValueError("--jobs must be positive")
+    if args.data is not None:
+        args.data = checked_path(args.data)
+        if not args.data.is_dir():
+            raise ValueError("--data must name an existing original installation")
+    else:
+        candidate = ROOT / ".local/gog-extracted/app"
+        args.data = checked_path(candidate) if candidate.is_dir() else None
+    paths = fresh_output_paths({"build directory": args.build_dir,
+                                "distribution directory": args.dist_dir}, args.data)
+    args.build_dir = paths["build directory"]
+    args.dist_dir = paths["distribution directory"]
+    return args
+
+
+def dependency_license(library, filename):
+    """Bind the notice to the exact resolved linked library, never a brew formula guess."""
+    library = Path(library).resolve(strict=True)
+    if library.parent.name != "lib":
+        raise RuntimeError("unknown linked dependency layout: " + str(library))
+    prefix = library.parent.parent
+    notice = prefix / filename
+    if not notice.is_file() or notice.is_symlink():
+        raise RuntimeError("license missing beside actual linked dependency: " + str(library))
+    return {"prefix": prefix, "notice": notice, "library": library,
+            "version": prefix.name}
+
+
+def json_license(build):
+    cache = (build / "CMakeCache.txt").read_text()
+    match = re.search(r"^nlohmann_json_DIR:[^=]+=(.+)$", cache, re.MULTILINE)
+    candidates = []
+    if match and not match.group(1).endswith("-NOTFOUND"):
+        directory = Path(match.group(1)).resolve(strict=True)
+        candidates.extend((directory, *directory.parents))
+    candidates.append(build / "_deps/nlohmann_json-src")
+    for prefix in candidates:
+        notice = prefix / "LICENSE.MIT"
+        header = prefix / "include/nlohmann/detail/abi_macros.hpp"
+        if notice.is_file() and header.is_file():
+            source = header.read_text()
+            parts = [re.search(r"#\s*define\s+NLOHMANN_JSON_VERSION_" + field + r"\s+(\d+)", source)
+                     for field in ("MAJOR", "MINOR", "PATCH")]
+            if not all(parts):
+                raise RuntimeError("cannot identify configured nlohmann/json version")
+            version = ".".join(part.group(1) for part in parts)
+            if version != "3.12.0":
+                raise RuntimeError("configured nlohmann/json differs from the pinned dependency")
+            return {"prefix": prefix, "notice": notice, "header": header, "version": version}
+    raise RuntimeError("license for the configured nlohmann/json dependency is unavailable")
 
 
 def call(*args, cwd=ROOT, env=None, timeout=1800):
@@ -196,6 +295,19 @@ def check_negative(app, scratch):
         document["optional_health_walkers"]["files"][1]["sha256"] = "0" * 64
         path.write_text(json.dumps(document))
     reject("health-independent-fingerprint", health_fingerprint)
+    reject("missing-original-house-metadata",
+           lambda p: (p / compatibility / "original-houses.json").unlink())
+    def house_mutation(p, change):
+        path = p / compatibility / "original-houses.json"
+        document = json.loads(path.read_text())
+        change(document)
+        path.write_text(json.dumps(document))
+    reject("house-wrong-native-anchor", lambda p: house_mutation(p,
+           lambda d: d["stages"][-1].update(ground_anchor=[0, 0])))
+    reject("house-independent-fingerprint", lambda p: house_mutation(p,
+           lambda d: d["files"][0].update(sha256="0" * 64)))
+    reject("house-unresolved-vacant-sprite", lambda p: house_mutation(p,
+           lambda d: d["stages"][0].update(archive="DATA/China_General.sg3")))
     reject("invalid-signature", lambda p: (p / "Contents/Resources/BuildInfo.json").write_text("changed"), signed=True)
     occupied = scratch / "write-failure"; occupied.write_bytes(b"occupied")
     try:
@@ -207,19 +319,23 @@ def check_negative(app, scratch):
     return results
 
 
-def main():
+def main(argv=None):
+    args = parse_args(argv)
+    build, dist = args.build_dir, args.dist_dir
     if sys.platform != "darwin" or call("uname", "-m").strip() != "arm64":
         raise RuntimeError("native macOS arm64 host required")
     for tool in ("cmake", "clang", "otool", "lipo", "vtool", "install_name_tool",
-                 "codesign", "ditto", "brew"):
+                 "codesign", "ditto"):
         if not shutil.which(tool):
             raise RuntimeError("required build tool missing: " + tool)
-    cmake_args = ("cmake", "-S", str(ROOT), "-B", str(BUILD), "-DCMAKE_BUILD_TYPE=Release",
+    cmake_args = ("cmake", "-S", str(ROOT), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release",
                   "-DCMAKE_OSX_ARCHITECTURES=arm64", f"-DCMAKE_OSX_DEPLOYMENT_TARGET={MIN_OS}",
                   "-DOPENEMPEROR_BUILD_MACOS_APP=ON", "-DOPENEMPEROR_USE_SYSTEM_SDL3=ON")
+    if args.data is not None:
+        cmake_args += ("-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + str(args.data),)
     print(call(*cmake_args), flush=True)
-    print(call("cmake", "--build", str(BUILD), "--parallel", "6"), flush=True)
-    build_info = json.loads((BUILD / "generated/BuildInfo.json").read_text())
+    print(call("cmake", "--build", str(build), "--parallel", str(args.jobs)), flush=True)
+    build_info = json.loads((build / "generated/BuildInfo.json").read_text())
     required_build_info = {"display_version", "project_version", "revision", "dirty",
                            "architecture", "build_type", "deployment_target"}
     if (not required_build_info.issubset(build_info) or
@@ -230,12 +346,12 @@ def main():
     display_version = build_info["display_version"]
     revision = build_info["revision"]
     dirty = build_info["dirty"]
-    release_tests = call("ctest", "--test-dir", str(BUILD), "--output-on-failure", "-j", "6")
+    release_tests = call("ctest", "--test-dir", str(build), "--output-on-failure", "--output-junit", str(build / "package-ctest.xml"), "-j", str(args.jobs))
     print(release_tests, flush=True)
-    DIST.mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".openemperor-package-", dir=DIST) as temp:
+    dist.mkdir(parents=True, exist_ok=False)
+    with tempfile.TemporaryDirectory(prefix=".openemperor-package-", dir=dist) as temp:
         stage = Path(temp)
-        print(call("cmake", "--install", str(BUILD), "--prefix", str(stage)), flush=True)
+        print(call("cmake", "--install", str(build), "--prefix", str(stage)), flush=True)
         app = stage / "OpenEmperor.app"
         exe = app / "Contents/MacOS/OpenEmperor"
         # Search directories come from the linked Mach-O, not a find_package guess.
@@ -260,16 +376,28 @@ def main():
             project_version = plistlib.load(stream)["CFBundleShortVersionString"]
         if build_info["project_version"] != project_version:
             raise RuntimeError("generated and bundle project versions differ")
-        sdl_prefix = Path(call("brew", "--prefix", "sdl3").strip()).resolve()
-        openssl_prefix = Path(call("brew", "--prefix", "openssl@3").strip()).resolve()
-        json_prefix = Path(call("brew", "--prefix", "nlohmann-json").strip()).resolve()
-        for source, name in ((sdl_prefix / "LICENSE.txt", "LICENSE-SDL.txt"),
-                             (openssl_prefix / "LICENSE.txt", "LICENSE-OpenSSL.txt"),
-                             (json_prefix / "LICENSE.MIT", "LICENSE-nlohmann-json.txt")):
-            shutil.copyfile(source, resources / name)
-        build_info.update({"sdl_version": sdl_prefix.name,
-                           "openssl_version": openssl_prefix.name,
-                           "nlohmann_json_version": json_prefix.name})
+        notices = {}
+        for library in external:
+            family = ("sdl" if library.name.startswith("libSDL3") else
+                      "openssl" if library.name.startswith("libcrypto") else None)
+            if family is None or family in notices:
+                raise RuntimeError("unclassified or duplicate linked dependency: " + str(library))
+            notices[family] = dependency_license(library, "LICENSE.txt")
+        if set(notices) != {"sdl", "openssl"}:
+            raise RuntimeError("actual linked SDL/OpenSSL dependencies are incomplete")
+        notices["nlohmann_json"] = json_license(build)
+        license_provenance = {}
+        for family, name in (("sdl", "LICENSE-SDL.txt"), ("openssl", "LICENSE-OpenSSL.txt"),
+                             ("nlohmann_json", "LICENSE-nlohmann-json.txt")):
+            notice = notices[family]
+            shutil.copyfile(notice["notice"], resources / name)
+            dependency = notice.get("library", notice.get("header"))
+            license_provenance[family] = {"version": notice["version"],
+                "dependency": dependency.name, "dependency_sha256": sha256(dependency),
+                "notice": name, "notice_sha256": sha256(notice["notice"])}
+        build_info.update({"sdl_version": notices["sdl"]["version"],
+                           "openssl_version": notices["openssl"]["version"],
+                           "nlohmann_json_version": notices["nlohmann_json"]["version"]})
         (resources / "BuildInfo.json").write_text(json.dumps(build_info, indent=2) + "\n")
         for lib in sorted((app / "Contents/Frameworks").rglob("*.dylib")):
             if not lib.is_symlink():
@@ -303,14 +431,14 @@ def main():
             synthetic_city = run_city_check(relocated_exe, fixture, Path(move_root), clean_env)
             synthetic_process_restart = run_city_process_restart(relocated_exe, fixture,
                 Path(move_root), clean_env, Path(move_root) / "synthetic process preferences")
-            original_data = ROOT / ".local/gog-extracted/app"
+            original_data = args.data
             original_result = "not_available"
             original_industry = "not_available"
             original_city = "not_available"
             original_process_restart = "not_available"
             original_files_unchanged = None
             signature_after_original = None
-            if (original_data.is_dir() and (original_data / "Cities/Xia.map").is_file()):
+            if original_data is not None and (original_data / "Cities/Xia.map").is_file():
                 originals = [original_data / "Cities/Xia.map",
                              original_data / "DATA/China_Terrain.sg3",
                              original_data / "DATA/China_Elevation.sg3"]
@@ -347,6 +475,7 @@ def main():
                       "compiler": call("clang", "--version").splitlines()[0],
                       "sdk": call("xcrun", "--show-sdk-version").strip()},
                       "bundle": structural, "relocated": moved_structure, "unzipped": zip_structure,
+                      "license_provenance": license_provenance,
                       "checks": {"release_ctest": "passed", "fresh_menu": menu_result.strip(),
                                  "synthetic_menu_save_resume": synthetic_result.strip(),
                                  "synthetic_industry": synthetic_industry,
@@ -378,7 +507,7 @@ def main():
             published = []
             try:
                 for name in names:
-                    target = DIST / name
+                    target = dist / name
                     if target.exists():
                         target.rename(previous / name)
                     (prepared / name).rename(target)
@@ -390,9 +519,9 @@ def main():
                     else:
                         target.unlink()
                 for old in previous.iterdir():
-                    old.rename(DIST / old.name)
+                    old.rename(dist / old.name)
                 raise
-            print(f"PACKAGED {DIST / zip_name}")
+            print(f"PACKAGED {dist / zip_name}")
 
 
 if __name__ == "__main__":

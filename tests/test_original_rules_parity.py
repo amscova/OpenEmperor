@@ -234,6 +234,35 @@ class ForkPinControls(unittest.TestCase):
 
 
 class HousingNamespaceControls(unittest.TestCase):
+    def test_reviewed_world_and_terrain_dto_headers_are_fingerprinted(self):
+        reviewed = parity.validate_housing_world_api()
+        self.assertEqual(reviewed, parity.REVIEWED_HOUSING_WORLD_API_GIT_BLOBS)
+        self.assertEqual(set(reviewed), {"World.h", "OriginalTerrainFacts.h", "OriginalHousingDiagnosis.h"})
+        fingerprints = parity.current_source_hashes()
+        for name in reviewed:
+            self.assertIn("src/simulation/" + name, fingerprints)
+
+    def test_unreviewed_missing_or_symlinked_world_api_headers_are_rejected(self):
+        for name in parity.REVIEWED_HOUSING_WORLD_API_GIT_BLOBS:
+            for mutation in ("changed", "missing", "symlink"):
+                with self.subTest(header=name, mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    for member in parity.REVIEWED_HOUSING_WORLD_API_GIT_BLOBS:
+                        target = root / "src/simulation" / member
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes((parity.ROOT / "src/simulation" / member).read_bytes())
+                    target = root / "src/simulation" / name
+                    if mutation == "changed":
+                        target.write_bytes(target.read_bytes() + b"\n// unreviewed API drift\n")
+                    elif mutation == "missing":
+                        target.unlink()
+                    else:
+                        alternate = root / "same-header-bytes"
+                        target.rename(alternate)
+                        target.symlink_to(alternate)
+                    with self.assertRaisesRegex(ValueError, "World API drift"):
+                        parity.validate_housing_world_api(root)
+
     def test_isolation_changes_only_exact_namespace_and_local_include_lines(self):
         source = ('#include "simulation/World.h"\n'
                   '#include "simulation/original/HouseEvolution.h"\n'

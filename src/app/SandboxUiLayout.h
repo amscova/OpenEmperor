@@ -39,6 +39,30 @@ struct Layout {
     bool ui_at(double x,double y) const;
 };
 
+// One scroll document for building rows and inspection text, followed by fixed
+// controls. All rectangles use the same render coordinates as Layout::panel.
+struct InspectorLayout {
+    Rect content,operation_toggle,demolition,hints;
+    std::array<Rect,3> operation_priorities{};
+    int list_y=0,detail_y=0,hint_y=0;
+    int scroll=0,scroll_limit=0,hint_scroll=0,hint_scroll_limit=0;
+    int scale=1;
+    std::size_t list_rows=0,detail_rows=0,hint_rows=0;
+
+    // List rows include the highlight's two-pixel top inset; draw list text at
+    // row.y+2*scale. Detail/hint y is the text origin. Empty rows never hit.
+    Rect list_row_rect(std::size_t index) const;
+    Rect detail_row_rect(std::size_t index) const;
+    Rect hint_row_rect(std::size_t index) const;
+    std::optional<std::size_t> list_row_at(double x,double y) const;
+};
+
+// Return only complete rows within their shared drawing/input viewport.
+Rect visible_text_row(int y,int height,Rect viewport);
+InspectorLayout make_inspector_layout(Rect panel,int scale,std::size_t buildings,
+    std::size_t details,std::size_t hints,bool status_first,bool operations,
+    bool demolition,int scroll=0,int hint_scroll=0);
+
 Layout make_layout(int output_width,int output_height,int window_width,int window_height,
                    bool panel_open,bool fire_watch=false,bool desirability=false,bool water=false,bool health=false,
                    bool income=false,bool service=false,bool bridges=false,bool ramps=false,
