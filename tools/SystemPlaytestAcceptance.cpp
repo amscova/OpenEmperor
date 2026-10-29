@@ -13,13 +13,15 @@ constexpr const char* help="openemperor-system-playtest-acceptance --inventory|-
 const fs::path repo=fs::absolute(__FILE__).parent_path().parent_path();
 const fs::path private_root=repo/".local/oe41";
 const fs::path layout_root=repo/".local/oe42";
+const fs::path playtest_root=repo/".local/oe43";
 Json menu_rows=Json::array(),toolbar_rows=Json::array(),events=Json::array(),scenario_results=Json::array();
 std::map<int,std::string> action_names;
 
 void paths(const fs::path& data,const fs::path& resources,const fs::path& app,const fs::path& out) {
     for(const auto& target:{app,out}) {
         no_symlinks(target);const auto p=fs::weakly_canonical(target);
-        require(((contains(private_root,p)&&p!=private_root)||(contains(layout_root,p)&&p!=layout_root))&&!fs::exists(p),"Use fresh ignored OE41/OE42 app/output directories");
+        require(((contains(private_root,p)&&p!=private_root)||(contains(layout_root,p)&&p!=layout_root)||
+            (contains(playtest_root,p)&&p!=playtest_root))&&!fs::exists(p),"Use fresh ignored OE41/OE42/OE43 app/output directories");
         for(const auto& source:{fs::canonical(data),fs::canonical(resources)})
             require(!contains(p,source)&&!contains(source,p),"OE41 outputs overlap read-only inputs");
     }
@@ -282,7 +284,7 @@ void create(Journey& h) {
     }else scenario_results.push_back({{"id","B20.second-session"},{"status","BLOCKED"},{"reason",h.menu->map_rules_result().reason}});
 }
 void resume(Journey& h,const fs::path& input) {
-    no_symlinks(input);require(contains(private_root,fs::weakly_canonical(input)),"Only explicit OE41 earned save accepted");const auto original=bytes(input);const auto document=oe::persistence::read_save(input);
+    no_symlinks(input);require(contains(private_root,fs::weakly_canonical(input))||contains(playtest_root,fs::weakly_canonical(input)),"Only explicit OE41/OE43 earned save accepted");const auto original=bytes(input);const auto document=oe::persistence::read_save(input);
     const auto working=h.out/"working-input.save.json";fs::copy_file(input,working);
     h.menu_click("L Load Save");h.menu_click("Open save file...");h.dialog->select(working);h.menu->advance();
     require(h.menu->state()==Menu::State::Loading,"Independent actual menu load not deferred");require(h.menu->render(),"Independent loading render failed");h.menu->advance();h.focus();

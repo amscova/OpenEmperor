@@ -15,7 +15,7 @@ namespace trace=oe_market_distribution_metrics;
 namespace high=oe_high_tier_metrics;
 namespace strategy=oe_market_distribution_strategy;
 using oe38_cli::high_checkpoint;
-constexpr const char* help="market-distribution-acceptance --mode diagnose|resume|render --data ABSOLUTE --output NEW_PRIVATE_OE39_DIRECTORY [--rule 12|13] [--variant COMMON_VARIANT] [--search-ticks 30000] [--input EARNED_SAVE --target 3 --end-tick N] [--resources ABSOLUTE]";
+constexpr const char* help="market-distribution-acceptance --mode diagnose|resume|render --data ABSOLUTE --output NEW_PRIVATE_OE39_OR_OE43_DIRECTORY [--rule 12|13] [--variant COMMON_VARIANT] [--search-ticks 30000] [--input EARNED_SAVE --target 3 --end-tick N] [--resources ABSOLUTE]";
 struct Options {std::string mode,variant="common-reserved";fs::path data,output,input,resources;unsigned rule=12,target=3,search=30000,end=0;};
 Options options(int argc,char** argv) {
     Options a;std::map<std::string,std::string> v;
@@ -36,7 +36,7 @@ Options options(int argc,char** argv) {
     }
     check((a.rule==12||a.rule==13)&&a.target>0&&a.search>=6000&&a.search<=60000,help);
     safe(a.data);safe(a.output);check(fs::is_directory(a.data),"Original installation missing");
-    check(a.output!=private_root()&&below(a.output,private_root())&&!fs::exists(a.output),"Market proof needs a new private OE39 output");
+    check(private_output(a.output)&&!fs::exists(a.output),"Market proof needs a new private OE39/OE43 output");
     check(!below(a.output,a.data)&&!below(a.data,a.output),"Market output overlaps original installation");
     if(a.mode!="diagnose") {safe(a.input);check(below(a.input,private_root())&&fs::is_regular_file(a.input)&&!below(a.input,a.output),"Explicit earned OE39 input required");}
     else check(a.input.empty()&&a.end==0,help);

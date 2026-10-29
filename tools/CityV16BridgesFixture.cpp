@@ -279,7 +279,13 @@ void user_build_check(Context& context,const fs::path& root,Sdl& sdl) {
 int main(int argc,char** argv){try {
     check(argc==4||argc==6,"usage: bridge-fixture DATA FRESH-.local-ROOT WATER-AUDIT | DATA ROOT --resume SAVE TICKS");
     const auto data=fs::canonical(argv[1]),root=fs::weakly_canonical(argv[2]);
-    check(root.string().starts_with(fs::canonical(fs::current_path()/".local/city-v16-bridges").string()+"/")&&
+    const auto legacy_root=fs::canonical(fs::current_path()/".local/city-v16-bridges");
+    const auto qa_root=fs::canonical(fs::current_path()/".local")/"oe43";
+    const auto beneath=[](const fs::path& child,const fs::path& parent) {
+        return child.string().starts_with(parent.string()+"/");
+    };
+    check((beneath(root,legacy_root)||beneath(root,qa_root)) && root!=data &&
+        !beneath(root,data) && !beneath(data,root) &&
         (!fs::exists(root)||fs::is_empty(root)),"fresh bridge-private output root required");fs::create_directories(root);Sdl sdl;
     if(argc==6){check(std::string(argv[3])=="--resume","unknown mode");const auto doc=p::read_save(argv[4]);Context context(data,doc.map_relative,sdl.renderer);
         auto world=p::restore_save(doc,data,context.mask);const int ticks=std::stoi(argv[5]);check(ticks>=0&&ticks<=10000,"bounded resume ticks required");
