@@ -62,6 +62,43 @@ its preparation error rather than substituting a fabricated map. These finite
 checks establish technical behavior, not full map or human acceptance; use
 [road diagnostics](road-connectivity-diagnostics.md) to inspect a concrete route.
 
+## Inspector layout regression
+
+The registered `inspector-layout` test checks the shared layout at 1280×800,
+1600×900 and 1920×1080 with UI scales 1 and 2, both document orders, large
+lists, long wrapped hints and small resize bounds. `sandbox-software-view`
+exercises actual production row selection, clipping, scroll limits and press
+cancellation with a 34-building World. Run these alongside the existing
+`sandbox-input-reliability`, `original-house-inspector-view`, operation/demolition,
+modal and save-view checks when changing inspector geometry.
+
+For the optional private OE41 reproduction, build
+`openemperor-system-playtest-acceptance` and run its `--inspector-layout` mode
+with DATA, RESOURCES, a fresh app root, a fresh capture directory and the explicit
+paid checkpoint. Both output paths must be below `.local/oe42/`. Accepted inputs
+are the existing `.local/oe41/run-01/journey-create-02/journey.save.json`
+(Rule14/Xia/tick901, Market7) and the documented
+`.local/original-economy/oe40/run-01/gate-c-release-lean-med-02/first-success.save.json`
+(tick7333, 65 paid buildings including FireWatch). The diagnostic loads a working
+copy through MenuSession; original input bytes remain protected. For example:
+
+```sh
+cmake --build build --target openemperor-system-playtest-acceptance
+./build/openemperor-system-playtest-acceptance --inspector-layout \
+  /path/to/emperor "$PWD/resources" \
+  "$PWD/.local/oe42/check-app" "$PWD/.local/oe42/check-captures" \
+  "$PWD/.local/oe41/run-01/journey-create-02/journey.save.json"
+```
+
+The matrix uses actual SDL window resizes, camera zooms 1/2/4, ordinary list/body
+selection and wheel events in production SandboxView. It checks complete row
+reachability and World equality, compares permitted operation clicks with the
+same commands on an independent reference World, then restores the full saved
+checkpoint. F5/Step/F9/F5 must reproduce canonical document bytes. Open the
+captured top/end views and review text, fixed controls and hints before recording
+visual acceptance. Scripted SDL/software evidence does not complete the separate
+[human input checklist](testing-input-acceptance.md).
+
 ## Manual play and persistence
 
 Use a separate test root so the exercise leaves personal settings and saves alone:

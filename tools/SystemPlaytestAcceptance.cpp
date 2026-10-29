@@ -1,4 +1,4 @@
-// OE41 QA only. Reuse the shipped event/dialog harness; all gameplay enters
+// OE41/OE42 QA only. Reuse the shipped event/dialog harness; all gameplay enters
 // MenuSession and SandboxView through ordinary SDL events.
 #define main oe41_reused_original_menu_acceptance_main
 #include "OriginalStarterMenuAcceptance.cpp"
@@ -9,16 +9,17 @@
 
 namespace oe41 {
 using A=oe::sandbox_ui::Action;
-constexpr const char* help="openemperor-system-playtest-acceptance --inventory|--create|--resume|--map|--inspect-paid DATA RESOURCES FRESH_APP_ROOT FRESH_OUTPUT [SAVE_OR_MAP]";
+constexpr const char* help="openemperor-system-playtest-acceptance --inventory|--create|--resume|--map|--inspect-paid|--inspector-layout DATA RESOURCES FRESH_APP_ROOT FRESH_OUTPUT [SAVE_OR_MAP]";
 const fs::path repo=fs::absolute(__FILE__).parent_path().parent_path();
 const fs::path private_root=repo/".local/oe41";
+const fs::path layout_root=repo/".local/oe42";
 Json menu_rows=Json::array(),toolbar_rows=Json::array(),events=Json::array(),scenario_results=Json::array();
 std::map<int,std::string> action_names;
 
 void paths(const fs::path& data,const fs::path& resources,const fs::path& app,const fs::path& out) {
     for(const auto& target:{app,out}) {
         no_symlinks(target);const auto p=fs::weakly_canonical(target);
-        require(contains(private_root,p)&&p!=private_root&&!fs::exists(p),"Use fresh ignored OE41 app/output directories");
+        require(((contains(private_root,p)&&p!=private_root)||(contains(layout_root,p)&&p!=layout_root))&&!fs::exists(p),"Use fresh ignored OE41/OE42 app/output directories");
         for(const auto& source:{fs::canonical(data),fs::canonical(resources)})
             require(!contains(p,source)&&!contains(source,p),"OE41 outputs overlap read-only inputs");
     }
@@ -331,18 +332,234 @@ void inspect_paid(Journey& h,const fs::path& input) {
     json_file(h.out/"inspection.json",{{"bodies",bodies},{"actors",actors},{"house_tabs",tabs},{"complete_world_unchanged",true},{"complete_f5_f9_bytes_equal",true}});
     h.note("B17.paid-inspection","Actual earned-city building, actor, House tab/overlay selection; individual inaccessible rows remain NOT_RUN");
 }
+
+// OE42: the real paid OE41/OE40 checkpoints, actual window resizes, normal view
+// input and production drawing. No authored World or edited save substitutes.
+void inspector_layout(Journey& h,const fs::path& input) {
+    no_symlinks(input);
+    const auto resolved=fs::canonical(input);
+    const bool paid901=resolved==fs::canonical(private_root/"run-01/journey-create-02/journey.save.json");
+    const auto earned=repo/".local/original-economy/oe40/run-01/gate-c-release-lean-med-02/first-success.save.json";
+    require(paid901||resolved==fs::canonical(earned),"OE42 requires the explicit OE41 Tick901 or OE40 Tick7333 paid checkpoint");
+    const auto original=bytes(input);const auto document=oe::persistence::read_save(input);
+    require(document.world.ticks==(paid901?901:7333)&&document.world.rule_version==14&&document.map_relative==fs::path("Cities/Xia.map"),
+        "OE42 checkpoint identity is not the supplied Rule14/Xia paid generation");
+    const auto working=h.out/"working-input.save.json";fs::copy_file(input,working);
+    h.menu_click("L Load Save");h.menu_click("Open save file...");h.dialog->select(working);h.menu->advance();
+    require(h.menu->state()==Menu::State::Loading,"OE42 menu load was not deferred");
+    require(h.menu->render(),"OE42 loading render failed");h.menu->advance();h.focus();
+    require(h.view().paused()&&h.view().world().snapshot()==document.world,"OE42 menu restore changed complete World");
+    const auto initial=h.view().world().snapshot();Json checks=Json::array();
+    const auto pure=[&] {require(h.view().world().snapshot()==initial,"Inspector input/render changed complete World");};
+    const auto middle=[](oe::sandbox_ui::Rect r) {return Point{r.x+r.w*.5,r.y+r.h*.5};};
+    const auto wheel=[&](Point point,float amount) {
+        const auto raw=h.window_point(point);SDL_Event e{};e.type=SDL_EVENT_MOUSE_WHEEL;
+        e.wheel.mouse_x=float(raw.x);e.wheel.mouse_y=float(raw.y);e.wheel.y=amount;h.event(e);h.menu->update(0);
+    };
+    const auto render=[&] {require(h.menu->render(),"OE42 actual inspector render failed");pure();};
+    const auto geometry=[&] {
+        const auto layout=h.view().inspector_layout();const auto panel=h.view().layout().panel;
+        std::vector<oe::sandbox_ui::Rect> fixed{layout.operation_toggle,layout.demolition,layout.hints};
+        fixed.insert(fixed.end(),layout.operation_priorities.begin(),layout.operation_priorities.end());
+        const auto overlaps=[](auto a,auto b) {return a.w>0&&a.h>0&&b.w>0&&b.h>0&&
+            a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;};
+        for(std::size_t i=0;i<fixed.size();++i)if(fixed[i].w>0&&fixed[i].h>0) {
+            require(panel.contains(fixed[i].x,fixed[i].y)&&panel.contains(fixed[i].x+fixed[i].w-1,fixed[i].y+fixed[i].h-1),
+                "Inspector fixed control escaped its panel");
+            require(!overlaps(layout.content,fixed[i]),"Inspector content overlaps fixed controls/hints");
+            for(std::size_t j=0;j<i;++j)require(!overlaps(fixed[i],fixed[j]),"Inspector fixed regions overlap");
+        }
+        return layout;
+    };
+    const auto scroll_document=[&](const std::string& capture_prefix) {
+        bool detail_captured=false;
+        auto layout=geometry();wheel(middle(layout.content),1000000);render();layout=geometry();
+        require(h.view().inspector_scroll()==0,"Inspector content cannot return to its beginning");
+        std::vector<bool> list_seen(layout.list_rows),detail_seen(layout.detail_rows);
+        const auto collect=[&](const auto& current) {
+            for(std::size_t i=0;i<list_seen.size();++i)if(current.list_row_rect(i).h>0)list_seen[i]=true;
+            for(std::size_t i=0;i<detail_seen.size();++i)if(current.detail_row_rect(i).h>0)detail_seen[i]=true;
+        };
+        for(int n=0;;++n) {
+            layout=geometry();collect(layout);
+            if(!capture_prefix.empty()&&!detail_captured&&layout.detail_row_rect(0).h>0&&
+                layout.detail_row_rect(0).y<=layout.content.y+24*layout.scale) {
+                h.capture(capture_prefix+"-details");detail_captured=true;
+            }
+            require(n<1024,"Inspector content failed bounded scroll traversal");
+            if(layout.scroll==layout.scroll_limit)break;
+            const auto before=layout.scroll;wheel(middle(layout.content),-1);render();
+            require(h.view().inspector_scroll()>before,"Inspector content cannot reach its final rows");
+        }
+        require(std::all_of(list_seen.begin(),list_seen.end(),[](bool v){return v;})&&
+            std::all_of(detail_seen.begin(),detail_seen.end(),[](bool v){return v;}),
+            "At least one building/detail row is unreachable through actual scrolling");
+        wheel(middle(layout.content),-1000000);render();
+        require(h.view().inspector_scroll()==layout.scroll_limit,"Inspector content overscroll escaped its limit");
+        if(layout.hints.h>0) {
+            wheel(middle(layout.hints),1000000);render();std::vector<bool> seen(layout.hint_rows);
+            for(int n=0;;++n) {
+                const auto current=geometry();for(std::size_t i=0;i<seen.size();++i)if(current.hint_row_rect(i).h>0)seen[i]=true;
+                require(n<128,"Demolition hints failed bounded scroll traversal");
+                if(current.hint_scroll==current.hint_scroll_limit)break;
+                wheel(middle(current.hints),-1);render();
+                require(h.view().inspector_hint_scroll()>current.hint_scroll,"Demolition hint scroll stalled");
+            }
+            require(std::all_of(seen.begin(),seen.end(),[](bool v){return v;}),"At least one demolition hint is unreachable");
+        }
+        return std::pair{list_seen.size(),detail_seen.size()};
+    };
+    const auto inert_edges=[&] {
+        const auto layout=geometry();const auto panel=h.view().layout().panel;const auto selected=h.view().selected_building();
+        for(const Point p:{Point{panel.x+panel.w*.5,double(panel.y+2)},
+                           Point{panel.x+panel.w*.5,double(panel.y+panel.h-2)}}) {
+            h.click(p);require(h.view().selected_building()==selected,"Header/footer selected an invisible building row");pure();
+        }
+        // A partial line at either content edge is absent from both drawing
+        // and selection. Probe its visible fragment through real press/release.
+        for(std::size_t i=0;i<layout.list_rows;++i)if(layout.list_row_rect(i).h==0) {
+            const int y=layout.list_y+int(i)*18*layout.scale-layout.scroll;
+            const int a=std::max(y-2*layout.scale,layout.content.y);
+            const int b=std::min(y+14*layout.scale,layout.content.y+layout.content.h);
+            if(a>=b)continue;const Point p{layout.content.x+layout.content.w*.5,(a+b)*.5};
+            require(!layout.list_row_at(p.x,p.y),"Clipped row has a live layout hitbox");h.click(p);
+            require(h.view().selected_building()==selected,"Clipped invisible row remained clickable");pure();
+        }
+    };
+    std::array<sim::BuildingId,4> owners{};
+    for(const auto& body:h.view().world().buildings())if(body.placed) {
+        if(body.kind==sim::Object::Market&&static_cast<unsigned>(owners[0])==0&&(!paid901||static_cast<unsigned>(body.id)==7))owners[0]=body.id;
+        if(body.kind==sim::Object::Warehouse)owners[1]=body.id;
+        if(body.kind==sim::Object::FireWatch)owners[2]=body.id;
+        if(sim::original_house_kind(body.kind)&&static_cast<unsigned>(owners[3])==0)owners[3]=body.id;
+    }
+    require(static_cast<unsigned>(owners[0])>0&&static_cast<unsigned>(owners[1])>0&&static_cast<unsigned>(owners[3])>0&&
+        (paid901||static_cast<unsigned>(owners[2])>0),"Paid checkpoint lacks its required Market, Warehouse, FireWatch or House");
+    const std::array<std::string,4> names{"market"+std::to_string(static_cast<unsigned>(owners[0])),"warehouse","firewatch","house"};
+    if(paid901&&static_cast<unsigned>(owners[2])==0)
+        scenario_results.push_back({{"id","OE42.FireWatch"},{"checkpoint_tick",901},{"status","NOT_RUN"},
+            {"reason","The actual paid Tick901 city has no FireWatch; the explicit Tick7333 earned checkpoint covers it separately"}});
+    for(const auto size:std::array<std::array<int,2>,3>{{{1280,800},{1600,900},{1920,1080}}}) {
+        require(SDL_SetWindowSize(h.window,size[0],size[1]),SDL_GetError());SDL_Event resized{};
+        resized.type=SDL_EVENT_WINDOW_RESIZED;resized.window.data1=size[0];resized.window.data2=size[1];h.event(resized);h.focus();render();
+        int width=0,height=0;require(SDL_GetRenderOutputSize(h.renderer,&width,&height)&&width==size[0]&&height==size[1],"Actual resize output differs from requested size");
+        const auto dimensions=std::to_string(width)+"x"+std::to_string(height);
+        for(std::size_t kind=0;kind<owners.size();++kind) {
+            if(static_cast<unsigned>(owners[kind])==0)continue;
+            require(h.select_body(owners[kind]),std::string("Cannot select actual paid ")+names[kind]);render();
+            const auto map=h.view().layout().map;const Point anchor=middle(map);
+            for(int zoom:{1,2,4}) {
+                h.zoom(zoom,anchor);render();const auto prefix=dimensions+"-"+names[kind]+"-"+std::to_string(zoom)+"x";
+                if(kind==3) {
+                    for(unsigned section=0;section<4;++section) {
+                        const auto tab=static_cast<oe::SandboxView::OriginalHouseSection>(section);
+                        h.click(middle(h.view().original_house_section_rect(tab)));render();
+                        require(h.view().original_house_section()==tab,"Actual House section click failed");
+                        const auto content=h.view().original_house_content_rect();const auto rows=h.view().original_house_section_lines().size();
+                        wheel(middle(content),1000000);render();require(h.view().original_house_scroll()==0,"House section cannot return to beginning");
+                        std::vector<bool> seen(rows);for(int n=0;;++n) {
+                            const int scroll=h.view().original_house_scroll();const int scale=h.view().layout().scale;
+                            for(std::size_t i=0;i<rows;++i)if(oe::sandbox_ui::visible_text_row(content.y+int(i)*17*scale-scroll,12*scale,content).h>0)seen[i]=true;
+                            require(n<512,"House section failed bounded traversal");wheel(middle(content),-1);render();
+                            if(h.view().original_house_scroll()==scroll)break;
+                        }
+                        require(std::all_of(seen.begin(),seen.end(),[](bool v){return v;}),"House section has unreachable lines");
+                        if(zoom==1&&(section==2||width==1280))h.capture(prefix+"-section"+std::to_string(section)+"-end");
+                    }
+                    checks.push_back({{"size",dimensions},{"owner",static_cast<unsigned>(owners[kind])},{"zoom",zoom},{"house_sections",4},{"status","PASS"}});
+                } else {
+                    const auto layout=geometry();wheel(middle(layout.content),1000000);if(layout.hints.h>0)wheel(middle(layout.hints),1000000);render();
+                    const bool capture=kind==0&&(zoom==1||width==1280);
+                    if(capture||(zoom==1&&kind>0))h.capture(prefix+"-top");
+                    const auto rows=scroll_document(zoom==1 ? prefix:std::string{});inert_edges();
+                    if(capture||(zoom==1&&kind>0))h.capture(prefix+"-end");
+                    auto click_layout=geometry();wheel(middle(click_layout.content),1000000);render();bool clicked=false;
+                    for(int n=0;n<1024&&!clicked;++n) {
+                        click_layout=geometry();std::size_t row=0;
+                        for(const auto& body:h.view().world().buildings())if(body.placed) {
+                            const auto rect=click_layout.list_row_rect(row++);if(rect.h<=0)continue;
+                            h.click(middle(rect));require(h.view().selected_building()==body.id,"Visible building row selected a different owner");
+                            pure();clicked=true;break;
+                        }
+                        if(!clicked) {require(click_layout.scroll<click_layout.scroll_limit,"No visible clickable building list row");wheel(middle(click_layout.content),-1);render();}
+                    }
+                    require(clicked,"Visible list activation exceeded bounded traversal");
+                    require(h.select_body(owners[kind]),"Inspector could not return to its previous owner");render();
+                    checks.push_back({{"size",dimensions},{"owner",static_cast<unsigned>(owners[kind])},{"zoom",zoom},
+                        {"list_rows_reached",rows.first},{"detail_rows_reached",rows.second},{"status","PASS"}});
+                }
+            }
+        }
+    }
+    // At a small actual resize the toggle may no longer fit below the header,
+    // while the independent priority controls still fit and must still draw.
+    const auto resize=[&](int width,int height) {
+        require(SDL_SetWindowSize(h.window,width,height),SDL_GetError());SDL_Event e{};
+        e.type=SDL_EVENT_WINDOW_RESIZED;e.window.data1=width;e.window.data2=height;h.event(e);h.focus();render();
+        int actual_width=0,actual_height=0;
+        require(SDL_GetRenderOutputSize(h.renderer,&actual_width,&actual_height)&&actual_width==width&&actual_height==height,
+            "Small resize output differs from actual requested window");
+    };
+    resize(1280,800);
+    const auto full_layout=h.view().layout();
+    const int small_height=full_layout.top.h+full_layout.toolbar.h+full_layout.status.h+180;
+    resize(1280,small_height);
+    require(h.select_body(owners[0]),"Market not selectable after small actual resize");render();
+    const auto small=geometry();require(small.operation_toggle.h==0,"Small resize did not isolate the clipped operation toggle");
+    std::unique_ptr<SDL_Surface,decltype(&SDL_DestroySurface)> pixels(SDL_RenderReadPixels(h.renderer,nullptr),SDL_DestroySurface);
+    require(bool(pixels),"Cannot inspect actual small-resize priority pixels");
+    for(std::size_t index=0;index<small.operation_priorities.size();++index) {
+        const auto rect=small.operation_priorities[index];require(rect.w>2&&rect.h>2,"Priority control unexpectedly disappeared at small resize");
+        Uint8 red=0,green=0,blue=0,alpha=0;
+        require(SDL_ReadSurfacePixel(pixels.get(),rect.x+1,rect.y+1,&red,&green,&blue,&alpha),SDL_GetError());
+        const bool active=static_cast<std::size_t>(h.view().world().building(owners[0]).workforce_priority)==index;
+        require(red==38&&green==(active?100:58)&&blue==(active?125:77)&&alpha==255,
+            "Visible priority hitbox lacks its actual rendered button at small resize");
+    }
+    h.capture("1280x"+std::to_string(small_height)+"-"+names[0]+"-small-resize");pure();
+    checks.push_back({{"size","1280x"+std::to_string(small_height)},{"owner",static_cast<unsigned>(owners[0])},
+        {"scope","small resize: clipped toggle, independently rendered priorities, exact pixels and complete World"},{"status","PASS"}});
+    resize(1280,800);
+    // Commands deliberately alter authority only in this separate phase. The
+    // reference executes the same ordinary commands, never a view shortcut.
+    Json operations=Json::array();
+    for(std::size_t kind=0;kind<3;++kind) {
+        if(static_cast<unsigned>(owners[kind])==0)continue;
+        require(h.select_body(owners[kind]),"Operation owner no longer selectable");render();
+        if(!sim::World::operation_controllable(h.view().world().building(owners[kind]).kind))continue;
+        auto expected=h.view().world();const auto layout=h.view().inspector_layout();
+        const auto apply=[&](sim::Command command,oe::sandbox_ui::Rect rect) {
+            require(rect.w>0&&rect.h>0,"Operation control is not visible");const auto result=expected.execute(command);
+            require(result.accepted,"Reference ordinary operation command refused");h.click(middle(rect));
+            require(h.view().world().snapshot()==expected.snapshot(),"Inspector operation differs from ordinary World command");
+        };
+        const bool operating=expected.building(owners[kind]).operating_enabled;
+        apply(sim::set_building_operation(owners[kind],!operating),layout.operation_toggle);
+        apply(sim::set_building_operation(owners[kind],operating),layout.operation_toggle);
+        for(int priority:{0,2,1})apply(sim::set_building_workforce_priority(owners[kind],static_cast<sim::WorkforcePriority>(priority)),layout.operation_priorities[std::size_t(priority)]);
+        operations.push_back({{"owner",static_cast<unsigned>(owners[kind])},{"exact_world_commands_equal",true}});
+        h.key(SDLK_F9);require(h.view().world().snapshot()==initial,"F9 after operation checks failed complete restoration");
+    }
+    h.key(SDLK_F5);require(bytes(h.menu->settings().last_save)==original,"Inspector F5 changed canonical checkpoint bytes");
+    h.key(SDLK_PERIOD);h.key(SDLK_F9);require(h.view().paused()&&h.view().world().snapshot()==initial,"Inspector F5/Step/F9 lost complete World");
+    h.key(SDLK_F5);require(bytes(h.menu->settings().last_save)==original&&bytes(input)==original,"Inspector F5/F9 altered complete document or protected input");
+    json_file(h.out/"inspector-layout.json",{{"checkpoint_tick",document.world.ticks},{"checks",checks},{"operations",operations},{"complete_world_unchanged",true},
+        {"complete_canonical_f5_f9_equal",true},{"protected_input_bytes_equal",true},{"native_gui","NOT_RUN"},{"human","NOT_RUN"}});
+    h.note("OE42.inspector-layout","Actual paid"+std::to_string(document.world.ticks)+" inspector, complete row reachability, clipped-hit refusal, resize/zoom, ordinary operation commands and canonical F5/F9 checked");
+}
 }
 int main(int argc,char** argv) {
     try {
         if(argc==2&&std::string_view(argv[1])=="--help"){std::cout<<oe41::help<<'\n';return 0;}
         require(argc==6||argc==7,oe41::help);const std::string mode=argv[1];
-        require(mode=="--inventory"||mode=="--create"||mode=="--resume"||mode=="--map"||mode=="--inspect-paid",oe41::help);
-        require((mode=="--resume"||mode=="--map"||mode=="--inspect-paid")==bool(argc==7),oe41::help);
+        require(mode=="--inventory"||mode=="--create"||mode=="--resume"||mode=="--map"||mode=="--inspect-paid"||mode=="--inspector-layout",oe41::help);
+        require((mode=="--resume"||mode=="--map"||mode=="--inspect-paid"||mode=="--inspector-layout")==bool(argc==7),oe41::help);
         const fs::path data=fs::canonical(argv[2]),resources=fs::canonical(argv[3]);
         const auto app=fs::absolute(argv[4]).lexically_normal(),out=fs::absolute(argv[5]).lexically_normal();
         oe41::paths(data,resources,app,out);oe41::names();oe41::Journey h(data,resources,app,out);
         if(mode=="--inventory")oe41::inventory(h);else if(mode=="--create")oe41::create(h);
-        else if(mode=="--resume")oe41::resume(h,fs::absolute(argv[6]).lexically_normal());else if(mode=="--inspect-paid")oe41::inspect_paid(h,fs::absolute(argv[6]).lexically_normal());else oe41::map_journey(h,argv[6]);
+        else if(mode=="--resume")oe41::resume(h,fs::absolute(argv[6]).lexically_normal());else if(mode=="--inspect-paid")oe41::inspect_paid(h,fs::absolute(argv[6]).lexically_normal());
+        else if(mode=="--inspector-layout")oe41::inspector_layout(h,fs::absolute(argv[6]).lexically_normal());else oe41::map_journey(h,argv[6]);
         json_file(out/"report.json",{{"format","openemperor-system-playtest-v1"},{"mode",mode},{"technical_status","PASS"},{"scenario_results",oe41::scenario_results},
             {"renderer",SDL_GetRendererName(h.renderer)},{"video_driver",SDL_GetCurrentVideoDriver()},{"sdl_runtime",SDL_GetVersion()},
             {"menu_controls",oe41::menu_rows},{"toolbar_controls",oe41::toolbar_rows},{"events",oe41::events},{"captures",h.captures},

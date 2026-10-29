@@ -26,6 +26,7 @@ complete a human check.
 | Road commit | A legal funded drag ends at the actual release cell and commits once. A press beginning on UI never also builds on the map. | **NOT RUN** |
 | Road cancellation | Escape, right-click, focus loss, resize and release over UI or outside the window leave no partial road or charge. | **NOT RUN** |
 | Help and confirmations | Help blocks map actions. Cancel, focus loss or resize during an available budget/demolition confirmation never approves or leaks a click. | **NOT RUN** |
+| Inspector scrolling | At 1280×800, 1600×900 and 1920×1080, scroll a large list and long details/hints to both ends. Only fully visible rows select; fixed operations/priorities/demolition remain readable. Repeat 1×/2×/4× and resize during a pressed row. | **NOT RUN** |
 | Operations | Permitted pause/resume and workforce priorities affect the selected building; retained goods, progress and active trips stay coherent. | **NOT RUN** |
 | Save and restart | F5, quit the whole app, restart and load through the menu. The complete saved state opens paused and accepts further input. | **NOT RUN** |
 

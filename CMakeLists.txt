@@ -522,6 +522,12 @@ if(BUILD_TESTING)
     openemperor_enable_warnings(openemperor-original-elite-house-fallback-tests)
     add_test(NAME original-elite-house-fallback COMMAND openemperor-original-elite-house-fallback-tests)
     set_tests_properties(original-elite-house-fallback PROPERTIES TIMEOUT 20)
+    add_executable(openemperor-inspector-layout-tests tests/InspectorLayoutTests.cpp
+        src/app/SandboxUiLayout.cpp)
+    target_include_directories(openemperor-inspector-layout-tests PRIVATE src)
+    openemperor_enable_warnings(openemperor-inspector-layout-tests)
+    add_test(NAME inspector-layout COMMAND openemperor-inspector-layout-tests)
+    set_tests_properties(inspector-layout PROPERTIES TIMEOUT 20)
     add_executable(openemperor-sandbox-view-tests tests/SandboxViewTests.cpp
         src/app/SandboxView.cpp src/renderer/BridgeRenderer.cpp src/renderer/RampRenderer.cpp src/renderer/AuthoredTerrainSides.cpp src/renderer/FireSpriteSet.cpp src/app/WalkerPose.cpp src/app/SandboxUiLayout.cpp src/app/RoadDrag.cpp src/app/RoadTopology.cpp
         src/app/VisualSelection.cpp

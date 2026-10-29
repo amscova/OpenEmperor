@@ -335,6 +335,9 @@ public:
     const sandbox_ui::Layout& layout() const { return layout_; }
     std::optional<simulation::BuildingId> selected_building() const;
     sandbox_ui::Rect diagnostic_operation_toggle_rect() const { return operation_toggle_rect(); }
+    sandbox_ui::InspectorLayout inspector_layout() const;
+    int inspector_scroll() const { return inspector_layout().scroll; }
+    int inspector_hint_scroll() const { return inspector_layout().hint_scroll; }
     std::optional<simulation::Cell> hovered_cell() const { return hovered_; }
     std::vector<std::string> inspection_lines() const;
     using OriginalHouseSection=original_house_ui::Section;
@@ -387,8 +390,6 @@ private:
         simulation::Object object,bool placement_preview=false) const;
     bool fire_watch_selected() const;
     bool status_first_selected() const;
-    int building_list_y() const;
-    int demolition_hint_extra_height() const;
     std::vector<std::string> wrap_panel_lines(const std::vector<std::string>& lines) const;
     void select_original_house_section(OriginalHouseSection section);
     void cycle_original_house_overlay();
@@ -590,6 +591,7 @@ private:
     std::uint64_t desirability_preview_revision_=UINT64_MAX;
     std::uint64_t desirability_preview_build_count_=0;
     int panel_scroll_=0;
+    int inspector_hint_scroll_=0;
     int income_scroll_=0;
     std::optional<scene::Point> pointer_;
     bool hover_dirty_=true;

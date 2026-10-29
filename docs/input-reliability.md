@@ -60,6 +60,28 @@ redraw, including a retained armed budget press. NaN map zoom did not reproduce
 camera damage: the existing camera rejects invalid factors. No arbitrary DPI
 multiplier, camera offset, footprint adjustment or map repair is introduced.
 
+## Inspector layout and scrolling
+
+The generic inspector uses one `sandbox_ui::InspectorLayout` for its
+list/detail document, fixed operation/priority/demolition buttons and demolition
+hints. List-first and status-first ordering retain their existing meaning.
+Drawing and press/release selection use the same complete-row rectangles;
+a clipped row has neither pixels nor a hitbox. Header, details, hints and fixed
+controls cannot select an obscured list entry.
+
+The wheel scrolls the list/detail area under the pointer. Demolition hints retain
+the historical two-line footer and can grow to four lines, bounded by one quarter
+of the panel height; longer text scrolls within that separate area. Both areas
+show their scroll range. Wheel input cancels an armed inspector press, and resize,
+focus and modal boundaries retain their existing cancellation paths. Fixed button
+coordinates remain exact for the ordinary one-to-four-line footer. At smaller
+window heights, each fully contained control is drawn independently; absent
+rectangles cannot act. The separate original-House State/Needs/Goods/Visits panel
+retains its own section layout and scrolling.
+
+These are view-only values, absent from World and save documents. The automated
+regression and optional paid-checkpoint procedure are in [testing](testing.md#inspector-layout-regression).
+
 ## Bounded observation
 
 `OPENEMPEROR_INPUT_DIAGNOSTICS=1` allocates the optional event observer. Without

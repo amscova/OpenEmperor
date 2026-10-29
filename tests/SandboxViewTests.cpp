@@ -1723,12 +1723,31 @@ void road_connectivity_view_checks(const Temp& temp,SDL_Window* window,SDL_Rende
     const auto second=*view.world().building_owner_at({106,104});
     for (int x=100;x<=110;++x) if (x!=104) put(simulation::CommandType::PlaceRoad,{x,103});
     const auto select=[&](simulation::BuildingId id) {
-        const auto entries=view.world().buildings();
-        const auto found=std::find_if(entries.begin(),entries.end(),[&](const auto& b){return b.id==id;});
+        std::vector<simulation::BuildingId> entries;
+        for (const auto& building:view.world().buildings()) if (building.placed) entries.push_back(building.id);
+        const auto found=std::find(entries.begin(),entries.end(),id);
         check(found!=entries.end(),"connectivity UI selected list entry exists");
-        const auto panel=view.layout().panel;const int scale=view.layout().scale;
-        mouse_click(view,float(panel.x+20*scale),
-            float(panel.y+(46+18*std::distance(entries.begin(),found)+5)*scale),running);
+        const auto index=static_cast<std::size_t>(std::distance(entries.begin(),found));
+        const auto scroll=[&](float notches) {
+            const auto content=view.inspector_layout().content;
+            check(content.w>0 && content.h>0,"connectivity inspector has no scroll viewport");
+            SDL_Event wheel{};wheel.type=SDL_EVENT_MOUSE_WHEEL;
+            wheel.wheel.mouse_x=static_cast<float>(content.x+content.w*.5);
+            wheel.wheel.mouse_y=static_cast<float>(content.y+content.h*.5);
+            wheel.wheel.y=notches;view.handle_event(wheel,running);
+        };
+        scroll(10000);
+        auto row=view.inspector_layout().list_row_rect(index);
+        // Diagnosis text and the selected building may change document order or
+        // length. Reach the actual fully visible row through normal scrolling.
+        for (int attempt=0;row.h<=0 && attempt<256;++attempt) {
+            const auto layout=view.inspector_layout();
+            if (layout.scroll==layout.scroll_limit) break;
+            scroll(-1);row=view.inspector_layout().list_row_rect(index);
+        }
+        check(row.w>0 && row.h>0,"connectivity UI list row remains clipped after scrolling");
+        mouse_click(view,static_cast<float>(row.x+row.w*.5),
+            static_cast<float>(row.y+row.h*.5),running);
         check(view.selected_building()==id,"connectivity UI building list selection");
     };
     select(clay);
@@ -3005,36 +3024,105 @@ int main(int argc,char** argv) {
               "large City-v10 view did not restore all entities");
         const auto large_panel=city_v10_view.layout().panel;
         const auto large_scale=city_v10_view.layout().scale;
-        const auto large_panel_x=large_panel.x+20*large_scale;
-        const auto row_y=[&](std::size_t index,int scroll) {
-            return large_panel.y+46*large_scale+static_cast<int>(index)*18*large_scale-
-                scroll+4*large_scale;
+        const auto large_world=city_v10_view.world().snapshot();
+        const auto select_large_row=[&](std::size_t index) {
+            const auto row=city_v10_view.inspector_layout().list_row_rect(index);
+            check(row.w>0 && row.h>0,"expected large-list row is not fully visible");
+            mouse_click(city_v10_view,static_cast<float>(row.x+row.w*.5),
+                        static_cast<float>(row.y+row.h*.5),running);
         };
-        mouse_click(city_v10_view,static_cast<float>(large_panel_x),
-                    static_cast<float>(row_y(0,0)),running);
+        select_large_row(0);
         check(city_v10_view.selected_building()==static_cast<simulation::BuildingId>(1),
               "large building list did not select first stable ID");
         SDL_Event large_wheel{};
         large_wheel.type=SDL_EVENT_MOUSE_WHEEL;
-        large_wheel.wheel.mouse_x=static_cast<float>(large_panel_x);
+        large_wheel.wheel.mouse_x=static_cast<float>(large_panel.x+20*large_scale);
         large_wheel.wheel.mouse_y=static_cast<float>(large_panel.y+100*large_scale);
-        large_wheel.wheel.y=-5;
-        city_v10_view.handle_event(large_wheel,running);
-        constexpr int middle_scroll=5*24;
-        mouse_click(city_v10_view,static_cast<float>(large_panel_x),
-                    static_cast<float>(row_y(17,middle_scroll*large_scale)),running);
+        const auto scroll_large=[&](float notches) {
+            large_wheel.wheel.y=notches;city_v10_view.handle_event(large_wheel,running);
+        };
+        scroll_large(-5);
+        select_large_row(17);
         check(city_v10_view.selected_building()==static_cast<simulation::BuildingId>(18),
               "large building list confused middle stable ID with vector index");
-        const int row_count=34+static_cast<int>(city_v10_view.inspection_lines().size());
-        const int final_scroll=std::max(0,56*large_scale+
-            row_count*18*large_scale-large_panel.h);
-        large_wheel.wheel.y=-100;
-        city_v10_view.handle_event(large_wheel,running);
-        mouse_click(city_v10_view,static_cast<float>(large_panel_x),
-                    static_cast<float>(row_y(33,final_scroll)),running);
+        scroll_large(-1000);
+        check(city_v10_view.inspector_scroll()==city_v10_view.inspector_layout().scroll_limit,
+              "large inspector overscroll did not stop at the complete document end");
+        select_large_row(33);
         check(city_v10_view.selected_building()==static_cast<simulation::BuildingId>(34),
               "large building list did not select final stable ID after scrolling");
-        check(city_v10_view.render(),"large City-v10 building panel frame");
+        const auto last_selected=city_v10_view.selected_building();
+        const auto no_ghost_click=[&](float x,float y) {
+            mouse_click(city_v10_view,x,y,running);
+            check(city_v10_view.selected_building()==last_selected &&
+                  city_v10_view.world().snapshot()==large_world,
+                  "clipped inspector entry accepted an invisible selection or map command");
+        };
+        // An old list-relative hit calculation admitted hidden rows in the fixed
+        // heading/footer after scrolling. Only complete rendered rows may hit.
+        scroll_large(1000);scroll_large(-5);
+        no_ghost_click(static_cast<float>(large_panel.x+20*large_scale),
+                       static_cast<float>(large_panel.y+20*large_scale));
+        const auto scrolled_panel=city_v10_view.inspector_layout();
+        no_ghost_click(static_cast<float>(large_panel.x+20*large_scale),
+                       static_cast<float>(scrolled_panel.content.y+scrolled_panel.content.h+1));
+        scroll_large(1000);scroll_large(-2);
+        const auto partial_layout=city_v10_view.inspector_layout();
+        bool partial_found=false;
+        for (std::size_t index=0;index<partial_layout.list_rows;++index) {
+            const int row_y=partial_layout.list_y+static_cast<int>(index)*18*large_scale-
+                partial_layout.scroll;
+            if (row_y<partial_layout.content.y &&
+                row_y+18*large_scale>partial_layout.content.y) {
+                check(partial_layout.list_row_rect(index).h==0,
+                      "partially clipped row still exposes a visible hit rectangle");
+                no_ghost_click(static_cast<float>(partial_layout.content.x+10*large_scale),
+                               static_cast<float>(partial_layout.content.y+1));
+                partial_found=true;break;
+            }
+        }
+        check(partial_found,"large-list fixture did not exercise a partly clipped row");
+        scroll_large(1000);
+        check(city_v10_view.inspector_scroll()==0,"large inspector did not clamp at document start");
+        const auto first_row=city_v10_view.inspector_layout().list_row_rect(0);
+        no_ghost_click(static_cast<float>(first_row.x+first_row.w),
+                       static_cast<float>(first_row.y+first_row.h*.5));
+        // Scroll cancels an armed press even if release follows that same ID to
+        // its new visible position; stale gestures must not select a row.
+        auto armed_row=city_v10_view.inspector_layout().list_row_rect(5);
+        city_v10_view.handle_event(click(static_cast<float>(armed_row.x+20*large_scale),
+            static_cast<float>(armed_row.y+armed_row.h*.5)),running);
+        scroll_large(-1);
+        armed_row=city_v10_view.inspector_layout().list_row_rect(5);
+        check(armed_row.h>0,"scrolled gesture target is not visible");
+        city_v10_view.handle_event(release(static_cast<float>(armed_row.x+20*large_scale),
+            static_cast<float>(armed_row.y+armed_row.h*.5)),running);
+        check(city_v10_view.selected_building()==last_selected,
+              "wheel retained an armed inspector row press");
+        city_v10_view.handle_event(click(static_cast<float>(armed_row.x+20*large_scale),
+            static_cast<float>(armed_row.y+armed_row.h*.5)),running);
+        SDL_Event list_focus{};list_focus.type=SDL_EVENT_WINDOW_FOCUS_LOST;
+        city_v10_view.handle_event(list_focus,running);
+        list_focus.type=SDL_EVENT_WINDOW_FOCUS_GAINED;city_v10_view.handle_event(list_focus,running);
+        city_v10_view.handle_event(release(static_cast<float>(armed_row.x+20*large_scale),
+            static_cast<float>(armed_row.y+armed_row.h*.5)),running);
+        check(city_v10_view.selected_building()==last_selected,
+              "focus boundary retained an armed inspector row press");
+        city_v10_view.handle_event(click(static_cast<float>(armed_row.x+20*large_scale),
+            static_cast<float>(armed_row.y+armed_row.h*.5)),running);
+        check(SDL_SetWindowSize(window,1280,800),"large-list actual resize failed");
+        SDL_Event list_resize{};list_resize.type=SDL_EVENT_WINDOW_RESIZED;
+        city_v10_view.handle_event(list_resize,running);
+        armed_row=city_v10_view.inspector_layout().list_row_rect(5);
+        city_v10_view.handle_event(release(static_cast<float>(armed_row.x+20*large_scale),
+            static_cast<float>(armed_row.y+armed_row.h*.5)),running);
+        check(city_v10_view.selected_building()==last_selected &&
+              city_v10_view.world().snapshot()==large_world && city_v10_view.render(),
+              "resize retained a list press, mutated World or broke production rendering");
+        check(SDL_SetWindowSize(window,1100,700),"large-list window restore failed");
+        city_v10_view.handle_event(list_resize,running);
+        check(city_v10_view.render() && city_v10_view.world().snapshot()==large_world,
+              "large City-v10 inspector changed World during selection/scroll/resize");
         city_v10_view.shutdown();
 
         std::vector<std::uint8_t> warning_buildable;

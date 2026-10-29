@@ -264,6 +264,22 @@ CMake.app into a packaged-desktop acceptance result.
 | Two original occupancy conflicts | **Known conservative refusals** | Luoyang WJin and MPcanal4 fail complete-occupancy consistency;165 prepared maps are not165 proven playable cities. | Preserve refusal; independent source evidence required before changing admission. |
 | Original shipping/NPC/venues/illness and terrain lifecycle | **UNSUPPORTED / partial original parity** | No complete productive integration; original ramp prototype is isolated. | Keep explicit scope; do not count missing systems as new implemented-game failures. |
 
+OE42 follow-up (October 29): **OE41-UI-001 is fixed in the scripted/visually
+reviewed scope.** The shared inspector layout reserves fixed controls and hint
+bounds, clips drawing and row hits together, and scrolls all list/detail text.
+The actual paid901 Market7 reproduction and paid7333 city cover all three
+1280×800/1600×900/1920×1080 sizes, camera 1×/2×/4×, Warehouse, FireWatch and all
+House sections. The901 city has no FireWatch; that coverage comes from7333.
+Complete World snapshots and canonical F5/Step/F9/F5 documents remain exact;
+intentional operation clicks are compared with the same reference-World commands.
+Release, Debug and ASan/UBSan each pass the 34 selected registered tests with
+zero failures/skips. Actual top/detail/end captures were opened and checked;
+private evidence is under `.local/oe42/`. Rules1–14, save schemas, economy and
+original bytes are unchanged. This closes the specific inspector defect, while
+OE41 native/human/release gaps remain separate. See the maintained
+[layout/input contract](../input-reliability.md#inspector-layout-and-scrolling)
+and [regression procedure](../testing.md#inspector-layout-regression).
+
 No confirmed production P0/data-loss finding is established by this report.
 Initial QA failures are preserved: legacy-pause and deferred-confirmation
 assumptions, compile diagnostics, and external-load/F5 isolation. The first

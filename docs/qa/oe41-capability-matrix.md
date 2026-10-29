@@ -150,3 +150,11 @@ save; its exact mode and mtime were restored and checked against the existing
 before menu loading. Guarded corrected runs verify original and protected-save
 SHA/size/mode/mtime unchanged. This repaired harness error is documented in
 `run-01/runtime-qa/isolation-incident.json`; it is not a World save bug.
+
+OE42 follow-up: the inspector overlap described above is fixed within the actual
+scripted and opened-image scope. Shared list/detail clipping and fixed controls
+are checked at all three requested sizes and zooms, with exact World/F5/F9
+preservation. The historical OE41 observation remains above; the current
+[regression procedure](../testing.md#inspector-layout-regression) and
+[follow-up result](oe41-playtest-report.md#observed-issues-and-preserved-qa-incidents)
+record the correction without completing unrelated native/human acceptance.
