@@ -6,3 +6,5 @@
 /tools/original_rules_parity.py text eol=lf
 /src/simulation/Original*State.h text eol=lf
 /src/simulation/World.h text eol=lf
+/src/simulation/OriginalTerrainFacts.h text eol=lf
+/src/simulation/OriginalHousingDiagnosis.h text eol=lf
