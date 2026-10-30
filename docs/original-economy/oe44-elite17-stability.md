@@ -768,10 +768,13 @@ stability claim is made after the failed required window.
 Final protection checks (`gate-e-protected-final.json`) confirm all1464 original
 files and499 historical proof saves retain bytes, SHA256, modes and mtimes.
 The user's root prompt and pre-existing deletions remain untouched; personal/
-user-controlled native saves are neither searched nor modified. Main and fetched
-origin/main remain at`b11e7cfe3efadcbfbc5db239b8a7c072047fcd4c`.
+user-controlled native saves are neither searched nor modified. At the initial
+local QA close, main and fetched origin/main were still
+at`b11e7cfe3efadcbfbc5db239b8a7c072047fcd4c`.
 The local gate commits are `899bdac`, `8280253`, `e73bca1` and the subsequent
-reviewed QA/report commit. No push, merge, tag, release or publication occurs.
+reviewed QA/report commit. No push, merge, tag, release or publication was
+performed during that validation phase. Later authorized Git publication does
+not change the PARTIAL gameplay result or the recorded acceptance scope.
 
 ## Reproduction
 
