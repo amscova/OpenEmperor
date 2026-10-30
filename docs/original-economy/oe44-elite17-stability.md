@@ -180,6 +180,235 @@ the per-process execution records retain the exact checks. Production `src/`,
 resources, Rule1–14 contracts and persistence are unchanged. These findings
 complete Gate A; paid strategy comparisons are the next gate.
 
+## Gate B: paid strategies before engine changes
+
+The first complete comparison uses nine new explicit `--paid-strategy` recipes
+plus another unmodified lean control. All start fresh Rule14 Worlds and use
+the existing `EliteDesirabilityStrategy` plan, ordinary validate/execute receipts,
+real owned fields/plants and production authority. No engine, model, permission,
+schema, cap, price, tax, upkeep, deadline or inventory is changed.
+
+| Recipe | Explicit player actions |
+|---|---|
+|road-grid|Buy additional individually legal roads inside108…136/110…143 at tick0, reserving every complete future body and the Elite4×4. The bounded986 candidates are not a new permission list.|
+|market-near|Buy the existing second Market at125,140 instead of113,120; no additional Market or actor.|
+|medical-near|Swap the Herbalist7 and Pottery130 sites:121,136 and110,115. Both complete2×2 sites pass fresh production validation.|
+|medical-pair|The same swap plus the normally purchased second Herbalist at110,117, kept active; active medicine receives ordinary High priority.|
+|watch-near|Buy the same two Watches at118,134 and124,135, with six ordinary paid spur roads.|
+|paper-buffer|Pause/resume the actual PaperMaker at global conserved physical Paper stock+cargo16/8; upkeep remains installed.|
+|early-elite|Buy the separate paid Elite plot before other buildings, after the same basic roads. Normal admission and materialization still occur through real ticks.|
+|finance-staged|Hold optional source/luxury purchases until actual predecessor needs justify them, with an earned-Funds reserve. Silk is allowed from13, Lacquer/Wood from14, Paper/Academies from15 and Tea from16; no deliberately impossible late Silk gate.|
+|combined|Grid, nearer Market, medical pair, relocated Watches, early Elite purchase and the16/8 Paper controller. Financial staging remains its separate contrast.|
+
+The proposed Herbalist126,140 and124,140 sites are actually refused as not
+sandbox-buildable. Their geometrical vacancy grants nothing. The accepted
+Medical/Pottery swap, Watch sites, six spur cells and Market125,140 are checked
+against the real source predicates and all complete future footprints in
+`site-validation-swap/`; no original or existing road is removed for this round.
+
+### First complete comparison
+
+All entries below observe their own exact first17 event plus20,400 ticks. The
+different starts are explicit; this is not an equal-calendar causal comparison.
+
+| Recipe | Actual first17 → end | Current needs met | Lost / burning ticks | Actual tax−all upkeep | Minimum Funds | Construction |
+|---|---|---:|---:|---:|---:|---:|
+|lean control|7333→27733|239/400|15488 /4200|14009−17250 =−3241|1214|4343|
+|early-elite|7792→28192|325/400|2417 /1550|20519−17250 =+3269|5832|4343|
+|combined|5650→26050|224/400|9228 /3600|18649−17600 =+1049|5026|5231|
+|market-near|12127→32527|328/400|18451 /3545|12647−17250 =−4603|−1447|4343|
+|medical-near|12892→33292|211/400|19510 /4200|15759−17250 =−1491|1637|4343|
+|medical-pair|15187→35587|155/400|15368 /4195|17206−17600 =−394|−825|4373|
+|paper-buffer|15289→35689|274/400|18050 /3565|13275−17250 =−3975|−1277|4343|
+|road-grid|23755→44155|328/400|19177 /2180|12473−17250 =−4777|−4994|5209|
+
+`watch-near` and `finance-staged` do not reach17 by40000; their retention and
+post17 finance dimensions are NOT_RUN. Their actual whole-search operations
+are15981−32862=−16881 and20578−30166=−9588, with minimum Funds−9456/−2552;
+construction is4355/4297. Initialized unused retention fields are not profit.
+**None of this first round passes uninterrupted retention.** Early purchase
+and the combination improve particular finite measurements without receiving
+a combined gameplay PASS.
+
+The independent complete artifact audit checks73 saved documents, their
+snapshots/roundtrips and20 Recovery payloads, all exact, maximum830684 bytes.
+Every ordinary debit, full Funds chain, actual816-tick installed invoice and
+owner binding passes. Imports remain zero; all Goods/Food/auxiliary balances
+conserve. Combined actually has66 bodies,45 actors,13 homes,3 Food farms,
+2 Hemp farms,2 Markets,2 Watches and2 Warehouses, within unchanged limits.
+The extra Herbalist costs30, requires7 installed workers and actually pays14
+per816 ticks. Paused providers remain fully charged. The legacy control is
+literally identical to Gate A in all31 top-level files, including its timeline.
+At this comparison boundary independent process replays of the new recipes
+are pending; internal roundtrips are not described as those replays.
+
+### Remaining measured causes and the next legal experiments
+
+Combined's first failed actual input8608 lacks only Daoist OR Buddhist.
+Their last real arrivals are6600/6440 and expiry8451/8604; both providers are
+healthy, with real walkers serving other homes. One complete observed Buddhist
+tour is3240 ticks and324 actual road edges, longer than its40-countdown timer.
+This first failure precedes target ignition8780 and is not attributed to a
+service-cursor reset. The already purchased second Daoist and Buddhist are
+still paused; their legal activation is an untested player option at this
+boundary, so these results do not establish a Rule15 necessity.
+
+Later, combined's Paper controller really pauses at16 and resumes at8, but
+locks at10 physical units:7 in the paused Academy and3 returned to the paused
+Maker. Active Academy55 empties on dispatch19796, actually visits19900 and
+then reports NoStock; timer expiry21915/input21919 follows. All global mass
+is present but the controller's global buffer is the wrong operational signal.
+This is a demonstrated player-controller weakness, not evidence for free Paper
+or an engine change. New separately named strategies will test an eligible
+downstream signal and normal source operations; the first-round controller
+and its result remain unchanged.
+
+Combined's first Food failure22939 follows last delivery19974, eight actual
+debits through22888 and no incoming target cargo. The21560–22160 target fire
+causes both distributors to skip it while wrapping their tours; they actually
+serve other homes. Market29 burns21960–22560 and a Farm from22540. A stocked,
+staffed Market11 with a busy actor is not a target receipt. Next actual Elite
+dispatch23191 arrives23300 over22 edges. Road-grid separately records real
+service resets after previous homes burn; it does not eliminate that inherited
+selection behavior by adding roads.
+
+All eight real entry windows retain13 homes with positive occupants **including
+burning homes**. Goal-eligible, non-burning minima are separately7/7/6/6/6/7/7/2
+for control/early/combined/market/medical/pair/paper/grid; road-grid loses the
+productive World goal. Other-home Food misses are45/49/14/24/42/18/32/12,
+compared with Elite12/0/5/8/6/10/12/13. Combined reduces measured city-wide Food
+misses but still has545 current failures among the other12 homes; early-elite
+has441. There is no all-city supplied/no-fire claim or hidden target-only
+acceptance. Full per-home, stock, staffing, fire and transfer histories remain
+in the private observations.
+
+`gate-b-independent-analysis-final-v3.json`, `independent-gate-b-audit-summary.json`,
+`gate-b-combined-grid-first-causes.json` and `gate-b-combined-paper-gap.json`
+bind the exact events, physical balances and limits. Further paid refinements,
+separate replays and the conditional Gate C decision remain pending.
+
+### Six refinements and four arrival-timed strategies
+
+The next six fresh Worlds retain the first nine recipes verbatim. Religion
+variants leave the already paid second Daoist/Buddhist active; services also
+leave the paid Music/Acrobat/Drama duplicates active. No actor is granted.
+Refined variants use the same second Watch at130,132, deliberately omitting
+exactly that one still-unpurchased basic road cell. Fresh production validation
+accepts it; the actual materialized-Elite route is130,132→131,132→131,133:
+two edges, nine elapsed ticks. Proximity still grants no inspection.
+
+The separately named usable-Paper controller counts actual Warehouse/active
+Academy stock plus Loaded cargo headed there. Maker-held stock, paused-Academy
+stock and Returning cargo remain fully in global conservation, but do not
+control the signal. Ordinary pause requires downstream≥16 and each active
+Academy physically≥4; resume requires downstream≤8 or an active Academy≤1
+without Loaded incoming. PRE-decision and POST-command pools are distinct:
+ordinary pause can legitimately turn Loaded cargo into Returning. Actual
+20/20/21 operations exercise these rules. The global10 lock is absent;
+`combined-paper-usable` produces88Paper, consumes78 on real Academy dispatch
+and adds10 physical units, without a Confucian need failure.
+
+| Further recipe | Actual first17 → end | Current met /400 | Lost / burning ticks | Actual tax−all upkeep | Minimum Funds |
+|---|---|---:|---:|---:|---:|
+|early-religion|8353→28753|340|1958 /1550|20632−17250 =+3382|5087|
+|combined-religion|5956→26356|246|7352 /3600|18968−17600 =+1368|4916|
+|combined-services|6517→26917|249|10181 /3798|18296−17600 =+696|4750|
+|combined-paper-usable|5650→26050|238|7874 /3600|18849−17600 =+1249|5026|
+|early-refined|12739→33139|301|9909 /3480|16871−17250 =−379|3711|
+|combined-refined|6568→26968|295|6092 /3249|18017−17600 =+417|4776|
+
+All six still fail retention. Their61 documents,12 Recovery payloads and18
+literal first-current-failure/fire/devolution checkpoints pass independent
+complete-byte, snapshot, event and conservation audits. Source/worker/path
+analysis distinguishes the short actual Watch route from long intervening
+trips: at the first8940 combined-refined ignition the Door Inspector is
+returning47 edges from a Herbalist and the other travels19 edges to Music.
+
+Four further fresh recipes test legal timing, without changing those15 recipes.
+Watch2 is bought only after the first saved Watch1→Elite inspection plus1200
+ticks. Extra normally purchased Herbalist/Clinic bodies use their original
+sites and the exact primary provider's successful Elite witness plus2448 ticks.
+Religious duplicates wait half the primary actor's complete prepared route
+movement bound over all occupied homes, including burning ones: Σedges×5.
+Missing/stale caches or missing exact provider witnesses stay UNPROVEN and hold
+the purchase; no BFS, timer or fallback is invented. Actual religious delays
+are1665/1855 ticks. Timing receipts preserve the PRE-command witness.
+
+The adaptive variant additionally permits normal Watch2 pause while its latest
+actual Elite visit is within600 ticks of Watch1's latest visit and fewer than
+1200 ticks have elapsed since the newer visit, then resumes normally. All
+decisions derive from saved arrival history; no external deadline is authority.
+These four recipes alone keep pending paid purchases active after entry and
+include pre-tick purchase debits in minimum Funds. All intended timing purchases
+actually complete before entry in these runs; construction in the windows is0.
+
+| Timed recipe | Actual first17 → end | Current met /400 | Lost / burning ticks | Actual tax−all upkeep | Minimum Funds |
+|---|---|---:|---:|---:|---:|
+|early-stagger-watch|12790→33190|302|7157 /4800|16740−17250 =−510|3747|
+|early-stagger-medical|10750→31150|320|3084 /2270|19623−18000 =+1623|5040|
+|early-stagger-all|9577→29977|286|5973 /4800|16263−18000 =−1737|3169|
+|early-adaptive-watch|9577→29977|286|5973 /4800|16263−18000 =−1737|3169|
+
+Watch1's actual first visit225 leads to the80-Funds Watch2 purchase1425 and
+its real first arrival1565 over28 edges. Initial spacing is genuinely1340
+ticks, but later spacing still fails. Adaptive's threshold never triggers:
+**zero Watch operations**, and its complete result is byte-identical to
+stagger-all. This tests its negative trigger branch, not effective adaptation.
+All41 documents/eight Recovery payloads,13 timing purchases,12 first-failure
+checkpoints and global/per-owner balances pass; maximum762006 bytes and actual
+caps67 bodies/46 actors/13 homes/3 Food/2 Hemp/2 Markets/2 Watches remain below
+the unchanged limits.
+
+Nine independent first-entry/seed B1 replays pass all53 in-range complete
+SaveDocument/snapshot/roundtrip comparisons and18 Recovery payloads. Twenty
+complete metric documents and seven complete embedded city reports match
+literally. Transport observations with different start ticks have80 explicitly
+listed local start-provenance differences for already flying actors, while
+actual states and all records after fresh dispatch match. This is not called
+literal whole-report equality; final full-seed replays with identical observer
+starts remain required in Gate E. B2/B3 independent process checks likewise
+remain pending at this boundary.
+
+**Gate B comparisons are complete; Elite17 retention remains PARTIAL in all19
+paid strategies.** These finite experiments do not prove every legal plan
+impossible. `gate-b2-independent-analysis-final.json`,
+`gate-b3-independent-analysis-01.json`, the independent B2/B3 artifact audits
+and `independent-gate-b1-replay-audit-summary.json` retain the exact limits.
+
+## Gate C decision: bounded Inspector coordination
+
+The reproducible remaining engine limitation selected for a versioned experiment
+is redundant Inspector allocation. At14251 in early-refined, an Inspector is
+already physically travelling to burning Academy55; at14331 the other starts
+another38/39-edge response to it. At14440 Elite ignites while both are occupied
+with that same destination. In stagger-medical both also service Target53 at
+14381/14441 while Elite's last protection10210→12610 expires before14600.
+Neither proximity nor paid arrival timing exposes an ordinary command to
+choose the next Inspector target or coalesce these actual commitments.
+
+This is the existing **authored** Rule14 dispatch contract, not an original-EXE
+claim and not retroactively repaired. The proposed smallest intervention is
+explicit **Rule15 / Schema31 / Policy3**, currently free, with marker
+`authored-inspector-coordination-v1`: retain the canonical target list, cursor,
+burning-first priority among unserved targets, actual physical movement and all
+fire numbers. Skip a target already committed to another enabled, non-waiting
+incoming Inspector with a matching actual saved trip. For non-burning targets,
+also skip protection that is already real and has not expired. Returning,
+disabled or route-waiting actors do not create new coverage. Source pause/fire
+does not invalidate an already moving Inspector.
+
+This selects future dispatches only. It adds no reservation, deadline, actor,
+stock, funds, protection grant or mutable saved authority. It must not impose a
+global ban on duplicate active targets: a waiting inspector can resume after
+another legitimately starts a replacement trip. Every actual fire and arrival
+remains counted. Services, food, prices, installed upkeep, needs, model, terrain
+and all Rules1–14 remain exact. No general menu default changes or migration.
+
+**GO for implementing and testing this isolated contract; retention efficacy is
+UNPROVEN.** Full constructor/restore/marker/negative tests and historical-byte
+regressions precede any Rule15 gameplay PASS. Further numerical balancing or
+unproven selector changes are not part of this decision.
+
 ### Quantities before any rule change
 
 `gate-a-capacity-notes.json` independently reconstructs the protected historical

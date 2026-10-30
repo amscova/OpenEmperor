@@ -6,6 +6,7 @@
 #undef main
 #undef OE_SUSTAINABLE_PROOF_DIRECTORY
 #include "../tests/EliteDesirabilityStrategy.h"
+#include "../tests/EliteStabilityStrategy.h"
 #include "../tests/MarketDistributionMetrics.h"
 #include "../tests/EliteStabilityDiagnosis.h"
 #include <openssl/evp.h>
@@ -16,20 +17,25 @@
 
 namespace oe40_cli {
 namespace strategy=oe_elite_desirability_strategy;
+namespace paid_strategy=oe_elite_stability_strategy;
 namespace high=oe_high_tier_metrics;
 namespace trace=oe_market_distribution_metrics;
 namespace orig=oe::original;
-constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_OR_OE43_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--search-ticks 40000|60000] [--input EARNED_SCHEMA30_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)] [--diagnosis oe44 (create/resume; fresh OE44 output only)]";
-struct Options {std::string mode,variant="staged",diagnosis;fs::path data,output,input,expected,resources;unsigned search=40000;};
+constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_OR_OE43_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--search-ticks 40000|60000] [--input EARNED_SCHEMA30_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)] [--diagnosis oe44 (create/resume; fresh OE44 output only)] [--paid-strategy road-grid|market-near|medical-near|medical-pair|watch-near|paper-buffer|early-elite|finance-staged|combined|early-religion|combined-religion|combined-services|combined-paper-usable|early-refined|combined-refined|early-stagger-watch|early-stagger-medical|early-stagger-all|early-adaptive-watch (requires diagnosis oe44 and variant lean-med)]";
+struct Options {std::string mode,variant="staged",diagnosis,paid_strategy;fs::path data,output,input,expected,resources;unsigned search=40000;};
 Options options(int argc,char** argv){
     Options a;std::map<std::string,std::string> values;
     for(int i=1;i<argc;i+=2){check(i+1<argc,help);const std::string key=argv[i];
-        check(key=="--mode"||key=="--data"||key=="--output"||key=="--variant"||key=="--search-ticks"||key=="--input"||key=="--expected"||key=="--resources"||key=="--diagnosis",help);
+        check(key=="--mode"||key=="--data"||key=="--output"||key=="--variant"||key=="--search-ticks"||key=="--input"||key=="--expected"||key=="--resources"||key=="--diagnosis"||key=="--paid-strategy",help);
         check(values.emplace(key,argv[i+1]).second,"Duplicate Elite proof argument");}
     for(const auto* key:{"--mode","--data","--output"})check(values.contains(key),help);
     a.mode=values.at("--mode");check(a.mode=="create"||a.mode=="resume"||a.mode=="render",help);
     if(values.contains("--variant"))a.variant=values.at("--variant");check(strategy::known(a.variant),help);
     if(values.contains("--diagnosis")){a.diagnosis=values.at("--diagnosis");check(a.diagnosis=="oe44"&&a.mode!="render",help);}
+    if(values.contains("--paid-strategy")) {
+        a.paid_strategy=values.at("--paid-strategy");
+        check(paid_strategy::known(a.paid_strategy)&&a.diagnosis=="oe44"&&a.variant=="lean-med"&&a.mode!="render",help);
+    }
     for(const auto& [key,path]:{std::pair{"--data",&a.data},{"--output",&a.output},{"--input",&a.input},{"--expected",&a.expected},{"--resources",&a.resources}})
         if(values.contains(key))*path=fs::absolute(values.at(key));
     if(values.contains("--search-ticks")){const auto& text=values.at("--search-ticks");const auto parsed=std::from_chars(text.data(),text.data()+text.size(),a.search);
@@ -106,7 +112,9 @@ void simulate(const Options& a){
     const auto independent=orig::load_model_data(c.data);check(bool(independent),"Independent original model preparation failed");
     const orig::HouseEvolutionRules rules(*independent.model,orig::Difficulty::Normal);
     std::string stop_reason;
-    if(!resumed&&!strategy::apply(w,a.variant,commands,blocked))stop_reason="Actual initial paid command refused";
+    const auto apply_recipe=[&]{return a.paid_strategy.empty()?strategy::apply(w,a.variant,commands,blocked):
+        paid_strategy::apply(w,a.paid_strategy,commands,blocked);};
+    if(!resumed&&!apply_recipe())stop_reason="Actual initial paid command refused";
     const auto begin=w.ticks();checkpoint14(c,a.output,"seed",w,manifest);
     if(resumed)check(q::f::read_text(a.output/"seed.save.json")==input,"Separate process changed complete input SaveDocument bytes");
     Json expected_manifest=Json::array();std::set<std::string> compared;
@@ -122,7 +130,8 @@ void simulate(const Options& a){
             check(entry.at("tick").is_number_unsigned(),"Invalid creator checkpoint tick");}
         const auto creator_report=a.expected.parent_path()/"report.json";safe(creator_report);
         check(fs::is_regular_file(creator_report)&&fs::file_size(creator_report)<=1024U*1024U,"Bounded creator recipe report required");
-        const auto creator=Json::parse(q::f::read_text(creator_report));check(creator.at("variant")==a.variant&&creator.at("rule")==14&&creator.at("schema")==30,"Replay variant or generation differs from creator");}
+        const auto creator=Json::parse(q::f::read_text(creator_report));check(creator.at("variant")==a.variant&&creator.at("rule")==14&&creator.at("schema")==30,"Replay variant or generation differs from creator");
+        check(creator.value("paid_strategy",std::string{})==a.paid_strategy,"Replay paid strategy differs from the independently supplied creator");}
     const auto compare_expected=[&]{if(!resumed)return;for(const auto& entry:expected_manifest)if(entry.at("tick").get<std::uint64_t>()==w.ticks()){
         const auto name=entry.at("file").get<std::string>();if(compared.contains(name))continue;
         const auto path=a.expected.parent_path()/name;safe(path);check(fs::is_regular_file(path)&&fs::file_size(path)<=8U*1024U*1024U,"Bounded creator checkpoint required");
@@ -140,14 +149,42 @@ void simulate(const Options& a){
     if(target&&entry17(w,*target)){const auto& proof=*entry17(w,*target);first=proof.evaluation.tick;
         first_entry={{"tick",*first},{"input",high::evaluation(proof.evaluation,rules)},{"entry_observed_in_this_process",false}};
         retained=std::make_unique<high::Observation>(w,*target,rules);}
+    std::map<std::string,bool> failure_saved{{"first-current-failure",false},{"first-fire",false},{"first-devolution",false}};
+    std::map<std::string,std::uint64_t> creator_failure_ticks;
+    if(resumed&&!a.paid_strategy.empty())for(const auto& entry:expected_manifest) {
+        const auto label=entry.at("label").get<std::string>();
+        if(failure_saved.contains(label)) {
+            const auto tick=entry.at("tick").get<std::uint64_t>();creator_failure_ticks.emplace(label,tick);
+            if(tick<=begin)failure_saved.at(label)=true;
+        }
+    }
+    const auto failure_checkpoint=[&](const char* label,bool actual_event) {
+        if(a.paid_strategy.empty()||failure_saved.at(label))return;
+        if(resumed) {
+            // An old creator manifest may predate these observations. Never
+            // relabel a later replay event as its unknown historical first.
+            const auto expected=creator_failure_ticks.find(label);
+            if(expected==creator_failure_ticks.end()||expected->second!=w.ticks())return;
+            check(actual_event,"Creator first-failure checkpoint disagrees with the actual replay event");
+        }else if(!actual_event)return;
+        check(manifest.size()<128,"First-failure observation exceeds unchanged checkpoint manifest bound");
+        checkpoint14(c,a.output,label,w,manifest);failure_saved.at(label)=true;
+    };
     const auto tick_once=[&]{city.before(w);if(observed)observed->before(w);if(transported)transported->before(w);if(retained)retained->before(w);
         if(diagnosis)diagnosis->before(w);
         const auto tick=w.ticks();w.tick();check(w.ticks()==tick+1,"World did not advance one actual tick");city.after(w);
         if(observed)observed->after(w);if(transported)transported->after(w);if(retained)retained->after(w);
         if(diagnosis)diagnosis->after(w);};
     try{while(stop_reason.empty()&&w.ticks()<requested_end){
-        if(!first){if(!strategy::apply(w,a.variant,commands,blocked)){stop_reason="Actual paid command refused";break;}target=strategy::elite(w);attach();}
-        const bool was_retaining=retained!=nullptr;tick_once();
+        const bool continued_timing=!a.paid_strategy.empty()&&paid_strategy::timing_recipe(a.paid_strategy);
+        if(!first||continued_timing){if(!apply_recipe()){stop_reason="Actual paid command refused";break;}target=strategy::elite(w);attach();}
+        if(!a.paid_strategy.empty()&&!paid_strategy::maintenance(w,a.paid_strategy,commands,blocked)) {
+            stop_reason="Actual paid maintenance command refused";break;
+        }
+        if(continued_timing&&retained)retain_min=std::min(retain_min,w.treasury());
+        const bool was_retaining=retained!=nullptr;
+        const auto previous_target_type=target?std::optional{q::house(w,*target).type}:std::nullopt;
+        tick_once();
         if(target){const auto& e=high::history(w,*target).last_evaluation;if(e&&e->tick==w.ticks())evaluation_provenance.push_back({{"tick",w.ticks()},{"provenance",provenance(w,*target)}});}
         if(target&&!first&&entered17(w,*target)){
             const auto& proof=*high::history(w,*target).first_transitions[14];check(proof.evaluation.tick==w.ticks(),"First success was not captured at exact actual16to17 tick");
@@ -157,12 +194,20 @@ void simulate(const Options& a){
             if(!resumed)requested_end=w.ticks()+20400;
         }
         if(was_retaining&&target){retain_min=std::min(retain_min,w.treasury());if(!entered17(w,*target))++lost;
-            const auto& e=high::history(w,*target).last_evaluation;if(e&&e->tick==w.ticks()){++evaluations;if(!orig::needs_met(rules,orig::house_row(e->input.type),e->input))++unmet;
-                if(!orig::needs_met(rules,orig::next_row(e->input.type),e->input))++next_unmet;}}
+            failure_checkpoint("first-fire",w.building_on_fire(*target));
+            failure_checkpoint("first-devolution",previous_target_type&&q::house(w,*target).type<*previous_target_type);
+            bool current_failed=false;
+            const auto& e=high::history(w,*target).last_evaluation;if(e&&e->tick==w.ticks()){++evaluations;current_failed=!orig::needs_met(rules,orig::house_row(e->input.type),e->input);if(current_failed)++unmet;
+                if(!orig::needs_met(rules,orig::next_row(e->input.type),e->input))++next_unmet;
+            }
+            failure_checkpoint("first-current-failure",current_failed);
+        }
         if(first&&w.ticks()==*first+10200)checkpoint14(c,a.output,"midpoint",w,manifest);
         else if(w.ticks()%8160==0)checkpoint14(c,a.output,"checkpoint-"+std::to_string(w.ticks()),w,manifest);
         compare_expected();
     }}catch(const std::exception& error){stop_reason=error.what();}
+    if(stop_reason.empty()&&!a.paid_strategy.empty()&&!paid_strategy::timing_purchases_complete(w,a.paid_strategy))
+        stop_reason="Bounded player strategy ended with unresolved actual-arrival purchase gates; no fallback purchase performed";
     try{q::authority(w);q::worker_oracle(w);checkpoint14(c,a.output,"result",w,manifest);compare_expected();}
     catch(const std::exception& error){write(a.output/"failed-run.json",{{"technical_status","FAIL"},{"tick",w.ticks()},
         {"tick_or_observer_error",stop_reason.empty()?Json(nullptr):Json(stop_reason)},{"authority_save_or_comparison_error",error.what()},
@@ -184,17 +229,20 @@ void simulate(const Options& a){
     check(source_pins(a.data)==pins,"Original input bytes/modes/mtimes changed");if(resumed)check(q::f::read_text(a.input)==input&&q::f::read_text(a.expected)==expected_bytes,"Replay changed protected creator files");
     const Json outcome= !stop_reason.empty()?Json(stop_reason):!first?Json("Bounded search ended without actual Elite16-to-17; final paid population, phase gate, pending purchases and unmet needs are retained"):
         !retained_pass?Json("Actual Elite17 entry retained, but this observed interval does not certify 20400 uninterrupted ticks with 400 needs-met evaluations"):Json(nullptr);
-    write(a.output/"report.json",{{"format","openemperor-paid-elite-desirability-v1"},{"technical_status",stop_reason.empty()?"PASS":"PARTIAL"},
+    Json report{{"format","openemperor-paid-elite-desirability-v1"},{"technical_status",stop_reason.empty()?"PASS":"PARTIAL"},
         {"mode",a.mode},{"variant",a.variant},{"rule",14},{"schema",30},{"policy",3},{"revision",27},{"snapshot_injection",false},
         {"begin_tick",begin},{"end_tick",w.ticks()},{"paid_elite17",first?"PASS":"PARTIAL"},{"retention",first?(retained_pass?"PASS":"PARTIAL"):"NOT_RUN"},
         {"first_entry",first_entry},{"retention_observation_begin",retained?Json(std::max(begin,*first)):Json(nullptr)},
         {"retention_lost_ticks",lost},{"retention_current_unmet",unmet},{"retention_next_unmet",next_unmet},{"retention_evaluations",evaluations},
         {"operating_cashflow",cashflow},{"minimum_retention_funds",retain_min},{"financial_observed_ticks",financial_ticks},
         {"financial_stability",retained?(financial_ticks<20400?"PARTIAL":cashflow>=0&&retain_min>=0?"PASS":"FAIL"):"NOT_RUN"},
-        {"actual_blocker",outcome},{"last_refused_command",blocked},{"final_plan_and_actual_needs",strategy::status(w,a.variant)},
+        {"actual_blocker",outcome},{"last_refused_command",blocked},{"final_plan_and_actual_needs",a.paid_strategy.empty()?
+            strategy::status(w,a.variant):paid_strategy::status(w,a.paid_strategy)},
         {"final_provenance",target?provenance(w,*target):Json(nullptr)},{"complete_recovery_equality",true},
         {"separate_process_comparison",resumed?"PASS":"NOT_RUN"},{"checkpoint_comparisons",comparisons},{"source_pins",pins},
-        {"input_bytes_modes_mtimes_unchanged",true},{"original_executable_ran",false},{"native_human","NOT_RUN"}});
+        {"input_bytes_modes_mtimes_unchanged",true},{"original_executable_ran",false},{"native_human","NOT_RUN"}};
+    if(!a.paid_strategy.empty())report["paid_strategy"]=a.paid_strategy;
+    write(a.output/"report.json",report);
     std::cout<<"OE40 actual Elite17="<<(first?"reached":"not reached")<<" retention="<<retained_pass<<" tick="<<w.ticks()<<'\n';
 }
 void render14(const Options& a){
