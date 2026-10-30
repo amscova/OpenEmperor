@@ -28,7 +28,7 @@ struct SaveDocument {
     std::shared_ptr<const simulation::MapPermissions> prepared_permissions;
     // Session dependency only; never serialized or restored from JSON.
     std::shared_ptr<const original::OriginalRulesModel> prepared_original_rules_model;
-    // Rule14 immutable source-map dependency only; never serialized authority.
+    // Rule14/15 immutable source-map dependency only; never serialized authority.
     std::shared_ptr<const simulation::OriginalTerrainFacts> prepared_original_terrain_facts;
 };
 
@@ -107,6 +107,14 @@ simulation::World restore_original_market_logistics(
 // Schema30/Rule14 always rederives immutable terrain from the current source
 // map; an optional prepared context must match all source facts exactly.
 simulation::World restore_original_cardinal_water(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+    std::shared_ptr<const simulation::OriginalTerrainFacts> terrain=nullptr);
+// Schema31/Rule15 is a separate explicit authored Inspector dispatch contract.
+// It inherits Rule14's immutable live-map terrain binding, never its generation.
+simulation::World restore_original_inspector_coordination(
     const SaveDocument& document,const std::filesystem::path& data_root,
     std::vector<std::uint8_t> buildable,
     std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,

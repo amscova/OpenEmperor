@@ -40,6 +40,12 @@
   an exact contract marker and immutable full-map-SHA-bound raw terrain context.
   Only actual paid Common2x2/materializedElite4x4 recipients get the conditional
   query bonus; pending plots get none. Rule13/schema29 and older saves stay exact.
+  Authored Inspector coordination is a separate explicit rule15/policy3/schema31
+  experiment with marker `authored-inspector-coordination-v1`. It inherits Rule14
+  and only coalesces actual incoming Inspector commitments and skips unexpired
+  real protection for future dispatches. No new saved authority or protection
+  grant; all Rules1–14, limits, needs, costs and defaults remain exact. This
+  experiment does not establish uninterrupted Elite17 retention.
 - Saves are OpenEmperor JSON, never original Emperor savegames. Validate complete
   identities, versions, source hashes, geometry, accounting, goods, paths and limits
   before atomic publication. Derived indexes/caches do not become saved authority.

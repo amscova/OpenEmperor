@@ -34,7 +34,8 @@ class Observation {
 public:
     Observation(const sim::World& w,const std::filesystem::path& output):
         begin_(w.ticks()),file_(output/"oe44-timeline.jsonl") {
-        check(w.original_cardinal_water_enabled(),"OE44 diagnosis requires the unchanged explicit Rule14");
+        check(w.original_cardinal_water_enabled()&&(w.rule_version()==14||w.original_inspector_coordination_enabled()),
+            "OE44 diagnosis requires exact Rule14 or explicit Inspector coordination Rule15");
         check(!std::filesystem::exists(file_),"Preserve previous OE44 timeline");
         stream_.open(file_,std::ios::out|std::ios::binary);
         check(bool(stream_),"Cannot create OE44 timeline");

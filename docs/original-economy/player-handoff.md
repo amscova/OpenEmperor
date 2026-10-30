@@ -85,6 +85,17 @@ bleiben ungeklärt.
 Direktstart: dieselbe CLI wie oben mit `--original-cardinal-water` statt
 `--original-market-logistics`.
 
+**I Inspector coordination** wählt ausdrücklich den experimentellen Modus
+**Rule15 / Schema31 / Policy3**. Er übernimmt Rule14 und vermeidet neue
+Inspector-Fahrten zu bereits geschützten Gebäuden oder einem Ziel, zu dem ein
+anderer Inspector tatsächlich unterwegs ist. Schutz entsteht weiterhin erst
+bei Ankunft. Warten auf eine reparierte Straße reserviert kein Ziel; schon
+fahrende Inspectors beenden ihre Fahrt auch bei pausierter Wache.
+Direktstart: `--original-inspector-coordination` statt des anderen Originalmodus.
+Preise, Bedürfnisse, Brandfristen und Unterhalt bleiben erhalten. Die bisherigen
+[OE44-Versuche](oe44-elite17-stability.md) halten Elite17 auch hier nicht
+unterbrechungsfrei; der Modus ist kein dauerhaft stabiler Musterbauplan.
+
 Der [bezahlte High-Tier-Ausbau](oe38-paid-high-tier-progression.md) erreicht
 Common10 (Luxurious Apartment). In den geprüften20400 Folgeticks entstehen
 Hemp-/Ceramics-Lücken und Rückentwicklungen trotz positivem Betriebssaldo;
@@ -129,7 +140,7 @@ ein begrenztes Versorgungsfenster; Brände und laufende Verluste bleiben offen.
 pausiert. Nach einem Neustart **L Load Save → Open selected** wählen.
 Difficulty, Modell- und Kartenquelle müssen passen. Alte Entwicklungsrevisionen
 werden mit Diagnose verweigert; ein fehlgeschlagener Ladevorgang erhält die Stadt.
-Rule10/11/12/13/14 laden jeweils ihren eigenen Stand mit Schema26/27/28/29/30.
+Rule10/11/12/13/14/15 laden jeweils ihren eigenen Stand mit Schema26/27/28/29/30/31.
 F5/F9 und Recovery ändern dabei keine Regelgeneration.
 
 **Autosave: ON** im Hauptmenü aktiviert Recovery: ein geschützter Startpunkt

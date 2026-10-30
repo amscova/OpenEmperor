@@ -3,7 +3,7 @@
 OpenEmperor is an alpha. Supported sandbox behavior does not establish
 complete original-game compatibility.
 
-- **Original economy is experimental.** Rules10/11/12/13/14 are opt-in and include authored
+- **Original economy is experimental.** Rules10/11/12/13/14/15 are opt-in and include authored
   immigration, workforce, recipes, harvesting, school-to-house visits and Rule13
   needs-aware goods selection.
   Original venue/performer chains and illness are missing. Houses and productive
@@ -40,6 +40,14 @@ complete original-game compatibility.
   Complete original terrain mutation/lifecycle
   parity, newly admitted emitters, Market rectangles and general negative-wall
   shielding remain unsupported.
+- **Inspector coordination does not certify Elite17 stability.** Explicit
+  Rule15/schema31 coalesces actual incoming Inspector commitments and skips
+  unexpired real protection for new dispatches, without changing fire numbers,
+  needs, prices, upkeep or historical saves. The first paid four-Market comparison
+  reaches17 at6976 and earns+1023 over20400 ticks, but misses92/400 current
+  evaluations and has2905 target fire ticks. The
+  [OE44 evidence](docs/original-economy/oe44-elite17-stability.md) separates
+  technical compatibility, paid entry, supply, fire, finance and human acceptance.
 - **High-tier progression has a bounded Rule12 blocker.** The
   [paid high-tier check](docs/original-economy/oe38-paid-high-tier-progression.md)
   reaches Common10 through actual purchases and deliveries, but does not hold it

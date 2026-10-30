@@ -25,14 +25,15 @@ inline bool known(std::string_view recipe) {
         recipe=="finance-staged"||recipe=="combined"||recipe=="early-religion"||
         recipe=="combined-religion"||recipe=="combined-services"||recipe=="combined-paper-usable"||
         recipe=="early-refined"||recipe=="combined-refined"||recipe=="early-stagger-watch"||
-        recipe=="early-stagger-medical"||recipe=="early-stagger-all"||recipe=="early-adaptive-watch";
+        recipe=="early-stagger-medical"||recipe=="early-stagger-all"||recipe=="early-adaptive-watch"||
+        recipe=="early-stagger-medical-four-markets";
 }
 inline bool timing_recipe(std::string_view recipe) {
     return recipe=="early-stagger-watch"||recipe=="early-stagger-medical"||
-        recipe=="early-stagger-all"||recipe=="early-adaptive-watch";
+        recipe=="early-stagger-all"||recipe=="early-adaptive-watch"||recipe=="early-stagger-medical-four-markets";
 }
 inline bool stagger_watch(std::string_view recipe){return recipe=="early-stagger-watch"||recipe=="early-stagger-all"||recipe=="early-adaptive-watch";}
-inline bool stagger_medical(std::string_view recipe){return recipe=="early-stagger-medical"||recipe=="early-stagger-all"||recipe=="early-adaptive-watch";}
+inline bool stagger_medical(std::string_view recipe){return recipe=="early-stagger-medical"||recipe=="early-stagger-all"||recipe=="early-adaptive-watch"||recipe=="early-stagger-medical-four-markets";}
 inline bool stagger_religion(std::string_view recipe){return recipe=="early-stagger-all"||recipe=="early-adaptive-watch";}
 inline bool combined_family(std::string_view recipe) {
     return recipe=="combined"||recipe=="combined-religion"||recipe=="combined-services"||
@@ -61,6 +62,7 @@ inline Plan plan_for(std::string_view recipe) {
         if(medical(recipe)&&node.plan_id==130)node.cell={110,115};
         if(medical_pair(recipe)&&node.plan_id==8){node.lean_omit=false;node.duplicate=false;}
         if(stagger_medical(recipe)&&(node.plan_id==8||node.plan_id==10)){node.lean_omit=false;node.duplicate=false;}
+        if(recipe=="early-stagger-medical-four-markets"&&(node.plan_id==143||node.plan_id==144))node.extra_market=false;
         if((recipe=="market-near"||combined_family(recipe))&&node.plan_id==125)node.cell={125,140};
         if(watches(recipe)&&node.plan_id==131)node.cell={118,134};
         if(watches(recipe)&&node.plan_id==132)node.cell={124,135};
@@ -289,7 +291,8 @@ inline bool door_watch_cell(const Plan& plan,sim::Cell cell,std::string_view rec
     return refined(recipe)&&cell==planned(plan,132).cell;
 }
 inline bool apply(sim::World& w,std::string_view recipe,Json& commands,Json& blocked) {
-    q::check(known(recipe)&&w.original_cardinal_water_enabled(),"Paid OE44 strategy requires exact Rule14");
+    q::check(known(recipe)&&w.original_cardinal_water_enabled()&&
+        (w.rule_version()==14||w.original_inspector_coordination_enabled()),"Paid OE44 strategy requires exact Rule14 or explicit Inspector coordination Rule15");
     const auto plan=plan_for(recipe);
     for(const auto cell:base::roads)if(!door_watch_cell(plan,cell,recipe)&&!base::initial_road(w,cell))
         if(!append(w,{C::PlaceRoad,cell},"OE44 original basic paid roads",commands,blocked))return false;

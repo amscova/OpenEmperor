@@ -16,8 +16,9 @@ parity remains partial; see [the play guide](player-handoff.md) and [Known Issue
 | Rule12 / schema28 / revision27 | Separate explicit sustainable-economy contract: three paid Food Farm/Field chains and installed-worker upkeep every 816 placement-relative ticks; retains paid Rule11 fire protection. |
 | Rule13 / schema29 / revision27 | Separate authored needs-aware Warehouse/Market goods selection; inherits Rule12's economy, fire protection and existing limits. |
 | Rule14 / schema30 / revision27 | Separate cardinal-water House query; inherits Rule13 logistics and unchanged economy/bounds, with immutable source terrain. |
+| Rule15 / schema31 / revision27 | Explicit authored Inspector-coordination experiment; inherits Rule14, skips other actual incoming Inspector commitments and unexpired real protection for new dispatches. Elite17 retention remains unproved. |
 
-Rules1–13 and schemas1–29 retain their identities and canonical bytes. City-v11
+Rules1–14 and schemas1–30 retain their identities and canonical bytes. City-v11
 Rule3 and City-v16 Rule4 defaults are unchanged; no automatic migration opts older
 saves into Original economy. Bridge/Ramp infrastructure retains its existing contracts.
 Rule11 inherits the unchanged Rule10 economic values and uses its own fire guard;
@@ -55,6 +56,18 @@ The measured site's bit4 neighbors also carry stored`0x80000` and lie outside
 the shared Diamond. Its legal body and paid result establish the immutable raw
 snapshot adapter, not a visible shoreline or original post-load/runtime parity;
 the evidenced helper has no off-map filter and the predicate remains unchanged.
+
+Rule15 has separate create/restore APIs, **I Inspector coordination** and
+`--original-inspector-coordination`. Its exact schema31 marker is
+`authored-inspector-coordination-v1`; the inherited market/cardinal markers and
+live source-bound terrain remain mandatory. The bounded selector examines
+existing saved physical trips, grants no coverage before actual arrival and
+adds no saved cache. Paused/burning sources do not cancel a moving Inspector;
+waiting actors do not reserve targets. A road repair can legitimately resume a
+trip after a replacement was dispatched, so restore does not forbid all duplicate
+destinations. All fire numbers, prices, needs and installed upkeep remain exact.
+The [OE44 comparison](oe44-elite17-stability.md) documents the measured duplicate
+work and failed retention windows; this opt-in is not a stable-Elite17 promise.
 
 `ModelData` reads the selected installation's `Model/EmperorBuildingModels.txt`
 within its canonical root: regular file, at most 256 KiB, lines at most 4096 bytes,
@@ -130,7 +143,7 @@ arrivals fail. Pause/disconnect preserves cargo and begun-edge safety, using the
 same navigator for return and paid road repair. Goods/target rotation is bounded;
 finite visit tests do not prove universal starvation freedom.
 
-Only Rule13 replaces Warehouse-to-Market/Paper and Market-to-House commodity
+Rule13 and its explicit Rule14/15 descendants replace Warehouse-to-Market/Paper and Market-to-House commodity
 selection. It queries actual occupied, operating, non-burning Houses, their
 current model needs, incoming reservations and physically reachable cached routes.
 Missing current goods precede current-stock buffers and usable next-stage goods;
@@ -156,7 +169,7 @@ five auxiliary materials, not extra House goods. Exact source evidence is in
 Food has separate Wheat/Millet quantities, cargo and arrival witnesses. Authored
 crop scores 20/80 feed the original quality blend only on positive House delivery.
 Rules10/11 admit two paid Food Farms with one uniquely owned adjacent Field
-each; Rules12/13/14 admit three within the unchanged global body/courier bounds.
+each; Rules12/13/14/15 admit three within the unchanged global body/courier bounds.
 Stock depletion resets quality; an authored sink consumes one unit per occupied
 House at 0/7 boundaries and records real misses. Six-goods consumption uses the
 current model row independently per good: Bronze/Lacquer satisfy needs as OR,
@@ -194,7 +207,7 @@ only neutral Well72 influence sources have the existing no-refund removal path.
 Tax is authored direct collection of pre-tick `occupants * prepared TaxRate`
 every 816 ticks, without an invented TaxOffice. Upkeep is 2 Funds per installed
 required worker every 400 placement-relative ticks in Rules10/11 and every 816
-in Rules12/13/14, including pause, fire and unstaffing.
+in Rules12/13/14/15, including pause, fire and unstaffing.
 Cumulative per-type taxable units and actual arrival/transition witnesses constrain
 restore; they are bounded proofs rather than full event journals. Existing Funds
 and accounting counters are the sole monetary authority. Purchases need available
@@ -213,7 +226,7 @@ is separate from native human acceptance.
 
 ## Save safety and developer checks
 
-Schemas26–30 validate complete identities, map/mask/policy/model binding, paid origin,
+Schemas26–31 validate complete identities, map/mask/policy/model binding, paid origin,
 geometry, route/progress, capacities, conservation, timing and finance before
 publication. Unknown/duplicate/missing/mistyped fields, incompatible revisions,
 unsupported authority and impossible histories fail atomically; 8 MiB document and

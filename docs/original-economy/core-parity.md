@@ -190,6 +190,19 @@ it does not certify Rule13 market retention, the Rule14 terrain mechanism or
 paid Elite progression. The initial stale-header/report failures are preserved
 separately from the fresh comparison under ignored OE40 evidence.
 
+OE44's reviewed Rule15 addition changes only constexpr capability predicates
+and explicit create/restore methods in `World.h`; no World data field is added.
+The exact Rule14 identity and historical HouseholdV3/CityV7 calls remain intact.
+A fresh source-bound Release comparison with the same pinned fork again passes
+all74 cases, the unchanged18-value HousingView result and real-model digest
+`[1800,477508576,4125568101]`. All cases, fork pins, classifications, summary,
+HousingView, real-model results and limitations are literally unchanged in the
+public report. Only the reviewed World header and runner fingerprints change;
+`baseline-lock.json` is unchanged. Private commands, binaries and the complete
+preservation check are under `.local/original-economy/oe44/run-01/gate-c-parity-release-01/`
+and `gate-c-parity-public-review.json`. This verifies the legacy comparison ABI;
+Rule15 Inspector behavior and paid retention require their separate tests.
+
 The comparison uses independently specified vectors and expected outcomes for
 parser values, rings, needs, House transitions, timer effects, consumption,
 market-style inventory transfers and FoodQuality. A second executable runs the

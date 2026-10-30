@@ -6,10 +6,12 @@ another gameplay generation. Starting `main` and fetched `origin/main` are
 `feat/oe44-elite17-stability`. The original files and historical proof saves are
 read-only. User changes present at entry remain outside the QA commits.
 
-**Gate A passes within the causal scope below; gameplay acceptance is pending.**
-No new Rule15/Schema31 contract is justified by these measurements alone.
-A successful reproduction or exact restore does not
-establish uninterrupted Elite17 retention, positive operations or human play.
+**Gate A and the Gate B strategy comparisons pass. Elite17 retention remains
+PARTIAL.** Nineteen paid Rule14 strategies precede the narrowly justified
+Rule15 Inspector-coordination experiment below. Its technical tests pass;
+the first Rule15 gameplay comparisons still fail uninterrupted retention.
+A successful reproduction or exact restore does not establish stable supply,
+positive operations or human play.
 
 ## Identity and evidence boundaries
 
@@ -441,6 +443,145 @@ claim that a cheaper upkeep or new tax tariff is necessary; it does not prove
 the physical retention strategy exists. One stable route of E edges has an
 optimistic elapsed arrival bound5E−1 and same-actor departure period10E. Actual
 loading, competing appointments, return, fire and staffing must still be shown.
+
+## Gate C: exact opt-in and technical validation
+
+The implemented contract is City-v16 Rule15 / Schema31 / Policy3 / revision27,
+with exact marker `authored-inspector-coordination-v1`. It inherits Rule14's
+market and cardinal-water markers, source-bound terrain, prices, model,
+production, needs, 816-tick upkeep and all caps. It changes only future Inspector
+target selection as specified above. This is an authored experiment, not verified
+original Inspector behavior or a certified stable Elite17 mode.
+
+Creation and restoration are separate exact-generation APIs. Schema31 rechecks
+live original terrain even with a prepared context. Missing/wrong markers,
+header-only Rule14 relabels, mismatched source/policy, hostile ledgers, role/path
+and Funds/history mutations reject atomically. Ordinary repaired-road duplicate
+trips remain valid. Fully self-consistent forged metadata is not cryptographic
+proof of document origin. The existing8-MiB/depth32 limits remain unchanged.
+
+Menu **I Inspector coordination** and CLI `--original-inspector-coordination`
+are explicit choices. General City-v11 Rule3/City-v16 Rule4 defaults remain;
+old saves retain their own generation. The actual menu lifecycle test includes
+keyboard/mouse selection, paid ticks, F5/F9, autosave, Recovery/restart and
+return to Legacy10. Software SDL tests do not establish native delivery.
+
+Fresh C builds are `gate-c-{release,debug,sanitize}/`, with generated revision
+`8280253bb8ea`, dirty=true. Every process additionally records the complete
+actual source inventory and binary hash; no source/binary changes occur during
+any successful run. The Elite acceptance binaries have these SHA256 identities:
+
+| Configuration | SHA256 |
+|---|---|
+| Release |`9fd67f76b60f2123d4348d6aec9498078576972cff7de83f6c9a4857e16bae76`|
+| Debug |`4e75c320f868f12625c444b575020ae0d7aa802bd9668022e89a1e1cb36934e3`|
+| ASan/UBSan |`cb1504023db99c1db143dbb3892b7ebabeb64efa6489355a60fd9c02c16c9f6b`|
+
+Two registered tests cover paid Inspector commitments, actual arrivals, pause,
+natural source fire, road cut/repair, exact restore and hostile Schema31 saves.
+The old rule gate retains Rules1–14 assertions, adds15 as known and16 as unknown.
+The complete Release invocation initially passed279/280: its sole failure was
+that old test's stale assertion that15 must be unknown. The corrected gate passes
+unchanged production binaries in Release, Debug and ASan/UBSan. Thus all280
+registered Release cases are covered successfully across the documented runs;
+the initial whole invocation is not presented as zero-failure.
+
+The Debug focus invocation initially passed18/19; the expanded menu case timed
+out at its existing120-second limit while builds ran concurrently. The same
+binary then passes alone in114.66 seconds under that same limit. Including the
+subsequent rule gate,20 distinct focused Debug cases pass across invocations.
+ASan/UBSan passes19/19 focused cases in140.64 seconds, plus the rule gate, with
+no findings or skips (`halt_on_error=1`, ASan leak detection disabled on macOS).
+The focused scope and261 initially unselected cases are explicit in
+`gate-c-focus-scope.json`; this is not a complete Debug/sanitizer suite claim.
+
+An initial five-case SDL smoke run used an externally forced dummy driver,
+which overrode the menu test's own SDL hint and caused initialization failure.
+Unsetting that environment gives5/5 without an application change. Both failed
+invocations and their successful reruns remain in the private evidence.
+
+All62 historical schema1–26 fixture exports remain literally identical to OE37.
+The actual pinned core comparison passes74/74 independently in Release, Debug
+and sanitizer, including the18 housing vectors and real-model digest
+`[1800,477508576,4125568101]`. Only the reviewed additive `World.h` API blob and
+runner fingerprint change in the public parity report; its cases, results,
+pinned fork and immutable baseline lock remain exact. The new header adds
+factories/predicates, no World instance field or legacy ABI-facing data change.
+
+## Gate D: measured comparisons, no retention acceptance
+
+The first four creators use the exact C Release binary above. Output directories
+are `gate-d-rule{14,15}-{all-paid,four-markets}-01/`; ordinary commands, full
+saves, actual PRE-evaluation inputs and city/transport/finance histories are
+retained. No direct state injection or resource grant is used.
+
+The new paid recipe `early-stagger-medical-four-markets` adds the two existing
+legal extra-Market plan nodes to the already tested stagger-medical recipe.
+Both are paid through normal commands: +280 construction, +8 installed workers,
++16 upkeep per816 ticks. Actual totals are69 bodies/50 actors,13 Houses,3 Food
+chains,2 Hemp,4 Markets and2 Watches, within all unchanged limits.
+
+| Rule / paid recipe | Actual first17 → window end | Current met /400 | Lost / fire ticks | Actual tax−all upkeep | Minimum Funds |
+|---|---:|---:|---:|---:|---:|
+|14 all-paid|15646→36046|217|9988 /4707|15934−18000=−2066|−2378|
+|15 all-paid|32629→53029|218|17521 /4800|15100−18000=−2900|−5736|
+|14 four Markets|7792→28192|328|5909 /4800|18000−18400=−400|4408|
+|15 four Markets|6976→27376|308|3180 /2905|19423−18400=+1023|5480|
+|15 early-refined|7639→28039|398|2070 /2070|20789−17250=+3539|5831|
+|15 combined-refined|4783→25183|394|2240 /2240|20397−17600=+2797|5217|
+
+All six cover20,400 real ticks and400 actual phase39 evaluations after the
+precisely saved first16→17 event. None meets the combined retention criteria.
+The four-Market Rule15 target first lacks Daoist/Buddhist at9067, before its
+first window fire9180. Last actual Daoist6060 expires8094; Buddhist7040 expires
+9063. A real Buddhist trip starts9061 over two edges and arrives9070, three ticks
+after the failed evaluation. It devolves17→16 at14524
+while burning and genuinely re-evolves at15085; that later event is not silently
+substituted for the failed first-entry window. Reduced fire time and positive
+operations are separate improvements, not a supply/retention PASS.
+
+Rule15 all-paid's semantic diagnostic stream reaches its256-MiB budget at48031;
+its diagnostic coverage is PARTIAL. Simulation and the separate complete
+retention/city metrics continue to53029. Neither the limit nor a test requirement
+is increased to conceal that loss of detailed causal evidence.
+
+Two further unchanged paid recipes test the existing two-edge DoorWatch plan
+under15. Early-refined costs4341 construction (including the deliberately
+omitted two-Funds road),345 installed workers and690 upkeep/816; combined-refined
+costs5231,352 workers and704/816. Neither has a retention-window purchase or
+grant. Both keep the target type17 and occupied for all20,400 ticks, with no
+devolution, but actual fires still disqualify them. Early-refined's first fire
+9140 follows last Inspector4755/protection7155; both healthy staffed Inspectors
+are physically busy with other targets. Its next actual Elite visit9740 is too
+late. Combined-refined's first fire8920 similarly follows4530/protection6930.
+Shortening one source-to-Elite path does not shorten all competing actual trips.
+
+Early-refined's two failed inputs are9883 (Hemp+Silk) and9934 (Hemp). Hemp
+dispatch9081 reaches the burning Elite9190, applies zero and returns its four
+units9300. After extinction9740, the next actual41-edge Hemp trip9766 arrives
+9970; Silk9781 over22 edges arrives9890. Healthy staffed Markets and upstream
+stock do not retroactively satisfy the earlier input. Combined-refined's last
+successful Acupuncture visit16175 is followed by source fire16900–17500 and an
+actual arrival18980 rejected while the Elite burns18880–19360. A later full
+ordinary tour of other Houses postpones the next successful visit until21320;
+the real timer expires21048 and six inputs21052…21307 fail. No timer is granted
+from dispatch, availability or a physically unsuccessful visit.
+
+Independent timeline reconstruction finds the longest fully observed intervals
+with type17, occupants, no fire and all dispatched current inputs met to be
+4420 ticks in each refined attempt (early19460…23879, combined14460…18879).
+Neither is relabelled20,400. The type never leaves17 in these two attempts, so
+there is no later actual16→17 transition that could honestly restart acceptance.
+No additional40,800–100,000-tick stability claim is made after this failed gate.
+
+These are not hidden full-city successes. Early-refined records13 positive-
+occupant homes, minimum330 residents,74 missed Food demands,884 unmet current
+city evaluations,71 devolutions and277 fire starts; combined records minimum349
+residents,18 Food misses,614 unmet city evaluations,48 devolutions and266 starts.
+The separate minimum of5 *non-burning goal-eligible* homes does not mean eight
+houses have been deleted or emptied. All physical Food, six-goods, auxiliary and
+owner-ledger balances remain conserved; no critical stock is silently assigned
+to the Elite by the harness. Full city metrics remain available with each save.
 
 ## Reproduction
 
