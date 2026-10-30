@@ -264,6 +264,148 @@ void simulate(const Options& a){
     write(a.output/"report.json",report);
     std::cout<<"OE40 actual Elite17="<<(first?"reached":"not reached")<<" retention="<<retained_pass<<" tick="<<w.ticks()<<'\n';
 }
+void render_inspector_matrix(const Options& a,oe::SandboxView& view,Sdl& sdl,
+        const std::string& input,const q::save::SaveDocument& saved,const fs::path& copy,
+        sim::BuildingId target,const Json& pins) {
+    check(a.rule==15&&a.diagnosis=="oe44"&&saved.source_schema_version==31&&
+        view.world().original_inspector_coordination_enabled(),"Exact explicit OE44 schema31 render required");
+    using Point=oe::scene::Point;
+    using Rect=oe::sandbox_ui::Rect;
+    Json captures=Json::array(),matrix=Json::array();std::uint64_t actions=0;
+    const auto pure=[&]{check(view.paused()&&view.world().snapshot()==saved.world,
+        "Inspector action changed complete World or paused state");};
+    const auto send=[&](SDL_Event e) {
+        check(SDL_PushEvent(&e),SDL_GetError());bool running=true;
+        while(SDL_PollEvent(&e)){view.handle_event(e,running);pure();}
+        check(running,"Inspector action exited actual View");view.update(0);pure();++actions;
+    };
+    const auto keyboard=[&](SDL_Keycode code){SDL_Event e{};e.type=SDL_EVENT_KEY_DOWN;e.key.key=code;send(e);
+        e={};e.type=SDL_EVENT_KEY_UP;e.key.key=code;send(e);};
+    const auto raw=[&](Point p){float x=0,y=0;check(SDL_RenderCoordinatesToWindow(sdl.renderer,float(p.x),float(p.y),&x,&y),
+        "Actual render-to-window transform failed");return Point{x,y};};
+    const auto middle=[](Rect r){return Point{r.x+r.w*.5,r.y+r.h*.5};};
+    const auto click=[&](Point p){const auto at=raw(p);const auto diagnostic=view.input_diagnostic_state(at);
+        check(diagnostic.ui&&diagnostic.render_position.has_value(),"Production UI diagnostic rejected its rendered hitbox");
+        SDL_Event e{};e.type=SDL_EVENT_MOUSE_MOTION;
+        e.motion.x=float(at.x);e.motion.y=float(at.y);send(e);
+        e={};e.type=SDL_EVENT_MOUSE_BUTTON_DOWN;e.button.button=SDL_BUTTON_LEFT;
+        e.button.x=float(at.x);e.button.y=float(at.y);send(e);e.type=SDL_EVENT_MOUSE_BUTTON_UP;send(e);};
+    const auto wheel=[&](Point p,float amount){const auto at=raw(p);SDL_Event e{};e.type=SDL_EVENT_MOUSE_WHEEL;
+        e.wheel.mouse_x=float(at.x);e.wheel.mouse_y=float(at.y);e.wheel.y=amount;send(e);};
+    const auto render=[&]{check(view.render(),"Actual OE44 inspector render failed");pure();};
+    SDL_Event focus{};focus.type=SDL_EVENT_WINDOW_FOCUS_GAINED;send(focus);
+    if(!view.layout().panel_open)keyboard(SDLK_TAB);
+    check(!view.selected_building()&&!view.original_house_inspector_active(),"Initial building list is not available");
+    check(SDL_SetWindowSize(sdl.window,1280,800),SDL_GetError());
+    SDL_Event resized{};resized.type=SDL_EVENT_WINDOW_RESIZED;resized.window.data1=1280;resized.window.data2=800;send(resized);render();
+    std::vector<sim::BuildingId> entries;for(const auto& b:view.world().buildings())if(b.placed)entries.push_back(b.id);
+    const auto found=std::find(entries.begin(),entries.end(),target);check(found!=entries.end(),"Actual Elite missing from building list");
+    const auto target_row=static_cast<std::size_t>(found-entries.begin());
+    auto layout=view.inspector_layout();check(layout.list_rows==entries.size(),"Production list identity/order differs");
+    wheel(middle(layout.content),1000000);render();std::vector<bool> list_seen(entries.size());
+    for(unsigned n=0;;++n){check(n<1024,"Building list traversal exceeded its bound");layout=view.inspector_layout();
+        for(std::size_t i=0;i<entries.size();++i)if(layout.list_row_rect(i).h>0)list_seen[i]=true;
+        if(layout.scroll==layout.scroll_limit)break;
+        const auto before=layout.scroll;wheel(middle(layout.content),-1);render();
+        check(view.inspector_scroll()>before,"Production building list scroll stalled");
+    }
+    check(std::all_of(list_seen.begin(),list_seen.end(),[](bool v){return v;}),"A production building list row is unreachable");
+    // Existing OE42 contract: fragments and fixed header/footer cannot select.
+    wheel(middle(layout.content),1000000);render();
+    wheel(middle(view.inspector_layout().content),-1);render();
+    layout=view.inspector_layout();const auto panel=view.layout().panel;std::size_t fragment_probes=0;
+    for(const Point p:{Point{panel.x+panel.w*.5,double(panel.y+2)},Point{panel.x+panel.w*.5,double(panel.y+panel.h-2)}}){
+        click(p);check(!view.selected_building(),"Header/footer selected an invisible list entry");}
+    for(std::size_t i=0;i<entries.size();++i)if(layout.list_row_rect(i).h==0){
+        const int y=layout.list_y+int(i)*18*layout.scale-layout.scroll;
+        const int top=std::max(y-2*layout.scale,layout.content.y),bottom=std::min(y+16*layout.scale,layout.content.y+layout.content.h);
+        if(top>=bottom)continue;
+        const Point p{layout.content.x+layout.content.w*.5,(top+bottom)*.5};
+        check(!layout.list_row_at(p.x,p.y),"Partial list row retained a layout hitbox");click(p);
+        check(!view.selected_building(),"Clipped invisible list row remained clickable");++fragment_probes;
+    }
+    check(fragment_probes>0,"No actually clipped list fragment was probed");
+    wheel(middle(layout.content),1000000);render();
+    for(unsigned n=0;;++n){check(n<1024,"Elite list selection exceeded its bound");layout=view.inspector_layout();
+        const auto row=layout.list_row_rect(target_row);
+        if(row.h>0){check(layout.list_row_at(middle(row).x,middle(row).y)==target_row,"Elite list hitbox differs");click(middle(row));break;}
+        check(layout.scroll<layout.scroll_limit,"Actual Elite list row is unreachable");wheel(middle(layout.content),-1);render();
+    }
+    check(view.selected_building()==target&&view.original_house_inspector_active(),"Actual list click did not select the paid Elite");
+    const auto visual=view.original_house_visual_diagnostic(target);
+    check(visual.applicable&&visual.active&&visual.image_width>0&&visual.image_height>0,
+        "Paid Elite lacks active original sprite bounds; do not claim original display");
+    const Point art_center{visual.image_origin.x+visual.image_width*.5,visual.image_origin.y+visual.image_height*.5};
+    const auto zoom=[&](double wanted,Point anchor){wheel(anchor,float(std::log(wanted/view.camera().zoom)/std::log(1.15)));
+        check(std::abs(view.camera().zoom-wanted)<1e-5,"Normal wheel zoom differs");};
+    const auto center_art=[&](double wanted){const auto map=view.layout().map;const auto m=middle(map);zoom(1,m);
+        bool centered=false;for(unsigned n=0;n<48;++n){const auto p=view.camera().world_to_screen(art_center);
+            const double dx=m.x-p.x,dy=m.y-p.y;if(std::abs(dx)<.01&&std::abs(dy)<.01){centered=true;break;}
+            const double x=std::clamp(dx,-map.w*.3,map.w*.3),y=std::clamp(dy,-map.h*.3,map.h*.3);
+            zoom(2,{m.x-x,m.y-y});zoom(1,{m.x+x,m.y+y});}
+        check(centered,"Bounded normal-wheel art centering did not converge");zoom(wanted,m);render();};
+    const auto capture=[&](const std::string& name,const std::string& position){render();
+        std::unique_ptr<SDL_Surface,decltype(&SDL_DestroySurface)> frame(SDL_RenderReadPixels(sdl.renderer,nullptr),SDL_DestroySurface);
+        const auto file=a.output/(name+".png");check(frame&&!fs::exists(file)&&SDL_SavePNG(frame.get(),file.string().c_str()),"Cannot capture actual inspector frame");
+        const auto origin=view.camera().world_to_screen(visual.image_origin);const auto map=view.layout().map;
+        const auto displayed=view.original_house_display_stats();const auto slot=static_cast<std::size_t>(visual.house_type)-2;
+        check(slot<displayed.drawn_instances.size()&&displayed.drawn_instances[slot]>0&&displayed.authored_fallbacks[slot]==0,
+            "Centered paid Elite type was not drawn with original art");
+        const double width=visual.image_width*view.camera().zoom,height=visual.image_height*view.camera().zoom;
+        const double visible_w=std::max(0.0,std::min(origin.x+width,double(map.x+map.w))-std::max(origin.x,double(map.x)));
+        const double visible_h=std::max(0.0,std::min(origin.y+height,double(map.y+map.h))-std::max(origin.y,double(map.y)));
+        captures.push_back({{"file",file.filename().string()},{"width",frame->w},{"height",frame->h},
+            {"zoom",view.camera().zoom},{"section",static_cast<unsigned>(view.original_house_section())},{"scroll",view.original_house_scroll()},
+            {"position",position},{"selected_owner",static_cast<unsigned>(target)},{"visually_inspected",false},
+            {"sprite_screen_bounds",{origin.x,origin.y,width,height}},{"visible_sprite_area_fraction",visible_w*visible_h/(width*height)},
+            {"sprite_fits_viewport",width<=map.w&&height<=map.h},{"target_type_original_draws",displayed.drawn_instances[slot]},
+            {"target_type_authored_fallbacks",displayed.authored_fallbacks[slot]},{"complete_world_equal",true},{"paused",true}});
+        pure();};
+    for(const auto size:std::array<std::array<int,2>,3>{{{1280,800},{1600,900},{1920,1080}}}){
+        check(SDL_SetWindowSize(sdl.window,size[0],size[1]),SDL_GetError());resized={};resized.type=SDL_EVENT_WINDOW_RESIZED;
+        resized.window.data1=size[0];resized.window.data2=size[1];send(resized);send(focus);render();
+        int output_w=0,output_h=0;check(SDL_GetRenderOutputSize(sdl.renderer,&output_w,&output_h)&&output_w==size[0]&&output_h==size[1],
+            "Actual renderer dimensions differ from requested matrix");
+        for(const unsigned z:{1U,2U,4U}){center_art(z);
+            for(unsigned index=0;index<4;++index){const auto section=static_cast<oe::SandboxView::OriginalHouseSection>(index);
+                const auto tab=view.original_house_section_rect(section);check(tab.h>0&&tab.w>0,"Production tab is not visible");click(middle(tab));render();
+                check(view.selected_building()==target&&view.original_house_section()==section,"Actual House tab hitbox selected another state");
+                const auto content=view.original_house_content_rect();const auto lines=view.original_house_section_lines();
+                check(content.w>0&&content.h>0&&!lines.empty(),"Production section has no readable content");
+                wheel(middle(content),1000000);render();check(view.original_house_scroll()==0,"House section cannot return to top");
+                const auto name=std::to_string(output_w)+"x"+std::to_string(output_h)+"-"+std::to_string(z)+"x-section"+std::to_string(index);
+                capture(name+"-top","top");std::vector<bool> seen(lines.size());
+                for(unsigned n=0;;++n){check(n<512,"House section traversal exceeded bound");const auto scroll=view.original_house_scroll();
+                    const int scale=view.layout().scale;for(std::size_t row=0;row<lines.size();++row)
+                        if(oe::sandbox_ui::visible_text_row(content.y+int(row)*17*scale-scroll,12*scale,content).h>0)seen[row]=true;
+                    wheel(middle(content),-1);render();if(view.original_house_scroll()==scroll)break;
+                    check(view.original_house_scroll()>scroll,"House section scrolled backwards");
+                }
+                check(std::all_of(seen.begin(),seen.end(),[](bool v){return v;}),"At least one actual House section line is unreachable");
+                if(view.original_house_scroll()>0)capture(name+"-end","end");
+                const auto before_save=view.save_generation();keyboard(SDLK_F5);
+                check(view.save_generation()==before_save+1,"Per-case F5 did not complete exactly one actual save");
+                check(q::f::read_text(copy)==input,"Per-case F5 canonical schema31 bytes differ");
+                const auto before_load=view.load_generation();keyboard(SDLK_F9);
+                check(view.load_generation()==before_load+1,"Per-case F9 did not complete exactly one actual load");
+                check(q::f::read_text(copy)==input&&view.world().snapshot()==saved.world&&view.paused(),"Per-case F9 changed complete saved authority");
+                matrix.push_back({{"width",output_w},{"height",output_h},{"zoom",z},{"section",index},
+                    {"rows",lines.size()},{"all_rows_reachable",true},{"complete_f5_f9_equality",true},{"status","PASS"}});
+            }
+        }
+    }
+    check(matrix.size()==36&&captures.size()<=72,"Unexpected bounded inspector matrix size");
+    check(q::f::read_text(a.input)==input&&source_pins(a.data)==pins,"Inspector render changed protected input or original source pins");
+    write(a.output/"report.json",{{"format","openemperor-oe44-inspector-view-v1"},{"status","PASS"},
+        {"rule",15},{"schema",31},{"inspector_coordination_contract",sim::original_inspector_coordination_contract},
+        {"actual_sandbox_renderer",true},{"backend",SDL_GetRendererName(sdl.renderer)},{"scripted_dummy_software",true},
+        {"target",static_cast<unsigned>(target)},{"actual_type",visual.house_type},{"actual_side",visual.actual_side},
+        {"selected_via_actual_building_list",true},{"list_rows_reached",list_seen.size()},{"invisible_list_hits_refused",true},
+        {"actually_clipped_fragment_probes",fragment_probes},{"save_load_generations_checked",true},
+        {"sprite_center_authority","production OriginalHouseVisualDiagnostic image_origin/width/height"},
+        {"matrix",matrix},{"captures",captures},{"checked_actions",actions},{"world_unchanged",true},{"paused_after_every_action",true},
+        {"complete_f5_f9_equality",true},{"source_inputs_unchanged",true},{"captures_visually_inspected",false},{"native_human","NOT_RUN"}});
+}
 void render14(const Options& a){
     const auto pins=source_pins(a.data);const auto c=q::Context::real(a.data);const auto input=q::f::read_text(a.input);const auto d=q::save::read_save(a.input);
     auto restored=restore_selected(c,d,a.rule);q::authority(restored);const auto target=strategy::elite(restored);check(target.has_value(),"Render save has no actual paid Elite family");
@@ -281,8 +423,18 @@ void render14(const Options& a){
     view->set_service_walker_visuals(art.service_walker,art.service_walker_source,art.service_walker_fallback_reason);
     view->set_health_walker_visuals(art.health_walker,art.health_walker_source,art.health_walker_fallback_reason);
     view->set_original_house_visuals(art.original_house,art.original_house_source,art.original_house_fallback_reason);
-    view->initialize(sdl.window,sdl.renderer);key(*view,SDLK_F9);check(view->paused()&&view->world().snapshot()==d.world,"Actual Rule14 View F9 differs");
-    key(*view,SDLK_F5);check(q::f::read_text(copy)==input,"Actual Rule14 View F5 canonical bytes differ");
+    view->initialize(sdl.window,sdl.renderer);const auto before_initial_load=view->load_generation();
+    key(*view,SDLK_F9);check(view->paused()&&view->world().snapshot()==d.world,"Actual Rule14 View F9 differs");
+    if(a.rule==15&&a.diagnosis=="oe44")check(view->load_generation()==before_initial_load+1,
+        "Initial OE44 F9 did not complete exactly one actual load");
+    const auto before_initial_save=view->save_generation();key(*view,SDLK_F5);
+    check(q::f::read_text(copy)==input,"Actual Rule14 View F5 canonical bytes differ");
+    if(a.rule==15&&a.diagnosis=="oe44")check(view->save_generation()==before_initial_save+1,
+        "Initial OE44 F5 did not complete exactly one actual save");
+    if(a.rule==15&&a.diagnosis=="oe44") {
+        render_inspector_matrix(a,*view,sdl,input,d,copy,*target,pins);
+        view->shutdown();return;
+    }
     SDL_Event focus{};focus.type=SDL_EVENT_WINDOW_FOCUS_GAINED;bool running=true;view->handle_event(focus,running);
     const auto visual=view->original_house_visual_diagnostic(*target);check(visual.applicable&&std::isfinite(visual.ground.x)&&std::isfinite(visual.ground.y),"Actual Elite renderer lacks a finite production anchor");
     const auto at=visual.ground;Json captures=Json::array();

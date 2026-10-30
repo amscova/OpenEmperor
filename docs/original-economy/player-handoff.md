@@ -87,7 +87,7 @@ Direktstart: dieselbe CLI wie oben mit `--original-cardinal-water` statt
 
 **I Inspector coordination** wählt ausdrücklich den experimentellen Modus
 **Rule15 / Schema31 / Policy3**. Er übernimmt Rule14 und vermeidet neue
-Inspector-Fahrten zu bereits geschützten Gebäuden oder einem Ziel, zu dem ein
+Inspector-Fahrten zu nichtbrennenden, noch geschützten Gebäuden oder einem Ziel, zu dem ein
 anderer Inspector tatsächlich unterwegs ist. Schutz entsteht weiterhin erst
 bei Ankunft. Warten auf eine reparierte Straße reserviert kein Ziel; schon
 fahrende Inspectors beenden ihre Fahrt auch bei pausierter Wache.

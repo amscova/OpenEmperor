@@ -6,10 +6,11 @@ another gameplay generation. Starting `main` and fetched `origin/main` are
 `feat/oe44-elite17-stability`. The original files and historical proof saves are
 read-only. User changes present at entry remain outside the QA commits.
 
-**Gate A and the Gate B strategy comparisons pass. Elite17 retention remains
-PARTIAL.** Nineteen paid Rule14 strategies precede the narrowly justified
-Rule15 Inspector-coordination experiment below. Its technical tests pass;
-the first Rule15 gameplay comparisons still fail uninterrupted retention.
+**OE44 remains PARTIAL: the required gameplay retention is not achieved.**
+Gates A/B, the limited Rule15 contract and the stated E technical scope pass.
+Nineteen paid Rule14 strategies precede the narrowly justified Inspector
+experiment, with an additional four-Market control. The closest Rule15 attempt
+keeps type17 but has398/400 successful evaluations and2070 fire ticks.
 A successful reproduction or exact restore does not establish stable supply,
 positive operations or human play.
 
@@ -21,7 +22,7 @@ explicit historical QA saves and 642 source/test/tool/resource/configuration
 files. Personal saves and the native application left under user control are
 not inspected. No original executable is executed.
 
-The fresh arm64 Release build uses AppleClang21 and system SDL3. The tested
+The Gate A arm64 Release build uses AppleClang21 and system SDL3. The tested
 `release/openemperor-elite-desirability-acceptance` SHA256 is
 `f47e905dd4bd172630d34e420d3f8c6739d1d2bda049154e4fc72d00ad171fd5`.
 Its generated identity truthfully records revision`b11e7cfe3efa`, dirty=true.
@@ -178,9 +179,10 @@ bytes, sizes, modes and mtimes.
 
 `gate-a-validation-summary.json`, `independent-gate-a-review.json`,
 `gate-a-independent-physical-balances.json`, `historical62-comparison.json` and
-the per-process execution records retain the exact checks. Production `src/`,
-resources, Rule1–14 contracts and persistence are unchanged. These findings
-complete Gate A; paid strategy comparisons are the next gate.
+the per-process execution records retain the exact checks. At Gate A, production
+`src/`, resources and persistence remain unchanged; the subsequent Rule15
+experiment retains every Rule1–14 contract. These findings complete Gate A;
+the paid strategy comparisons follow below.
 
 ## Gate B: paid strategies before engine changes
 
@@ -287,7 +289,7 @@ in the private observations.
 `gate-b-independent-analysis-final-v3.json`, `independent-gate-b-audit-summary.json`,
 `gate-b-combined-grid-first-causes.json` and `gate-b-combined-paper-gap.json`
 bind the exact events, physical balances and limits. Further paid refinements,
-separate replays and the conditional Gate C decision remain pending.
+independent replays and the conditional Gate C decision are assessed below.
 
 ### Six refinements and four arrival-timed strategies
 
@@ -367,9 +369,10 @@ complete metric documents and seven complete embedded city reports match
 literally. Transport observations with different start ticks have80 explicitly
 listed local start-provenance differences for already flying actors, while
 actual states and all records after fresh dispatch match. This is not called
-literal whole-report equality; final full-seed replays with identical observer
-starts remain required in Gate E. B2/B3 independent process checks likewise
-remain pending at this boundary.
+literal whole-report equality. The subsequent full-seed replays with identical
+observer starts close this distinction: all19 paid Rule14 recipes and the
+default control match entire observation documents without provenance filters.
+Gate E records the complete process and artifact counts.
 
 **Gate B comparisons are complete; Elite17 retention remains PARTIAL in all19
 paid strategies.** These finite experiments do not prove every legal plan
@@ -583,6 +586,193 @@ houses have been deleted or emptied. All physical Food, six-goods, auxiliary and
 owner-ledger balances remain conserved; no critical stock is silently assigned
 to the Elite by the harness. Full city metrics remain available with each save.
 
+### Complete best-attempt save identities
+
+All points below are full canonical Schema31 documents under
+`run-01/gate-d-rule15-early-refined-01/`, not partial field exports. The complete
+nine-point manifest, literal roundtrips and snapshots include active in-flight
+cargo and routes; the public hashes bind the principal reproduction points.
+
+| Save | Tick | SHA256 |
+|---|---:|---|
+|`seed.save.json`|0|`e8dd6553f6c31f506058d1c8bea26474f4ef2f11a60578b018e984e65611eaf1`|
+|`first-success.save.json`|7639|`3c7bcceb2bda77d17dac6e5d90aa37622ed647d081e461c2198c80e51e367334`|
+|`first-fire.save.json`|9140|`d0509807cbddcace624bf36371af1ef623bf12c04344c32e2fd57b2d957b3f20`|
+|`first-current-failure.save.json`|9883|`9a7c2d647b1db901cf9e4664a747c9fc339de28ca3b381b5dd55f71a0afb4cba`|
+|`midpoint.save.json`|17839|`1221e316726fd02a7f5c5aa38fc9a96ee4225b233ce620443474d28414589a21`|
+|`result.save.json`|28039|`c9754084e5d1e3f3a7fcdba01a470168d68835a2abccefc0aec1f3e358019dae`|
+
+## Gate E: regression and actual View checks
+
+The final E builds are fresh `gate-e-{release,debug,sanitize}/` directories,
+configured at `e73bca1`, dirty=true. The source inventory bound to each execution
+includes the final reviewed QA-only edits; the simulation, save and app sources
+are unchanged from Gate C. `gate-e-binary-pins.json` records all ten acceptance
+binaries. Elite acceptance SHA256 is:
+
+| Configuration | SHA256 |
+|---|---|
+| Release |`c34b427f389bf1708cbc8aef38267f982938f7e5ed9b18a34445fbdcdd1a4601`|
+| Debug |`4f02c0cede7b824fe24d8c7a8d87b8edaba2527996c1495f5821f4384245555b`|
+| ASan/UBSan |`5d1b7ffa8e607563b79a986207cc60209d761c40887070d66de00ea3604fa8dc`|
+
+A fresh complete Release suite passes **280/280**, no skips or failures,
+in182.58 seconds. Gate C's focused registered Debug/sanitizer cases remain the
+stated narrower scope; these are not complete suites. All three final E QA
+runners also build in Debug/sanitizer. The actual36-case View matrix then passes
+separately in Release23.249s, Debug164.935s and ASan/UBSan80.040s, without
+sanitizer findings. No test timeout or model expectation is weakened.
+
+Only the intended direct Sustainable/Market QA callers gain a fresh strict OE44
+output descendant. The shared helper defaults to refusing it; compile-directory
+binding retains the narrower embedded OE38/OE40 fallback contracts. Existing
+protected OE37/OE39 input roots stay exact. Eight actual negative CLI processes
+confirm wrong generation/opt-in, existing/root/symlink outputs, HighTier fallback
+scope and overlap refusals, without changing fixtures or creating CLI output.
+The overlap case uses an explicitly private empty-data fixture, not a write
+attempt into the original installation. Complete argv, binary/source/input pins,
+exit1 and expected diagnostics are in `gate-e-negative-guards-01/report.json`.
+
+### Independent full-seed compatibility
+
+The completed `independent-gate-e-seed-compatibility-audit.json` binds27 actual
+C++ processes: one fresh default-Rule14 creator and26 separate tick0 replays
+(19 paid Rule14 recipes, all six Rule14/15 D comparisons and the default control).
+Every process exits0 with unchanged source/binary and protected-creator guards.
+All231 Creator checkpoints compare full canonical bytes and World snapshots;
+462 corresponding SaveDocument/roundtrip files,180 entire metric/timeline pairs,
+1822 accepted Command-suffix receipts and52 complete Recovery payloads match
+literally. No observer-provenance filter or field exception is used. Only the
+three explicitly different replay metadata fields are excluded from report
+identity: mode, populated comparison evidence and separate-process status.
+Maximum canonical save in this set is903664 bytes, below the unchanged8-MiB cap.
+The fresh default14 creator also matches all31 historical Gate A artifact pairs.
+These exact replays reproduce24 PARTIAL and two NOT_RUN retention results; they
+do not turn failure into gameplay success.
+
+The explicitly required historical `lean-med-extra-markets` counterexample is
+also rerun after the final E build, separately from that sealed27-process audit.
+One fresh creator and one process restoring the protected Gate A tick0 seed
+both finish40000 without17. All27 creator artifact pairs, six replay checkpoints,
+12 full replay SaveDocuments, six metric/timeline pairs,68 Command-suffix
+receipts and four fresh/replay Recovery payloads remain literal. The complete
+30-file historical source folder (1,601,310,666 bytes) is unchanged. The separate
+`independent-gate-e-extra-markets-audit.json` retains this evidence without
+rewriting the earlier audit. Across both audits: **29 World processes,27 full-
+seed replays,237 Creator checkpoints**; the old failure remains a failure.
+
+### Historical live-world continuations
+
+The existing Sustainable runner restores the protected Rule12 balanced-three
+maturity seed at20000 and really ticks to120000. Full seed/midpoint/result saves
+and its entire metrics document are literally identical to the protected OE41/
+OE37 proof. It retains12 occupied homes/318 residents, zero current unmet needs,
+Food misses, devolutions or fires, and actual39114 tax−29520 upkeep=+9594;
+four complete20,400 windows each produce+1950. Both Recovery payloads match.
+
+The existing Market runner independently restores Rule13's actual Common10
+checkpoint22837 and ticks to43237. Full start/result documents and snapshots,
+complete retention observations and transport trace are literally identical to
+the historical proof. All400 target evaluations and all observed current-need
+evaluations across twelve Houses pass, with no devolution/goal loss; actual operating cashflow+4360,
+minimum10995 Funds. Its two Recovery payloads also match. Earned Hemp depletion
+and finite-horizon/original-parity qualifications remain unchanged. Exact pairs
+are in `gate-e-legacy-literal-audit-final.json`; these are real fresh processes,
+not merely reread historical summaries.
+
+### Scripted production Inspector and opened screenshots
+
+`gate-e-view-entry-{release,debug,sanitize}-01/` each exercises the actual
+`SandboxView`, selected through its real clipped building list, at1280×800,
+1600×900 and1920×1080, camera zoom1/2/4 and State/Needs/Goods/Visits. All content
+rows are reached through ordinary wheel events and real tab hitboxes. The
+65-entry general list and two actual clipped-fragment refusal probes are checked
+at1280×800; this is not a36-case generic Market/Operations/Demolition-footer
+claim. Existing broader Inspector/input tests pass in the complete Release suite.
+
+After initial restoration, every matrix event, update and render retains the
+complete saved World and pause state.
+Initial and per-case F5/F9 must actually increment the corresponding generation
+exactly once, as well as retain literal Schema31 bytes, IDs, cargo, routes,
+finance/fire/service history. Only each fresh `view.save.json` working copy is
+written; the creator/source files are protected. The observer adds no View API,
+production frame hook or World command.
+
+Two additional Release matrices restore the real target fire9140 and first
+current-need failure9883. Together the five runs cover180 combinations,6308
+checked actions and351 actual PNGs. All69 entry PNGs were individually opened;
+`gate-e-view-entry-visual-review.json` records each filename, SHA256 and visible
+finding. Debug's69 and sanitizer's69 PNGs are literally identical to that opened
+Release set, recorded separately rather than claiming they were also opened.
+Six additional actual fire/failure PNGs were opened directly; the witness review
+records the exact subset instead of marking all supplementary captures inspected.
+
+No inspected Inspector/tab/overlay/toolbar/status overlap or unreadable complete
+glyph row is observed. State shows the actual17/4×4/DES80, Funds and remaining
+fire protection; fire witnesses show the target flame, `ON FIRE:600` and tax
+ineligibility. Failure Goods distinguishes stock0 from incoming4; Needs correctly
+shows missing Hemp/Silk. Last tax/goods/visit rows remain reachable and clear.
+Roads, walkers and the original static House art are visible; colored fallbacks
+and original scene/parity limits remain. Original sprites are not animation parity.
+
+At1x the target sprite's bounding rectangle is fully inside the viewport at all
+sizes. At2x that rectangle's area is87.7% visible at1280 and100% at the other
+sizes. At4x only33.7%/53.8%/71.5% fits respectively. These are rectangle
+intersection fractions, not measured opaque-pixel coverage. The zoomed scene
+is clipped by its actual map viewport while
+the Inspector remains clear. The camera is centered on the production sprite
+bounds, not an invented ground/DPI offset; no full-sprite-at4x claim is made.
+All screenshot evidence is **software/dummy SDL**, not native delivery or human
+acceptance. `NATIVE_HUMAN=NOT_RUN`; the user's desktop application is untouched.
+
+## Acceptance outcome and remaining limits
+
+**OE44 overall: PARTIAL.** Gates A and B's legal-strategy comparisons pass;
+the narrowly selected C contract and E's stated technical/regression scope pass.
+Gate D's required uninterrupted gameplay retention fails. Twenty distinct paid
+Rule14 recipes (nineteen refinements plus the added four-Market plan) precede
+or control the Rule15 experiment. Finite failures do not establish every legal
+strategy impossible, and no test criterion is relaxed.
+
+The closest current-needs attempt is **Rule15 / Schema31 early-refined**:
+actual paid16→17 at7639, exact first-entry window7639→28039,20,400 actual ticks,
+400 actual current evaluations of which398 pass, no type devolution or empty
+House, but2070 target fire/lost ticks. Actual20789 tax−17250 installed upkeep
+=+3539 operating cashflow, minimum5831 Funds,4341 construction paid before the
+window. Its exact saves, actual rejected/delayed deliveries and entire city's
+needs, fire, workforce and physical balances are available above. Continuous
+type17 is not sufficient to pass the stipulated fire/supply requirements.
+
+| Dimension | Status | Scope |
+|---|---|---|
+| TECHNICAL | PASS | Complete final Release280/280; stated focused Debug/sanitizer cases; actual three-configuration View and strict negative checks. One long causal stream is explicitly PARTIAL. |
+| ELITE17_ENTRY | PASS | Real paid4×4 materialization and16→17, exact original map/model binding. |
+| ELITE17_RETENTION_20400 | PARTIAL | No tested attempt meets all continuous type/occupancy/no-fire and400/400 requirements. |
+| SUPPLY | PARTIAL | Best398/400; rejected fire-time deliveries and later actual arrivals cause the two losses; other-home deficits are retained. |
+| FIRE_PROTECTION | FAIL | Best-attempt target burns2070 ticks despite actual visits; other city bodies also burn. |
+| OPERATING_FINANCE_20400 | PASS, this attempt | +3539 and minimum5831; other compared recipes remain explicitly loss-making/debted. |
+| SAVE_COMPATIBILITY | PASS, tested scope |27 full-seed replays and full historical12/13 continuations;62 legacy fixture exports; hostile-save/atomic refusal coverage. No migration. |
+| ORIGINAL_PARITY | PARTIAL | Pinned core74/74 in three builds; authored dispatch/economy, raw off-Diamond terrain adapter and incomplete original systems remain qualified. |
+| NATIVE_HUMAN | NOT_RUN | Software SDL and opened pixels are separate from native delivery and actual user observations. |
+
+The five priority follow-ups are: **P1** physical Inspector coverage intervals
+still exceed the actual protection/risk window; **P1** fire-interrupted goods
+and service arrivals leave real unmet needs; **P1** other paid homes still have
+Food/service failures, devolutions and fires; **P2** the bounded all-paid15 causal
+stream ends at48031 and cannot support later fine-grained causal claims; **P2**
+native Cocoa/Metal delivery and sustained human play remain unobserved here.
+These are measured limits or missing acceptance, not requests to retroactively
+rebalance historical contracts. No additional optional40,800–100,000 Rule15
+stability claim is made after the failed required window.
+
+Final protection checks (`gate-e-protected-final.json`) confirm all1464 original
+files and499 historical proof saves retain bytes, SHA256, modes and mtimes.
+The user's root prompt and pre-existing deletions remain untouched; personal/
+user-controlled native saves are neither searched nor modified. Main and fetched
+origin/main remain at`b11e7cfe3efadcbfbc5db239b8a7c072047fcd4c`.
+The local gate commits are `899bdac`, `8280253`, `e73bca1` and the subsequent
+reviewed QA/report commit. No push, merge, tag, release or publication occurs.
+
 ## Reproduction
 
 Use new output directories; existing proofs are protected:
@@ -602,3 +792,28 @@ Repeat with `all-paid`, `staged` and `lean-med-extra-markets` into separate
 fresh directories. The first actual17 event extends a creator to20,400 further
 ticks; a40k search without17 remains a failed entry attempt. None of these
 commands modifies the original installation or a protected input save.
+
+For the measured, still incomplete Rule15 early-refined attempt:
+
+```sh
+.local/original-economy/oe44/repeat-release/openemperor-elite-desirability-acceptance \
+  --mode create --rule 15 --variant lean-med --paid-strategy early-refined \
+  --search-ticks 40000 --diagnosis oe44 \
+  --data "$PWD/.local/gog-extracted/app" \
+  --output "$PWD/.local/original-economy/oe44/repeat-early-refined"
+.local/original-economy/oe44/repeat-release/openemperor-elite-desirability-acceptance \
+  --mode resume --rule 15 --variant lean-med --paid-strategy early-refined \
+  --diagnosis oe44 --data "$PWD/.local/gog-extracted/app" \
+  --input "$PWD/.local/original-economy/oe44/repeat-early-refined/seed.save.json" \
+  --expected "$PWD/.local/original-economy/oe44/repeat-early-refined/result.save.json" \
+  --output "$PWD/.local/original-economy/oe44/repeat-early-refined-replay"
+.local/original-economy/oe44/repeat-release/openemperor-elite-desirability-acceptance \
+  --mode render --rule 15 --diagnosis oe44 \
+  --data "$PWD/.local/gog-extracted/app" --resources "$PWD/resources" \
+  --input "$PWD/.local/original-economy/oe44/repeat-early-refined/first-success.save.json" \
+  --output "$PWD/.local/original-economy/oe44/repeat-early-refined-view"
+```
+
+These commands deliberately reproduce the failed acceptance as well as the paid
+entry and exact restore. The render mode uses dummy/software SDL and isolated
+working-copy saves, not the user's desktop application.

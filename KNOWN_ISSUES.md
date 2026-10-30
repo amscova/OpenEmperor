@@ -43,9 +43,9 @@ complete original-game compatibility.
 - **Inspector coordination does not certify Elite17 stability.** Explicit
   Rule15/schema31 coalesces actual incoming Inspector commitments and skips
   unexpired real protection for new dispatches, without changing fire numbers,
-  needs, prices, upkeep or historical saves. The first paid four-Market comparison
-  reaches17 at6976 and earns+1023 over20400 ticks, but misses92/400 current
-  evaluations and has2905 target fire ticks. The
+  needs, prices, upkeep or historical saves. The best checked paid early-refined
+  attempt keeps type17 for20400 ticks and earns+3539, but misses2/400 current
+  evaluations and has2070 target fire ticks. The
   [OE44 evidence](docs/original-economy/oe44-elite17-stability.md) separates
   technical compatibility, paid entry, supply, fire, finance and human acceptance.
 - **High-tier progression has a bounded Rule12 blocker.** The
