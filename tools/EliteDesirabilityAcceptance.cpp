@@ -7,6 +7,7 @@
 #undef OE_SUSTAINABLE_PROOF_DIRECTORY
 #include "../tests/EliteDesirabilityStrategy.h"
 #include "../tests/MarketDistributionMetrics.h"
+#include "../tests/EliteStabilityDiagnosis.h"
 #include <openssl/evp.h>
 #include <fstream>
 #include <iomanip>
@@ -18,24 +19,33 @@ namespace strategy=oe_elite_desirability_strategy;
 namespace high=oe_high_tier_metrics;
 namespace trace=oe_market_distribution_metrics;
 namespace orig=oe::original;
-constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_OR_OE43_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--search-ticks 40000|60000] [--input EARNED_SCHEMA30_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)]";
-struct Options {std::string mode,variant="staged";fs::path data,output,input,expected,resources;unsigned search=40000;};
+constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_OR_OE43_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--search-ticks 40000|60000] [--input EARNED_SCHEMA30_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)] [--diagnosis oe44 (create/resume; fresh OE44 output only)]";
+struct Options {std::string mode,variant="staged",diagnosis;fs::path data,output,input,expected,resources;unsigned search=40000;};
 Options options(int argc,char** argv){
     Options a;std::map<std::string,std::string> values;
     for(int i=1;i<argc;i+=2){check(i+1<argc,help);const std::string key=argv[i];
-        check(key=="--mode"||key=="--data"||key=="--output"||key=="--variant"||key=="--search-ticks"||key=="--input"||key=="--expected"||key=="--resources",help);
+        check(key=="--mode"||key=="--data"||key=="--output"||key=="--variant"||key=="--search-ticks"||key=="--input"||key=="--expected"||key=="--resources"||key=="--diagnosis",help);
         check(values.emplace(key,argv[i+1]).second,"Duplicate Elite proof argument");}
     for(const auto* key:{"--mode","--data","--output"})check(values.contains(key),help);
     a.mode=values.at("--mode");check(a.mode=="create"||a.mode=="resume"||a.mode=="render",help);
     if(values.contains("--variant"))a.variant=values.at("--variant");check(strategy::known(a.variant),help);
+    if(values.contains("--diagnosis")){a.diagnosis=values.at("--diagnosis");check(a.diagnosis=="oe44"&&a.mode!="render",help);}
     for(const auto& [key,path]:{std::pair{"--data",&a.data},{"--output",&a.output},{"--input",&a.input},{"--expected",&a.expected},{"--resources",&a.resources}})
         if(values.contains(key))*path=fs::absolute(values.at(key));
     if(values.contains("--search-ticks")){const auto& text=values.at("--search-ticks");const auto parsed=std::from_chars(text.data(),text.data()+text.size(),a.search);
         check(parsed.ec==std::errc{}&&parsed.ptr==text.data()+text.size()&&(a.search==40000||a.search==60000),help);}
     safe(a.data);safe(a.output);check(fs::is_directory(a.data),"Original installation missing");
-    check(private_output(a.output)&&!fs::exists(a.output),"Use a fresh ignored OE40/OE43 output directory");
+    const auto diagnosis_root=fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/original-economy/oe44";
+    const bool allowed_output=a.diagnosis.empty()?private_output(a.output):
+        a.output!=diagnosis_root&&below(a.output,diagnosis_root);
+    check(allowed_output&&!fs::exists(a.output),"Use a fresh ignored output in the selected OE40/OE43 or explicit OE44 diagnosis root");
     check(!below(a.output,a.data)&&!below(a.data,a.output),"Output overlaps original data");
-    for(const auto& path:{a.input,a.expected})if(!path.empty()){safe(path);check(below(path,private_root())&&fs::is_regular_file(path)&&fs::file_size(path)<=8U*1024U*1024U&&!below(path,a.output),"Use bounded explicit protected OE40 saves");}
+    for(const auto& path:{a.input,a.expected})if(!path.empty()){
+        safe(path);const bool allowed_input=below(path,private_root())||
+            (!a.diagnosis.empty()&&path!=diagnosis_root&&below(path,diagnosis_root));
+        check(allowed_input&&fs::is_regular_file(path)&&fs::file_size(path)<=8U*1024U*1024U&&!below(path,a.output),
+            "Use bounded explicit protected OE40 or selected OE44 diagnosis saves");
+    }
     if(a.mode=="create")check(a.input.empty()&&a.expected.empty()&&a.resources.empty(),help);
     else check(!a.input.empty(),help);
     if(a.mode=="resume")check(!a.expected.empty()&&a.resources.empty(),"Resume requires the independent creator's expected result");
@@ -122,6 +132,8 @@ void simulate(const Options& a){
         check(q::f::read_text(a.output/(label+".save.json"))==original,"Separate-process full checkpoint SaveDocument bytes differ");
         compared.insert(name);comparisons.push_back({{"file",name},{"tick",w.ticks()},{"full_snapshot_equal",true},{"full_document_bytes_equal",true}});}};
     compare_expected();metrics::Observation city(w);std::unique_ptr<high::Observation> observed,retained;
+    std::unique_ptr<oe_elite_stability_diagnosis::Observation> diagnosis;
+    if(!a.diagnosis.empty())diagnosis=std::make_unique<oe_elite_stability_diagnosis::Observation>(w,a.output);
     std::unique_ptr<trace::Observation> transported;std::optional<sim::BuildingId> target=strategy::elite(w);
     const auto attach=[&]{if(target&&!observed){observed=std::make_unique<high::Observation>(w,*target,rules);transported=std::make_unique<trace::Observation>(w,*target,rules);}};attach();
     std::optional<std::uint64_t> first;std::uint64_t lost=0,unmet=0,next_unmet=0,evaluations=0;std::int64_t retain_min=w.treasury();Json first_entry=nullptr,evaluation_provenance=Json::array();
@@ -129,8 +141,10 @@ void simulate(const Options& a){
         first_entry={{"tick",*first},{"input",high::evaluation(proof.evaluation,rules)},{"entry_observed_in_this_process",false}};
         retained=std::make_unique<high::Observation>(w,*target,rules);}
     const auto tick_once=[&]{city.before(w);if(observed)observed->before(w);if(transported)transported->before(w);if(retained)retained->before(w);
+        if(diagnosis)diagnosis->before(w);
         const auto tick=w.ticks();w.tick();check(w.ticks()==tick+1,"World did not advance one actual tick");city.after(w);
-        if(observed)observed->after(w);if(transported)transported->after(w);if(retained)retained->after(w);};
+        if(observed)observed->after(w);if(transported)transported->after(w);if(retained)retained->after(w);
+        if(diagnosis)diagnosis->after(w);};
     try{while(stop_reason.empty()&&w.ticks()<requested_end){
         if(!first){if(!strategy::apply(w,a.variant,commands,blocked)){stop_reason="Actual paid command refused";break;}target=strategy::elite(w);attach();}
         const bool was_retaining=retained!=nullptr;tick_once();
@@ -166,6 +180,7 @@ void simulate(const Options& a){
     write(a.output/"city-metrics.json",city.report(w));if(observed)write(a.output/"elite-metrics.json",observed->report(w));
     if(transported)write(a.output/"transport-metrics.json",transported->report(w));if(retained)write(a.output/"retention-metrics.json",retention);
     write(a.output/"commands.json",commands);write(a.output/"checkpoints.json",manifest);write(a.output/"evaluation-provenance.json",evaluation_provenance);
+    if(diagnosis)write(a.output/"oe44-diagnosis.json",diagnosis->finish(w));
     check(source_pins(a.data)==pins,"Original input bytes/modes/mtimes changed");if(resumed)check(q::f::read_text(a.input)==input&&q::f::read_text(a.expected)==expected_bytes,"Replay changed protected creator files");
     const Json outcome= !stop_reason.empty()?Json(stop_reason):!first?Json("Bounded search ended without actual Elite16-to-17; final paid population, phase gate, pending purchases and unmet needs are retained"):
         !retained_pass?Json("Actual Elite17 entry retained, but this observed interval does not certify 20400 uninterrupted ticks with 400 needs-met evaluations"):Json(nullptr);
