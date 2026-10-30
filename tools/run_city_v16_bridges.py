@@ -29,10 +29,11 @@ def main():
     mode = sys.argv[5]
     if mode not in ("--audit", "--gameplay", "--ui", "--ui-build", "--all"):
         raise RuntimeError("unknown mode")
-    if not root.is_relative_to(repo / ".local/city-v16-bridges") or any(root.iterdir()):
+    allowed_roots = (repo / ".local/city-v16-bridges", repo / ".local/oe43")
+    if not any(root != base and root.is_relative_to(base) for base in allowed_roots) or any(root.iterdir()):
         raise RuntimeError("fresh isolated bridge output root required")
-    if root.is_relative_to(data) or data.is_relative_to(root):
-        raise RuntimeError("outputs must be outside read-only original inputs")
+    if any(root.is_relative_to(source) or source.is_relative_to(root) for source in (data, build)):
+        raise RuntimeError("outputs must be disjoint from read-only inputs and the build")
     initial = inventory(data)
     pinned = {"files": 1464, "bytes": 819711091,
               "manifest_sha256": "dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb"}

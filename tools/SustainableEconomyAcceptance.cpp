@@ -19,13 +19,20 @@ namespace metrics=oe_sustainable_metrics;
 namespace fs=std::filesystem;
 using Json=nlohmann::json;
 using q::check;
-constexpr const char* usage="sustainable-economy-acceptance --mode create|resume|check|render --rule 11|12 --variant supplied12|lean12|compact-two|three-food|compact-three|balanced-three|compact-connected-three --data ABSOLUTE [--output NEW_PRIVATE_OE37_DIRECTORY] [--ticks 6000..150000] [--input EARNED_SEED] [--resources ABSOLUTE]";
+constexpr const char* usage="sustainable-economy-acceptance --mode create|resume|check|render --rule 11|12 --variant supplied12|lean12|compact-two|three-food|compact-three|balanced-three|compact-connected-three --data ABSOLUTE [--output NEW_PRIVATE_OE37_OR_OE43_DIRECTORY] [--ticks 6000..150000] [--input EARNED_SEED] [--resources ABSOLUTE]";
 struct Args {std::string mode,variant;fs::path data,output,input,resources;unsigned rule=12,ticks=100000;};
 #ifndef OE_SUSTAINABLE_PROOF_DIRECTORY
 #define OE_SUSTAINABLE_PROOF_DIRECTORY "oe37"
 #endif
 fs::path private_root(){return fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/original-economy"/OE_SUSTAINABLE_PROOF_DIRECTORY;}
 bool below(const fs::path& p,const fs::path& parent){auto i=p.begin();for(auto j=parent.begin();j!=parent.end();++j,++i)if(i==p.end()||*i!=*j)return false;return true;}
+// Shared by the reused OE39/OE40 QA executables. This adds an output root only;
+// their protected earned-input roots and exact-generation restores stay separate.
+bool private_output(const fs::path& path){
+    const auto playtest=fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/oe43";
+    return (path!=private_root()&&below(path,private_root())) ||
+        (path!=playtest&&below(path,playtest));
+}
 void safe(const fs::path& p){check(p.is_absolute(),"Proof path must be absolute");fs::path part;for(const auto& s:p){check(s!="."&&s!="..","Proof path must be canonical");part/=s;std::error_code e;const auto status=fs::symlink_status(part,e);check(!e||e==std::errc::no_such_file_or_directory,"Cannot inspect proof path");check(!fs::is_symlink(status),"Proof path traverses symlink");}}
 Args arguments(int argc,char** argv){
     Args a;std::map<std::string,std::string> v;
@@ -38,7 +45,7 @@ Args arguments(int argc,char** argv){
 }
 void preflight(const Args& a){
     safe(a.data);check(fs::is_directory(a.data),"BLOCKED: original installation missing");
-    if(a.mode!="check"){safe(a.output);check(a.output!=private_root()&&below(a.output,private_root())&&!fs::exists(a.output),"Output must be new private OE37 directory");check(!below(a.output,a.data)&&!below(a.data,a.output),"Output overlaps original installation");q::save::validate_save_target(a.output/"report.json",a.data);}
+    if(a.mode!="check"){safe(a.output);check(private_output(a.output)&&!fs::exists(a.output),"Output must be new private feature/OE43 directory");check(!below(a.output,a.data)&&!below(a.data,a.output),"Output overlaps original installation");q::save::validate_save_target(a.output/"report.json",a.data);}
     if(a.mode=="resume"||a.mode=="render"){safe(a.input);check(below(a.input,private_root())&&fs::is_regular_file(a.input)&&!below(a.input,a.output),"Explicit private earned input required");}else check(a.input.empty(),"Creator/check cannot import state");
     if(a.mode=="render"){safe(a.resources);check(fs::is_directory(a.resources),"Rendering requires compatibility resources");}
 }

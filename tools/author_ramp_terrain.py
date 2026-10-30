@@ -13,8 +13,11 @@ import zlib
 
 def author(data, target):
     data, target = Path(data).resolve(strict=True), Path(target).resolve()
-    if target.exists() or not target.is_relative_to(Path.cwd() / ".local/city-v16-ramps"):
+    allowed_roots = (Path.cwd().resolve() / ".local/city-v16-ramps", Path.cwd().resolve() / ".local/oe43")
+    if target.exists() or not any(target != base and target.is_relative_to(base) for base in allowed_roots):
         raise RuntimeError("fresh private authored terrain root required")
+    if target.is_relative_to(data) or data.is_relative_to(target):
+        raise RuntimeError("authored output must be disjoint from original inputs")
     target.mkdir(parents=True)
     for folder in ("DATA", "Model", "Res"):
         for source in sorted((data / folder).rglob("*")):

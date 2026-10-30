@@ -18,7 +18,7 @@ namespace strategy=oe_elite_desirability_strategy;
 namespace high=oe_high_tier_metrics;
 namespace trace=oe_market_distribution_metrics;
 namespace orig=oe::original;
-constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--search-ticks 40000|60000] [--input EARNED_SCHEMA30_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)]";
+constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_OR_OE43_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--search-ticks 40000|60000] [--input EARNED_SCHEMA30_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)]";
 struct Options {std::string mode,variant="staged";fs::path data,output,input,expected,resources;unsigned search=40000;};
 Options options(int argc,char** argv){
     Options a;std::map<std::string,std::string> values;
@@ -33,7 +33,7 @@ Options options(int argc,char** argv){
     if(values.contains("--search-ticks")){const auto& text=values.at("--search-ticks");const auto parsed=std::from_chars(text.data(),text.data()+text.size(),a.search);
         check(parsed.ec==std::errc{}&&parsed.ptr==text.data()+text.size()&&(a.search==40000||a.search==60000),help);}
     safe(a.data);safe(a.output);check(fs::is_directory(a.data),"Original installation missing");
-    check(a.output!=private_root()&&below(a.output,private_root())&&!fs::exists(a.output),"Use a fresh ignored OE40 output directory");
+    check(private_output(a.output)&&!fs::exists(a.output),"Use a fresh ignored OE40/OE43 output directory");
     check(!below(a.output,a.data)&&!below(a.data,a.output),"Output overlaps original data");
     for(const auto& path:{a.input,a.expected})if(!path.empty()){safe(path);check(below(path,private_root())&&fs::is_regular_file(path)&&fs::file_size(path)<=8U*1024U*1024U&&!below(path,a.output),"Use bounded explicit protected OE40 saves");}
     if(a.mode=="create")check(a.input.empty()&&a.expected.empty()&&a.resources.empty(),help);

@@ -15,8 +15,11 @@ def main():
     mode = sys.argv[5]
     if mode not in ("--audit", "--gameplay", "--ui", "--all") or any(root.iterdir()):
         raise RuntimeError("supported mode and fresh isolated root required")
-    if not root.is_relative_to(repo / ".local/city-v16-ramps"):
+    allowed_roots = (repo / ".local/city-v16-ramps", repo / ".local/oe43")
+    if not any(root != base and root.is_relative_to(base) for base in allowed_roots):
         raise RuntimeError("isolated Ramp output required")
+    if any(root.is_relative_to(source) or source.is_relative_to(root) for source in (data, build)):
+        raise RuntimeError("outputs must be disjoint from read-only inputs and the build")
     pinned = {"files": 1464, "bytes": 819711091,
               "manifest_sha256": "dde2382fe1c348da765c8776149a73210b81f6cba7f93a0c6159d79ce3154feb"}
     if inventory(data) != pinned:
