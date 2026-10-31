@@ -85,6 +85,11 @@ public:
         maps::StoredMapSession session,
         std::optional<original::Difficulty> difficulty=std::nullopt,
         bool paid_starter=false);
+    // Explicit authored Rule15/schema31; never selected by an inherited capability.
+    static std::unique_ptr<SandboxView> create_original_inspector_coordination(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
     // Explicit authored Rule13/schema29 logistics, separate from Rule12 saves.
     static std::unique_ptr<SandboxView> create_original_market_logistics(
         maps::StoredMapSession session,
@@ -623,6 +628,9 @@ private:
     }
     bool original_cardinal_water() const {
         return simulation::original_cardinal_water_enabled(rules_,requested_rule_version_);
+    }
+    bool original_inspector_coordination() const {
+        return simulation::original_inspector_coordination_enabled(rules_,requested_rule_version_);
     }
     bool original_market_logistics() const {
         return simulation::original_market_logistics_enabled(rules_,requested_rule_version_);

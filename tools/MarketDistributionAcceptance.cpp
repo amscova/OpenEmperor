@@ -36,7 +36,7 @@ Options options(int argc,char** argv) {
     }
     check((a.rule==12||a.rule==13)&&a.target>0&&a.search>=6000&&a.search<=60000,help);
     safe(a.data);safe(a.output);check(fs::is_directory(a.data),"Original installation missing");
-    check(private_output(a.output)&&!fs::exists(a.output),"Market proof needs a new private OE39/OE43 output");
+    check(private_output(a.output,true)&&!fs::exists(a.output),"Market proof needs a new private OE39/OE43/OE44 output");
     check(!below(a.output,a.data)&&!below(a.data,a.output),"Market output overlaps original installation");
     if(a.mode!="diagnose") {safe(a.input);check(below(a.input,private_root())&&fs::is_regular_file(a.input)&&!below(a.input,a.output),"Explicit earned OE39 input required");}
     else check(a.input.empty()&&a.end==0,help);

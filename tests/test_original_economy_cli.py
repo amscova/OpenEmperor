@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hermetic argument contracts for Rule7 preflight and explicit Rule11 opt-in.
+"""Hermetic argument contracts for Rule7 preflight and explicit original opt-ins.
 
 Every map byte below is authored test data. No licensed model, graphics, SDL
 display or existing player state is needed by this process-level check.
@@ -143,6 +143,7 @@ class OriginalEconomyCli(unittest.TestCase):
             ["--browse-assets"], ["--browse-maps"], ["--list-maps"],
             ["--sandbox-original-economy-check"], ["--original-fire-protection"],
             ["--original-sustainable-economy"],
+            ["--original-inspector-coordination"],
         ]
         for extra in incompatible:
             with self.subTest(extra=extra):
@@ -198,6 +199,34 @@ class OriginalEconomyCli(unittest.TestCase):
                 self.assertIn("Usage:", result.stderr)
         for extra in (["--original-fire-protection"], ["--original-sustainable-economy"],
                       ["--sandbox-demo"], ["--sandbox-bridges"], ["--sandbox-ramps"],
+                      ["--sandbox-check", "--report-json"], ["--sandbox-resume-check"],
+                      ["--sandbox-routing-check", "--report-json"],
+                      ["--sandbox-original-economy-check", "--report-json"],
+                      ["--load-sandbox", "unread.json"], ["--authored-terrain-sides"]):
+            with self.subTest(extra=extra):
+                result = self.run_cli(base + extra)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("Usage:", result.stderr)
+        base[base.index("sandbox-city-v16")] = "sandbox-city-v11"
+        self.assertEqual(self.run_cli(base).returncode, 2)
+
+    def test_inspector_coordination_requires_own_explicit_selection(self):
+        base = ["--data", str(self.root), "--sandbox", "Cities/authored.map",
+                "--sandbox-rules", "sandbox-city-v16", "--original-inspector-coordination"]
+        for flag in ("--data", "--sandbox", "--sandbox-rules"):
+            arguments = base.copy()
+            at = arguments.index(flag)
+            del arguments[at:at + 2]
+            with self.subTest(missing=flag):
+                result = self.run_cli(arguments)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("Usage:", result.stderr)
+        for extra in (["--original-fire-protection"], ["--original-sustainable-economy"],
+                      ["--original-market-logistics"], ["--original-cardinal-water"],
+                      ["--original-inspector-coordination"], ["--sandbox-demo"],
+                      ["--sandbox-bridges"], ["--sandbox-ramps"],
                       ["--sandbox-check", "--report-json"], ["--sandbox-resume-check"],
                       ["--sandbox-routing-check", "--report-json"],
                       ["--sandbox-original-economy-check", "--report-json"],

@@ -407,7 +407,7 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
-    if (profile==RulesProfile::CityV16) return version>=1 && version<=14;
+    if (profile==RulesProfile::CityV16) return version>=1 && version<=15;
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -446,6 +446,8 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v12{12,32,64,32,5,800};
     static constexpr ProfileRules city_v16_v13{13,32,64,32,5,800};
     static constexpr ProfileRules city_v16_v14{14,32,64,32,5,800};
+    static constexpr ProfileRules city_v16_v15{15,32,64,32,5,800};
+    if (original_inspector_coordination_enabled(profile,version)) return city_v16_v15;
     if (original_cardinal_water_enabled(profile,version)) return city_v16_v14;
     if (original_market_logistics_enabled(profile,version)) return city_v16_v13;
     if (original_sustainable_economy_enabled(profile,version)) return city_v16_v12;
@@ -2502,6 +2504,37 @@ CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
             });
             if (found!=targets.end()) start=(static_cast<std::size_t>(found-targets.begin())+1)%targets.size();
         }
+        if (original_inspector_coordination_enabled() && c.role==CourierRole::FireInspector) {
+            // Derived from bounded, already validated physical trips. A moving
+            // actor keeps its commitment if its source pauses, burns or loses
+            // workers; an enabled but road-waiting actor makes no such promise.
+            std::array<BuildingId,Rules::fire_watch_limit> incoming{};
+            std::size_t incoming_count=0;
+            for (const auto& trip:original_production_->fire_protection->trips) {
+                if (trip.courier_id==c.id) continue;
+                const auto actor=std::find_if(couriers_.begin(),couriers_.end(),[&](const auto& other) {
+                    return other.id==trip.courier_id;
+                });
+                if (actor==couriers_.end() || actor->role!=CourierRole::FireInspector || !actor->enabled ||
+                    actor->phase!=CourierPhase::ToWarehouse || actor->route_pending || actor->owner!=trip.owner ||
+                    actor->target!=trip.target || actor->path.empty() || actor->path_vertex+1>=actor->path.size() ||
+                    trip.travelled.empty() || trip.travelled.back()!=actor->path[actor->path_vertex]) continue;
+                if (incoming_count<incoming.size()) incoming[incoming_count++]=trip.target;
+            }
+            bool unserved=false;
+            for (int phase=0;phase<2;++phase)
+            for (std::size_t step=0;step<targets.size();++step) {
+                const auto& target=*targets[(start+step)%targets.size()];
+                const bool burning=building_on_fire(target.id);
+                if (burning!=(phase==0) ||
+                    std::find(incoming.begin(),incoming.begin()+incoming_count,target.id)!=incoming.begin()+incoming_count ||
+                    (!burning && target.fire_protection_until_tick>ticks_)) continue;
+                unserved=true;
+                const auto* route=dynamic_route(c,target.id);
+                if (route && *route) return {CourierDispatchStatus::Ready,target.id};
+            }
+            return {unserved ? CourierDispatchStatus::NoRoad:CourierDispatchStatus::NoTarget,std::nullopt};
+        }
         bool any_free=service;
         const int phases=c.role==CourierRole::FireInspector ? 2:1;
         for (int phase=0;phase<phases;++phase)
@@ -3956,7 +3989,9 @@ bool World::navigation_valid() const {
 
 std::string World::canonical_state() const {
     std::ostringstream out;
-    if (original_cardinal_water_enabled()) out<<original_cardinal_water_contract<<":14:"
+    if (original_inspector_coordination_enabled()) out<<original_inspector_coordination_contract<<":15:"
+        <<original_terrain_facts_->source_map_sha256()<<'|';
+    else if (original_cardinal_water_enabled()) out<<original_cardinal_water_contract<<":14:"
         <<original_terrain_facts_->source_map_sha256()<<'|';
     if (original_market_logistics_enabled()) out<<"original-market-logistics:13|";
     out<<static_cast<int>(profile_)<<':'<<ticks_<<':'<<command_sequence_<<':'<<road_revision_

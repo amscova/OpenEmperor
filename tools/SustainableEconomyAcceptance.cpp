@@ -28,10 +28,12 @@ fs::path private_root(){return fs::canonical(fs::path(__FILE__).parent_path().pa
 bool below(const fs::path& p,const fs::path& parent){auto i=p.begin();for(auto j=parent.begin();j!=parent.end();++j,++i)if(i==p.end()||*i!=*j)return false;return true;}
 // Shared by the reused OE39/OE40 QA executables. This adds an output root only;
 // their protected earned-input roots and exact-generation restores stay separate.
-bool private_output(const fs::path& path){
+bool private_output(const fs::path& path,bool allow_oe44=false){
     const auto playtest=fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/oe43";
+    const auto stability=fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/original-economy/oe44";
     return (path!=private_root()&&below(path,private_root())) ||
-        (path!=playtest&&below(path,playtest));
+        (path!=playtest&&below(path,playtest)) ||
+        (allow_oe44&&path!=stability&&below(path,stability));
 }
 void safe(const fs::path& p){check(p.is_absolute(),"Proof path must be absolute");fs::path part;for(const auto& s:p){check(s!="."&&s!="..","Proof path must be canonical");part/=s;std::error_code e;const auto status=fs::symlink_status(part,e);check(!e||e==std::errc::no_such_file_or_directory,"Cannot inspect proof path");check(!fs::is_symlink(status),"Proof path traverses symlink");}}
 Args arguments(int argc,char** argv){
@@ -45,7 +47,10 @@ Args arguments(int argc,char** argv){
 }
 void preflight(const Args& a){
     safe(a.data);check(fs::is_directory(a.data),"BLOCKED: original installation missing");
-    if(a.mode!="check"){safe(a.output);check(private_output(a.output)&&!fs::exists(a.output),"Output must be new private feature/OE43 directory");check(!below(a.output,a.data)&&!below(a.data,a.output),"Output overlaps original installation");q::save::validate_save_target(a.output/"report.json",a.data);}
+    // Reused OE38/OE40 baseline entrypoints retain their exact output scope.
+    constexpr bool allow_oe44=std::string_view(OE_SUSTAINABLE_PROOF_DIRECTORY)=="oe37" ||
+        std::string_view(OE_SUSTAINABLE_PROOF_DIRECTORY)=="oe39";
+    if(a.mode!="check"){safe(a.output);check(private_output(a.output,allow_oe44)&&!fs::exists(a.output),"Output must be new private feature/OE43/OE44 directory");check(!below(a.output,a.data)&&!below(a.data,a.output),"Output overlaps original installation");q::save::validate_save_target(a.output/"report.json",a.data);}
     if(a.mode=="resume"||a.mode=="render"){safe(a.input);check(below(a.input,private_root())&&fs::is_regular_file(a.input)&&!below(a.input,a.output),"Explicit private earned input required");}else check(a.input.empty(),"Creator/check cannot import state");
     if(a.mode=="render"){safe(a.resources);check(fs::is_directory(a.resources),"Rendering requires compatibility resources");}
 }

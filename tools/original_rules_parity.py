@@ -30,7 +30,7 @@ HOUSING_SIMULATION_DEPENDENCIES = ("original-rules-model", "original-desirabilit
 # historical HouseholdV3/CityV7 calls. Matching archives are freshly linked;
 # these exact headers do not certify the new rules' gameplay or terrain logic.
 REVIEWED_HOUSING_WORLD_API_GIT_BLOBS = {
-    "World.h": "fd8bddeee42b2b0dd2e4d91cdd460fef71820ac1",
+    "World.h": "8196a1dca3068598af9fdf43b3d49df94ec18005",
     "OriginalTerrainFacts.h": "1a24ed7cb80a0152560b76d9445c04e5b0829ed5",
     "OriginalHousingDiagnosis.h": "62d1ebd836ae700c3f790ef993c155b589d2a3d1",
 }

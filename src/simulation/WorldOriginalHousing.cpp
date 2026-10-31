@@ -201,7 +201,7 @@ void World::validate_original_housing_snapshot(const WorldSnapshot& s) {
         if (first>s.ticks || first<b.placed_tick || first-b.placed_tick<120 || (first-b.placed_tick-120)%40 ||
             !occupied_type(b.kind,h.house.type) || h.house.occupants<=0 || h.original_status!=3 || !h.access_enabled || h.cycle_phase)
             invalid("Housing admission must preserve its paid family and real120+40k opportunity");
-        basic_input(h.house,simulation::original_cardinal_water_enabled(s.profile,s.rule_version));
+        basic_input(h.house,simulation::original_cardinal_terrain_enabled(s.profile,s.rule_version));
         const auto initial_index=row_index(admitted_type(b.kind));const auto& initial=row.first_transitions[initial_index];
         OriginalHousingEvaluation expected_admission;expected_admission.tick=first;expected_admission.input=empty;
         if (!initial || initial->kind!=OriginalHousingTransitionKind::Admission || initial->evaluation!=expected_admission ||
@@ -246,7 +246,7 @@ void World::validate_original_housing_snapshot(const WorldSnapshot& s) {
         if (row.consumption_rows[initial_index].events<original_housing_consumption_events(initial_until)-original_housing_consumption_events(first-1))
             invalid("Housing consumption omitted mandatory initial-type events");
         for (const auto* proof:proofs) {
-            const auto& e=*proof;basic_input(e.input,simulation::original_cardinal_water_enabled(s.profile,s.rule_version));
+            const auto& e=*proof;basic_input(e.input,simulation::original_cardinal_terrain_enabled(s.profile,s.rule_version));
             if (!occupied_type(b.kind,e.input.type) || e.tick<first || e.tick>s.ticks ||
                 original_housing_evaluation_tick(e.tick)!=e.tick || e.input.occupants>h.house.occupants)
                 invalid("Housing evaluation has impossible paid family/occupied phase");

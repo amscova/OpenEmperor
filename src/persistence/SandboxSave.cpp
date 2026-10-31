@@ -1576,7 +1576,8 @@ simulation::OriginalFireProtectionState parse_fire_protection(const json& j,int 
 }
 json production_document_json(const SaveDocument& d) {
     const bool fire=simulation::original_fire_protection_enabled(d.world.profile,d.world.rule_version);
-    const auto schema=simulation::original_cardinal_water_enabled(d.world.profile,d.world.rule_version) ? 30U:
+    const auto schema=simulation::original_inspector_coordination_enabled(d.world.profile,d.world.rule_version) ? 31U:
+        simulation::original_cardinal_water_enabled(d.world.profile,d.world.rule_version) ? 30U:
         simulation::original_market_logistics_enabled(d.world.profile,d.world.rule_version) ? 29U:
         simulation::original_sustainable_economy_enabled(d.world.profile,d.world.rule_version) ? 28U:fire ? 27U:26U;
     require(simulation::original_production_enabled(d.world.profile,d.world.rule_version) &&
@@ -1584,7 +1585,7 @@ json production_document_json(const SaveDocument& d) {
             d.world.original_economy && d.world.original_influence,
             "schema26 requires separate City-v16 rule10 production authority");
     require(d.source_schema_version==0 || d.source_schema_version==schema,
-            "Rule10/11/12/13/14 require their exact schema26/27/28/29/30; existing saves are not migrated");
+            "Rule10/11/12/13/14/15 require their exact schema26/27/28/29/30/31; existing saves are not migrated");
     require(d.world.original_production->development_revision==simulation::kOriginalProductionDevelopmentRevision,
             "schema26 development revision differs from this executable");
     require(d.map_permissions_policy_version==simulation::kBridgesMapPermissionsPolicyVersion &&
@@ -1643,8 +1644,9 @@ json production_document_json(const SaveDocument& d) {
     }
     auto result=document_json(projected);
     result["schema_version"]=schema;result["rules"]["version"]=d.world.rule_version;
-    if (schema==29 || schema==30) result["rules"]["market_logistics"]=simulation::original_market_logistics_contract;
-    if (schema==30) result["rules"]["cardinal_water"]=simulation::original_cardinal_water_contract;
+    if (schema==29 || schema==30 || schema==31) result["rules"]["market_logistics"]=simulation::original_market_logistics_contract;
+    if (schema==30 || schema==31) result["rules"]["cardinal_water"]=simulation::original_cardinal_water_contract;
+    if (schema==31) result["rules"]["inspector_coordination"]=simulation::original_inspector_coordination_contract;
     for (std::size_t i=0;i<d.world.buildings.size();++i)
         result["world"]["buildings"][i]["kind"]=static_cast<int>(d.world.buildings[i].kind);
     for (std::size_t i=0;i<d.world.couriers.size();++i)
@@ -1674,18 +1676,21 @@ json production_document_json(const SaveDocument& d) {
 }
 SaveDocument parse_production_document(const json& j) {
     const auto schema=number(field(j,"schema_version"));
-    const bool fire=schema==27 || schema==28 || schema==29 || schema==30;
-    if (schema==29 || schema==30) require(str(field(field(j,"rules"),"market_logistics"))==simulation::original_market_logistics_contract,
+    const bool fire=schema==27 || schema==28 || schema==29 || schema==30 || schema==31;
+    if (schema==29 || schema==30 || schema==31) require(str(field(field(j,"rules"),"market_logistics"))==simulation::original_market_logistics_contract,
         "schema29 requires its exact authored market-logistics contract");
-    if (schema==30) require(str(field(field(j,"rules"),"cardinal_water"))==simulation::original_cardinal_water_contract,
+    if (schema==30 || schema==31) require(str(field(field(j,"rules"),"cardinal_water"))==simulation::original_cardinal_water_contract,
         "schema30 requires its exact verified cardinal-water contract");
-    const auto rule_version=schema==30 ? simulation::kOriginalCardinalWaterRuleVersion:
+    if (schema==31) require(str(field(field(j,"rules"),"inspector_coordination"))==simulation::original_inspector_coordination_contract,
+        "schema31 requires its exact authored Inspector-coordination contract");
+    const auto rule_version=schema==31 ? simulation::kOriginalInspectorCoordinationRuleVersion:
+        schema==30 ? simulation::kOriginalCardinalWaterRuleVersion:
         schema==29 ? simulation::kOriginalMarketLogisticsRuleVersion:
         schema==28 ? simulation::kOriginalSustainableRuleVersion:
         fire ? simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion;
     require(str(field(field(j,"rules"),"id"))==simulation::city_v16_profile_name &&
             number(field(field(j,"rules"),"version"))==rule_version,
-            "schema26/27/28/29/30 require their exact explicit City-v16 Rule10/11/12/13/14");
+            "schema26/27/28/29/30/31 require their exact explicit City-v16 Rule10/11/12/13/14/15");
     const auto& world=field(j,"world");const auto& production=field(world,"original_production");
     simulation::OriginalProductionState state;
     state.development_revision=static_cast<std::uint32_t>(number(field(production,"development_revision"),UINT32_MAX));
@@ -1872,7 +1877,10 @@ SaveDocument parse_document(const json& j,SnapshotSyntax syntax) {
     require(str(field(j,"format"))=="openemperor-sandbox-save","unknown save format");
     const auto schema=number(field(j,"schema_version"));
     require(syntax==SnapshotSyntax::Frozen || schema==22,"active syntax is restricted to the local schema22 projection");
-    if (schema==26 || schema==27 || schema==28 || schema==29 || schema==30) return parse_production_document(j);
+    require(syntax==SnapshotSyntax::OriginalProduction || schema==31 ||
+            !field(j,"rules").contains("inspector_coordination"),
+            "Inspector coordination marker requires exact schema31");
+    if (schema==26 || schema==27 || schema==28 || schema==29 || schema==30 || schema==31) return parse_production_document(j);
     if (schema==25) return parse_goods_document(j);
     if (schema==24) return parse_influence_document(j);
     if (schema==23) return parse_original_document(j);
@@ -2013,12 +2021,18 @@ SaveDocument make_document(const fs::path& root,const fs::path& relative,
                 "schema26 requires complete immutable policy3 map permissions");
         d.map_permissions_policy_version=d.prepared_permissions->policy_version();
         d.map_permissions_sha256=map_permissions_fingerprint(*d.prepared_permissions,d.map_sha256);
-        if (simulation::original_cardinal_water_enabled(d.world.profile,d.world.rule_version)) {
+        if (simulation::original_inspector_coordination_enabled(d.world.profile,d.world.rule_version) ||
+            simulation::original_cardinal_water_enabled(d.world.profile,d.world.rule_version)) {
             d.prepared_original_terrain_facts=world.original_terrain_facts();
             require(d.prepared_original_terrain_facts && d.prepared_original_terrain_facts->source_map_sha256()==d.map_sha256,
-                "schema30 World terrain context differs from complete source-map SHA-256");
-            (void)restore_original_cardinal_water(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model,
-                d.prepared_original_terrain_facts);
+                simulation::original_inspector_coordination_enabled(d.world.profile,d.world.rule_version) ?
+                    "schema31 World terrain context differs from complete source-map SHA-256":
+                    "schema30 World terrain context differs from complete source-map SHA-256");
+            if (simulation::original_inspector_coordination_enabled(d.world.profile,d.world.rule_version))
+                (void)restore_original_inspector_coordination(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model,
+                    d.prepared_original_terrain_facts);
+            else (void)restore_original_cardinal_water(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model,
+                    d.prepared_original_terrain_facts);
         } else if (simulation::original_market_logistics_enabled(d.world.profile,d.world.rule_version))
             (void)restore_original_market_logistics(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model);
         else if (simulation::original_sustainable_economy_enabled(d.world.profile,d.world.rule_version))
@@ -2106,7 +2120,7 @@ SaveDocument read_save(const fs::path& path) {
     if (j.is_object() && j.contains("schema_version") && j.at("schema_version")==25)
         require(!duplicate_key,"schema25 duplicate save key");
     if (j.is_object() && j.contains("schema_version") &&
-        (j.at("schema_version")==26 || j.at("schema_version")==27 || j.at("schema_version")==28 || j.at("schema_version")==29 || j.at("schema_version")==30))
+        (j.at("schema_version")==26 || j.at("schema_version")==27 || j.at("schema_version")==28 || j.at("schema_version")==29 || j.at("schema_version")==30 || j.at("schema_version")==31))
         require(!duplicate_key,"original production duplicate save key");
     return parse_document(j);
 }
@@ -2377,10 +2391,11 @@ simulation::World restore_original_fire_generation(const SaveDocument& d,const f
         std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model,std::uint32_t rule_version,
         std::shared_ptr<const simulation::OriginalTerrainFacts> terrain=nullptr) {
+    const bool coordination=rule_version==simulation::kOriginalInspectorCoordinationRuleVersion;
     const bool cardinal=rule_version==simulation::kOriginalCardinalWaterRuleVersion;
     const bool logistics=rule_version==simulation::kOriginalMarketLogisticsRuleVersion;
     const bool sustainable=rule_version==simulation::kOriginalSustainableRuleVersion;
-    const auto schema=cardinal ? 30U:logistics ? 29U:sustainable ? 28U:27U;
+    const auto schema=coordination ? 31U:cardinal ? 30U:logistics ? 29U:sustainable ? 28U:27U;
     require(d.world.profile==simulation::RulesProfile::CityV16 && d.world.rule_version==rule_version,
             "original fire restore requires its exact explicit City-v16 rule generation");
     require(d.source_schema_version==0 || d.source_schema_version==schema,
@@ -2410,15 +2425,20 @@ simulation::World restore_original_fire_generation(const SaveDocument& d,const f
             "schema27 requires matching immutable policy3 map permissions");
     require(map_permissions_fingerprint(*permissions,d.map_sha256)==d.map_permissions_sha256,
             "map-permissions SHA-256 differs from save (permissions or topology changed)");
-    if (cardinal) {
+    if (cardinal || coordination) {
         // Re-read source facts even when a session dependency was provided.
         // Claimed source hashes or JSON-derived bitsets never become authority.
         auto live=prepare_original_terrain_facts(root,d.map_relative);
         require(live->source_map_sha256()==d.map_sha256,
-                "schema30 live terrain source SHA-256 differs from save");
-        if (terrain) require(*terrain==*live,"schema30 prepared terrain facts differ from live original source");
+                coordination ? "schema31 live terrain source SHA-256 differs from save":
+                    "schema30 live terrain source SHA-256 differs from save");
+        if (terrain) require(*terrain==*live,coordination ? "schema31 prepared terrain facts differ from live original source":
+            "schema30 prepared terrain facts differ from live original source");
         if (d.prepared_original_terrain_facts)
-            require(*d.prepared_original_terrain_facts==*live,"schema30 document terrain facts differ from live original source");
+            require(*d.prepared_original_terrain_facts==*live,coordination ? "schema31 document terrain facts differ from live original source":
+                "schema30 document terrain facts differ from live original source");
+        if (coordination)
+            return simulation::World::restore_original_inspector_coordination(d.world,std::move(permissions),std::move(model),std::move(live));
         return simulation::World::restore_original_cardinal_water(d.world,std::move(permissions),std::move(model),std::move(live));
     }
     if (logistics) return simulation::World::restore_original_market_logistics(d.world,std::move(permissions),std::move(model));
@@ -2451,6 +2471,13 @@ simulation::World restore_original_cardinal_water(const SaveDocument& d,const fs
     return restore_original_fire_generation(d,root,std::move(mask),std::move(permissions),std::move(model),
         simulation::kOriginalCardinalWaterRuleVersion,std::move(terrain));
 }
+simulation::World restore_original_inspector_coordination(const SaveDocument& d,const fs::path& root,
+        std::vector<std::uint8_t> mask,std::shared_ptr<const simulation::MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model,
+        std::shared_ptr<const simulation::OriginalTerrainFacts> terrain) {
+    return restore_original_fire_generation(d,root,std::move(mask),std::move(permissions),std::move(model),
+        simulation::kOriginalInspectorCoordinationRuleVersion,std::move(terrain));
+}
 void validate_save_target(const fs::path& path,const fs::path& root) {
     require(!path.empty(),"save path is empty");
     const auto absolute=fs::absolute(path).lexically_normal();
@@ -2475,7 +2502,10 @@ void write_save(const fs::path& path,const SaveDocument& d,const fs::path& root,
     validate_save_target(path,root);
     // Recheck original inputs and all world invariants before writing any bytes.
     if (simulation::original_production_enabled(d.world.profile,d.world.rule_version))
-        if (simulation::original_cardinal_water_enabled(d.world.profile,d.world.rule_version))
+        if (simulation::original_inspector_coordination_enabled(d.world.profile,d.world.rule_version))
+            (void)restore_original_inspector_coordination(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model,
+                d.prepared_original_terrain_facts);
+        else if (simulation::original_cardinal_water_enabled(d.world.profile,d.world.rule_version))
             (void)restore_original_cardinal_water(d,root,mask,d.prepared_permissions,d.prepared_original_rules_model,
                 d.prepared_original_terrain_facts);
         else if (simulation::original_market_logistics_enabled(d.world.profile,d.world.rule_version))

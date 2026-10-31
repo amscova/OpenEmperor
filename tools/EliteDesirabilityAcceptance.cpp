@@ -6,7 +6,9 @@
 #undef main
 #undef OE_SUSTAINABLE_PROOF_DIRECTORY
 #include "../tests/EliteDesirabilityStrategy.h"
+#include "../tests/EliteStabilityStrategy.h"
 #include "../tests/MarketDistributionMetrics.h"
+#include "../tests/EliteStabilityDiagnosis.h"
 #include <openssl/evp.h>
 #include <fstream>
 #include <iomanip>
@@ -15,27 +17,46 @@
 
 namespace oe40_cli {
 namespace strategy=oe_elite_desirability_strategy;
+namespace paid_strategy=oe_elite_stability_strategy;
 namespace high=oe_high_tier_metrics;
 namespace trace=oe_market_distribution_metrics;
 namespace orig=oe::original;
-constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_OR_OE43_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--search-ticks 40000|60000] [--input EARNED_SCHEMA30_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)]";
-struct Options {std::string mode,variant="staged";fs::path data,output,input,expected,resources;unsigned search=40000;};
+constexpr const char* help="elite-desirability-acceptance --mode create|resume|render --data ABS --output NEW_IGNORED_OE40_OR_OE43_DIR [--variant staged|all-paid|lean-med|lean-med-extra-markets] [--rule 14|15 (default14;15 requires diagnosis oe44)] [--search-ticks 40000|60000] [--input EARNED_EXACT_GENERATION_SAVE] [--expected CREATOR_RESULT_SAVE (resume)] [--resources ABS (render)] [--diagnosis oe44 (fresh OE44 output only; render also requires explicit --rule)] [--paid-strategy road-grid|market-near|medical-near|medical-pair|watch-near|paper-buffer|early-elite|finance-staged|combined|early-religion|combined-religion|combined-services|combined-paper-usable|early-refined|combined-refined|early-stagger-watch|early-stagger-medical|early-stagger-all|early-adaptive-watch|early-stagger-medical-four-markets (requires diagnosis oe44 and variant lean-med)]";
+struct Options {std::string mode,variant="staged",diagnosis,paid_strategy;fs::path data,output,input,expected,resources;unsigned rule=14,search=40000;};
 Options options(int argc,char** argv){
     Options a;std::map<std::string,std::string> values;
     for(int i=1;i<argc;i+=2){check(i+1<argc,help);const std::string key=argv[i];
-        check(key=="--mode"||key=="--data"||key=="--output"||key=="--variant"||key=="--search-ticks"||key=="--input"||key=="--expected"||key=="--resources",help);
+        check(key=="--mode"||key=="--data"||key=="--output"||key=="--variant"||key=="--rule"||key=="--search-ticks"||key=="--input"||key=="--expected"||key=="--resources"||key=="--diagnosis"||key=="--paid-strategy",help);
         check(values.emplace(key,argv[i+1]).second,"Duplicate Elite proof argument");}
     for(const auto* key:{"--mode","--data","--output"})check(values.contains(key),help);
     a.mode=values.at("--mode");check(a.mode=="create"||a.mode=="resume"||a.mode=="render",help);
     if(values.contains("--variant"))a.variant=values.at("--variant");check(strategy::known(a.variant),help);
+    if(values.contains("--rule")) {
+        const auto& value=values.at("--rule");const auto result=std::from_chars(value.data(),value.data()+value.size(),a.rule);
+        check(result.ec==std::errc{}&&result.ptr==value.data()+value.size()&&(a.rule==14||a.rule==15),help);
+    }
+    if(values.contains("--diagnosis")){a.diagnosis=values.at("--diagnosis");check(a.diagnosis=="oe44"&&(a.mode!="render"||values.contains("--rule")),help);}
+    check(a.rule!=15||(!a.diagnosis.empty()&&values.contains("--rule")),"Rule15 requires explicit --rule 15 and --diagnosis oe44");
+    if(values.contains("--paid-strategy")) {
+        a.paid_strategy=values.at("--paid-strategy");
+        check(paid_strategy::known(a.paid_strategy)&&a.diagnosis=="oe44"&&a.variant=="lean-med"&&a.mode!="render",help);
+    }
     for(const auto& [key,path]:{std::pair{"--data",&a.data},{"--output",&a.output},{"--input",&a.input},{"--expected",&a.expected},{"--resources",&a.resources}})
         if(values.contains(key))*path=fs::absolute(values.at(key));
     if(values.contains("--search-ticks")){const auto& text=values.at("--search-ticks");const auto parsed=std::from_chars(text.data(),text.data()+text.size(),a.search);
         check(parsed.ec==std::errc{}&&parsed.ptr==text.data()+text.size()&&(a.search==40000||a.search==60000),help);}
     safe(a.data);safe(a.output);check(fs::is_directory(a.data),"Original installation missing");
-    check(private_output(a.output)&&!fs::exists(a.output),"Use a fresh ignored OE40/OE43 output directory");
+    const auto diagnosis_root=fs::canonical(fs::path(__FILE__).parent_path().parent_path())/".local/original-economy/oe44";
+    const bool allowed_output=a.diagnosis.empty()?private_output(a.output):
+        a.output!=diagnosis_root&&below(a.output,diagnosis_root);
+    check(allowed_output&&!fs::exists(a.output),"Use a fresh ignored output in the selected OE40/OE43 or explicit OE44 diagnosis root");
     check(!below(a.output,a.data)&&!below(a.data,a.output),"Output overlaps original data");
-    for(const auto& path:{a.input,a.expected})if(!path.empty()){safe(path);check(below(path,private_root())&&fs::is_regular_file(path)&&fs::file_size(path)<=8U*1024U*1024U&&!below(path,a.output),"Use bounded explicit protected OE40 saves");}
+    for(const auto& path:{a.input,a.expected})if(!path.empty()){
+        safe(path);const bool allowed_input=below(path,private_root())||
+            (!a.diagnosis.empty()&&path!=diagnosis_root&&below(path,diagnosis_root));
+        check(allowed_input&&fs::is_regular_file(path)&&fs::file_size(path)<=8U*1024U*1024U&&!below(path,a.output),
+            "Use bounded explicit protected OE40 or selected OE44 diagnosis saves");
+    }
     if(a.mode=="create")check(a.input.empty()&&a.expected.empty()&&a.resources.empty(),help);
     else check(!a.input.empty(),help);
     if(a.mode=="resume")check(!a.expected.empty()&&a.resources.empty(),"Resume requires the independent creator's expected result");
@@ -63,13 +84,21 @@ sim::World restore14(const q::Context& c,const q::save::SaveDocument& d){
     check(d.source_schema_version==30&&d.world.rule_version==14,"Exact schema30/Rule14 save required");
     return q::save::restore_original_cardinal_water(d,c.data,c.mask,c.policy,c.model);
 }
+unsigned schema_for_rule(unsigned rule) {
+    check(rule==14||rule==15,"Exact QA Rule14 or Rule15 required");return rule==15?31U:30U;
+}
+sim::World restore_selected(const q::Context& c,const q::save::SaveDocument& d,unsigned rule) {
+    check(d.source_schema_version==schema_for_rule(rule)&&d.world.rule_version==rule,"Exact selected QA rule/schema save required");
+    if(rule==15)return q::save::restore_original_inspector_coordination(d,c.data,c.mask,c.policy,c.model);
+    return restore14(c,d);
+}
 void checkpoint14(const q::Context& c,const fs::path& output,const std::string& label,const sim::World& w,Json& manifest){
     check(!label.empty()&&label.size()<=80&&std::all_of(label.begin(),label.end(),[](unsigned char v){return (v>='a'&&v<='z')||(v>='0'&&v<='9')||v=='-';}),"Invalid bounded checkpoint label");
     q::authority(w);const auto path=output/(label+".save.json");check(below(path,output)&&!fs::exists(path),"Preserve existing contained checkpoint");
     q::save::write_save(path,c.document(w),c.data,c.mask);const auto bytes=q::f::read_text(path);const auto document=q::save::read_save(path);
-    auto loaded=restore14(c,document);check(document.world==w.snapshot()&&loaded.snapshot()==w.snapshot(),"Complete schema30 snapshot restore differs");
+    auto loaded=restore_selected(c,document,w.rule_version());check(document.world==w.snapshot()&&loaded.snapshot()==w.snapshot(),"Complete selected-generation snapshot restore differs");
     const auto canonical=output/(label+".roundtrip.json");q::save::write_save(canonical,c.document(loaded),c.data,c.mask);
-    check(q::f::read_text(canonical)==bytes,"Complete canonical schema30 SaveDocument bytes differ");
+    check(q::f::read_text(canonical)==bytes,"Complete canonical selected-generation SaveDocument bytes differ");
     write(output/(label+".snapshot.json"),Json::parse(bytes).at("world"));
     manifest.push_back({{"label",label},{"tick",w.ticks()},{"file",path.filename().string()}});
 }
@@ -90,13 +119,19 @@ Json provenance(const sim::World& w,sim::BuildingId target){const auto value=w.o
 void simulate(const Options& a){
     const auto pins=source_pins(a.data);const auto c=q::Context::real(a.data);const bool resumed=a.mode=="resume";
     const auto input=resumed?q::f::read_text(a.input):std::string{},expected_bytes=resumed?q::f::read_text(a.expected):std::string{};
-    auto w=resumed?restore14(c,q::save::read_save(a.input)):sim::World::create_original_cardinal_water(c.policy,c.model,q::save::prepare_original_terrain_facts(c.data,c.map_relative));
-    check(w.original_cardinal_water_enabled()&&w.original_rules_model()->provenance().sha256==strategy::model_sha,"Explicit unchanged Rule14 required");
+    auto w=resumed?restore_selected(c,q::save::read_save(a.input),a.rule):a.rule==15?
+        sim::World::create_original_inspector_coordination(c.policy,c.model,q::save::prepare_original_terrain_facts(c.data,c.map_relative)):
+        sim::World::create_original_cardinal_water(c.policy,c.model,q::save::prepare_original_terrain_facts(c.data,c.map_relative));
+    check(w.rule_version()==a.rule&&w.original_cardinal_water_enabled()&&
+        (a.rule!=15||w.original_inspector_coordination_enabled())&&w.original_worker_upkeep_interval()==816&&
+        w.original_rules_model()->provenance().sha256==strategy::model_sha,"Explicit source-bound selected Rule14/15 with unchanged816 upkeep required");
     fs::create_directories(a.output);Json commands=Json::array(),blocked=nullptr,manifest=Json::array(),comparisons=Json::array();
     const auto independent=orig::load_model_data(c.data);check(bool(independent),"Independent original model preparation failed");
     const orig::HouseEvolutionRules rules(*independent.model,orig::Difficulty::Normal);
     std::string stop_reason;
-    if(!resumed&&!strategy::apply(w,a.variant,commands,blocked))stop_reason="Actual initial paid command refused";
+    const auto apply_recipe=[&]{return a.paid_strategy.empty()?strategy::apply(w,a.variant,commands,blocked):
+        paid_strategy::apply(w,a.paid_strategy,commands,blocked);};
+    if(!resumed&&!apply_recipe())stop_reason="Actual initial paid command refused";
     const auto begin=w.ticks();checkpoint14(c,a.output,"seed",w,manifest);
     if(resumed)check(q::f::read_text(a.output/"seed.save.json")==input,"Separate process changed complete input SaveDocument bytes");
     Json expected_manifest=Json::array();std::set<std::string> compared;
@@ -112,7 +147,9 @@ void simulate(const Options& a){
             check(entry.at("tick").is_number_unsigned(),"Invalid creator checkpoint tick");}
         const auto creator_report=a.expected.parent_path()/"report.json";safe(creator_report);
         check(fs::is_regular_file(creator_report)&&fs::file_size(creator_report)<=1024U*1024U,"Bounded creator recipe report required");
-        const auto creator=Json::parse(q::f::read_text(creator_report));check(creator.at("variant")==a.variant&&creator.at("rule")==14&&creator.at("schema")==30,"Replay variant or generation differs from creator");}
+        const auto creator=Json::parse(q::f::read_text(creator_report));check(creator.at("variant")==a.variant&&creator.at("rule")==a.rule&&creator.at("schema")==schema_for_rule(a.rule),"Replay variant or generation differs from creator");
+        if(a.rule==15)check(creator.at("inspector_coordination_contract")==sim::original_inspector_coordination_contract,"Replay Inspector coordination contract differs");
+        check(creator.value("paid_strategy",std::string{})==a.paid_strategy,"Replay paid strategy differs from the independently supplied creator");}
     const auto compare_expected=[&]{if(!resumed)return;for(const auto& entry:expected_manifest)if(entry.at("tick").get<std::uint64_t>()==w.ticks()){
         const auto name=entry.at("file").get<std::string>();if(compared.contains(name))continue;
         const auto path=a.expected.parent_path()/name;safe(path);check(fs::is_regular_file(path)&&fs::file_size(path)<=8U*1024U*1024U,"Bounded creator checkpoint required");
@@ -122,18 +159,50 @@ void simulate(const Options& a){
         check(q::f::read_text(a.output/(label+".save.json"))==original,"Separate-process full checkpoint SaveDocument bytes differ");
         compared.insert(name);comparisons.push_back({{"file",name},{"tick",w.ticks()},{"full_snapshot_equal",true},{"full_document_bytes_equal",true}});}};
     compare_expected();metrics::Observation city(w);std::unique_ptr<high::Observation> observed,retained;
+    std::unique_ptr<oe_elite_stability_diagnosis::Observation> diagnosis;
+    if(!a.diagnosis.empty())diagnosis=std::make_unique<oe_elite_stability_diagnosis::Observation>(w,a.output);
     std::unique_ptr<trace::Observation> transported;std::optional<sim::BuildingId> target=strategy::elite(w);
     const auto attach=[&]{if(target&&!observed){observed=std::make_unique<high::Observation>(w,*target,rules);transported=std::make_unique<trace::Observation>(w,*target,rules);}};attach();
     std::optional<std::uint64_t> first;std::uint64_t lost=0,unmet=0,next_unmet=0,evaluations=0;std::int64_t retain_min=w.treasury();Json first_entry=nullptr,evaluation_provenance=Json::array();
     if(target&&entry17(w,*target)){const auto& proof=*entry17(w,*target);first=proof.evaluation.tick;
         first_entry={{"tick",*first},{"input",high::evaluation(proof.evaluation,rules)},{"entry_observed_in_this_process",false}};
         retained=std::make_unique<high::Observation>(w,*target,rules);}
+    std::map<std::string,bool> failure_saved{{"first-current-failure",false},{"first-fire",false},{"first-devolution",false}};
+    std::map<std::string,std::uint64_t> creator_failure_ticks;
+    if(resumed&&!a.paid_strategy.empty())for(const auto& entry:expected_manifest) {
+        const auto label=entry.at("label").get<std::string>();
+        if(failure_saved.contains(label)) {
+            const auto tick=entry.at("tick").get<std::uint64_t>();creator_failure_ticks.emplace(label,tick);
+            if(tick<=begin)failure_saved.at(label)=true;
+        }
+    }
+    const auto failure_checkpoint=[&](const char* label,bool actual_event) {
+        if(a.paid_strategy.empty()||failure_saved.at(label))return;
+        if(resumed) {
+            // An old creator manifest may predate these observations. Never
+            // relabel a later replay event as its unknown historical first.
+            const auto expected=creator_failure_ticks.find(label);
+            if(expected==creator_failure_ticks.end()||expected->second!=w.ticks())return;
+            check(actual_event,"Creator first-failure checkpoint disagrees with the actual replay event");
+        }else if(!actual_event)return;
+        check(manifest.size()<128,"First-failure observation exceeds unchanged checkpoint manifest bound");
+        checkpoint14(c,a.output,label,w,manifest);failure_saved.at(label)=true;
+    };
     const auto tick_once=[&]{city.before(w);if(observed)observed->before(w);if(transported)transported->before(w);if(retained)retained->before(w);
+        if(diagnosis)diagnosis->before(w);
         const auto tick=w.ticks();w.tick();check(w.ticks()==tick+1,"World did not advance one actual tick");city.after(w);
-        if(observed)observed->after(w);if(transported)transported->after(w);if(retained)retained->after(w);};
+        if(observed)observed->after(w);if(transported)transported->after(w);if(retained)retained->after(w);
+        if(diagnosis)diagnosis->after(w);};
     try{while(stop_reason.empty()&&w.ticks()<requested_end){
-        if(!first){if(!strategy::apply(w,a.variant,commands,blocked)){stop_reason="Actual paid command refused";break;}target=strategy::elite(w);attach();}
-        const bool was_retaining=retained!=nullptr;tick_once();
+        const bool continued_timing=!a.paid_strategy.empty()&&paid_strategy::timing_recipe(a.paid_strategy);
+        if(!first||continued_timing){if(!apply_recipe()){stop_reason="Actual paid command refused";break;}target=strategy::elite(w);attach();}
+        if(!a.paid_strategy.empty()&&!paid_strategy::maintenance(w,a.paid_strategy,commands,blocked)) {
+            stop_reason="Actual paid maintenance command refused";break;
+        }
+        if(continued_timing&&retained)retain_min=std::min(retain_min,w.treasury());
+        const bool was_retaining=retained!=nullptr;
+        const auto previous_target_type=target?std::optional{q::house(w,*target).type}:std::nullopt;
+        tick_once();
         if(target){const auto& e=high::history(w,*target).last_evaluation;if(e&&e->tick==w.ticks())evaluation_provenance.push_back({{"tick",w.ticks()},{"provenance",provenance(w,*target)}});}
         if(target&&!first&&entered17(w,*target)){
             const auto& proof=*high::history(w,*target).first_transitions[14];check(proof.evaluation.tick==w.ticks(),"First success was not captured at exact actual16to17 tick");
@@ -143,12 +212,20 @@ void simulate(const Options& a){
             if(!resumed)requested_end=w.ticks()+20400;
         }
         if(was_retaining&&target){retain_min=std::min(retain_min,w.treasury());if(!entered17(w,*target))++lost;
-            const auto& e=high::history(w,*target).last_evaluation;if(e&&e->tick==w.ticks()){++evaluations;if(!orig::needs_met(rules,orig::house_row(e->input.type),e->input))++unmet;
-                if(!orig::needs_met(rules,orig::next_row(e->input.type),e->input))++next_unmet;}}
+            failure_checkpoint("first-fire",w.building_on_fire(*target));
+            failure_checkpoint("first-devolution",previous_target_type&&q::house(w,*target).type<*previous_target_type);
+            bool current_failed=false;
+            const auto& e=high::history(w,*target).last_evaluation;if(e&&e->tick==w.ticks()){++evaluations;current_failed=!orig::needs_met(rules,orig::house_row(e->input.type),e->input);if(current_failed)++unmet;
+                if(!orig::needs_met(rules,orig::next_row(e->input.type),e->input))++next_unmet;
+            }
+            failure_checkpoint("first-current-failure",current_failed);
+        }
         if(first&&w.ticks()==*first+10200)checkpoint14(c,a.output,"midpoint",w,manifest);
         else if(w.ticks()%8160==0)checkpoint14(c,a.output,"checkpoint-"+std::to_string(w.ticks()),w,manifest);
         compare_expected();
     }}catch(const std::exception& error){stop_reason=error.what();}
+    if(stop_reason.empty()&&!a.paid_strategy.empty()&&!paid_strategy::timing_purchases_complete(w,a.paid_strategy))
+        stop_reason="Bounded player strategy ended with unresolved actual-arrival purchase gates; no fallback purchase performed";
     try{q::authority(w);q::worker_oracle(w);checkpoint14(c,a.output,"result",w,manifest);compare_expected();}
     catch(const std::exception& error){write(a.output/"failed-run.json",{{"technical_status","FAIL"},{"tick",w.ticks()},
         {"tick_or_observer_error",stop_reason.empty()?Json(nullptr):Json(stop_reason)},{"authority_save_or_comparison_error",error.what()},
@@ -158,7 +235,7 @@ void simulate(const Options& a){
         for(const auto& entry:expected_manifest){const auto tick=entry.at("tick").get<std::uint64_t>();if(tick>=begin&&tick<=requested_end)check(compared.contains(entry.at("file").get<std::string>()),"Replay omitted an in-range complete checkpoint comparison");}}
     q::save::RecoveryStore recovery(a.output/"recovery-app",c.data,q::save::recovery_storage_budget_bytes,q::save::RecoveryAccess::OriginalProduction);
     const auto history=recovery.create_history(c.document(w),c.mask);const auto entry=recovery.write_checkpoint(history,c.document(w),c.mask);
-    check(entry.loadable()&&entry.schema==30&&entry.rule_version==14,"Recovery lost exact Rule14/schema30");auto recovered=restore14(c,q::save::read_save(entry.path));
+    check(entry.loadable()&&entry.schema==schema_for_rule(a.rule)&&entry.rule_version==a.rule,"Recovery lost exact selected rule/schema");auto recovered=restore_selected(c,q::save::read_save(entry.path),a.rule);
     check(recovered.snapshot()==w.snapshot()&&q::f::read_text(entry.path)==q::f::read_text(a.output/"result.save.json"),"Complete Recovery bytes or snapshot differ");
     const bool retained_pass=first&&w.ticks()==*first+20400&&lost==0&&unmet==0&&evaluations==400;
     Json retention=retained?retained->report(w):Json(nullptr);std::int64_t cashflow=0;if(retained)cashflow=retention.at("city").at("summary").at("operating_cashflow");
@@ -166,29 +243,178 @@ void simulate(const Options& a){
     write(a.output/"city-metrics.json",city.report(w));if(observed)write(a.output/"elite-metrics.json",observed->report(w));
     if(transported)write(a.output/"transport-metrics.json",transported->report(w));if(retained)write(a.output/"retention-metrics.json",retention);
     write(a.output/"commands.json",commands);write(a.output/"checkpoints.json",manifest);write(a.output/"evaluation-provenance.json",evaluation_provenance);
+    if(diagnosis)write(a.output/"oe44-diagnosis.json",diagnosis->finish(w));
     check(source_pins(a.data)==pins,"Original input bytes/modes/mtimes changed");if(resumed)check(q::f::read_text(a.input)==input&&q::f::read_text(a.expected)==expected_bytes,"Replay changed protected creator files");
     const Json outcome= !stop_reason.empty()?Json(stop_reason):!first?Json("Bounded search ended without actual Elite16-to-17; final paid population, phase gate, pending purchases and unmet needs are retained"):
         !retained_pass?Json("Actual Elite17 entry retained, but this observed interval does not certify 20400 uninterrupted ticks with 400 needs-met evaluations"):Json(nullptr);
-    write(a.output/"report.json",{{"format","openemperor-paid-elite-desirability-v1"},{"technical_status",stop_reason.empty()?"PASS":"PARTIAL"},
-        {"mode",a.mode},{"variant",a.variant},{"rule",14},{"schema",30},{"policy",3},{"revision",27},{"snapshot_injection",false},
+    Json report{{"format","openemperor-paid-elite-desirability-v1"},{"technical_status",stop_reason.empty()?"PASS":"PARTIAL"},
+        {"mode",a.mode},{"variant",a.variant},{"rule",w.rule_version()},{"schema",schema_for_rule(w.rule_version())},{"policy",3},{"revision",27},{"snapshot_injection",false},
         {"begin_tick",begin},{"end_tick",w.ticks()},{"paid_elite17",first?"PASS":"PARTIAL"},{"retention",first?(retained_pass?"PASS":"PARTIAL"):"NOT_RUN"},
         {"first_entry",first_entry},{"retention_observation_begin",retained?Json(std::max(begin,*first)):Json(nullptr)},
         {"retention_lost_ticks",lost},{"retention_current_unmet",unmet},{"retention_next_unmet",next_unmet},{"retention_evaluations",evaluations},
         {"operating_cashflow",cashflow},{"minimum_retention_funds",retain_min},{"financial_observed_ticks",financial_ticks},
         {"financial_stability",retained?(financial_ticks<20400?"PARTIAL":cashflow>=0&&retain_min>=0?"PASS":"FAIL"):"NOT_RUN"},
-        {"actual_blocker",outcome},{"last_refused_command",blocked},{"final_plan_and_actual_needs",strategy::status(w,a.variant)},
+        {"actual_blocker",outcome},{"last_refused_command",blocked},{"final_plan_and_actual_needs",a.paid_strategy.empty()?
+            strategy::status(w,a.variant):paid_strategy::status(w,a.paid_strategy)},
         {"final_provenance",target?provenance(w,*target):Json(nullptr)},{"complete_recovery_equality",true},
         {"separate_process_comparison",resumed?"PASS":"NOT_RUN"},{"checkpoint_comparisons",comparisons},{"source_pins",pins},
-        {"input_bytes_modes_mtimes_unchanged",true},{"original_executable_ran",false},{"native_human","NOT_RUN"}});
+        {"input_bytes_modes_mtimes_unchanged",true},{"original_executable_ran",false},{"native_human","NOT_RUN"}};
+    if(!a.paid_strategy.empty())report["paid_strategy"]=a.paid_strategy;
+    if(a.rule==15)report["inspector_coordination_contract"]=sim::original_inspector_coordination_contract;
+    write(a.output/"report.json",report);
     std::cout<<"OE40 actual Elite17="<<(first?"reached":"not reached")<<" retention="<<retained_pass<<" tick="<<w.ticks()<<'\n';
+}
+void render_inspector_matrix(const Options& a,oe::SandboxView& view,Sdl& sdl,
+        const std::string& input,const q::save::SaveDocument& saved,const fs::path& copy,
+        sim::BuildingId target,const Json& pins) {
+    check(a.rule==15&&a.diagnosis=="oe44"&&saved.source_schema_version==31&&
+        view.world().original_inspector_coordination_enabled(),"Exact explicit OE44 schema31 render required");
+    using Point=oe::scene::Point;
+    using Rect=oe::sandbox_ui::Rect;
+    Json captures=Json::array(),matrix=Json::array();std::uint64_t actions=0;
+    const auto pure=[&]{check(view.paused()&&view.world().snapshot()==saved.world,
+        "Inspector action changed complete World or paused state");};
+    const auto send=[&](SDL_Event e) {
+        check(SDL_PushEvent(&e),SDL_GetError());bool running=true;
+        while(SDL_PollEvent(&e)){view.handle_event(e,running);pure();}
+        check(running,"Inspector action exited actual View");view.update(0);pure();++actions;
+    };
+    const auto keyboard=[&](SDL_Keycode code){SDL_Event e{};e.type=SDL_EVENT_KEY_DOWN;e.key.key=code;send(e);
+        e={};e.type=SDL_EVENT_KEY_UP;e.key.key=code;send(e);};
+    const auto raw=[&](Point p){float x=0,y=0;check(SDL_RenderCoordinatesToWindow(sdl.renderer,float(p.x),float(p.y),&x,&y),
+        "Actual render-to-window transform failed");return Point{x,y};};
+    const auto middle=[](Rect r){return Point{r.x+r.w*.5,r.y+r.h*.5};};
+    const auto click=[&](Point p){const auto at=raw(p);const auto diagnostic=view.input_diagnostic_state(at);
+        check(diagnostic.ui&&diagnostic.render_position.has_value(),"Production UI diagnostic rejected its rendered hitbox");
+        SDL_Event e{};e.type=SDL_EVENT_MOUSE_MOTION;
+        e.motion.x=float(at.x);e.motion.y=float(at.y);send(e);
+        e={};e.type=SDL_EVENT_MOUSE_BUTTON_DOWN;e.button.button=SDL_BUTTON_LEFT;
+        e.button.x=float(at.x);e.button.y=float(at.y);send(e);e.type=SDL_EVENT_MOUSE_BUTTON_UP;send(e);};
+    const auto wheel=[&](Point p,float amount){const auto at=raw(p);SDL_Event e{};e.type=SDL_EVENT_MOUSE_WHEEL;
+        e.wheel.mouse_x=float(at.x);e.wheel.mouse_y=float(at.y);e.wheel.y=amount;send(e);};
+    const auto render=[&]{check(view.render(),"Actual OE44 inspector render failed");pure();};
+    SDL_Event focus{};focus.type=SDL_EVENT_WINDOW_FOCUS_GAINED;send(focus);
+    if(!view.layout().panel_open)keyboard(SDLK_TAB);
+    check(!view.selected_building()&&!view.original_house_inspector_active(),"Initial building list is not available");
+    check(SDL_SetWindowSize(sdl.window,1280,800),SDL_GetError());
+    SDL_Event resized{};resized.type=SDL_EVENT_WINDOW_RESIZED;resized.window.data1=1280;resized.window.data2=800;send(resized);render();
+    std::vector<sim::BuildingId> entries;for(const auto& b:view.world().buildings())if(b.placed)entries.push_back(b.id);
+    const auto found=std::find(entries.begin(),entries.end(),target);check(found!=entries.end(),"Actual Elite missing from building list");
+    const auto target_row=static_cast<std::size_t>(found-entries.begin());
+    auto layout=view.inspector_layout();check(layout.list_rows==entries.size(),"Production list identity/order differs");
+    wheel(middle(layout.content),1000000);render();std::vector<bool> list_seen(entries.size());
+    for(unsigned n=0;;++n){check(n<1024,"Building list traversal exceeded its bound");layout=view.inspector_layout();
+        for(std::size_t i=0;i<entries.size();++i)if(layout.list_row_rect(i).h>0)list_seen[i]=true;
+        if(layout.scroll==layout.scroll_limit)break;
+        const auto before=layout.scroll;wheel(middle(layout.content),-1);render();
+        check(view.inspector_scroll()>before,"Production building list scroll stalled");
+    }
+    check(std::all_of(list_seen.begin(),list_seen.end(),[](bool v){return v;}),"A production building list row is unreachable");
+    // Existing OE42 contract: fragments and fixed header/footer cannot select.
+    wheel(middle(layout.content),1000000);render();
+    wheel(middle(view.inspector_layout().content),-1);render();
+    layout=view.inspector_layout();const auto panel=view.layout().panel;std::size_t fragment_probes=0;
+    for(const Point p:{Point{panel.x+panel.w*.5,double(panel.y+2)},Point{panel.x+panel.w*.5,double(panel.y+panel.h-2)}}){
+        click(p);check(!view.selected_building(),"Header/footer selected an invisible list entry");}
+    for(std::size_t i=0;i<entries.size();++i)if(layout.list_row_rect(i).h==0){
+        const int y=layout.list_y+int(i)*18*layout.scale-layout.scroll;
+        const int top=std::max(y-2*layout.scale,layout.content.y),bottom=std::min(y+16*layout.scale,layout.content.y+layout.content.h);
+        if(top>=bottom)continue;
+        const Point p{layout.content.x+layout.content.w*.5,(top+bottom)*.5};
+        check(!layout.list_row_at(p.x,p.y),"Partial list row retained a layout hitbox");click(p);
+        check(!view.selected_building(),"Clipped invisible list row remained clickable");++fragment_probes;
+    }
+    check(fragment_probes>0,"No actually clipped list fragment was probed");
+    wheel(middle(layout.content),1000000);render();
+    for(unsigned n=0;;++n){check(n<1024,"Elite list selection exceeded its bound");layout=view.inspector_layout();
+        const auto row=layout.list_row_rect(target_row);
+        if(row.h>0){check(layout.list_row_at(middle(row).x,middle(row).y)==target_row,"Elite list hitbox differs");click(middle(row));break;}
+        check(layout.scroll<layout.scroll_limit,"Actual Elite list row is unreachable");wheel(middle(layout.content),-1);render();
+    }
+    check(view.selected_building()==target&&view.original_house_inspector_active(),"Actual list click did not select the paid Elite");
+    const auto visual=view.original_house_visual_diagnostic(target);
+    check(visual.applicable&&visual.active&&visual.image_width>0&&visual.image_height>0,
+        "Paid Elite lacks active original sprite bounds; do not claim original display");
+    const Point art_center{visual.image_origin.x+visual.image_width*.5,visual.image_origin.y+visual.image_height*.5};
+    const auto zoom=[&](double wanted,Point anchor){wheel(anchor,float(std::log(wanted/view.camera().zoom)/std::log(1.15)));
+        check(std::abs(view.camera().zoom-wanted)<1e-5,"Normal wheel zoom differs");};
+    const auto center_art=[&](double wanted){const auto map=view.layout().map;const auto m=middle(map);zoom(1,m);
+        bool centered=false;for(unsigned n=0;n<48;++n){const auto p=view.camera().world_to_screen(art_center);
+            const double dx=m.x-p.x,dy=m.y-p.y;if(std::abs(dx)<.01&&std::abs(dy)<.01){centered=true;break;}
+            const double x=std::clamp(dx,-map.w*.3,map.w*.3),y=std::clamp(dy,-map.h*.3,map.h*.3);
+            zoom(2,{m.x-x,m.y-y});zoom(1,{m.x+x,m.y+y});}
+        check(centered,"Bounded normal-wheel art centering did not converge");zoom(wanted,m);render();};
+    const auto capture=[&](const std::string& name,const std::string& position){render();
+        std::unique_ptr<SDL_Surface,decltype(&SDL_DestroySurface)> frame(SDL_RenderReadPixels(sdl.renderer,nullptr),SDL_DestroySurface);
+        const auto file=a.output/(name+".png");check(frame&&!fs::exists(file)&&SDL_SavePNG(frame.get(),file.string().c_str()),"Cannot capture actual inspector frame");
+        const auto origin=view.camera().world_to_screen(visual.image_origin);const auto map=view.layout().map;
+        const auto displayed=view.original_house_display_stats();const auto slot=static_cast<std::size_t>(visual.house_type)-2;
+        check(slot<displayed.drawn_instances.size()&&displayed.drawn_instances[slot]>0&&displayed.authored_fallbacks[slot]==0,
+            "Centered paid Elite type was not drawn with original art");
+        const double width=visual.image_width*view.camera().zoom,height=visual.image_height*view.camera().zoom;
+        const double visible_w=std::max(0.0,std::min(origin.x+width,double(map.x+map.w))-std::max(origin.x,double(map.x)));
+        const double visible_h=std::max(0.0,std::min(origin.y+height,double(map.y+map.h))-std::max(origin.y,double(map.y)));
+        captures.push_back({{"file",file.filename().string()},{"width",frame->w},{"height",frame->h},
+            {"zoom",view.camera().zoom},{"section",static_cast<unsigned>(view.original_house_section())},{"scroll",view.original_house_scroll()},
+            {"position",position},{"selected_owner",static_cast<unsigned>(target)},{"visually_inspected",false},
+            {"sprite_screen_bounds",{origin.x,origin.y,width,height}},{"visible_sprite_area_fraction",visible_w*visible_h/(width*height)},
+            {"sprite_fits_viewport",width<=map.w&&height<=map.h},{"target_type_original_draws",displayed.drawn_instances[slot]},
+            {"target_type_authored_fallbacks",displayed.authored_fallbacks[slot]},{"complete_world_equal",true},{"paused",true}});
+        pure();};
+    for(const auto size:std::array<std::array<int,2>,3>{{{1280,800},{1600,900},{1920,1080}}}){
+        check(SDL_SetWindowSize(sdl.window,size[0],size[1]),SDL_GetError());resized={};resized.type=SDL_EVENT_WINDOW_RESIZED;
+        resized.window.data1=size[0];resized.window.data2=size[1];send(resized);send(focus);render();
+        int output_w=0,output_h=0;check(SDL_GetRenderOutputSize(sdl.renderer,&output_w,&output_h)&&output_w==size[0]&&output_h==size[1],
+            "Actual renderer dimensions differ from requested matrix");
+        for(const unsigned z:{1U,2U,4U}){center_art(z);
+            for(unsigned index=0;index<4;++index){const auto section=static_cast<oe::SandboxView::OriginalHouseSection>(index);
+                const auto tab=view.original_house_section_rect(section);check(tab.h>0&&tab.w>0,"Production tab is not visible");click(middle(tab));render();
+                check(view.selected_building()==target&&view.original_house_section()==section,"Actual House tab hitbox selected another state");
+                const auto content=view.original_house_content_rect();const auto lines=view.original_house_section_lines();
+                check(content.w>0&&content.h>0&&!lines.empty(),"Production section has no readable content");
+                wheel(middle(content),1000000);render();check(view.original_house_scroll()==0,"House section cannot return to top");
+                const auto name=std::to_string(output_w)+"x"+std::to_string(output_h)+"-"+std::to_string(z)+"x-section"+std::to_string(index);
+                capture(name+"-top","top");std::vector<bool> seen(lines.size());
+                for(unsigned n=0;;++n){check(n<512,"House section traversal exceeded bound");const auto scroll=view.original_house_scroll();
+                    const int scale=view.layout().scale;for(std::size_t row=0;row<lines.size();++row)
+                        if(oe::sandbox_ui::visible_text_row(content.y+int(row)*17*scale-scroll,12*scale,content).h>0)seen[row]=true;
+                    wheel(middle(content),-1);render();if(view.original_house_scroll()==scroll)break;
+                    check(view.original_house_scroll()>scroll,"House section scrolled backwards");
+                }
+                check(std::all_of(seen.begin(),seen.end(),[](bool v){return v;}),"At least one actual House section line is unreachable");
+                if(view.original_house_scroll()>0)capture(name+"-end","end");
+                const auto before_save=view.save_generation();keyboard(SDLK_F5);
+                check(view.save_generation()==before_save+1,"Per-case F5 did not complete exactly one actual save");
+                check(q::f::read_text(copy)==input,"Per-case F5 canonical schema31 bytes differ");
+                const auto before_load=view.load_generation();keyboard(SDLK_F9);
+                check(view.load_generation()==before_load+1,"Per-case F9 did not complete exactly one actual load");
+                check(q::f::read_text(copy)==input&&view.world().snapshot()==saved.world&&view.paused(),"Per-case F9 changed complete saved authority");
+                matrix.push_back({{"width",output_w},{"height",output_h},{"zoom",z},{"section",index},
+                    {"rows",lines.size()},{"all_rows_reachable",true},{"complete_f5_f9_equality",true},{"status","PASS"}});
+            }
+        }
+    }
+    check(matrix.size()==36&&captures.size()<=72,"Unexpected bounded inspector matrix size");
+    check(q::f::read_text(a.input)==input&&source_pins(a.data)==pins,"Inspector render changed protected input or original source pins");
+    write(a.output/"report.json",{{"format","openemperor-oe44-inspector-view-v1"},{"status","PASS"},
+        {"rule",15},{"schema",31},{"inspector_coordination_contract",sim::original_inspector_coordination_contract},
+        {"actual_sandbox_renderer",true},{"backend",SDL_GetRendererName(sdl.renderer)},{"scripted_dummy_software",true},
+        {"target",static_cast<unsigned>(target)},{"actual_type",visual.house_type},{"actual_side",visual.actual_side},
+        {"selected_via_actual_building_list",true},{"list_rows_reached",list_seen.size()},{"invisible_list_hits_refused",true},
+        {"actually_clipped_fragment_probes",fragment_probes},{"save_load_generations_checked",true},
+        {"sprite_center_authority","production OriginalHouseVisualDiagnostic image_origin/width/height"},
+        {"matrix",matrix},{"captures",captures},{"checked_actions",actions},{"world_unchanged",true},{"paused_after_every_action",true},
+        {"complete_f5_f9_equality",true},{"source_inputs_unchanged",true},{"captures_visually_inspected",false},{"native_human","NOT_RUN"}});
 }
 void render14(const Options& a){
     const auto pins=source_pins(a.data);const auto c=q::Context::real(a.data);const auto input=q::f::read_text(a.input);const auto d=q::save::read_save(a.input);
-    auto restored=restore14(c,d);q::authority(restored);const auto target=strategy::elite(restored);check(target.has_value(),"Render save has no actual paid Elite family");
+    auto restored=restore_selected(c,d,a.rule);q::authority(restored);const auto target=strategy::elite(restored);check(target.has_value(),"Render save has no actual paid Elite family");
     fs::create_directories(a.output);const auto copy=a.output/"view.save.json";q::f::write_text(copy,input);Sdl sdl;
     auto session=oe::maps::load_stored_map_session(c.data,c.map_relative,oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8,
         oe::maps::GreatWallPresentationMode::Automatic,{},true);
-    auto view=oe::SandboxView::create_original_cardinal_water(std::move(session),orig::Difficulty::Normal,false);view->configure_save(c.data,c.map_relative,copy);
+    auto view=a.rule==15?oe::SandboxView::create_original_inspector_coordination(std::move(session),orig::Difficulty::Normal,false):
+        oe::SandboxView::create_original_cardinal_water(std::move(session),orig::Difficulty::Normal,false);
+    view->configure_save(c.data,c.map_relative,copy);
     const auto art=oe::detect_and_select_visual_profiles(c.data,a.resources);
     if(!art.walker.empty())view->set_walker_visuals(art.walker,art.walker_source);if(!art.building.empty())view->set_building_visuals(art.building,art.building_source);
     if(!art.road.empty())view->set_road_visuals(art.road,art.road_source);view->set_fire_visuals(art.fire,art.fire_source,art.fire_fallback_reason);
@@ -197,8 +423,18 @@ void render14(const Options& a){
     view->set_service_walker_visuals(art.service_walker,art.service_walker_source,art.service_walker_fallback_reason);
     view->set_health_walker_visuals(art.health_walker,art.health_walker_source,art.health_walker_fallback_reason);
     view->set_original_house_visuals(art.original_house,art.original_house_source,art.original_house_fallback_reason);
-    view->initialize(sdl.window,sdl.renderer);key(*view,SDLK_F9);check(view->paused()&&view->world().snapshot()==d.world,"Actual Rule14 View F9 differs");
-    key(*view,SDLK_F5);check(q::f::read_text(copy)==input,"Actual Rule14 View F5 canonical bytes differ");
+    view->initialize(sdl.window,sdl.renderer);const auto before_initial_load=view->load_generation();
+    key(*view,SDLK_F9);check(view->paused()&&view->world().snapshot()==d.world,"Actual Rule14 View F9 differs");
+    if(a.rule==15&&a.diagnosis=="oe44")check(view->load_generation()==before_initial_load+1,
+        "Initial OE44 F9 did not complete exactly one actual load");
+    const auto before_initial_save=view->save_generation();key(*view,SDLK_F5);
+    check(q::f::read_text(copy)==input,"Actual Rule14 View F5 canonical bytes differ");
+    if(a.rule==15&&a.diagnosis=="oe44")check(view->save_generation()==before_initial_save+1,
+        "Initial OE44 F5 did not complete exactly one actual save");
+    if(a.rule==15&&a.diagnosis=="oe44") {
+        render_inspector_matrix(a,*view,sdl,input,d,copy,*target,pins);
+        view->shutdown();return;
+    }
     SDL_Event focus{};focus.type=SDL_EVENT_WINDOW_FOCUS_GAINED;bool running=true;view->handle_event(focus,running);
     const auto visual=view->original_house_visual_diagnostic(*target);check(visual.applicable&&std::isfinite(visual.ground.x)&&std::isfinite(visual.ground.y),"Actual Elite renderer lacks a finite production anchor");
     const auto at=visual.ground;Json captures=Json::array();
@@ -217,7 +453,7 @@ void render14(const Options& a){
             {"frame_original_house_art_configured",drawn.configured},{"frame_original_house_art_active",drawn.active}});}
     key(*view,SDLK_F9);key(*view,SDLK_F5);check(view->world().snapshot()==d.world&&q::f::read_text(copy)==input&&q::f::read_text(a.input)==input,"Post-capture F5/F9 differs");view->shutdown();
     check(source_pins(a.data)==pins,"Rendering changed original inputs");write(a.output/"report.json",{{"format","openemperor-elite-desirability-view-v1"},{"status","PASS"},
-        {"rule",14},{"schema",30},{"actual_sandbox_renderer",true},{"backend",SDL_GetRendererName(sdl.renderer)},{"complete_f5_f9_equality",true},
+        {"rule",a.rule},{"schema",schema_for_rule(a.rule)},{"actual_sandbox_renderer",true},{"backend",SDL_GetRendererName(sdl.renderer)},{"complete_f5_f9_equality",true},
         {"target",static_cast<unsigned>(*target)},{"actual_type",visual.house_type},{"actual_side",visual.actual_side},
         {"original_house_art_configured",visual.configured},{"original_house_art_active",visual.active},{"original_house_asset_selected",visual.asset.has_value()},
         {"original_house_fallback_reason",visual.fallback_reason},{"captures",captures},{"captures_visually_inspected",false},
