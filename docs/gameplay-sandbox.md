@@ -47,6 +47,42 @@ remain unchanged; [market diagnosis](original-economy/oe39-market-diagnosis.md)
 and [retention assessment](original-economy/oe39-market-retention.md) separate
 measured logistics from long-term progression and fire safety.
 
+**W Cardinal-water economy** and **I Inspector coordination** separately select
+Rule14/schema30 and the authored Rule15/schema31 experiment. **D Deadline-aware
+fire dispatch** selects the separate authored **Rule16/schema32/Policy3**
+experiment, also available as `--original-deadline-fire-dispatch` with the explicit
+City-v16 sandbox CLI arguments. It inherits the source-bound terrain,
+needs-aware market selection and revision27 economy. Its Inspector dispatcher
+compares real physical deadlines and travel times across eligible building
+classes; only actual arrivals protect buildings. The exact schema32 marker is
+`authored-deadline-fire-dispatch-v1`; inherited source/market/cardinal identities
+remain required. There are no added resources, passive protection, model, cost,
+limit or timing changes. Rules1–15, saved generations and general defaults remain
+exact. The [OE45 assessment](original-economy/oe45-fire-coverage.md) records a paid
+near-Watch/grid plan with20400 consecutive Elite17 ticks,400/400 current needs,
+no target fire/devolution/vacancy and+4951 operating cashflow. Other city
+buildings still burn and miss needs; indefinite stability remains unproven.
+
+**T Deadline-aware services** separately selects authored **Rule17/schema33/Policy3**,
+also available as `--original-deadline-service-dispatch` with the explicit City-v16
+sandbox arguments. It inherits Rule16's paid fire dispatch and economy, and changes
+only real service target selection using actual expiry, travel and incoming visits.
+Only arrival renews the unchanged service timer. Its exact marker is
+`authored-deadline-service-dispatch-v1`; inherited fire/market/cardinal/source
+identities stay mandatory. Rules1–16 and their saves do not migrate. The
+[OE46 assessment](original-economy/oe46-citywide-reliability.md) records the
+separate citywide diagnosis, paid controls and gameplay acceptance.
+
+**U Deadline-aware food** separately selects authored **Rule18/schema34/Policy3**,
+also available as `--original-deadline-food-dispatch`. It inherits Rule17's paid
+services, fire and economy. Only Market-to-House Food target selection changes;
+physical arrival still owns delivery and quality. Farm-to-Market selection,
+consumption, capacities, movement, prices, installed upkeep and limits stay exact.
+Schema34 requires `authored-deadline-food-dispatch-v1` and all inherited markers.
+Historical Rules1–17 do not migrate. See the
+[OE47 assessment](original-economy/oe47-food-reliability.md) for measured outcomes
+and the remaining limits.
+
 ## Legacy profiles and save compatibility
 
 These profiles remain selectable/readable for compatibility; their milestone
@@ -82,6 +118,10 @@ removal gives no refund; rejected/unchanged commands spend nothing.
 | City-v16 rule 12 | 28 | 12000 | Three Food chains; installed-worker upkeep every 816 ticks; Rule11 fire protection | Rule10 goal |
 | City-v16 rule 13 | 29 | 12000 | Authored needs-aware Warehouse/Market goods selection; inherits Rule12's unchanged economy and bounds | Rule10 goal |
 | City-v16 rule 14 | 30 | 12000 | Source-bound cardinal-water House DES; inherits Rule13 and all economy/bounds | Rule10 goal |
+| City-v16 rule 15 | 31 | 12000 | Authored Inspector coordination; exact marker, inherited Rule14 terrain/economy and unchanged bounds | Rule10 goal |
+| City-v16 rule 16 | 32 | 12000 | Authored deadline-aware Inspector dispatch; exact marker, inherited source/terrain/market/economy and unchanged costs/limits/times | Rule10 goal |
+| City-v16 rule 17 | 33 | 12000 | Authored deadline-aware service selection; exact marker, inherited Rule16 fire/economy and unchanged workers, models, costs, bounds and timers | Rule10 goal |
+| City-v16 rule 18 | 34 | 12000 | Authored deadline-aware Market-to-House Food selection; exact marker, inherited Rule17 services/fire/economy and unchanged production, transport, consumption and limits | Rule10 goal |
 
 Schemas 1–9 keep their historical fixed collection/one-cell semantics. City-v7
 has ten building/six courier entries; City-v8/v9 have eleven/seven. City-v6–8

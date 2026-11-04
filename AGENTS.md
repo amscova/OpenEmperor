@@ -46,6 +46,36 @@
   real protection for future dispatches. No new saved authority or protection
   grant; all Rules1–14, limits, needs, costs and defaults remain exact. This
   experiment does not establish uninterrupted Elite17 retention.
+  Authored deadline-aware fire dispatch is a separate explicit rule16/policy3/
+  schema32 experiment with marker `authored-deadline-fire-dispatch-v1` and separate
+  create/restore, D menu and CLI selection. It inherits the source-bound terrain,
+  market and revision27 economy; Rules1–15 and their schemas stay exact. Rank
+  physically reachable targets without a building-class or Elite preference by
+  feasible deadline slack, then deadline, round-trip time and the existing cursor;
+  use one bounded pivot exchange when a shorter earlier-deadline visit and its
+  real return preserve both deadlines while the reverse order misses one;
+  coalesce real incoming trips only with a usable physical ETA. No new saved
+  authority, passive protection, timer/resource grant, model/cost/limit change or
+  automatic migration. Retention and effects on the other homes require the
+  separate [OE45 assessment](docs/original-economy/oe45-fire-coverage.md).
+  Authored deadline-aware service selection is a separate explicit rule17/policy3/
+  schema33 experiment with marker `authored-deadline-service-dispatch-v1`, separate
+  create/restore, T menu and CLI selection. It inherits Rule16 fire dispatch and
+  the revision27 economy unchanged. Rank eligible occupied House visits using
+  actual witness-derived expiry, physical outward/return times and the complete
+  canonical House cursor; coalesce only usable actual same-role incoming trips.
+  Only arrival renews the existing timer. No new saved authority, workers, timer,
+  goods, model, cost or limit changes; Rules1–16/schemas1–32 remain exact without
+  migration. Citywide acceptance remains a separate
+  [OE46 assessment](docs/original-economy/oe46-citywide-reliability.md).
+  Authored deadline-aware Food distribution is a separate explicit rule18/policy3/
+  schema34 experiment with marker `authored-deadline-food-dispatch-v1`. It inherits
+  Rule17's services, fire and economy. Only Market-to-House Food target selection
+  changes; Farm-to-Market selection, portions, capacities, movement and consumption
+  remain exact. Use physical stock, usable actual incoming cargo and existing
+  prepared routes; retain the complete canonical House cursor for ties. No new
+  saved authority or migration; Rules1–17/schemas1–33 remain exact. See the
+  [OE47 assessment](docs/original-economy/oe47-food-reliability.md).
 - Saves are OpenEmperor JSON, never original Emperor savegames. Validate complete
   identities, versions, source hashes, geometry, accounting, goods, paths and limits
   before atomic publication. Derived indexes/caches do not become saved authority.
