@@ -8,3 +8,5 @@
 /src/simulation/World.h text eol=lf
 /src/simulation/OriginalTerrainFacts.h text eol=lf
 /src/simulation/OriginalHousingDiagnosis.h text eol=lf
+/src/simulation/AuthoredLandTrade.h text eol=lf
+/src/simulation/SourceCellRamp.h text eol=lf

@@ -139,7 +139,7 @@ int main(int argc,char** argv) {
                         }
                         if(output&&level==0&&elevated&&zoom!=1.73) {
                             const auto name=std::string(names[direction])+"-"+std::to_string(size.first)+"x"+std::to_string(size.second)+"-"+std::to_string(int(zoom))+"x.png";
-                            check(SDL_SavePNG(first.get(),(*output/name).c_str()),SDL_GetError());
+                            check(SDL_SavePNG(first.get(),(*output/name).string().c_str()),SDL_GetError());
                             captures.push_back({{"file",name},{"direction",names[direction]},{"size",{size.first,size.second}},{"zoom",zoom},
                                 {"runtime","SYNTHETIC_SDL dummy/software"},{"owned_rgba32_target",true},{"readback_before_present",true}});
                         }

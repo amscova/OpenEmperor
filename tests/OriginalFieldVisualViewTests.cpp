@@ -156,7 +156,11 @@ Surface capture(oe::SandboxView& view,SDL_Renderer* renderer,const fs::path& fil
     return rgba;
 }
 Color pixel(const SDL_Surface& image,Point p) {
-    const auto x=static_cast<int>(p.x),y=static_cast<int>(p.y);
+    // Witnesses are often analytic points that land exactly on a pixel edge (for example y=284.0).
+    // Camera zoom reaches nominal 1 only to ~1e-15 and that noise is libm-dependent, so an exact-edge
+    // point would read either neighbouring row. SDL software destination rects are truncated, so an
+    // edge belongs to the pixel above/left; bias deterministically instead of depending on the noise.
+    const auto x=static_cast<int>(std::floor(p.x-1e-6)),y=static_cast<int>(std::floor(p.y-1e-6));
     check(x>=0&&y>=0&&x<image.w&&y<image.h,"Pixel witness escaped the actual output");
     const auto* value=static_cast<const std::uint8_t*>(image.pixels)+y*image.pitch+x*4;
     return {value[0],value[1],value[2],value[3]};

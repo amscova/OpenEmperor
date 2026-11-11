@@ -261,7 +261,9 @@ class ProjectLicenseProvenance(unittest.TestCase):
         payload = b"Independently authored notice\r\nExact bytes\r\n"
         (self.root / "LICENSE").write_bytes(payload)
         with mock.patch.object(package.os, "O_NOFOLLOW", 0, create=True):
-            del package.os.O_NOFOLLOW
+            # Windows lacks the flag; the patched 0 already equals "absent" and mock cannot restore a deleted created attribute.
+            if package.os.name != "nt":
+                del package.os.O_NOFOLLOW
             result = package.project_license_report(self.root)
         self.assertEqual(result["project_license_provenance"]["sha256"],
                          hashlib.sha256(payload).hexdigest())
@@ -294,7 +296,9 @@ class ProjectLicenseProvenance(unittest.TestCase):
         with mock.patch.object(package.os, "O_NOFOLLOW", 0, create=True), \
              mock.patch.object(package.os, "open", side_effect=lambda _path, flags: original_open(other, flags)), \
              mock.patch.object(package.os, "fdopen", side_effect=NoContentRead) as fdopen:
-            del package.os.O_NOFOLLOW
+            # Windows lacks the flag; the patched 0 already equals "absent" and mock cannot restore a deleted created attribute.
+            if package.os.name != "nt":
+                del package.os.O_NOFOLLOW
             with self.assertRaisesRegex(ValueError, "changed during"):
                 package.project_license_report(self.root)
         self.assertEqual(fdopen.call_count, 1)

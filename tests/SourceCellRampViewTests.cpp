@@ -51,7 +51,7 @@ void capture(oe::SandboxView& view,SDL_Renderer* renderer,const fs::path& path){
     check(SDL_SetRenderTarget(renderer,target),"Set owned target failed");check(view.render(),"Production capture render failed");
     auto* image=SDL_RenderReadPixels(renderer,nullptr);check(image,"Pre-Present readback failed");
     check(SDL_SetRenderTarget(renderer,nullptr),"Restore default target failed");SDL_DestroyTexture(target);
-    check(SDL_SavePNG(image,path.c_str()),"Private PNG write failed");SDL_DestroySurface(image);
+    check(SDL_SavePNG(image,path.string().c_str()),"Private PNG write failed");SDL_DestroySurface(image);
     check(view.world().snapshot()==snapshot&&view.camera().zoom==camera.zoom&&view.camera().offset.x==camera.offset.x&&view.camera().offset.y==camera.offset.y,"Capture mutated World/camera");
 }
 void one(const fs::path& output,int index,sim::Cell direction,int base,SDL_Window* window,SDL_Renderer* renderer){

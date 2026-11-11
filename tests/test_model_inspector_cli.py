@@ -61,7 +61,7 @@ class InspectorTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stderr), (0, ""))
         data = json.loads(result.stdout)
         self.assertEqual(data, {"status": "validated", "evidence": "RAW MODEL FACT",
-            "reader_format_version": 1, "source_kind": "file", "source_path": str(self.source),
+            "reader_format_version": 1, "source_kind": "file", "source_path": self.source.as_posix(),
             "sha256": hashlib.sha256(self.before[0]).hexdigest(), "byte_count": len(self.before[0]),
             "building_rows": 3, "house_rows": 15, "building_modifier_rows": 5,
             "house_modifier_rows": 5, "building_fields": 13, "house_fields": 24})
