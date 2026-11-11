@@ -34,6 +34,46 @@
 
 namespace openemperor {
 namespace {
+// Authored ground-only presentation for an actual Common2x2 Vacant House.
+// The front-cell ground is shared with native House sprites. The complete
+// logical footprint spans x +/-80 and y -60..20 around that point; every
+// primitive below stays inset. No source image or lifecycle choice is implied.
+constexpr double vacant_foundation_half_width=72;
+constexpr double vacant_foundation_half_height=36;
+bool draw_vacant_foundation(SDL_Renderer* renderer,scene::Point ground,double zoom,bool preview) {
+    SDL_BlendMode previous=SDL_BLENDMODE_NONE;
+    if(preview && (!SDL_GetRenderDrawBlendMode(renderer,&previous) ||
+        !SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND)))return false;
+    struct RestoreBlend {
+        SDL_Renderer* renderer;SDL_BlendMode previous;bool active;
+        ~RestoreBlend() { if(active)(void)SDL_SetRenderDrawBlendMode(renderer,previous); }
+    } restore{renderer,previous,preview};
+    const float alpha=preview ? .45F:1.F;
+    const auto quad=[&](const std::array<scene::Point,4>& offsets,SDL_Color color) {
+        std::array<SDL_Vertex,4> vertices{};
+        for(std::size_t i=0;i<offsets.size();++i)
+            vertices[i]={{static_cast<float>(ground.x+offsets[i].x*zoom),
+                          static_cast<float>(ground.y+offsets[i].y*zoom)},
+                         {color.r/255.F,color.g/255.F,color.b/255.F,alpha},{}};
+        constexpr int indices[]{0,1,2,0,2,3};
+        return SDL_RenderGeometry(renderer,nullptr,vertices.data(),4,indices,6);
+    };
+    const auto diamond=[&](double width,double height,SDL_Color color) {
+        return quad({scene::Point{0,-20-height},{width,-20},{0,-20+height},{-width,-20}},color);
+    };
+    // Dark edge, cleared earth, pale masonry and an unroofed earthen interior
+    // remain distinguishable on both light and dark grass without selection.
+    if(!diamond(vacant_foundation_half_width,vacant_foundation_half_height,{61,50,37,255}) ||
+       !diamond(68,34,{185,143,91,255}) || !diamond(52,26,{222,212,183,255}) ||
+       !diamond(43,21.5,{113,89,64,255}))return false;
+    // Two short inset timber planks distinguish a prepared plot from a roof.
+    return quad({scene::Point{-27,-23},{-5,-12},{-10,-9.5},{-32,-20.5}},{193,158,108,255}) &&
+        quad({scene::Point{-18,-28},{4,-17},{-1,-14.5},{-23,-25.5}},{222,187,131,255});
+}
+bool hit_vacant_foundation(scene::Point point,scene::Point ground,double zoom) {
+    return zoom>0 && std::abs((point.x-ground.x)/zoom)/vacant_foundation_half_width+
+        std::abs((point.y-ground.y)/zoom+20)/vacant_foundation_half_height<=1;
+}
 const char* original_house_section_name(original_house_ui::Section section) {
     switch (section) {
     case original_house_ui::Section::State:return "State";
@@ -94,6 +134,12 @@ const IndustryTool* industry_kind(simulation::Object kind) {
     return nullptr;
 }
 constexpr std::array<const char*,5> aux_names{"Wood","Bronze","RawSilk","Lacquer","Paper"};
+// Eager constant template shared by authored Theatre drawing and picking.
+constexpr std::array<simulation::Cell,16> theatre_ground_offsets=[] {
+    std::array<simulation::Cell,16> cells{};
+    for(int y=0;y<4;++y)for(int x=0;x<4;++x)cells[static_cast<std::size_t>(y*4+x)]={x,y};
+    return cells;
+}();
 const char* original_difficulty_name(original::Difficulty difficulty) {
     constexpr std::array names{"Very easy","Easy","Normal","Hard","Very hard"};
     return names.at(static_cast<std::size_t>(difficulty));
@@ -141,6 +187,7 @@ const char* courier_role_label(simulation::CourierRole role) {
     switch (role) {
     case simulation::CourierRole::Clay: return "Clay";
     case simulation::CourierRole::Pottery: return "Pottery";
+    case simulation::CourierRole::AuthoredLandTrader: return "AuthoredLandTrader";
     case simulation::CourierRole::Household: return "Household";
     case simulation::CourierRole::Food: return "Food";
     case simulation::CourierRole::Service: return "Service";
@@ -159,6 +206,8 @@ const char* courier_role_label(simulation::CourierRole role) {
     case simulation::CourierRole::OriginalBuddhist: return "Buddhist";
     case simulation::CourierRole::OriginalConfucian: return "Confucian";
     case simulation::CourierRole::OriginalMusic: return "Music";
+    case simulation::CourierRole::OriginalMusicPerformer: return "Music performer34";
+    case simulation::CourierRole::OriginalVenueMusic: return "Venue Music walker36";
     case simulation::CourierRole::OriginalAcrobat: return "Acrobat";
     case simulation::CourierRole::OriginalDrama: return "Drama";
     case simulation::CourierRole::OriginalLuxuryToWarehouse: return "LuxuryToWarehouse";
@@ -178,6 +227,7 @@ std::optional<original::ServiceRole> original_service_role(simulation::CourierRo
     case simulation::CourierRole::OriginalBuddhist: return original::ServiceRole::Buddhist;
     case simulation::CourierRole::OriginalConfucian: return original::ServiceRole::Confucian;
     case simulation::CourierRole::OriginalMusic: return original::ServiceRole::Music;
+    case simulation::CourierRole::OriginalVenueMusic: return original::ServiceRole::Music;
     case simulation::CourierRole::OriginalAcrobat: return original::ServiceRole::Acrobat;
     case simulation::CourierRole::OriginalDrama: return original::ServiceRole::Drama;
     default: return std::nullopt;
@@ -271,6 +321,7 @@ const char* tool_name(simulation::RulesProfile rules,int tool) {
         case 27: return "Acrobat School: experimental direct school-to-House visits";
         case 28: return "Drama School: experimental direct school-to-House visits";
         case 41: return "Elite plot: paid2x2; free4x4 growth area needed for first residents";
+        case 42: return "Theatre75: paid4x4; actual Music arrival; no House effect";
 
         default: return "Select";
         }
@@ -313,6 +364,7 @@ const char* object_name(simulation::Object object) {
     case simulation::Object::OriginalMusicSchool211: return "Music School";
     case simulation::Object::OriginalAcrobatSchool212: return "Acrobat School";
     case simulation::Object::OriginalDramaSchool213: return "Drama School";
+    case simulation::Object::OriginalTheatre75: return "Theatre Pavilion75 (4x4)";
     case simulation::Object::OriginalLoggingShed38:
     case simulation::Object::OriginalBronzeSmelter39:
     case simulation::Object::OriginalBronzewareMaker42:
@@ -362,6 +414,7 @@ simulation::CommandType command_type(simulation::RulesProfile rules,int tool,boo
         case 27: return simulation::CommandType::PlaceOriginalAcrobatSchool;
         case 28: return simulation::CommandType::PlaceOriginalDramaSchool;
         case 41: return simulation::CommandType::PlaceOriginalElitePlot;
+        case 42: return simulation::CommandType::PlaceOriginalTheatre;
 
         default: return simulation::CommandType::PlaceHousehold;
         }
@@ -498,6 +551,56 @@ std::unique_ptr<SandboxView> SandboxView::create_original_deadline_food_dispatch
     return result;
 }
 
+std::unique_ptr<SandboxView> SandboxView::create_original_music_venues(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original music-venue difficulty");
+    if (session.input_sha256.empty())
+        throw std::invalid_argument("Rule22 requires a source-bound map session");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalMusicVenuesRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
+
+std::unique_ptr<SandboxView> SandboxView::create_original_venue_house_service(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original venue-House-service difficulty");
+    if (session.input_sha256.empty())
+        throw std::invalid_argument("Rule23 requires a source-bound map session");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalVenueHouseServiceRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
+
+std::unique_ptr<SandboxView> SandboxView::create_original_safe_demolition(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty,bool paid_starter) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid original safe-demolition difficulty");
+    if (session.input_sha256.empty())
+        throw std::invalid_argument("Rule19 requires a source-bound map session");
+    auto result=std::unique_ptr<SandboxView>(new SandboxView(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kOriginalSafeDemolitionRuleVersion,true));
+    result->original_requested_difficulty_=difficulty;
+    result->original_paid_starter_=paid_starter;
+    return result;
+}
+
+std::unique_ptr<SandboxView> SandboxView::create_authored_land_trade(
+        maps::StoredMapSession session,std::optional<original::Difficulty> difficulty) {
+    if (difficulty && static_cast<std::size_t>(*difficulty)>=original::difficulty_count)
+        throw std::invalid_argument("Invalid authored trade model difficulty");
+    if (session.input_sha256.empty()) throw std::invalid_argument("Rule21 requires a source-bound map session");
+    auto result=std::make_unique<SandboxView>(std::move(session),false,
+        simulation::RulesProfile::CityV16,simulation::kAuthoredLandTradeRuleVersion);
+    result->original_requested_difficulty_=difficulty;
+    return result;
+}
+
 SandboxView::SandboxView(maps::StoredMapSession session,bool demo,simulation::RulesProfile rules,
                          std::uint32_t rule_version)
     : SandboxView(std::move(session),demo,rules,rule_version,false) {}
@@ -564,6 +667,17 @@ void SandboxView::configure_save(std::filesystem::path root,std::filesystem::pat
             initial->world.rule_version)!=original_save_fixture_ ||
             (original_save_fixture_ && initial->world.rule_version!=requested_rule_version_)))
         throw std::invalid_argument("Original economy saves require the explicit scheduler-only development fixture");
+    if(initial && (simulation::source_cell_ramps_enabled(rules_,requested_rule_version_) ||
+        simulation::source_cell_ramps_enabled(initial->world.profile,initial->world.rule_version)) &&
+        (initial->world.profile!=rules_ || initial->world.rule_version!=requested_rule_version_))
+        throw std::invalid_argument("Authored source-cell ramp saves require exact explicit rule20");
+    if(initial && (requested_rule_version_==simulation::kAuthoredLandTradeRuleVersion ||
+        initial->world.rule_version==simulation::kAuthoredLandTradeRuleVersion) &&
+        (initial->world.profile!=rules_ || initial->world.rule_version!=requested_rule_version_))
+        throw std::invalid_argument("Authored land trade saves require exact explicit rule21");
+    if(initial && requested_rule_version_==simulation::kAuthoredLandTradeRuleVersion && original_requested_difficulty_ &&
+        (!initial->world.land_trade || initial->world.land_trade->model_source.difficulty!=*original_requested_difficulty_))
+        throw std::invalid_argument("Requested trade model difficulty differs from saved difficulty");
     if (initial && original_production_fixture() && original_requested_difficulty_ &&
         (!initial->world.original_economy || !initial->world.original_economy->model_source ||
          initial->world.original_economy->model_source->difficulty!=*original_requested_difficulty_))
@@ -603,13 +717,28 @@ void SandboxView::load_now() {
             document.world.rule_version)!=original_save_fixture_ ||
             (original_save_fixture_ && document.world.rule_version!=requested_rule_version_))
         throw std::runtime_error("Original economy saves require the explicit scheduler-only development fixture");
+    if((world_->source_cell_ramps_supported() ||
+        simulation::source_cell_ramps_enabled(document.world.profile,document.world.rule_version)) &&
+        document.world.rule_version!=world_->rule_version())
+        throw std::runtime_error("Authored source-cell ramp saves require exact running rule20");
+    if ((world_->authored_land_trade_enabled() || document.world.rule_version==simulation::kAuthoredLandTradeRuleVersion) &&
+        document.world.rule_version!=world_->rule_version())
+        throw std::runtime_error("Authored land trade saves require exact running rule21");
+    if(world_->authored_land_trade_enabled() && (!document.world.land_trade ||
+        document.world.land_trade->model_source!=world_->land_trade_state()->model_source))
+        throw std::runtime_error("Saved trade model identity/difficulty differs from this session");
     if (original_production_fixture() &&
         (!document.world.original_economy || !document.world.original_economy->model_source ||
          document.world.original_economy->model_source->difficulty!=world_->original_rules_model()->difficulty() ||
          (original_requested_difficulty_ &&
           document.world.original_economy->model_source->difficulty!=*original_requested_difficulty_)))
         throw std::runtime_error("Saved original difficulty differs from this running session");
-    auto replacement=original_deadline_food_dispatch() ?
+    auto replacement=world_->authored_land_trade_enabled() ?
+        persistence::restore_authored_land_trade(document,data_root_,buildable_mask_) : world_->source_cell_ramps_supported() ?
+        persistence::restore_authored_source_cell_ramps(document,data_root_,buildable_mask_) : original_venue_house_service() ?
+        persistence::restore_original_venue_house_service(document,data_root_,buildable_mask_) : original_music_venues() ?
+        persistence::restore_original_music_venues(document,data_root_,buildable_mask_) : original_safe_demolition() ?
+        persistence::restore_original_safe_demolition(document,data_root_,buildable_mask_) : original_deadline_food_dispatch() ?
         persistence::restore_original_deadline_food_dispatch(document,data_root_,buildable_mask_) : original_deadline_service_dispatch() ?
         persistence::restore_original_deadline_service_dispatch(document,data_root_,buildable_mask_) : original_deadline_fire_dispatch() ?
         persistence::restore_original_deadline_fire_dispatch(document,data_root_,buildable_mask_) : original_inspector_coordination() ?
@@ -626,6 +755,8 @@ void SandboxView::load_now() {
     auto candidate=std::make_unique<simulation::World>(std::move(replacement));
     background_.set_original_road_ground(candidate->map_permissions());
     world_=std::move(candidate);
+    prepare_original_field_order(true);
+    prepare_source_cell_ramp_visuals();
     refresh_ramp_visual_topology();
     prepare_original_road_visuals();
     road_connectivity_report_.reset();
@@ -711,12 +842,22 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
                 initial_save_->map_permissions_policy_version:
                 maps::map_rules_policy_version(rules_,active_version),expected_map_input_sha256_);
     std::shared_ptr<const simulation::OriginalTerrainFacts> terrain;
-    if (original_cardinal_water() || original_inspector_coordination() || original_deadline_fire_dispatch() || original_deadline_service_dispatch() || original_deadline_food_dispatch())
+    if (original_cardinal_water() || original_inspector_coordination() || original_deadline_fire_dispatch() || original_deadline_service_dispatch() || original_deadline_food_dispatch() || original_safe_demolition() || original_music_venues())
         terrain=std::make_shared<const simulation::OriginalTerrainFacts>(
             original_map_.terrain_raw.values,expected_map_input_sha256_);
     original_map_={};
     if (initial_save_) {
-        world_=std::make_unique<simulation::World>(original_deadline_food_dispatch() ?
+        world_=std::make_unique<simulation::World>(active_version==simulation::kAuthoredLandTradeRuleVersion ?
+            persistence::restore_authored_land_trade(*initial_save_,data_root_,buildable_mask_,std::move(permissions)) :
+            simulation::source_cell_ramps_enabled(rules_,active_version) ?
+            persistence::restore_authored_source_cell_ramps(*initial_save_,data_root_,buildable_mask_,
+                std::move(permissions)) : original_venue_house_service() ?
+            persistence::restore_original_venue_house_service(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions),nullptr,std::move(terrain)) : original_music_venues() ?
+            persistence::restore_original_music_venues(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions),nullptr,std::move(terrain)) : original_safe_demolition() ?
+            persistence::restore_original_safe_demolition(*initial_save_,data_root_,
+                buildable_mask_,std::move(permissions),nullptr,std::move(terrain)) : original_deadline_food_dispatch() ?
             persistence::restore_original_deadline_food_dispatch(*initial_save_,data_root_,
                 buildable_mask_,std::move(permissions),nullptr,std::move(terrain)) : original_deadline_service_dispatch() ?
             persistence::restore_original_deadline_service_dispatch(*initial_save_,data_root_,
@@ -747,6 +888,26 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         last_message_="Loaded tick "+std::to_string(world_->ticks())+" (paused)"+
             (initial_save_->migrated_from_schema1 ? "; save schema 1 migrated in memory":"");
         initial_save_.reset();
+    } else if (active_version==simulation::kAuthoredLandTradeRuleVersion) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_authored_land_trade(
+            std::move(permissions),persistence::prepare_original_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal)),
+            persistence::prepare_land_trade_boundary_facts(data_root_,map_relative_)));
+        clock_.pause_and_reset();
+        last_message_="Authored finite trade: buy two Warehouses; select city Warehouse; G bind / I import / E export.";
+    } else if (original_venue_house_service()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_venue_house_service(
+            std::move(permissions),persistence::prepare_original_culture_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal)),std::move(terrain)));
+        last_message_="Venue House Music: buy School211 and Theatre75; actual performer arrival enables paid physical House visits";
+    } else if (original_music_venues()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_music_venues(
+            std::move(permissions),persistence::prepare_original_culture_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal)),std::move(terrain)));
+    } else if (original_safe_demolition()) {
+        world_=std::make_unique<simulation::World>(simulation::World::create_original_safe_demolition(
+            std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
+                original_requested_difficulty_.value_or(original::Difficulty::Normal)),std::move(terrain)));
     } else if (original_deadline_food_dispatch()) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_deadline_food_dispatch(
             std::move(permissions),persistence::prepare_original_production_rules_model(data_root_,
@@ -792,7 +953,9 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
     } else if (original_save_fixture_) {
         world_=std::make_unique<simulation::World>(simulation::World::create_original_economy_development(
             std::move(permissions),persistence::prepare_original_rules_model(data_root_)));
-    } else if (permissions)
+    } else if (simulation::source_cell_ramps_enabled(rules_,active_version))
+        world_=std::make_unique<simulation::World>(simulation::World::create_authored_source_cell_ramps(std::move(permissions)));
+    else if (permissions)
         world_=std::make_unique<simulation::World>(std::move(permissions),rules_,active_version);
     else world_=std::make_unique<simulation::World>(maps::stored_grid_width,maps::stored_grid_height,
         buildable_mask_,rules_,active_version);
@@ -805,12 +968,17 @@ void SandboxView::initialize(SDL_Window* window,SDL_Renderer* renderer) {
         if(!world_->ramps_supported())throw std::invalid_argument("Authored terrain sides require explicit City-v16 rule6");
         authored_terrain_sides_.prepare(background_.plan(),geometry_,*world_->map_permissions());
     }
+    prepare_original_field_order(true);
+    prepare_source_cell_ramp_visuals();
     refresh_ramp_visual_topology();
     background_.set_original_road_ground(world_->map_permissions());
     prepare_original_road_visuals();
     prepare_original_house_visuals();
+    if (original_house_manifest_.empty() && !original_building_manifest_.empty())
+        set_original_building_visuals(original_building_manifest_,original_building_source_,original_building_fallback_reason_);
     reset_camera();
     if (demo_) place_demo();
+    prepare_original_field_order();
     if (initial_save_ == std::nullopt && !demo_ && !(fresh && original_paid_starter_)) {
         saved_tick_=world_->ticks(); saved_command_=world_->command_sequence();
     }
@@ -824,7 +992,12 @@ void SandboxView::update_window_title() {
     if (world_->map_permissions()) title+=" | rule "+std::to_string(world_->rule_version())+
         " | map policy "+std::to_string(world_->map_permissions()->policy_version());
     if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4) title+=" | save schema 20";
-    if(original_deadline_food_dispatch())title+=" | save schema 34 | authored deadline-aware Food dispatch";
+    if(original_venue_house_service())title+=" | save schema 39 | physical Theatre to House Music";
+    else if(original_music_venues())title+=" | save schema 38 | paid Music performer to Theatre";
+    else if(world_->authored_land_trade_enabled())title+=" | save schema 37 | authored finite land trade";
+    else if(world_->source_cell_ramps_supported())title+=" | save schema 36 | authored source-cell ramps";
+    else if(original_safe_demolition())title+=" | save schema 35 | authored safe demolition";
+    else if(original_deadline_food_dispatch())title+=" | save schema 34 | authored deadline-aware Food dispatch";
     else if(original_deadline_service_dispatch())title+=" | save schema 33 | authored deadline-aware service dispatch";
     else if(original_deadline_fire_dispatch())title+=" | save schema 32 | authored deadline-aware fire dispatch";
     else if(original_inspector_coordination())title+=" | save schema 31 | authored Inspector coordination";
@@ -852,9 +1025,11 @@ void SandboxView::shutdown() {
     building_profile_.reset();
     building_core_image_count_=0;
     original_house_drawn_instances_.fill(0);original_house_authored_fallbacks_.fill(0);
+    original_building_draws_.fill(0);original_building_fallbacks_.fill(0);
     road_sprites_.reset();
     road_profile_.reset();
     ramp_presentation_.clear();
+    source_cell_ramp_presentation_.clear();
     fire_sprites_.reset();
     fire_profile_.reset();
     fire_frames_drawn_.fill(false);
@@ -1277,7 +1452,12 @@ void SandboxView::set_building_visuals(const std::filesystem::path& manifest,
         auto reason=original_house_fallback_reason_;std::string error;
         if (renderer_ && world_) append_requested_original_house_visuals(profile,VisualProfileSource::Fallback,
             original_house_manifest_,original_house_source_,reason,error);
+        auto building_reason=original_building_fallback_reason_;std::string building_error;
+        if (renderer_ && world_) append_requested_original_building_visuals(profile,VisualProfileSource::Fallback,
+            original_building_manifest_,original_building_source_,building_reason,building_error);
         publish_building_visual_profile(std::move(profile));
+        original_building_fallback_reason_=std::move(building_reason);
+        original_building_preparation_error_=std::move(building_error);
         building_core_image_count_=0;building_manifest_.clear();
         original_house_fallback_reason_=std::move(reason);original_house_preparation_error_=std::move(error);
         visual_hits_.clear(); visual_frame_valid_=false;
@@ -1302,7 +1482,12 @@ void SandboxView::set_building_visuals(const std::filesystem::path& manifest,
     auto reason=original_house_fallback_reason_;std::string error;
     if (world_) append_requested_original_house_visuals(profile,source,original_house_manifest_,
         original_house_source_,reason,error);
+    auto building_reason=original_building_fallback_reason_;std::string building_error;
+    if (world_) append_requested_original_building_visuals(profile,source,original_building_manifest_,
+        original_building_source_,building_reason,building_error);
     publish_building_visual_profile(std::move(profile));
+    original_building_fallback_reason_=std::move(building_reason);
+    original_building_preparation_error_=std::move(building_error);
     building_core_image_count_=core_images;
     original_house_fallback_reason_=std::move(reason);original_house_preparation_error_=std::move(error);
     visual_hits_.clear(); visual_frame_valid_=false;
@@ -1317,6 +1502,9 @@ assets::BuildingVisualProfile SandboxView::core_building_visual_profile() const 
     auto result=building_profile_.value_or(assets::BuildingVisualProfile{});
     result.original_house_entries.fill(std::nullopt);
     result.original_house_fallbacks.fill({});result.original_house_prepared=false;
+    result.original_building_entries.fill(std::nullopt);
+    result.original_building_fallbacks.fill({});result.original_building_prepared=false;
+    result.original_field_entries={};result.original_field_prepared=false;
     result.unique_images.resize(building_core_image_count_);
     return result;
 }
@@ -1347,7 +1535,7 @@ bool SandboxView::append_requested_original_house_visuals(assets::BuildingVisual
 }
 void SandboxView::publish_building_visual_profile(assets::BuildingVisualProfile profile) {
     const bool core=std::any_of(profile.entries.begin(),profile.entries.end(),[](const auto& entry){return entry.has_value();});
-    if (!core && !profile.original_house_prepared) {
+    if (!core && !profile.original_house_prepared && !profile.original_building_prepared) {
         building_sprite_.reset();building_profile_.reset();return;
     }
     auto textures=std::make_unique<BuildingSprite>();
@@ -1373,7 +1561,14 @@ void SandboxView::set_original_house_visuals(const std::filesystem::path& manife
         // An optional replacement must not destroy already working sprites.
         original_house_preparation_error_=std::move(error);last_message_=original_house_preparation_error_;return;
     }
-    if (prepared || (building_profile_ && building_profile_->original_house_prepared)) {
+    auto building_reason=original_building_fallback_reason_;std::string building_error;
+    const bool buildings_prepared=append_requested_original_building_visuals(profile,building_source_,
+        original_building_manifest_,original_building_source_,building_reason,building_error);
+    if (!building_error.empty() && building_profile_ && building_profile_->original_building_prepared) {
+        original_building_preparation_error_=std::move(building_error);last_message_=original_building_preparation_error_;return;
+    }
+    if (prepared || buildings_prepared || (building_profile_ &&
+        (building_profile_->original_house_prepared || building_profile_->original_building_prepared))) {
         try {
             const bool unchanged_core=building_profile_ && !building_profile_->original_house_prepared && building_sprite_ &&
                 building_sprite_->texture_count()==building_core_image_count_ &&
@@ -1398,9 +1593,233 @@ void SandboxView::set_original_house_visuals(const std::filesystem::path& manife
             last_message_=original_house_preparation_error_;return;
         }
     }
+    original_building_fallback_reason_=std::move(building_reason);
+    original_building_preparation_error_=std::move(building_error);
     original_house_manifest_=manifest;original_house_source_=manifest.empty() ? VisualProfileSource::Fallback:source;
     original_house_fallback_reason_=std::move(reason);original_house_preparation_error_=std::move(error);
     visual_hits_.clear();visual_frame_valid_=false;
+}
+bool SandboxView::append_requested_original_building_visuals(assets::BuildingVisualProfile& profile,
+        VisualProfileSource core_source,const std::filesystem::path& manifest,
+        VisualProfileSource source,std::string& reason,std::string& error) const {
+    error.clear();
+    if (manifest.empty() || source==VisualProfileSource::Fallback) return false;
+    if (!original_production_fixture() || !world_) {
+        if (source==VisualProfileSource::Custom) throw std::runtime_error("Original building art requires explicit Original production");
+        reason="Original building art requires explicit Original production";return false;
+    }
+    if (source==VisualProfileSource::Builtin && core_source==VisualProfileSource::Custom) {
+        reason="Custom building profile selected; no built-in building supplement";return false;
+    }
+    try {
+        const auto available=session_texture_headroom(true,true,false);
+        if (!available) throw std::runtime_error("Session RGBA texture budget exhausted");
+        assets::append_original_building_visual_profile(data_root_,manifest,profile,*available);
+        reason.clear();return true;
+    } catch(const std::exception& failure) {
+        if (source==VisualProfileSource::Custom) throw;
+        error=std::string("Original building preparation failed: ")+failure.what();reason=error;return false;
+    }
+}
+void SandboxView::set_original_building_visuals(const std::filesystem::path& manifest,
+        VisualProfileSource source,std::string fallback_reason) {
+    if (!renderer_ || !world_) {
+        original_building_manifest_=manifest;original_building_source_=source;
+        original_building_fallback_reason_=fallback_reason.empty() ? "No original building profile selected":std::move(fallback_reason);
+        original_building_preparation_error_.clear();return;
+    }
+    // Keep the already prepared core/House pixels and physical prefix. Only
+    // this independent tail is replaced; a failed optional append uploads none.
+    auto profile=building_profile_.value_or(assets::BuildingVisualProfile{});
+    const bool had_extension=profile.original_building_prepared;
+    profile.original_building_entries.fill(std::nullopt);
+    profile.original_building_fallbacks.fill({});profile.original_building_prepared=false;
+    profile.original_field_entries={};profile.original_field_prepared=false;
+    auto prefix=building_core_image_count_;
+    for (const auto& entry:profile.original_house_entries) if (entry)
+        prefix=std::max(prefix,entry->image_index+1);
+    profile.unique_images.resize(prefix);
+    auto reason=fallback_reason.empty() ? std::string("No original building profile selected"):std::move(fallback_reason);
+    std::string error;
+    const bool prepared=append_requested_original_building_visuals(profile,building_source_,manifest,source,reason,error);
+    if (!error.empty() && had_extension) {
+        original_building_preparation_error_=error;last_message_=error;return;
+    }
+    if (prepared || had_extension) try {
+        const bool unchanged_prefix=building_profile_ && !had_extension && building_sprite_ &&
+            building_profile_->unique_images.size()==prefix && building_sprite_->texture_count()==prefix;
+        if (unchanged_prefix) {
+            const auto available=session_texture_headroom(true,true,false);
+            if (!available) throw std::runtime_error("Session RGBA texture budget exhausted");
+            building_sprite_->append(profile,*available);building_profile_=std::move(profile);
+        } else publish_building_visual_profile(std::move(profile));
+    } catch(const std::exception& failure) {
+        if (source==VisualProfileSource::Custom) throw;
+        original_building_preparation_error_=std::string("Original building texture preparation failed: ")+failure.what();
+        if (!building_profile_ || !building_profile_->original_building_prepared)
+            original_building_fallback_reason_=original_building_preparation_error_;
+        last_message_=original_building_preparation_error_;return;
+    }
+    original_building_manifest_=manifest;original_building_source_=manifest.empty() ? VisualProfileSource::Fallback:source;
+    original_building_fallback_reason_=std::move(reason);original_building_preparation_error_=std::move(error);
+    visual_hits_.clear();visual_frame_valid_=false;
+}
+SandboxView::OriginalBuildingDisplayStats SandboxView::original_building_display_stats() const {
+    OriginalBuildingDisplayStats stats;
+    stats.configured=building_profile_ && building_profile_->original_building_prepared;
+    stats.active=stats.configured && building_visuals_active() && building_sprite_;
+    stats.fallback_reason=original_building_fallback_reason_;stats.preparation_error=original_building_preparation_error_;
+    if (stats.configured) for (std::size_t i=0;i<assets::original_building_role_count;++i)
+        stats.configured_roles[i]=building_profile_->original_building_entries[i].has_value() ||
+            building_profile_->find_original_field(assets::original_building_visual_identities[i].role,1,0)!=nullptr;
+    stats.drawn_instances=original_building_draws_;stats.authored_fallbacks=original_building_fallbacks_;return stats;
+}
+SandboxView::OriginalFieldVisualSelection SandboxView::original_field_visual_selection(
+        simulation::Cell cell,simulation::Object kind,bool placement_preview) const {
+    OriginalFieldVisualSelection result;
+    if (!world_ || !original_production_fixture() || !building_profile_) return result;
+    const auto role=original_building_visual_role(kind);
+    if (!role || !assets::original_field_role_index(*role)) return result;
+    if (placement_preview) {
+        // A ghost uses the authored cycle's initial image. It grants no paid
+        // field, Farm association, progress or original construction semantics.
+        result.stage=0;result.entry=building_profile_->find_original_field(*role,1,0);
+        return result;
+    }
+    const auto owner=world_->building_owner_at(cell);
+    if (!owner) return result;
+    const auto& field=world_->building(*owner);
+    if (field.kind!=kind || field.cell!=cell) return result;
+    const auto& production=world_->original_production_state();
+    if (!production) return result;
+    const auto bind=[&](simulation::BuildingId farm_id,simulation::Object expected_kind) {
+        const auto& farm=world_->building(farm_id);
+        if (farm.kind!=expected_kind) return;
+        const auto stage=assets::authored_farm_progress_stage(farm.progress);
+        if (!stage) return;
+        result.farm=farm_id;result.progress=farm.progress;result.stage=stage;
+        result.entry=building_profile_->find_original_field(*role,1,*stage);
+    };
+    // These are the existing bounded ownership records (at most two Hemp and
+    // three Food Farms), never proximity, stock or a reconstructed crop clock.
+    if (kind==simulation::Object::OriginalHempField) {
+        for (const auto& farm:production->hemp_farms) if (farm.field_id==owner) {
+            bind(farm.farm_id,simulation::Object::OriginalHempFarm);break;
+        }
+    } else for (const auto& farm:production->food.farms) if (farm.field_id==owner) {
+        const auto expected=kind==simulation::Object::OriginalWheatField ?
+            simulation::OriginalFoodCrop::Wheat:simulation::OriginalFoodCrop::Millet;
+        if (farm.crop==expected) bind(farm.farm_id,simulation::Object::OriginalFoodFarm);
+        break;
+    }
+    return result;
+}
+const assets::BuildingVisualEntry* SandboxView::original_building_entry(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview) const {
+    if (!world_ || !original_production_fixture() || !building_profile_) return nullptr;
+    const auto role=original_building_visual_role(kind);
+    if (role && assets::original_field_role_index(*role))
+        return original_field_visual_selection(cell,kind,placement_preview).entry;
+    return role ? building_profile_->find_original_building(*role,
+        static_cast<std::uint8_t>(simulation::building_footprint(rules_,world_->rule_version(),kind).width)):nullptr;
+}
+void SandboxView::prepare_original_field_order(bool force) {
+    if (!force && world_ && original_field_order_revision_==world_->road_revision()) return;
+    original_field_order_count_=0;
+    original_field_order_revision_=world_ ? world_->road_revision():UINT64_MAX;
+    if (!world_ || !original_production_fixture() || !world_->original_production_state()) return;
+    const auto flat_key=[&](const simulation::BuildingState& body) {
+        const auto front=simulation::building_front_cell(rules_,world_->rule_version(),body.kind,body.cell);
+        const double u=double(front.x)-geometry_.border,v=double(front.y)-geometry_.border;
+        return scene::WorldDrawKey{(u+v)*20+20,(u-v)*40,scene::WorldVisualLayer::SandboxBuilding,
+            static_cast<unsigned>(body.id)};
+    };
+    const auto append=[&](std::optional<simulation::BuildingId> id) {
+        if (!id || original_field_order_count_==original_field_order_.size()) return;
+        const auto& field=world_->building(*id);
+        const auto role=original_building_visual_role(field.kind);
+        if (!role || !assets::original_field_role_index(*role)) return;
+        std::array<FieldVisualNeighbor,4> neighbors{};std::size_t count=0;
+        constexpr std::array<simulation::Cell,4> directions{{{-1,0},{0,-1},{1,0},{0,1}}};
+        for (const auto offset:directions) {
+            const auto owner=world_->building_owner_at({field.cell.x+offset.x,field.cell.y+offset.y});
+            if (!owner || *owner==field.id) continue;
+            const auto& neighbor=world_->building(*owner);
+            const auto neighbor_role=original_building_visual_role(neighbor.kind);
+            neighbors[count++]={neighbor.cell,
+                simulation::building_footprint(rules_,world_->rule_version(),neighbor.kind),flat_key(neighbor),
+                neighbor_role && assets::original_field_role_index(*neighbor_role).has_value()};
+        }
+        const auto order=authored_field_visual_order(field.cell,flat_key(field),
+            std::span<const FieldVisualNeighbor>{neighbors.data(),count});
+        original_field_order_[original_field_order_count_++]={field.id,order.key,order.adjusted,order.ambiguous};
+    };
+    // The existing ownership rows are the complete bounded field set. Progress,
+    // crops and resources remain authority of World, not of this painter cache.
+    const auto& production=*world_->original_production_state();
+    for (const auto& farm:production.hemp_farms) append(farm.field_id);
+    for (const auto& farm:production.food.farms) append(farm.field_id);
+}
+void SandboxView::apply_original_field_order(DrawInstance& instance) const {
+    if (instance.placement_preview || !unified_depth_ ||
+        background_.landscape_mode()==LandscapeDebugMode::Snapshot ||
+        !building_visuals_active() || !building_sprite_) return;
+    const auto role=original_building_visual_role(instance.object);
+    if (!role || !assets::original_field_role_index(*role) ||
+        !original_building_entry(instance.cell,instance.object)) return;
+    for (std::size_t i=0;i<original_field_order_count_;++i) {
+        const auto& order=original_field_order_[i];
+        if (order.adjusted && instance.key.stable_id==static_cast<unsigned>(order.id)) {
+            instance.key=order.key;break;
+        }
+    }
+}
+const assets::BuildingVisualEntry* SandboxView::resolved_building_entry(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview) const {
+    const auto house=original_house_visual_selection(cell,kind,placement_preview);
+    if (house.entry) return house.entry;
+    if (const auto* entry=original_building_entry(cell,kind,placement_preview)) return entry;
+    const auto role=visual_role(cell,kind,placement_preview);
+    return role ? building_entry(*role):nullptr;
+}
+SandboxView::OriginalBuildingVisualDiagnostic SandboxView::original_building_visual_diagnostic(simulation::BuildingId id) const {
+    OriginalBuildingVisualDiagnostic result;
+    if (!world_ || !original_production_fixture()) return result;
+    const auto& bodies=world_->buildings();
+    const auto body=std::find_if(bodies.begin(),bodies.end(),[&](const auto& b){return b.id==id;});
+    if (body==bodies.end()) return result;
+    const auto role=original_building_visual_role(body->kind);if (!role) return result;
+    result.applicable=true;result.role=*role;result.model_type=assets::original_building_visual_identity(*role)->model_type;
+    result.actual_side=static_cast<std::uint8_t>(simulation::building_footprint(rules_,world_->rule_version(),body->kind).width);
+    result.ground=building_visual_ground(body->cell,body->kind);
+    const auto field=original_field_visual_selection(body->cell,body->kind);
+    const auto* entry=field.entry ? field.entry:original_building_entry(body->cell,body->kind);
+    result.configured=entry!=nullptr;result.active=result.configured && building_visuals_active() && building_sprite_;
+    if (entry) {
+        const auto& image=building_profile_->unique_images.at(entry->image_index);
+        result.asset=entry->id;result.image_width=image.width;result.image_height=image.height;
+        result.ground_x=entry->ground_x;result.ground_y=entry->ground_y;
+        result.image_origin={result.ground.x-entry->ground_x,result.ground.y-entry->ground_y};
+        if (field.entry) {
+            result.field_farm=field.farm;result.field_stage=field.stage;result.field_farm_progress=field.progress;
+            result.selection="Original crop images; authored six-stage Farm progress mapping; canonical variation0 and authored anchor";
+            if (result.active && unified_depth_ && background_.landscape_mode()!=LandscapeDebugMode::Snapshot)
+                for (std::size_t i=0;i<original_field_order_count_;++i) if (original_field_order_[i].id==id) {
+                    const auto& order=original_field_order_[i];
+                    result.field_order_adjusted=order.adjusted;result.field_order_ambiguous=order.ambiguous;
+                    result.field_painter_key=order.key;break;
+                }
+        } else result.selection="canonical static representative; authored front-cell anchor";
+        result.evidence=entry->evidence;
+        if (!result.active) result.fallback_reason="F4 historical comparison";
+    } else {
+        if (building_profile_ && building_profile_->original_building_prepared)
+            result.fallback_reason=building_profile_->fallback_original_building(*role,result.actual_side);
+        if (building_profile_ && building_profile_->find_original_field(*role,result.actual_side,0))
+            result.fallback_reason="No paid Field/Farm progress binding; authored fallback";
+        if (result.fallback_reason.empty()) result.fallback_reason=original_building_fallback_reason_;
+    }
+    return result;
 }
 SandboxView::OriginalHouseDisplayStats SandboxView::original_house_display_stats() const {
     OriginalHouseDisplayStats stats;
@@ -1412,9 +1831,12 @@ SandboxView::OriginalHouseDisplayStats SandboxView::original_house_display_stats
             stats.configured_types[index]=building_profile_->original_house_entries[index].has_value();
         stats.active=building_visuals_active() && building_sprite_ &&
             std::any_of(stats.configured_types.begin(),stats.configured_types.end(),[](bool value){return value;});
-        stats.additional_assets=building_profile_->unique_images.size()-building_core_image_count_;
-        for (std::size_t index=building_core_image_count_;index<building_profile_->unique_images.size();++index)
-            stats.additional_bytes+=building_profile_->unique_images[index].pixels.size();
+        std::vector<bool> seen(building_profile_->unique_images.size(),false);
+        for (const auto& entry:building_profile_->original_house_entries) if (entry &&
+            entry->image_index>=building_core_image_count_ && !seen.at(entry->image_index)) {
+            seen[entry->image_index]=true;++stats.additional_assets;
+            stats.additional_bytes+=building_profile_->unique_images[entry->image_index].pixels.size();
+        }
     }
     stats.drawn_instances=original_house_drawn_instances_;stats.authored_fallbacks=original_house_authored_fallbacks_;
     return stats;
@@ -1430,7 +1852,21 @@ SandboxView::OriginalHouseVisualSelection SandboxView::original_house_visual_sel
     else if (const auto owner=world_->building_owner_at(cell)) {
         const auto& houses=world_->original_economy_state()->houses;
         const auto found=std::find_if(houses.begin(),houses.end(),[&](const auto& house){return house.building_id==*owner;});
-        if (found!=houses.end()) result.house_type=static_cast<std::uint16_t>(found->house.type);
+        if (found!=houses.end()) {
+            result.house_type=static_cast<std::uint16_t>(found->house.type);
+            if (found->house.type==original::HouseType::Vacant) {
+                // The special paid Type2 purchase publishes group0x47a. A
+                // generic setter/previously occupied empty House is a different
+                // original context. Reconstruct this choice from the existing
+                // validated, persisted first-admission history on every query.
+                const auto& history=world_->original_production_state()->housing.houses;
+                const auto row=std::find_if(history.begin(),history.end(),
+                    [&](const auto& h){return h.building_id==*owner;});
+                const original::HouseState empty{.type=original::HouseType::Vacant};
+                if (kind!=simulation::Object::Household || found->house!=empty ||
+                    row==history.end() || row->first_admission_tick) return result;
+            }
+        }
     }
     if (building_profile_) result.entry=building_profile_->find_original_house(result.house_type,result.actual_side);
     return result;
@@ -1446,6 +1882,7 @@ SandboxView::OriginalHouseVisualDiagnostic SandboxView::original_house_visual_di
     result.ground=building_visual_ground(found->cell,found->kind);
     result.configured=selected.entry!=nullptr;
     result.active=result.configured && building_visuals_active() && building_sprite_;
+    result.authored_vacant_foundation=selected.applicable && selected.house_type==2 && selected.actual_side==2 && !result.active;
     if (selected.entry) {
         const auto& entry=*selected.entry;const auto& image=building_profile_->unique_images.at(entry.image_index);
         result.asset=entry.id;result.image_width=image.width;result.image_height=image.height;
@@ -1846,7 +2283,7 @@ void SandboxView::update_layout(bool preserve_center) {
         simulation::market_profile(rules_),simulation::service_profile(rules_),
         world_ ? world_->bridges_supported():simulation::bridges_rule_enabled(rules_,requested_rule_version_),
         world_ ? world_->ramps_supported():simulation::ramps_rule_enabled(rules_,requested_rule_version_),
-        original_production_fixture(),industry_page_,original_fire_protection());
+        original_production_fixture(),industry_page_,original_fire_protection(),original_music_venues());
     if (preserve_center && next.map.x==layout_.map.x && next.map.y==layout_.map.y &&
         next.map.w==layout_.map.w && next.map.h==layout_.map.h) {layout_=next;return;}
     // Panel toggles and resize change the clipped viewport before another
@@ -2191,6 +2628,9 @@ std::optional<simulation::Cell> SandboxView::pick(scene::Point screen) const {
     const auto mode=background_.landscape_mode();
     if(mode==LandscapeDebugMode::Regenerated || mode==LandscapeDebugMode::Snapshot || mode==LandscapeDebugMode::WallsMonuments) {
         const auto point=camera_.screen_to_world(screen);
+        for(auto it=world_->source_cell_ramps().rbegin();it!=world_->source_cell_ramps().rend();++it)
+            if(source_cell_ramp_presentation_.hit_part(point,source_cell_ramp_ground(*it),it->id,true,background_.elevated()) ||
+               source_cell_ramp_presentation_.hit_part(point,source_cell_ramp_ground(*it),it->id,false,background_.elevated()))return it->source_cell;
         for(const auto& bridge:world_->bridges())for(auto it=bridge.water_cells.rbegin();it!=bridge.water_cells.rend();++it)
             if(hit_bridge_cell(point,world_for({double(it->x),double(it->y)}),bridge,*it))return *it;
     }
@@ -2199,7 +2639,9 @@ std::optional<simulation::Cell> SandboxView::pick(scene::Point screen) const {
     return simulation::Cell{static_cast<int>(cell->x),static_cast<int>(cell->y)};
 }
 simulation::CommandResult SandboxView::preview(simulation::Cell cell) const {
-    if(tool_==15)return {false,false,"Ramp: drag between neighboring land roads, exactly one signed height level",world_->command_sequence(),world_->ticks()};
+    if(tool_==15)return {false,false,world_->source_cell_ramps_supported()?
+        "Authored source-cell ramp: drag LOW source road toward its HIGH neighbor; three roads required":
+        "Ramp: drag between neighboring land roads, exactly one signed height level",world_->command_sequence(),world_->ticks()};
     if(tool_==14)return {false,false,"Bridge: drag between existing roads on equal-height banks (1..8 water cells)",world_->command_sequence(),world_->ticks()};
     if (tool_==(simulation::production_profile(rules_) ? 5 : 4))
         return {false,false,"Select tool",world_->command_sequence()+1,world_->ticks()};
@@ -2264,12 +2706,21 @@ void SandboxView::set_tool(int tool) {
     case 27: action=sandbox_ui::Action::OriginalAcrobatSchool; break;
     case 28: action=sandbox_ui::Action::OriginalDramaSchool; break;
     case 41: action=sandbox_ui::Action::OriginalElitePlot; break;
+    case 42: action=sandbox_ui::Action::OriginalTheatre; break;
 
     default: return;
     }
     if (action_enabled(action)) perform_action(action);
 }
 bool SandboxView::action_enabled(sandbox_ui::Action action) const {
+    if (action==sandbox_ui::Action::OriginalTheatre) {
+        if (!original_music_venues() || walker_diagnostic_open_) return false;
+        const auto count=std::count_if(world_->buildings().begin(),world_->buildings().end(),[](const auto& b){
+            return b.kind==simulation::Object::OriginalTheatre75;
+        });
+        return count<static_cast<std::ptrdiff_t>(simulation::original_culture_venue_limit) &&
+            world_->treasury()>=world_->construction_cost(simulation::CommandType::PlaceOriginalTheatre);
+    }
     if (original_production_fixture() && (action==sandbox_ui::Action::OriginalElitePlot ||
         action==sandbox_ui::Action::Household))
         return world_ && world_->original_economy_state()->houses.size()<simulation::Rules::city_v10_household_limit &&
@@ -2465,6 +2916,20 @@ bool SandboxView::action_enabled(sandbox_ui::Action action) const {
     }
     return true;
 }
+scene::Point SandboxView::source_cell_ramp_ground(const simulation::SourceCellRamp& ramp) const {
+    const double u=ramp.source_cell.x-double(geometry_.border),v=ramp.source_cell.y-double(geometry_.border);
+    return {(u-v)*40,(u+v)*20+20-(background_.elevated()?double(ramp.low_height)*40:0)};
+}
+void SandboxView::prepare_source_cell_ramp_visuals() {
+    if(world_ && world_->source_cell_ramps_supported()) {
+        source_cell_ramp_presentation_.prepare(*world_);
+        std::size_t bridge_parts=0;for(const auto& bridge:world_->bridges())bridge_parts+=2*(bridge.water_cells.size()+2);
+        const auto hit_bound=3*(world_->buildings().size()+world_->couriers().size()+2)+
+            2*world_->source_cell_ramps().size()+4*world_->ramps().size()+bridge_parts;
+        if(visual_hits_.capacity()<hit_bound)visual_hits_.reserve(hit_bound);
+        if(ramp_geometry_bytes()>8U*1024U*1024U)throw std::runtime_error("Combined ramp geometry exceeds 8 MiB");
+    } else source_cell_ramp_presentation_.clear();
+}
 void SandboxView::refresh_ramp_visual_topology() {
     // Existing World links supply identity; immutable source permissions and
     // current normal endpoint roads only qualify their visual grouping. A
@@ -2497,6 +2962,7 @@ void SandboxView::refresh_ramp_visual_topology() {
 void SandboxView::cancel_gesture() {
     pressed_button_.reset();
     pressed_building_.reset();
+    pressed_land_trade_action_.reset();
     pressed_operation_action_.reset();
     pressed_demolition_=false;
     pressed_original_house_section_.reset();
@@ -2508,7 +2974,7 @@ void SandboxView::cancel_gesture() {
     // Only rebuild (and invalidate the submitted frame) when ramp visuals exist to clear;
     // otherwise every click would discard the hit-test frame before the next render.
     const bool had_ramp_state=ramp_start_.has_value()||ramp_topology_.has_preview();
-    ramp_start_.reset();ramp_preview_={};
+    ramp_start_.reset();ramp_preview_={};source_cell_ramp_preview_={};
     if(had_ramp_state)refresh_ramp_visual_topology();
     bridge_start_.reset();bridge_preview_={};
     road_preview_={};
@@ -2518,14 +2984,55 @@ void SandboxView::cancel_gesture() {
 }
 
 sandbox_ui::InspectorLayout SandboxView::inspector_layout() const {
-    if (!layout_.panel_open || income_open_ || !world_ || original_house_inspector_active()) return {};
+    if (!layout_.panel_open || income_open_ || !world_) return {};
+    if (original_house_inspector_active()) {
+        if (!original_safe_demolition()) return {};
+        // Keep House tabs and its document; share the existing fixed footer.
+        return sandbox_ui::make_inspector_layout(layout_.panel,layout_.scale,0,0,
+            demolition_hint_lines().size(),false,false,true,0,inspector_hint_scroll_);
+    }
     const auto id=selected_building();
     const bool operations=id && world_->operation_controls_supported() &&
         simulation::World::operation_controllable(world_->building(*id).kind);
     const bool demolition=id && world_->demolition_supported();
     return sandbox_ui::make_inspector_layout(layout_.panel,layout_.scale,placed_buildings().size(),
-        inspection_lines().size(),demolition ? demolition_hint_lines().size():0,
-        status_first_selected(),operations,demolition,panel_scroll_,inspector_hint_scroll_);
+        inspection_lines().size(),land_trade_selected() ? land_trade_hint_lines().size():demolition ? demolition_hint_lines().size():0,
+        status_first_selected(),operations,demolition || land_trade_selected(),panel_scroll_,inspector_hint_scroll_);
+}
+
+bool SandboxView::land_trade_selected() const {
+    const auto id=selected_building();
+    return world_ && world_->authored_land_trade_enabled() && id &&
+        world_->building(*id).kind==simulation::Object::Warehouse;
+}
+sandbox_ui::Rect SandboxView::land_trade_button_rect(int index) const {
+    if(!land_trade_selected() || index<0 || index>3)return {};
+    const auto row=inspector_layout().demolition;
+    const int gap=4*layout_.scale,w=std::max(0,(row.w-3*gap)/4);
+    return {row.x+index*(w+gap),row.y,w,row.h};
+}
+std::optional<SandboxView::LandTradeAction> SandboxView::land_trade_action_at(double x,double y) const {
+    if(income_open_ || !layout_.panel_open || !input_focused_ || walker_diagnostic_open_ || !land_trade_selected())return {};
+    for(int i=0;i<4;++i)if(land_trade_button_rect(i).contains(x,y))return static_cast<LandTradeAction>(i);
+    return {};
+}
+void SandboxView::perform_land_trade_action(LandTradeAction action) {
+    if(!land_trade_selected() || !input_focused_ || walker_diagnostic_open_)return;
+    cancel_gesture();
+    if(action==LandTradeAction::Demolish) {request_demolition();return;}
+    if(action==LandTradeAction::Bind) {
+        const auto selected=*selected_building();std::optional<simulation::BuildingId> other;
+        for(const auto& body:world_->buildings())if(body.kind==simulation::Object::Warehouse && body.id!=selected) {
+            if(other){last_message_="Bind requires exactly two paid Warehouses; select the city Warehouse.";return;}
+            other=body.id;
+        }
+        if(!other){last_message_="Buy a second paid Warehouse at the source geometry boundary, then connect roads.";return;}
+        (void)request_execute(simulation::configure_land_trade(selected,*other));
+    } else (void)request_execute(action==LandTradeAction::Import ? simulation::import_pottery():simulation::export_pottery());
+}
+std::vector<std::string> SandboxView::land_trade_hint_lines() const {
+    return wrap_panel_lines({"Authored Pottery: 4 units/order; import $24, export $12.",
+        "G binds selected city Warehouse to the other boundary Warehouse ($40). No reassignment/refund."});
 }
 
 sandbox_ui::Rect SandboxView::operation_toggle_rect() const {
@@ -2635,6 +3142,7 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
         else if (action==A::OriginalMusicSchool) command=simulation::CommandType::PlaceOriginalMusicSchool;
         else if (action==A::OriginalAcrobatSchool) command=simulation::CommandType::PlaceOriginalAcrobatSchool;
         else if (action==A::OriginalDramaSchool) command=simulation::CommandType::PlaceOriginalDramaSchool;
+        else if (action==A::OriginalTheatre) command=simulation::CommandType::PlaceOriginalTheatre;
         else if (const auto* industry=industry_action(action)) command=industry->command;
 
         else if (action==A::ServicePost) command=simulation::CommandType::PlaceServicePost;
@@ -2653,6 +3161,13 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
     if (action==A::ToggleIndustryPage) {
         cancel_gesture();industry_page_=!industry_page_;tool_=5;update_layout(true);
         last_message_=industry_page_ ? "Industry: authored80-tick recipes; original art pending":"Construction tools";
+        refresh_hover();return;
+    }
+    if (action==A::OriginalTheatre) {
+        cancel_gesture();tool_=42;
+        last_message_=original_venue_house_service() ?
+            "Theatre75: paid4x4; current Music enables physical House visits; authored roundtrip":
+            "Theatre75: paid4x4; actual Music performer arrival only; no House effect";
         refresh_hover();return;
     }
     if (action==A::OriginalElitePlot) {
@@ -2679,7 +3194,9 @@ void SandboxView::perform_action(sandbox_ui::Action action) {
             action==A::RemoveRoad ? 6:action==A::Household ? 7:action==A::Farm ? 8:
             action==A::ServicePost ? 9:action==A::FireWatch ? 11:action==A::Well ? 12:action==A::HealthPost ? 13:action==A::Bridge ? 14:action==A::Ramp ? 15:action==A::OriginalHempFarm ? 16:action==A::OriginalHempField ? 17:
             action==A::OriginalFoodFarm ? 18:action==A::OriginalWheatField ? 19:action==A::OriginalMilletField ? 20:action==A::OriginalAncestorShrine ? 21:action==A::OriginalWaterWell ? 22:action==A::OriginalDaoistShrine ? 23:action==A::OriginalBuddhistShrine ? 24:action==A::OriginalConfucianAcademy ? 25:action==A::OriginalMusicSchool ? 26:action==A::OriginalAcrobatSchool ? 27:action==A::OriginalDramaSchool ? 28:0;
-        last_message_=original_influence_fixture() && tool_==12 ? "Well72 influence source: 2x2, $60, no water":
+        last_message_=original_venue_house_service() && tool_==26 ? "Music School: paid2x2; actual performer supplies Theatre; no direct House grant":
+            original_music_venues() && tool_==26 ? "Music School: paid2x2; real performer to Theatre75; no House effect":
+            original_influence_fixture() && tool_==12 ? "Well72 influence source: 2x2, $60, no water":
             tool_==15 ? "Ramp: neighboring roads, one signed level, $40":tool_==14 ? "Bridge: drag from one land road to the opposite bank; 1..8 water cells":tool_name(rules_,tool_);
     } else if (action==A::ServiceOverlay) {
         cancel_gesture();
@@ -2779,19 +3296,21 @@ void SandboxView::refresh_hover(bool force_road_plan) {
     if(ramp_start_) {
         if(!hovered_) {
             const bool clear_preview=ramp_topology_.has_preview();
-            ramp_preview_={};
-            if(clear_preview)refresh_ramp_visual_topology();
+            ramp_preview_={};source_cell_ramp_preview_={};
+                    if(clear_preview)refresh_ramp_visual_topology();
             return;
         }
         const bool stale=force_road_plan || planned_start_!=ramp_start_ || planned_end_!=hovered_ ||
             planned_road_revision_!=world_->road_revision() || planned_command_sequence_!=world_->command_sequence() ||
             planned_treasury_!=world_->treasury();
         if(stale) {
-            ramp_preview_=world_->validate_ramp(*ramp_start_,*hovered_);
+            if(world_->source_cell_ramps_supported()) {
+                source_cell_ramp_preview_=world_->validate_source_cell_ramp(*ramp_start_,*hovered_);
+            } else ramp_preview_=world_->validate_ramp(*ramp_start_,*hovered_);
             refresh_ramp_visual_topology();
             planned_start_=ramp_start_;planned_end_=hovered_;planned_road_revision_=world_->road_revision();
             planned_command_sequence_=world_->command_sequence();planned_treasury_=world_->treasury();
-            last_message_=ramp_preview_.reason+" | height "+std::to_string(world_->transport_height(*ramp_start_))+" -> "+
+            last_message_=(world_->source_cell_ramps_supported()?source_cell_ramp_preview_.reason:ramp_preview_.reason)+" | height "+std::to_string(world_->transport_height(*ramp_start_))+" -> "+
                 std::to_string(world_->transport_height(*hovered_))+" | delta "+
                 std::to_string(int(world_->transport_height(*hovered_))-int(world_->transport_height(*ramp_start_)))+" | $40";
         }return;
@@ -2955,6 +3474,12 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         if (event.key.key==SDLK_T && simulation::market_profile(rules_)) {
             perform_action(sandbox_ui::Action::ToggleIncome); return;
         }
+        if (world_->authored_land_trade_enabled() && land_trade_selected() && !walker_diagnostic_open_ &&
+            (event.key.key==SDLK_G || event.key.key==SDLK_I || event.key.key==SDLK_E)) {
+            perform_land_trade_action(event.key.key==SDLK_G ? LandTradeAction::Bind:
+                event.key.key==SDLK_I ? LandTradeAction::Import:LandTradeAction::Export);
+            return;
+        }
         if (event.key.key>=SDLK_1 && event.key.key<=
             (simulation::service_profile(rules_) ? SDLK_9 :
              rules_==simulation::RulesProfile::CityV7 ? SDLK_8 :
@@ -2975,6 +3500,7 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         else if (event.key.key==SDLK_U && original_production_fixture() && !walker_diagnostic_open_) set_tool(23);
         else if (event.key.key==SDLK_K && original_production_fixture() && !walker_diagnostic_open_) set_tool(24);
         else if (event.key.key==SDLK_V && original_production_fixture() && !walker_diagnostic_open_) set_tool(25);
+        else if (event.key.key==SDLK_G && original_music_venues() && !walker_diagnostic_open_) set_tool(42);
         else if (event.key.key==SDLK_E && original_production_fixture() && !walker_diagnostic_open_) set_tool(26);
         else if (event.key.key==SDLK_C && original_production_fixture() && !walker_diagnostic_open_) set_tool(27);
         else if (event.key.key==SDLK_A && original_production_fixture() && !walker_diagnostic_open_) set_tool(28);
@@ -3101,8 +3627,14 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                 if (original_house_inspector_active()) {
                     cancel_gesture();
                     if (input_focused_ && !walker_diagnostic_open_) {
-                        const double next=original_house_scroll_-std::trunc(double(event.wheel.y))*24*layout_.scale;
-                        original_house_scroll_=static_cast<int>(std::clamp(next,0.0,double(original_house_scroll_limit())));
+                        const auto footer=inspector_layout();
+                        if (original_safe_demolition() && footer.hints.contains(point->x,point->y)) {
+                            const double next=footer.hint_scroll-std::trunc(double(event.wheel.y))*24*layout_.scale;
+                            inspector_hint_scroll_=static_cast<int>(std::clamp(next,0.0,double(footer.hint_scroll_limit)));
+                        } else if (!original_safe_demolition() || original_house_content_rect().contains(point->x,point->y)) {
+                            const double next=original_house_scroll_-std::trunc(double(event.wheel.y))*24*layout_.scale;
+                            original_house_scroll_=static_cast<int>(std::clamp(next,0.0,double(original_house_scroll_limit())));
+                        }
                     }
                     refresh_hover();
                     return;
@@ -3148,6 +3680,14 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
         if (managed_ && pointer_ && menu_button_rect().contains(pointer_->x,pointer_->y)) { menu_pressed_=true; return; }
         refresh_hover();
         if (!pointer_) return;
+        if(const auto action=land_trade_action_at(pointer_->x,pointer_->y)) {
+            pressed_land_trade_action_=action;ui_pressed_=true;return;
+        }
+        if (!income_open_ && layout_.panel_open && !land_trade_selected() && world_->demolition_supported() && selected_building() &&
+            (!original_house_inspector_active() || (input_focused_ && !walker_diagnostic_open_)) &&
+            demolition_button_rect().contains(pointer_->x,pointer_->y)) {
+            pressed_demolition_=true; ui_pressed_=true; return;
+        }
         if (original_house_inspector_active() && layout_.panel.contains(pointer_->x,pointer_->y)) {
             original_house_panel_pressed_=true;ui_pressed_=true;
             if (input_focused_ && !walker_diagnostic_open_) {
@@ -3159,10 +3699,6 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                 pressed_original_house_overlay_=original_house_overlay_rect().contains(pointer_->x,pointer_->y);
             }
             return;
-        }
-        if (!income_open_ && layout_.panel_open && world_->demolition_supported() && selected_building() &&
-            demolition_button_rect().contains(pointer_->x,pointer_->y)) {
-            pressed_demolition_=true; ui_pressed_=true; return;
         }
         if (const auto action=operation_action_at(pointer_->x,pointer_->y)) {
             pressed_operation_action_=action; ui_pressed_=true; return;
@@ -3225,6 +3761,11 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
                 else if (matching_overlay) cycle_original_house_overlay();
                 return;
             }
+            if(pressed_land_trade_action_) {
+                const auto action=*pressed_land_trade_action_;
+                const bool matching=pointer_ && land_trade_action_at(pointer_->x,pointer_->y)==action;
+                cancel_gesture();if(matching)perform_land_trade_action(action);return;
+            }
             if (pressed_demolition_) {
                 const bool matching=pointer_ && demolition_button_rect().contains(pointer_->x,pointer_->y);
                 cancel_gesture();
@@ -3259,7 +3800,8 @@ void SandboxView::handle_event(const SDL_Event& event,bool& running) {
             cancel_gesture(); refresh_hover(); return;
         }
         if(cell && ramp_start_ && tool_==15) {
-            (void)execute(simulation::place_ramp(*ramp_start_,*cell));
+            (void)execute(world_->source_cell_ramps_supported() ? simulation::place_source_cell_ramp(*ramp_start_,*cell):
+                simulation::place_ramp(*ramp_start_,*cell));
             clear_visual_selection();selected_=cell;
         } else if(cell && bridge_start_ && tool_==14) {
             (void)execute(simulation::place_bridge(*bridge_start_,*cell));
@@ -3301,6 +3843,7 @@ void SandboxView::update(double seconds,PanKeyState keys) {
     if (hover_dirty_ || road_start_ || bridge_start_ || ramp_start_) refresh_hover();
     try { clock_.update(seconds,*world_); }
     catch (const std::overflow_error& error) { if (!pause_for_original_fire_limit(error.what())) throw; }
+    prepare_original_field_order();
     clear_hidden_walker_selection();
 }
 bool SandboxView::pause_for_original_fire_limit(const char* reason) {
@@ -3316,6 +3859,7 @@ void SandboxView::tick_once() {
         try { world_->tick(); }
         catch (const std::overflow_error& error) { if (!pause_for_original_fire_limit(error.what())) throw; }
     }
+    prepare_original_field_order();
     clear_hidden_walker_selection();
 }
 simulation::CommandResult SandboxView::execute(simulation::Command command) {
@@ -3327,7 +3871,9 @@ simulation::CommandResult SandboxView::execute(simulation::Command command) {
     }
     const auto result=world_->execute(command);
     if(result.accepted && result.changed) {
-        if(command.type==simulation::CommandType::PlaceRamp || command.type==simulation::CommandType::PlaceRoad ||
+        prepare_original_field_order();
+        if(command.type==simulation::CommandType::PlaceSourceCellRamp)prepare_source_cell_ramp_visuals();
+        if(command.type==simulation::CommandType::PlaceSourceCellRamp || command.type==simulation::CommandType::PlaceRamp || command.type==simulation::CommandType::PlaceRoad ||
            command.type==simulation::CommandType::RemoveRoad)refresh_ramp_visual_topology();
         if(world_->bridges_supported())visual_frame_valid_=false;
         if(command.type!=simulation::CommandType::DemolishBuilding)
@@ -3339,9 +3885,17 @@ simulation::CommandResult SandboxView::execute(simulation::Command command) {
     }
     last_message_=result.reason;
     if (command.type==simulation::CommandType::DemolishBuilding) {
-        if (result.changed) { clear_visual_selection(); selected_.reset(); cancel_gesture(); refresh_hover(true); }
+        if (result.changed) {
+            clear_visual_selection(); selected_.reset(); cancel_gesture(); refresh_hover(true);
+            if (original_safe_demolition()) {
+                panel_scroll_=0;inspector_hint_scroll_=0;original_house_scroll_=0;
+            }
+        }
     } else if (command.type!=simulation::CommandType::SetBuildingOperation &&
-        command.type!=simulation::CommandType::SetBuildingWorkforcePriority) {
+        command.type!=simulation::CommandType::SetBuildingWorkforcePriority &&
+        command.type!=simulation::CommandType::ConfigureLandTrade &&
+        command.type!=simulation::CommandType::ImportPottery &&
+        command.type!=simulation::CommandType::ExportPottery) {
         if (selected_!=command.cell) { panel_scroll_=0;inspector_hint_scroll_=0;original_house_scroll_=0; }
         clear_visual_selection();
         selected_=command.cell;
@@ -3437,7 +3991,10 @@ scene::Point SandboxView::world_for(simulation::Position cell) const {
         };
         height=(h(x,y)*(1-fx)+h(x+1,y)*fx)*(1-fy)+(h(x,y+1)*(1-fx)+h(x+1,y+1)*fx)*fy;
     }
-    if(background_.elevated())if(const auto ramp_height=world_->ramp_surface_height(cell))height=*ramp_height;
+    if(background_.elevated()) {
+        if(const auto ramp_height=world_->ramp_surface_height(cell))height=*ramp_height;
+        if(const auto source_height=world_->source_cell_ramp_surface_height(cell))height=*source_height;
+    }
     return {(u-v)*40.0,(u+v)*20.0+20.0-height*maps::landscape_height_step};
 }
 scene::Point SandboxView::building_visual_ground(simulation::Cell origin,
@@ -3446,8 +4003,10 @@ scene::Point SandboxView::building_visual_ground(simulation::Cell origin,
     return world_for({static_cast<double>(front.x),static_cast<double>(front.y)});
 }
 int SandboxView::walker_marker_shift(simulation::Position position,simulation::CourierId id) const {
+    if (world_->courier(id).role==simulation::CourierRole::OriginalMusicPerformer ||
+        world_->courier(id).role==simulation::CourierRole::OriginalVenueMusic) return 0;
     const simulation::Cell cell{int(std::floor(position.x)),int(std::floor(position.y))};
-    if(world_->bridge_at(cell)||world_->bridge_bank_at(cell)||world_->ramp_surface_height(position))return 0;
+    if(world_->bridge_at(cell)||world_->bridge_bank_at(cell)||world_->ramp_surface_height(position)||world_->source_cell_ramp_surface_height(position))return 0;
     const auto value=static_cast<unsigned>(id);
     return value==1?-5:value==2?5:value==3?0:value==4?-10:value==5?10:14;
 }
@@ -3470,6 +4029,12 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
         visual_hits_.push_back(next);
     };
     VisualHit hit; hit.key=instance.key; hit.cell=instance.cell;
+    if(instance.source_cell_ramp) {
+        hit.source_cell_ramp=instance.source_cell_ramp->id;hit.ramp_front=instance.ramp_front;
+        hit.mesh_ground=source_cell_ramp_ground(*instance.source_cell_ramp);
+        hit.origin={hit.mesh_ground.x-64,hit.mesh_ground.y-96};hit.width=128;hit.height=192;
+        append(hit);return;
+    }
     if(instance.ramp) {
         hit.ramp=instance.ramp->id;hit.ramp_half=instance.ramp_half;hit.ramp_front=instance.ramp_front;
         hit.ramp_adjacency=instance.ramp_adjacency;
@@ -3524,11 +4089,28 @@ void SandboxView::record_visual_hit(const DrawInstance& instance) {
         return;
     }
     const auto ground=building_visual_ground(instance.cell,instance.object);
-    const auto original_house=original_house_visual_selection(instance.cell,instance.object);
-    if (original_house.entry && building_visuals_active() && building_sprite_) {
-        const auto& entry=*original_house.entry;const auto& image=building_profile_->unique_images[entry.image_index];
+    const auto* selected=resolved_building_entry(instance.cell,instance.object);
+    if (selected && building_visuals_active() && building_sprite_) {
+        const auto& entry=*selected;const auto& image=building_profile_->unique_images[entry.image_index];
         hit.image=entry.image_index;hit.origin={ground.x-entry.ground_x,ground.y-entry.ground_y};
         hit.width=image.width;hit.height=image.height;append(hit);return;
+    }
+    const auto house=original_house_visual_selection(instance.cell,instance.object);
+    if(house.applicable && house.house_type==2 && house.actual_side==2) {
+        hit.mesh=simulation::Object::Household;hit.mesh_ground=ground;
+        hit.origin={ground.x-vacant_foundation_half_width,ground.y-20-vacant_foundation_half_height};
+        hit.width=2*vacant_foundation_half_width;hit.height=2*vacant_foundation_half_height;
+        append(hit);return;
+    }
+    if (instance.object==simulation::Object::OriginalTheatre75) {
+        // The authored fallback draws these exact sixteen cell diamonds.
+        // Cache their matching hit geometry in the ordinary submitted frame.
+        for (const auto offset:theatre_ground_offsets) {
+            const auto point=world_for({double(instance.cell.x+offset.x),double(instance.cell.y+offset.y)});
+            hit.origin={point.x-40,point.y-20};hit.width=80;hit.height=40;hit.diamond=true;
+            append(hit);
+        }
+        return;
     }
     if (instance.object==simulation::Object::OriginalEliteHouse) {
         hit.mesh=instance.object;hit.mesh_ground=ground;hit.footprint_side=4;
@@ -3580,6 +4162,8 @@ bool SandboxView::select_visual(scene::Point screen) {
         const double x=world.x-it->origin.x,y=world.y-it->origin.y;
         if (x<0 || y<0 || x>=it->width || y>=it->height) continue;
         if (it->diamond && std::abs(x-40)/40+std::abs(y-20)/20>1) continue;
+        if(it->source_cell_ramp && !source_cell_ramp_presentation_.hit_part(world,it->mesh_ground,
+                *it->source_cell_ramp,it->ramp_front,background_.elevated()))continue;
         if(it->ramp) {
             const auto links=world_->ramps();
             const auto r=std::find_if(links.begin(),links.end(),[&](const auto& v){return v.id==*it->ramp;});
@@ -3596,6 +4180,8 @@ bool SandboxView::select_visual(scene::Point screen) {
             const auto ground=visual_hit_camera_.world_to_screen(it->mesh_ground);
             const bool hit=it->mesh==simulation::Object::OriginalEliteHouse ?
                 hit_original_elite_house_fallback(screen,ground,visual_hit_camera_.zoom):
+                it->mesh==simulation::Object::Household ?
+                hit_vacant_foundation(screen,ground,visual_hit_camera_.zoom):
                 it->mesh==simulation::Object::Well ?
                 hit_well_fallback(screen,ground,visual_hit_camera_.zoom,it->footprint_side):
                 hit_health_post_fallback(screen,ground,visual_hit_camera_.zoom,it->footprint_side);
@@ -3662,6 +4248,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         const simulation::Cell cell{x,y};
         const auto object=world_->object_at(cell);
         if (object==simulation::Object::Empty) continue;
+        if(object==simulation::Object::Road && world_->source_cell_ramp_source_at(cell))continue;
         const auto owner=world_->building_owner_at(cell);
         simulation::Cell visual_cell=cell;
         if (object!=simulation::Object::Road && owner) {
@@ -3677,6 +4264,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         instances.push_back({{ground.y,ground.x,object==simulation::Object::Road ?
             scene::WorldVisualLayer::SandboxRoad:scene::WorldVisualLayer::SandboxBuilding,id},
             cell,object});
+        if (!background_.elevated()) apply_original_field_order(instances.back());
     }
     for(const auto& road:original_road_visuals_)if(original_road_dynamic(road)) {
         const auto ground=world_for({double(road.cell.x),double(road.cell.y)});
@@ -3714,6 +4302,19 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             instances.push_back(instance);
         }
     };
+    const auto append_source_ramp=[&](const simulation::SourceCellRamp& ramp,bool preview) {
+        for(const bool front:{false,true}) {
+            const double depth=(double(ramp.source_cell.x)+ramp.source_cell.y-2.0*geometry_.border)*20+20;
+            DrawInstance instance{{depth+(front?20:-20),(double(ramp.source_cell.x)-ramp.source_cell.y)*40,front?
+                scene::WorldVisualLayer::SandboxBridgeFrontRail:scene::WorldVisualLayer::SandboxBuilding,
+                ramp.id.value},ramp.source_cell};
+            instance.source_cell_ramp=&ramp;instance.ramp_front=front;instance.placement_preview=preview;
+            instances.push_back(instance);
+        }
+    };
+    if(bridges_visible)for(const auto& ramp:world_->source_cell_ramps())append_source_ramp(ramp,false);
+    if(bridges_visible&&ramp_start_&&source_cell_ramp_preview_.geometry_valid)
+        append_source_ramp(source_cell_ramp_preview_.ramp,true);
     if(bridges_visible)for(const auto& r:world_->ramps())append_ramp(r,false);
     if(bridges_visible&&ramp_start_&&ramp_preview_.geometry_valid)append_ramp(ramp_preview_.link,true);
     if(bridges_visible)for(const auto& bridge:world_->bridges())append_bridge(bridge,false);
@@ -3753,9 +4354,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             if (!frame) return false; // Complete preparation guarantees a valid selection.
             const auto& building=world_->building(*owner);
             const auto side=simulation::building_footprint(rules_,world_->rule_version(),building.kind).width;
-            const auto original_house=original_house_visual_selection(cell,building.kind);
-            const auto role=visual_role(cell,building.kind);
-            const auto* entry=original_house.entry ? original_house.entry:role ? building_entry(*role):nullptr;
+            const auto* entry=resolved_building_entry(cell,building.kind);
             // Curated roof attachment, independent of F4. Original timing/pivots
             // are not claimed: center the footprint and lift into its visible body.
             const double rise=entry ? std::clamp(entry->ground_y*0.3,12.0,36.0):12.0;
@@ -3868,6 +4467,16 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             }
             if (original_house.applicable && original_house.house_type>=2 && original_house.house_type<=17 && !placement_preview)
                 ++original_house_authored_fallbacks_[original_house.house_type-2U];
+            if(original_house.applicable && original_house.house_type==2 && original_house.actual_side==2)
+                return draw_vacant_foundation(renderer_,center,camera_.zoom,placement_preview) &&
+                    draw_fire_overlay(cell,center,placement_preview) && draw_sickness(cell,center,placement_preview);
+            const auto original_role=original_production_fixture() ? original_building_visual_role(object):std::nullopt;
+            if (const auto* entry=original_building_entry(cell,object,placement_preview);entry && building_visuals_active() && building_sprite_) {
+                if (!building_sprite_->draw(center,camera_.zoom,*building_profile_,*entry,placement_preview)) return false;
+                if (!placement_preview) ++original_building_draws_[static_cast<std::size_t>(*original_role)];
+                return draw_fire_overlay(cell,center,placement_preview) && draw_sickness(cell,center,placement_preview);
+            }
+            if (original_role && !placement_preview) ++original_building_fallbacks_[static_cast<std::size_t>(*original_role)];
             const auto role=visual_role(cell,object,placement_preview);
             if (role && building_profile_) {
                 const auto* entry=building_entry(*role);
@@ -3884,6 +4493,19 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             }
             if (role && !placement_preview) ++building_placeholder_fallbacks_[assets::role_index(*role)];
             const auto side=simulation::building_footprint(rules_,world_->rule_version(),object).width;
+            if (object==simulation::Object::OriginalTheatre75) {
+                // Authored ground-stage fallback; no original Theatre sprite is claimed.
+                for (const auto offset:theatre_ground_offsets) {
+                    const auto point=world_for({double(cell.x+offset.x),double(cell.y+offset.y)});
+                    if (!draw_diamond({point.x,point.y-20},placement_preview ? 85:146,
+                            placement_preview ? 165:111,placement_preview ? 205:168,true,placement_preview ? .45F:1.F)) return false;
+                }
+                const auto middle=camera_.world_to_screen(world_for({double(x)+1.5,double(y)+1.5}));
+                if (!SDL_SetRenderDrawColor(renderer_,255,255,255,255) ||
+                    !SDL_RenderDebugText(renderer_,static_cast<float>(middle.x)-28,
+                        static_cast<float>(middle.y)-4,"Theatre75")) return false;
+                return draw_fire_overlay(cell,center,placement_preview);
+            }
             if (object==simulation::Object::OriginalEliteHouse)
                 return draw_original_elite_house_fallback(renderer_,center,camera_.zoom) &&
                     draw_fire_overlay(cell,center,placement_preview) && draw_sickness(cell,center,placement_preview);
@@ -4097,6 +4719,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==26 ? simulation::Object::OriginalMusicSchool211:
             tool_==27 ? simulation::Object::OriginalAcrobatSchool212:
             tool_==28 ? simulation::Object::OriginalDramaSchool213:
+            tool_==42 ? simulation::Object::OriginalTheatre75:
             tool_==41 ? simulation::Object::OriginalElitePlot:
             industry_tool(tool_) ? industry_tool(tool_)->kind:
 
@@ -4106,9 +4729,9 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==0 ? simulation::Object::Market:simulation::Object::Empty;
         const auto role=simulation::production_profile(rules_) ?
             visual_role(*hovered_,object,true):std::nullopt;
-        const auto original_house=original_house_visual_selection(*hovered_,object,true);
-        if (result.accepted && (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
-            (original_house.entry && building_visuals_active() && building_sprite_) ||
+        const bool vacant_foundation=original_production_fixture() && object==simulation::Object::Household;
+        if (result.accepted && (vacant_foundation || object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
+            (resolved_building_entry(*hovered_,object,true) && building_visuals_active() && building_sprite_) ||
             (role && building_visuals_active() && building_sprite_ &&
              building_profile_ && building_entry(*role)))) {
             const auto ground=building_visual_ground(*hovered_,object);
@@ -4119,7 +4742,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     }
     // Keep the existing logical front-cell order while lifting presentation.
     if (background_.elevated()) for (auto& instance:instances) {
-        if(instance.ramp)continue;
+        if(instance.ramp || instance.source_cell_ramp)continue;
         if(instance.bridge) {instance.key.depth=(double(instance.cell.x)+instance.cell.y-2.0*geometry_.border)*20.0+20.0;continue;}
         auto position=instance.position;
         if (instance.key.layer!=scene::WorldVisualLayer::SandboxWalker) {
@@ -4130,6 +4753,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
         const double flat_y=(position.x+position.y-2*geometry_.border)*20.0+20.0;
         instance.key.depth+=flat_y-world_for(position).y;
+        apply_original_field_order(instance);
     }
     // Sandbox roads are flat surfaces. Retain the historical Snapshot and F7
     // comparison paths, including their old shared road/object ordering.
@@ -4147,6 +4771,13 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
     std::sort(spatial_begin,instances.end(),less);
     const auto draw_instance_body=[&](std::size_t index)->bool {
         const auto& instance=instances[index];
+        if(instance.source_cell_ramp) {
+            const auto tint=instance.placement_preview?(source_cell_ramp_preview_.accepted?BridgeTint::Valid:
+                source_cell_ramp_preview_.diagnostic.blocker==simulation::BuildBlocker::InsufficientFunds?
+                    BridgeTint::Unaffordable:BridgeTint::Blocked):BridgeTint::Normal;
+            return source_cell_ramp_presentation_.draw_part(renderer_,camera_,source_cell_ramp_ground(*instance.source_cell_ramp),
+                *instance.source_cell_ramp,instance.ramp_front,background_.elevated(),tint);
+        }
         if(instance.ramp) {
             const auto tint=instance.placement_preview?(ramp_preview_.accepted?BridgeTint::Valid:
                 ramp_preview_.diagnostic.blocker==simulation::BuildBlocker::InsufficientFunds?BridgeTint::Unaffordable:BridgeTint::Blocked):BridgeTint::Normal;
@@ -4372,7 +5003,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
         return true;
     }
-    if(ramp_start_&&hovered_&&!ramp_preview_.geometry_valid) {
+    if(ramp_start_&&hovered_&&!(world_->source_cell_ramps_supported()?source_cell_ramp_preview_.geometry_valid:ramp_preview_.geometry_valid)) {
         const auto a=camera_.world_to_screen(world_for({double(ramp_start_->x),double(ramp_start_->y)}));
         const auto b=camera_.world_to_screen(world_for({double(hovered_->x),double(hovered_->y)}));
         if(!SDL_SetRenderDrawColor(renderer_,218,77,63,255)||!SDL_RenderLine(renderer_,float(a.x),float(a.y),float(b.x),float(b.y)))return false;
@@ -4427,6 +5058,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==26 ? simulation::Object::OriginalMusicSchool211:
             tool_==27 ? simulation::Object::OriginalAcrobatSchool212:
             tool_==28 ? simulation::Object::OriginalDramaSchool213:
+            tool_==42 ? simulation::Object::OriginalTheatre75:
             tool_==41 ? simulation::Object::OriginalElitePlot:
             industry_tool(tool_) ? industry_tool(tool_)->kind:
 
@@ -4434,10 +5066,7 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
             tool_==12 ? (original_influence_fixture() ? simulation::Object::OriginalInfluenceSource:simulation::Object::Well):
             tool_==11 ? simulation::Object::FireWatch:
             tool_==0 ? simulation::Object::Market:simulation::Object::Empty;
-        const auto role=simulation::production_profile(rules_) ?
-            visual_role(*hovered_,object,true):std::nullopt;
-        const auto original_house=original_house_visual_selection(*hovered_,object,true);
-        const auto* entry=original_house.entry ? original_house.entry:role && building_profile_ ? building_entry(*role):nullptr;
+        const auto* entry=resolved_building_entry(*hovered_,object,true);
         if (object==simulation::Object::OriginalElitePlot) {
             // Future space is advisory only: buying the Plot claims four cells.
             // The authoritative sixteen-cell transaction runs at immigration.
@@ -4449,7 +5078,8 @@ bool SandboxView::draw_world(const scene::Camera2D& render_camera) {
         }
         for (const auto cell:simulation::building_footprint_cells(rules_,world_->rule_version(),object,*hovered_)) {
             const auto top=world_for({static_cast<double>(cell.x),static_cast<double>(cell.y)});
-            const bool outline=result.accepted && (object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
+            const bool outline=result.accepted && ((original_production_fixture() && object==simulation::Object::Household) ||
+                object==simulation::Object::Well || object==simulation::Object::OriginalInfluenceSource || object==simulation::Object::HealthPost ||
                 (entry && building_visuals_active() && building_sprite_));
             if (!draw_diamond({top.x,top.y-20},result.accepted?70:255,
                 result.accepted?245:65,result.accepted?100:65,!outline)) return false;
@@ -4646,14 +5276,17 @@ bool SandboxView::original_house_inspector_active() const {
 std::vector<std::string> SandboxView::original_house_section_lines() const {
     if (!original_house_inspector_active()) return {};
     auto lines=original_house_ui::section_lines(*world_,*selected_building(),original_house_section_);
-    if (original_house_section_==OriginalHouseSection::State &&
-        building_profile_ && building_profile_->original_house_prepared) {
+    if (original_house_section_==OriginalHouseSection::State) {
         const auto visual=original_house_visual_diagnostic(*selected_building());
         std::vector<std::string> art;
-        if (visual.active) {
+        if(visual.authored_vacant_foundation) {
+            art.push_back("Art: authored vacant foundation");
+            art.push_back("Original art unavailable: "+visual.fallback_reason);
+        } else if (visual.active) {
             art.push_back(std::string(original_house_source_==VisualProfileSource::Custom ? "Art: custom; ":"Art: original; ")+visual.selection);
             art.push_back("SG3 "+visual.asset->archive_relative_path.filename().string()+" #"+std::to_string(visual.asset->image_index));
-        } else art.push_back("Art: authored fallback | "+visual.fallback_reason);
+        } else if(building_profile_ && building_profile_->original_house_prepared)
+            art.push_back("Art: authored fallback | "+visual.fallback_reason);
         lines.insert(lines.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(3,lines.size())),art.begin(),art.end());
     }
     return wrap_panel_lines(lines);
@@ -4679,8 +5312,12 @@ sandbox_ui::Rect SandboxView::original_house_content_rect() const {
     if (!original_house_inspector_active()) return {};
     const int scale=layout_.scale,rows=layout_.panel.w<280*scale ? 2:1;
     const int top=std::min(layout_.panel.y+layout_.panel.h,layout_.panel.y+(74+rows*28)*scale);
+    const auto footer=original_safe_demolition() ? inspector_layout():sandbox_ui::InspectorLayout{};
+    const int bottom=original_safe_demolition() ?
+        std::min(layout_.panel.y+layout_.panel.h-8*scale,footer.content.y+footer.content.h):
+        layout_.panel.y+layout_.panel.h-8*scale;
     return {layout_.panel.x+10*scale,top,std::max(0,layout_.panel.w-20*scale),
-        std::max(0,layout_.panel.y+layout_.panel.h-8*scale-top)};
+        std::max(0,bottom-top)};
 }
 int SandboxView::original_house_scroll_limit() const {
     const auto rect=original_house_content_rect();
@@ -4727,6 +5364,15 @@ std::vector<std::string> SandboxView::inspection_lines() const {
     std::vector<std::string> lines;
     if (selected_ && !selected_walker_ && world_->map_permissions()) {
         const auto& permissions=*world_->map_permissions();
+        if(const auto* ramp=world_->source_cell_ramp_claim(*selected_))return wrap_panel_lines({
+            "Authored source-cell ramp #"+std::to_string(ramp->id.value),
+            "Low source: "+std::to_string(ramp->source_cell.x)+","+std::to_string(ramp->source_cell.y),
+            "High road: "+std::to_string(ramp->high_neighbor.x)+","+std::to_string(ramp->high_neighbor.y),
+            "Stored heights: "+std::to_string(int(ramp->low_height))+" -> "+std::to_string(int(ramp->high_height)),
+            "Source-centre surface: "+std::to_string(double(ramp->low_height)+.5),
+            "Paid $40; authored classic economy",
+            "Three axial road claims; no lateral entry",
+            "No ramp removal or refund in V1"});
         if(const auto* r=world_->ramp_endpoint(*selected_))return wrap_panel_lines({
             "OpenEmperor Ramp #"+std::to_string(r->id.value),
             "Endpoint A: "+std::to_string(r->endpoint_a.x)+","+std::to_string(r->endpoint_a.y),
@@ -4826,6 +5472,31 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 std::string("Goods: ")+displayed_courier_good(*world_,*found)};
             if (original_production_fixture()) walker_lines.push_back("Incoming reserved: "+
                 std::to_string(displayed_courier_reservation(*world_,*found)));
+            if (found->role==simulation::CourierRole::OriginalMusicPerformer && original_music_venues()) {
+                for (const auto& school:world_->original_production_state()->culture->schools)
+                    if (school.courier_id==found->id && school.latest_trip) {
+                        walker_lines.push_back("Performer #"+std::to_string(static_cast<std::uint64_t>(school.latest_trip->performer_id)));
+                        walker_lines.push_back(original_venue_house_service() ?
+                            "One-way to Theatre75; no direct House grant":"One-way to Theatre75; no House effect");
+                        break;
+                    }
+            }
+            if (found->role==simulation::CourierRole::OriginalVenueMusic && original_venue_house_service()) {
+                for (const auto& trip:world_->original_production_state()->services.trips)
+                    if (trip.transfer.courier_id==found->id && trip.venue_walker) {
+                        const auto& evidence=*trip.venue_walker;
+                        walker_lines.push_back("Venue walker #"+std::to_string(static_cast<std::uint64_t>(evidence.walker_id)));
+                        walker_lines.push_back("Authored physical House roundtrip");
+                        walker_lines.push_back("Departed "+std::to_string(evidence.dispatched_tick)+
+                            " | Music performer #"+std::to_string(static_cast<std::uint64_t>(evidence.dispatch_music.performer_id)));
+                        if (trip.arrival_tick) walker_lines.push_back("House arrival "+std::to_string(*trip.arrival_tick)+
+                            (trip.visit_applied ? "; Music96 granted":"; no Music grant"));
+                        else walker_lines.push_back("No actual House arrival yet");
+                        if (evidence.arrival_music) walker_lines.push_back("Arrival Music performer #"+
+                            std::to_string(static_cast<std::uint64_t>(evidence.arrival_music->performer_id)));
+                        break;
+                    }
+            }
             const auto role=walker_visual_role(found->role);
             const bool configured=role && walker_profile_ && walker_profile_->find(*role);
             const auto source=walker_source_==VisualProfileSource::Custom ? walker_source_:
@@ -5018,6 +5689,15 @@ std::vector<std::string> SandboxView::inspection_lines() const {
                 "Ancestor"+std::to_string(h.ancestor)+" Confucian"+std::to_string(h.confucian),
                 "Daoist"+std::to_string(h.daoist)+" Buddhist"+std::to_string(h.buddhist)+" /40",
                 "Music"+std::to_string(h.music)+" Acrobat"+std::to_string(h.acrobat)+" Drama"+std::to_string(h.drama)};
+            if (original_venue_house_service()) {
+                for (const auto& witness:world_->original_production_state()->services.witnesses)
+                    if (witness.building_id==*house_id && witness.role==original::ServiceRole::Music && witness.venue_walker) {
+                        lines.push_back("Actual Venue Music arrival "+std::to_string(witness.arrival_tick));
+                        lines.push_back("Theatre #"+std::to_string(static_cast<std::uint32_t>(witness.provider_id))+
+                            " | walker #"+std::to_string(static_cast<std::uint64_t>(witness.venue_walker->walker_id)));
+                        break;
+                    }
+            }
             for (const auto& food:world_->original_production_state()->food.stocks) if (food.building_id==*house_id) {
                 lines.push_back("Food: "+std::to_string(food.amounts[0]+food.amounts[1])+"/8 Quality: "+std::to_string(h.food_quality)+
                     " W"+std::to_string(food.amounts[0])+" M"+std::to_string(food.amounts[1]));
@@ -5140,6 +5820,77 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             "Developer empty container; scheduler only",
             "No active residents, goods, services or economy operations",
             "Original housing art is not selected"});
+    if (original_music_venues() && house_id &&
+        (world_->building(*house_id).kind==simulation::Object::OriginalMusicSchool211 ||
+         world_->building(*house_id).kind==simulation::Object::OriginalTheatre75)) {
+        const auto id=*house_id;const auto& body=world_->building(id);
+        const auto& culture=*world_->original_production_state()->culture;
+        const bool theatre=body.kind==simulation::Object::OriginalTheatre75;
+        lines.push_back(std::string(theatre ? "Theatre75 #":"Music211 #")+
+            std::to_string(static_cast<std::uint32_t>(id)));
+        lines.push_back(theatre ? "Paid4x4; authored stage art":"Paid2x2; actual Actor34 route");
+        lines.push_back("Workers assigned "+std::to_string(world_->workers_assigned(id))+"/"+
+            std::to_string(world_->workforce_required(id)));
+        lines.push_back(std::string("Operation: ")+(body.operating_enabled ? "Running":"Paused"));
+        if (theatre) {
+            const auto row=std::find_if(culture.venues.begin(),culture.venues.end(),[&](const auto& value){return value.building_id==id;});
+            if (row!=culture.venues.end()) {
+                lines.push_back("Music duration: "+std::to_string(row->music_timer)+"/32");
+                lines.push_back("Authored phase35 countdown");
+                if (row->last_arrival) {
+                    const auto& visit=*row->last_arrival;
+                    lines.push_back("Actual arrival: "+std::to_string(visit.arrival_tick));
+                    lines.push_back("Performer #"+std::to_string(static_cast<std::uint64_t>(visit.performer_id))+
+                        " from School #"+std::to_string(static_cast<std::uint32_t>(visit.school_id)));
+                } else lines.push_back("No actual Music arrival");
+                for (const auto& source:culture.schools) if (source.latest_trip &&
+                    source.latest_trip->venue_id==id && !source.latest_trip->arrival_tick)
+                    lines.push_back("Incoming performer #"+std::to_string(static_cast<std::uint64_t>(source.latest_trip->performer_id))+
+                        " from School #"+std::to_string(static_cast<std::uint32_t>(source.building_id)));
+            }
+        } else {
+            const auto row=std::find_if(culture.schools.begin(),culture.schools.end(),[&](const auto& value){return value.building_id==id;});
+            if (row!=culture.schools.end()) {
+                lines.push_back("Spawn counter: "+std::to_string(row->spawn_counter));
+                lines.push_back("Due attempts: "+std::to_string(row->attempts)+" | spawned: "+std::to_string(row->spawned));
+                const auto& channel=world_->courier(row->courier_id);
+                lines.push_back("Route: "+std::string(simulation::courier_dispatch_status_name(world_->courier_dispatch_status(channel.id).status)));
+                if (row->latest_trip) {
+                    const auto& trip=*row->latest_trip;
+                    lines.push_back(std::string(trip.arrival_tick ? "Retired performer #":"Active performer #")+
+                        std::to_string(static_cast<std::uint64_t>(trip.performer_id)));
+                    lines.push_back("Venue #"+std::to_string(static_cast<std::uint32_t>(trip.venue_id))+
+                        " | departed "+std::to_string(trip.dispatched_tick));
+                    if (trip.arrival_tick) lines.push_back("Arrival "+std::to_string(*trip.arrival_tick)+
+                        (trip.accepted ? "; Music accepted":"; admission refused"));
+                } else lines.push_back("No performer spawned");
+            }
+        }
+        if (theatre && original_venue_house_service() && culture.venue_house_service) {
+            for (const auto& source:culture.venue_house_service->sources) if (source.building_id==id) {
+                const auto& channel=world_->courier(source.courier_id);
+                lines.push_back("Venue spawn counter: "+std::to_string(source.spawn_counter));
+                lines.push_back("Venue attempts "+std::to_string(source.attempts)+" | spawned "+std::to_string(source.spawned));
+                lines.push_back(std::string("House trip: ")+simulation::courier_phase_name(channel.phase));
+                lines.push_back(std::string("Route: ")+simulation::courier_dispatch_status_name(world_->courier_dispatch_status(channel.id).status));
+                for (const auto& trip:world_->original_production_state()->services.trips)
+                    if (trip.transfer.courier_id==channel.id && trip.venue_walker) {
+                        lines.push_back(std::string(channel.phase==simulation::CourierPhase::IdleAtWorkshop ? "Retired venue walker #":"Venue walker #")+
+                            std::to_string(static_cast<std::uint64_t>(trip.venue_walker->walker_id)));
+                        lines.push_back("House #"+std::to_string(static_cast<std::uint32_t>(trip.target))+
+                            " | departed "+std::to_string(trip.dispatched_tick));
+                        if (trip.arrival_tick) lines.push_back("House arrival "+std::to_string(*trip.arrival_tick)+
+                            (trip.visit_applied ? "; Music96 granted":"; no Music grant"));
+                        else lines.push_back("No actual House arrival yet");
+                        break;
+                    }
+            }
+        }
+        lines.push_back(original_venue_house_service() ? theatre ?
+            "Current Music + real House arrival -> Music96":"School supplies Venue; no direct House grant":"House effect UNSUPPORTED");
+        lines.push_back(original_venue_house_service() ? "Authored roundtrip; no passive coverage":"No Actor36; no free coverage");
+        add_fire_status(id);add_connectivity();return wrap_panel_lines(lines);
+    }
     if (original_production_fixture() && house_id &&
         (world_->building(*house_id).kind==simulation::Object::HealthPost ||
          world_->building(*house_id).kind==simulation::Object::ServicePost ||
@@ -5320,6 +6071,37 @@ std::vector<std::string> SandboxView::inspection_lines() const {
         return lines;
     }
     const auto& b=world_->building(*id);
+    if(world_->authored_land_trade_enabled() && b.kind==simulation::Object::Warehouse) {
+        const auto& state=*world_->land_trade_state();const auto balance=world_->land_trade_balance();
+        lines={"Authored finite land trade (rule21)","Warehouse #"+std::to_string(static_cast<unsigned>(*id)),
+            "Pottery stock "+std::to_string(b.pottery_stock)+" / incoming reserved "+std::to_string(b.reserved_incoming),
+            "Funds $"+std::to_string(world_->treasury()),
+            "Import 4 x $6 = $24 prepaid; export 4 x $3 = $12 at boundary",
+            "External offer: import "+std::to_string(balance.import_offer_remaining)+" / export "+std::to_string(balance.export_offer_remaining),
+            "External buyer budget $"+std::to_string(24-balance.exports_received),
+            "Paid imports $"+std::to_string(balance.imports_paid)+"; received exports $"+std::to_string(balance.exports_received),
+            "Workers "+std::to_string(world_->workers_assigned(*id))+"/"+std::to_string(world_->workforce_required(*id)),
+            std::string("Operation: ")+(b.operating_enabled?"Running":"Paused")};
+        if(!state.binding)lines.push_back("Unbound: select city Warehouse, then G.");
+        else {
+            const auto& bind=*state.binding;
+            lines.push_back("City #"+std::to_string(static_cast<unsigned>(bind.warehouse))+" -> boundary #"+std::to_string(static_cast<unsigned>(bind.gateway)));
+            const auto& actor=world_->courier(bind.courier);
+            lines.push_back(std::string("Caravan: ")+simulation::delivery_phase_name(actor.phase)+
+                " | physical cargo "+std::to_string(actor.cargo)+" | reservation "+std::to_string(actor.reserved));
+            lines.push_back(actor.route_pending?"Road interrupted: waiting; paid repair required.":"Physical route prepared; no instant arrival.");
+            if(!state.orders.empty()) {
+                const auto& order=state.orders.back();
+                lines.push_back("Order #"+std::to_string(static_cast<unsigned>(order.id))+
+                    (order.direction==simulation::LandTradeDirection::Import?" import":" export")+
+                    (order.completed_tick?" complete":order.boundary_tick?" returning":" outbound"));
+                lines.push_back("Import escrow $"+std::to_string(order.direction==simulation::LandTradeDirection::Import && !order.boundary_tick?24:0));
+            }
+        }
+        lines.push_back("No mid-trip cancel/refund. Begun caravan completes.");
+        lines.push_back("No original trader or venue parity claim.");
+        return wrap_panel_lines(lines);
+    }
         if (world_->demolition_supported()) {
             const auto status=world_->demolition_status(*id);
             lines.push_back(status.reason);
@@ -5429,11 +6211,10 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             lines.push_back("Harvested "+std::to_string(farm.harvested));
             lines.push_back(farm.crop==simulation::OriginalFoodCrop::Wheat ? "Wheat source20 (authored)":"Millet source80 (authored)");
         }
-        lines.push_back("Authored presentation; original Farmhouse193 identity");
     } else if (b.kind==simulation::Object::OriginalWheatField || b.kind==simulation::Object::OriginalMilletField) {
         for (const auto& farm:world_->original_production_state()->food.farms) if (farm.field_id==id)
             lines.push_back("Bound Food Farm #"+std::to_string(static_cast<unsigned>(farm.farm_id)));
-        lines.push_back("Authored presentation; paid original model field");
+        lines.push_back("Authored field ownership and harvest timing");
     } else if (b.kind==simulation::Object::OriginalHempFarm) {
         lines.push_back("Hemp stock "+std::to_string(displayed_original_stock(*world_,*id,original::Goods::Hemp))+"/8");
         lines.push_back("Harvest progress "+std::to_string(b.progress)+"/80 productive ticks (authored)");
@@ -5551,7 +6332,26 @@ std::vector<std::string> SandboxView::inspection_lines() const {
             lines.push_back("Last target "+std::to_string(static_cast<unsigned>(
                 *world_->last_dispatched_service_household())));
     }
-    if (const auto role=visual_role(b.cell,b.kind)) {
+    if (const auto art=original_building_visual_diagnostic(*id);art.applicable) {
+        lines.push_back(std::string("Building visuals ")+(building_enabled_ ? "ON":"OFF"));
+        lines.push_back(std::string("Visual role ")+assets::original_building_role_name(art.role));
+        lines.push_back(std::string("Visual configured ")+(art.configured ? "yes":"no"));
+        if (art.asset) {
+            lines.push_back("SG3 "+art.asset->archive_relative_path.generic_string()+" #"+std::to_string(art.asset->image_index));
+            lines.push_back("Image "+std::to_string(art.image_width)+"x"+std::to_string(art.image_height));
+            lines.push_back("Anchor "+std::to_string(art.ground_x)+","+std::to_string(art.ground_y));
+            if (art.field_stage && art.field_farm) {
+                lines.push_back("Field visual stage "+std::to_string(*art.field_stage+1)+"/6 (authored)");
+                lines.push_back("Farm #"+std::to_string(static_cast<unsigned>(*art.field_farm))+" progress "+
+                    std::to_string(art.field_farm_progress)+"/80");
+                lines.push_back("Original crop images; authored growth and anchor");
+                lines.push_back("Canonical variation0; original calendar not reproduced");
+                if (art.field_order_ambiguous)
+                    lines.push_back("Complex adjacent ordering; historical painter retained");
+            } else lines.push_back("Evidence: registered static base; authored anchor");
+        }
+        if (!art.fallback_reason.empty()) lines.push_back(art.fallback_reason);
+    } else if (const auto role=visual_role(b.cell,b.kind)) {
         lines.push_back(std::string("Building visuals ")+(building_enabled_ ? "ON":"OFF"));
         lines.push_back(std::string("Visual role ")+assets::building_role_name(*role));
         const auto* entry=building_profile_ ? building_entry(*role):nullptr;
@@ -5863,6 +6663,41 @@ bool SandboxView::draw_text(double x,double y,const std::string& value,int max_w
                                         static_cast<float>(y/scale),text.c_str());
     return SDL_SetRenderScale(renderer_,1,1) && okay;
 }
+bool SandboxView::draw_demolition_controls() {
+    const auto id=selected_building();
+    if (!id) return true;
+    const auto panel=inspector_layout();
+    const auto fill=[&](sandbox_ui::Rect rect,SDL_Color color) {
+        const SDL_FRect area{static_cast<float>(rect.x),static_cast<float>(rect.y),
+            static_cast<float>(rect.w),static_cast<float>(rect.h)};
+        return SDL_SetRenderDrawColor(renderer_,color.r,color.g,color.b,color.a) &&
+            SDL_RenderFillRect(renderer_,&area);
+    };
+    if (panel.demolition.h>0) {
+        const auto status=world_->demolition_status(*id);
+        const auto rect=panel.demolition;
+        if (!fill(rect,status.allowed ? SDL_Color{117,65,45,255}:SDL_Color{55,55,61,255}) ||
+            !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
+            !draw_text(rect.x+6*layout_.scale,rect.y+9*layout_.scale,"Demolish",rect.w-12*layout_.scale)) return false;
+    }
+    if (panel.hints.h>0) {
+        if (!SDL_SetRenderDrawColor(renderer_,245,247,250,255)) return false;
+        const auto hints=demolition_hint_lines();
+        for (std::size_t i=0;i<hints.size();++i) {
+            const auto row=panel.hint_row_rect(i);
+            if (row.h>0 && !draw_text(row.x,row.y,hints[i],row.w)) return false;
+        }
+        if (original_house_inspector_active() && panel.hint_scroll_limit>0) {
+            const int width=3*layout_.scale;
+            const int thumb=std::min(panel.hints.h,std::max(12*layout_.scale,
+                static_cast<int>(double(panel.hints.h)*panel.hints.h/(panel.hints.h+double(panel.hint_scroll_limit)))));
+            const int y=panel.hints.y+static_cast<int>(double(panel.hint_scroll)*(panel.hints.h-thumb)/panel.hint_scroll_limit);
+            if (!fill({layout_.panel.x+layout_.panel.w-6*layout_.scale,panel.hints.y,width,panel.hints.h},{38,58,77,255}) ||
+                !fill({layout_.panel.x+layout_.panel.w-6*layout_.scale,y,width,thumb},{140,181,200,255})) return false;
+        }
+    }
+    return true;
+}
 bool SandboxView::draw_original_house_panel() {
     if (!original_house_inspector_active()) return true;
     const int scale=layout_.scale;
@@ -5904,7 +6739,7 @@ bool SandboxView::draw_original_house_panel() {
             static_cast<float>(thumb_height)};
         if (!SDL_SetRenderDrawColor(renderer_,119,150,165,255) || !SDL_RenderFillRect(renderer_,&thumb)) return false;
     }
-    return true;
+    return draw_demolition_controls();
 }
 bool SandboxView::draw_original_house_overlay() {
     original_house_overlay_stats_={};
@@ -6151,7 +6986,12 @@ bool SandboxView::draw_hud() {
         overview=profile+" v"+std::to_string(world_->rule_version());
         if (rules_==simulation::RulesProfile::CityV16 && world_->rule_version()==4)
             overview+=" | Policy 2 | Save 20";
-        if(original_deadline_food_dispatch())overview+=" | Policy 3 | Save 34 | Deadline-aware Food";
+        if(original_venue_house_service())overview+=" | Policy3 | Save39 | physical Venue to House Music";
+        else if(original_music_venues())overview+=" | Policy3 | Save38 | Music to Theatre; no House effect";
+        else if(world_->authored_land_trade_enabled())overview+=" | Policy3 | Save37 | Authored finite Pottery trade";
+        else if(world_->source_cell_ramps_supported())overview+=" | Policy 3 | Save 36 | Authored source-cell ramps "+std::to_string(world_->source_cell_ramps().size());
+        else if(original_safe_demolition())overview+=" | Policy 3 | Save 35 | Safe demolition";
+        else if(original_deadline_food_dispatch())overview+=" | Policy 3 | Save 34 | Deadline-aware Food";
         else if(original_deadline_service_dispatch())overview+=" | Policy 3 | Save 33 | Deadline-aware services";
         else if(original_deadline_fire_dispatch())overview+=" | Policy 3 | Save 32 | Deadline-aware fire dispatch";
         else if(original_inspector_coordination())overview+=" | Policy 3 | Save 31 | Inspector coordination";
@@ -6242,6 +7082,9 @@ bool SandboxView::draw_hud() {
         case A::OriginalConfucianAcademy: return "V Confucian "+
             std::to_string(count(simulation::Object::OriginalConfucianAcademy219))+"/2 $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalConfucianAcademy));
+        case A::OriginalTheatre: return "G Theatre75 "+
+            std::to_string(count(simulation::Object::OriginalTheatre75))+"/2 $"+
+            std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalTheatre));
         case A::OriginalMusicSchool: return "E Music "+
             std::to_string(count(simulation::Object::OriginalMusicSchool211))+"/2 $"+
             std::to_string(world_->construction_cost(simulation::CommandType::PlaceOriginalMusicSchool));
@@ -6319,6 +7162,7 @@ bool SandboxView::draw_hud() {
         case A::OriginalDaoistShrine: active=tool_==23; break;
         case A::OriginalBuddhistShrine: active=tool_==24; break;
         case A::OriginalConfucianAcademy: active=tool_==25; break;
+        case A::OriginalTheatre: active=tool_==42; break;
         case A::OriginalMusicSchool: active=tool_==26; break;
         case A::OriginalAcrobatSchool: active=tool_==27; break;
         case A::OriginalDramaSchool: active=tool_==28; break;
@@ -6434,21 +7278,20 @@ bool SandboxView::draw_hud() {
                            layout_.panel.w-20*layout_.scale)) return false;
         }
         const auto controls_id=selected_building();
-        if (controls_id && panel.demolition.h>0) {
-            const auto demolition=world_->demolition_status(*controls_id);
-            const auto rect=panel.demolition;
-            if (!fill(rect,demolition.allowed ? SDL_Color{117,65,45,255}:SDL_Color{55,55,61,255}) ||
-                !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
-                !draw_text(rect.x+6*layout_.scale,rect.y+9*layout_.scale,"Demolish",rect.w-12*layout_.scale)) return false;
-        }
-        if (controls_id && panel.hints.h>0) {
-            if (!SDL_SetRenderDrawColor(renderer_,245,247,250,255)) return false;
-            const auto hints=demolition_hint_lines();
-            for (std::size_t i=0;i<hints.size();++i) {
-                const auto row=panel.hint_row_rect(i);
-                if (row.h>0 && !draw_text(row.x,row.y,hints[i],row.w)) return false;
+        if(land_trade_selected()) {
+            constexpr std::array<const char*,4> labels{"G Bind","I Buy","E Sell","Demol."};
+            for(int i=0;i<4;++i) {
+                const auto r=land_trade_button_rect(i);
+                if(r.h>0 && (!fill(r,{38,82,105,255}) || !SDL_SetRenderDrawColor(renderer_,245,247,250,255) ||
+                    !draw_text(r.x+4*layout_.scale,r.y+9*layout_.scale,labels[std::size_t(i)],r.w-8*layout_.scale)))return false;
             }
-        }
+            const auto hints=land_trade_hint_lines();
+            for(std::size_t i=0;i<hints.size();++i) {
+                const auto r=panel.hint_row_rect(i);
+                if(r.h>0 && (!SDL_SetRenderDrawColor(renderer_,205,225,238,255) ||
+                    !draw_text(r.x,r.y,hints[i],r.w)))return false;
+            }
+        } else if (!draw_demolition_controls()) return false;
         if (controls_id) {
             const auto& selected=world_->building(*controls_id);
             const auto toggle=panel.operation_toggle;
@@ -6559,7 +7402,7 @@ bool SandboxView::draw_hud() {
                 debug_row+=14;
             }
             std::size_t logical=0,live_submitted=0,supplier=0,distributor=0,foreign_markers=0;
-            std::array<bool,static_cast<std::size_t>(simulation::CourierRole::OriginalAuxSupplier)+1> logical_roles{};
+            std::array<bool,static_cast<std::size_t>(simulation::CourierRole::OriginalVenueMusic)+1> logical_roles{};
             for (const auto& courier:world_->couriers()) {
                 const auto role=walker_visual_role(courier.role);
                 const auto hit=std::find_if(visual_hits_.begin(),visual_hits_.end(),
@@ -6832,14 +7675,15 @@ bool SandboxView::draw_help_overlay() {
         const std::array<const char*,17> help{
             "ORIGINAL ECONOMY - H closes", "Q Water Well | Y Ancestor Shrine",
             "U Daoist | K Buddhist | V Confucian",
-            "E Music | C Acrobat | A Drama",
+            original_music_venues() ? "E Music -> G Theatre75 (4x4)":"E Music | C Acrobat | A Drama",
             "O Food Farm | W Wheat | L Millet", "N Hemp Farm | M Hemp Field",
             "J Herbalist | 9 Acupuncture", "0 Market | 5 Select | 1 Road",
             "F5 Save | F9 Load | Space Pause", "Panel wheel scrolls; sources need workers",
             original_fire_protection() ? "F Watch: $80; 2 workers (2W)":"Actual arrivals supply Houses",
             original_fire_protection() ? "Inspector arrival:2400 ticks protection":"Water is evaluated on phase28",
             "PageUp/Down: sections | F10: overlays", "Plain needs Water/Food/Ancestor",
-            "Schools: experimental direct visits", world_->original_worker_upkeep_interval()==816 ?
+            original_venue_house_service() ? "Theatre visits: current Music -> House96":
+            original_music_venues() ? "Music arrival: Venue32; no House effect":"Schools: experimental direct visits", world_->original_worker_upkeep_interval()==816 ?
                 "T:816t tax;2/worker/816t upkeep":"T:816t tax;2/worker/400t upkeep",
             building_profile_ && building_profile_->original_house_prepared ?
                 "House art: State; other art pending":"Original graphics follow separately"};
@@ -6953,7 +7797,8 @@ bool SandboxView::draw_demolition_overlay() {
         !draw_text(x+14*scale,y+24*scale,"Demolish "+std::string(object_name(b.kind))+" #"+
             std::to_string(static_cast<std::uint32_t>(b.id))+"?",width-28*scale) ||
         !draw_text(x+14*scale,y+60*scale,"No refund. This cannot be undone.",width-28*scale) ||
-        !draw_text(x+14*scale,y+88*scale,b.kind==simulation::Object::Household ?
+        !draw_text(x+14*scale,y+88*scale,original_safe_demolition() && simulation::original_house_kind(b.kind) ?
+            "Empty House only: 0 residents. No refund.":b.kind==simulation::Object::Household ?
             "Residents leave immediately.":"Only an empty building can be removed.",width-28*scale)) return false;
     for (const bool confirm:{true,false}) {
         const auto rect=confirm ? budget_build_rect():budget_cancel_rect();

@@ -30,6 +30,8 @@ struct SaveDocument {
     std::shared_ptr<const original::OriginalRulesModel> prepared_original_rules_model;
     // Rule14–17 immutable source-map dependency only; never serialized authority.
     std::shared_ptr<const simulation::OriginalTerrainFacts> prepared_original_terrain_facts;
+    // Rule21 source-bound geometry only; never serialized or inferred from roads.
+    std::shared_ptr<const simulation::LandTradeBoundaryFacts> prepared_land_trade_boundary_facts;
 };
 
 // Fault injection is used only by tests; production always uses None.
@@ -52,9 +54,16 @@ std::shared_ptr<const original::OriginalRulesModel> prepare_original_rules_model
 std::shared_ptr<const original::OriginalRulesModel> prepare_original_production_rules_model(
     const std::filesystem::path& data_root,
     original::Difficulty difficulty=original::Difficulty::Normal);
+// Rule22 separately prepares the production model and admitted Theatre75 row;
+// neither historical model factory requires or exposes this capability.
+std::shared_ptr<const original::OriginalRulesModel> prepare_original_culture_rules_model(
+    const std::filesystem::path& data_root,
+    original::Difficulty difficulty=original::Difficulty::Normal);
 // Complete supported original map, shared reader and full-file SHA binding.
 // Raw bit4 facts never substitute for MapPermissions or bridge eligibility.
 std::shared_ptr<const simulation::OriginalTerrainFacts> prepare_original_terrain_facts(
+    const std::filesystem::path& data_root,const std::filesystem::path& map_relative);
+std::shared_ptr<const simulation::LandTradeBoundaryFacts> prepare_land_trade_boundary_facts(
     const std::filesystem::path& data_root,const std::filesystem::path& map_relative);
 // Schema 23 remains an explicit development boundary while normal Rule-7
 // sessions, ticking and restore_save are unavailable.
@@ -144,6 +153,43 @@ simulation::World restore_original_deadline_food_dispatch(
     std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
     std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
     std::shared_ptr<const simulation::OriginalTerrainFacts> terrain=nullptr);
+// Schema35/Rule19 explicitly adds bounded paid-purchase retirement; no migration.
+simulation::World restore_original_safe_demolition(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+    std::shared_ptr<const simulation::OriginalTerrainFacts> terrain=nullptr);
+// Schema38/Rule22 explicitly inherits Rule18 and adds Music School-to-Venue
+// authority. It does not inherit safe demolition, source ramps or land trade.
+simulation::World restore_original_music_venues(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+    std::shared_ptr<const simulation::OriginalTerrainFacts> terrain=nullptr);
+// Schema39/Rule23 adds witnessed physical Venue-to-House Music visits. It never
+// relabels or migrates the separate Rule22/schema38 School-to-Venue contract.
+simulation::World restore_original_venue_house_service(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+    std::shared_ptr<const simulation::OriginalTerrainFacts> terrain=nullptr);
+// Schema36 is an explicit authored classic Rule6 successor. It does not
+// inherit Original-economy rules or migrate an existing transport save.
+simulation::World restore_authored_source_cell_ramps(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr);
+// Schema37/Rule21 binds finite authored trade to classic Rule6 infrastructure;
+// the prepared model supplies identity only and activates no Original economy.
+simulation::World restore_authored_land_trade(
+    const SaveDocument& document,const std::filesystem::path& data_root,
+    std::vector<std::uint8_t> buildable,
+    std::shared_ptr<const simulation::MapPermissions> permissions=nullptr,
+    std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
+    std::shared_ptr<const simulation::LandTradeBoundaryFacts> boundary=nullptr);
 SaveDocument upgrade_city_v11_v2_to_v3(const SaveDocument& document);
 SaveDocument upgrade_city_v11_v3_to_v4(const SaveDocument& document);
 simulation::World restore_save(const SaveDocument& document,

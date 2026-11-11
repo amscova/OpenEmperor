@@ -250,6 +250,66 @@ literal preservation check are retained under
 `core-parity-public-preservation-01.json`. This historical numerical/ABI check
 does not certify the authored Rule18 selector or citywide Food reliability.
 
+Rule19 adds explicit safe-demolition factories, capability predicates, appended
+blockers and a generation-only optional production journal. The reviewed ABI
+pins now include `OriginalSafeDemolitionState.h`; old generations forbid that
+journal, and the historical HouseholdV3/CityV7 probe calls retain their behavior.
+Fresh Release probes linked against the matching Rule19 simulation archives pass
+the same74 canonical cases and retain the exact classifications, expected and
+observed values, eighteen-value HousingView observation, real-model digest
+`[1800,477508576,4125568101]`, fork pins and limitations. Only four current-source
+fingerprints change: World, production DTO, new retirement DTO and comparison
+runner. The complete public-payload preservation check is
+`.local/oe51/core-parity-public-preservation.json`; private fresh comparison
+artifacts are under `.local/original-economy/oe51/core-parity-release-01/`.
+This checks historical numerical/ABI compatibility. It grants no original
+demolition parity or paid-city acceptance to the authored Rule19 behavior.
+
+Rule20 adds explicit source-cell ramp APIs, an appended command and default-empty
+World/snapshot collections with next-ID1. Historical HouseholdV3/CityV7 probe
+calls and the Original-generation predicates remain unchanged. The directly
+included `SourceCellRamp.h` DTO now has its own exact reviewed API pin alongside
+`World.h`; changed, missing or symlinked headers still fail closed. Fresh Release
+fork/current probes and the actual pinned HousingView module retain all74 cases,
+classifications, expected/observed values, the eighteen-value HousingView result
+and real-model digest `[1800,477508576,4125568101]`. Every public report field
+outside the three changed source fingerprints is identical; fork pins and
+`baseline-lock.json` remain exact. The fresh run and complete preservation check
+are under `.local/oe53/core-parity-release-01/` and
+`.local/oe53/core-parity-public-preservation.json`. This bounded historical ABI
+check does not establish original source-cell ramp behavior or Rule20 gameplay
+acceptance.
+
+Rule21 appends three explicit finite-trade commands, courier role26 and
+initially empty trade state, plus immutable boundary/model context and separate
+factories. The historical Original predicates and the actual fourth-module
+HouseholdV3/CityV7 probe calls remain unchanged. The reviewed API pins now include
+the directly included `AuthoredLandTrade.h` alongside `World.h`; the existing
+`SourceCellRamp.h` and all older pins remain exact. Because World layout changed,
+the fresh OE54 comparison compiled the two numerical probes and linked the
+actual pinned HousingView module against the matching current Release archives.
+All 74 cases and classifications (46 parity, 18 corrected bugs, 6 unverified,
+4 unsupported), expected/observed values, eighteen HousingView values and the
+real-model digest `[1800,477508576,4125568101]` remain identical. Only three
+current-source fingerprints change: World, the new trade DTO and the comparison
+runner. Every other public report field, the eleven fork-source pins and
+`baseline-lock.json` remain exact. Fresh probe artifacts and the complete
+source/archive/input preservation check are under
+`.local/oe54/core-parity-release-01/` and
+`.local/oe54/core-parity-public-preservation.json`. This is historical numerical
+and ABI compatibility evidence; it does not establish original traders,
+trade prices/offers, boundary admission or Rule21 paid gameplay parity.
+
+Rule22 preserves these historical calls and enum values. Its explicitly optional
+culture DTO and separately prepared Theatre75 model capability change the
+World, production and model ABI; `OriginalCultureState.h` therefore has its own
+exact reviewed pin. Historical seven/24-row model preparation remains separate.
+Fresh matching probes retain the same74 vectors, eighteen HousingView values
+and real-model digest; only nine reviewed current-source fingerprints change.
+This checks the historical numerical/ABI boundary. Performer admission,
+training, movement, venue durations and paid gameplay have separate acceptance;
+these vectors establish no Original entertainment or religion parity.
+
 The comparison uses independently specified vectors and expected outcomes for
 parser values, rings, needs, House transitions, timer effects, consumption,
 market-style inventory transfers and FoodQuality. A second executable runs the

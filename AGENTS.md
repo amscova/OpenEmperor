@@ -76,6 +76,64 @@
   prepared routes; retain the complete canonical House cursor for ties. No new
   saved authority or migration; Rules1–17/schemas1–33 remain exact. See the
   [OE47 assessment](docs/original-economy/oe47-food-reliability.md).
+- Authored safe demolition is a separate explicit rule19/policy3/schema35
+  contract with marker `authored-safe-demolition-v1`. It inherits Rule18 and
+  admits only never-occupied Common2x2 Houses with no retained needs/history,
+  and paused, physically drained Clay Sources after their real return. Retire
+  paid purchase and courier identities in the bounded eight-row journal;
+  preserve extracted Clay, completed trips, construction and closed installed
+  upkeep. No refund, ID reuse, resident reset, stock discard or budget increase.
+  Other production/service/Elite classes remain refused with reasons. The
+  historical neutral Well72 path remains exact. Recommended play remains Rule18;
+  Rule19 requires its own menu/CLI/create/restore path. Rules1–18/schemas1–34
+  do not migrate. See [OE51 demolition](docs/gameplay/oe51-demolition.md).
+- Authored source-cell ramps are a separate explicit rule20/policy3/schema36
+  contract with marker `authored-source-cell-ramps-v1`. Inherit classic Rule6
+  economy and five-tick edges, not Original Rules7–19. Preserve old RampLinks
+  and combine both ramp collections under64. World owns three exclusive axial
+  claims, paid40 construction, shared flat/slope/flat surface, begun-edge safety
+  and exact source-bound restore. Native raw ramps remain refused; original
+  sprites233–244 stay isolated. No removal/refund, automatic migration or new
+  source-admission exemption. See [OE53](docs/rendering/oe53-terrain-integration.md).
+- Authored finite land trade is a separate explicit rule21/policy3/schema37
+  contract with marker `authored-land-trade-v1`. It inherits classic Rule6,
+  not Original economy or Rule20 terrain. Two paid existing Warehouses bind
+  one 40-Funds source-geometry-bound gateway license and one caravan within
+  existing limits. fixed four-unit Pottery portions, finite 8/8 offers and a 24-Funds export
+  budget: prepaid import reserves owner headroom, loads only at real boundary
+  arrival and credits stock only after return; export loads physical stock and
+  earns money only at actual boundary arrival. No replenishment, cancel/refund,
+  teleport, automatic migration or original gateway/partner inference. Preserve
+  real cargo/escrow/reservations on road cuts and permanent bound Warehouse IDs.
+  Model/difficulty bind identity only. See [OE54](docs/original-economy/oe54-trade.md).
+- Authored Music venues are a separate explicit rule22/policy3/schema38 contract
+  with marker `authored-music-venue-v1`. Inherit Rule18, not Rule19 demolition,
+  Rule20 terrain or Rule21 trade. Only Music211 changes from targeted House visits
+  to real one-way Performer34 arrivals at paid4x4 Theatre75. A fixed school-owned
+  movement channel is separate from each monotone PerformerId; idle channels have
+  no visible actor or position. Due training attempts are not successful spawns.
+  Real accepted arrival alone sets the separate Venue32 timer. Phase35 training
+  and unconditional venue countdown are authored clock choices. No House96 grant,
+  Venue Actor36, religion/festival effect, automatic migration or default change.
+  Two schools/two venues remain within the existing82-body/58-channel budgets.
+  Require separately prepared75 model capability and exact source-bound restore.
+  All Rules1–21/schemas1–37 and their School-to-House semantics remain exact. See
+  [OE56 culture](docs/original-economy/oe56-culture-venues.md).
+- Authored venue House service is a separate explicit rule23/policy3/schema39
+  contract with marker `authored-venue-house-service-v1`. Inherit Rule22's paid
+  School/Performer/Venue input and unchanged Rule18 economy. Each paid Theatre
+  owns one existing bounded courier channel; each real spawn owns a distinct
+  monotone VenueWalkerId. Full staffing and current Music gate the fourth eligible
+  phase35 attempt. Reuse cached House target selection and real outward/return
+  movement; the Original actor-centred roaming clock is not reconstructed.
+  Only a real eligible occupied-House arrival with current Music and authored
+  source operation/staff/fire checks assigns the existing sole Music96 timer.
+  Preserve immutable first Music receipt, dispatch/grant Music evidence, actual
+  House witnesses, ID/sequence/return/clock bounds and shared workforce/fire
+  histories. No dispatch, stock, proximity, rendering or restore grant; no Theatre
+  DES source, increased limit, automatic migration or default change. Rules1–22
+  and schemas1–38 stay exact; Rule18 remains recommended. See
+  [OE57](docs/original-economy/oe57-venue-house-service.md).
 - Saves are OpenEmperor JSON, never original Emperor savegames. Validate complete
   identities, versions, source hashes, geometry, accounting, goods, paths and limits
   before atomic publication. Derived indexes/caches do not become saved authority.

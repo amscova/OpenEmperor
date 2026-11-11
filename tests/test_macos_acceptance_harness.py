@@ -1,6 +1,7 @@
 """Acceptance-tool boundaries; no compiler, original game or desktop is executed."""
 import argparse
 import copy
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -61,6 +62,7 @@ class OutputIsolation(unittest.TestCase):
             str(self.root / "dist"), "--data", str(data), "--jobs", "2"])
         self.assertEqual((args.build_dir, args.dist_dir, args.data, args.jobs),
                          (self.root / "build", self.root / "dist", data, 2))
+        self.assertEqual(args.min_os, "26.0")
         with self.assertRaises(ValueError):
             package.parse_args(["--jobs", "0"])
 
@@ -83,7 +85,7 @@ class OutputIsolation(unittest.TestCase):
     def test_package_optional_data_default_and_explicit_forwarding(self):
         for data in (None, self.root / "supplied-original"):
             args = argparse.Namespace(build_dir=self.root / "new-build", dist_dir=self.root / "new-dist",
-                                      data=data, jobs=2)
+                                      data=data, jobs=2, min_os="26.0")
             with self.subTest(data=data), mock.patch.object(package, "parse_args", return_value=args), \
                  mock.patch.object(package.sys, "platform", "darwin"), \
                  mock.patch.object(package.shutil, "which", return_value="/test/tool"), \
@@ -96,6 +98,55 @@ class OutputIsolation(unittest.TestCase):
             overrides = [v for v in command if v.startswith("-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=")]
             self.assertEqual(overrides, [] if data is None else
                              ["-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=" + str(data)])
+
+    def test_explicit_minimum_os_is_validated_without_changing_the_default(self):
+        args = package.parse_args(["--build-dir", str(self.root / "build"), "--dist-dir",
+            str(self.root / "dist"), "--min-os", "27.0"])
+        self.assertEqual(args.min_os, "27.0")
+        self.assertEqual(package.MIN_OS, "26.0")
+        for value in ("26.0", "26.0.0", "26.1", "27.0", "27.0.1"):
+            with self.subTest(value=value):
+                self.assertEqual(package.validated_min_os(value), value)
+        for value in ("", "27", "v27.0", "27.0-beta", " 27.0", "27.0 ", "027.0",
+                      "27.00", "27..0", "27.0.0.0", "27.-1", "NaN", "27.0\n", "２７.0",
+                      "9" * 33 + ".0", None, True):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                package.validated_min_os(value)
+        for value in ("0.0", "25.0", "25.99.99"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "lower than"):
+                package.validated_min_os(value)
+        for value in ("25.99.99", "27", "27.0-beta"):
+            with self.subTest(cli_value=value), self.assertRaises(ValueError):
+                package.parse_args(["--build-dir", str(self.root / "build"), "--dist-dir",
+                    str(self.root / "dist"), "--min-os=" + value])
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_selected_minimum_os_drives_cmake_deployment(self):
+        for selected in ("26.0", "27.0"):
+            args = argparse.Namespace(build_dir=self.root / "new-build", dist_dir=self.root / "new-dist",
+                                      data=None, jobs=2, min_os=selected)
+            with self.subTest(selected=selected), mock.patch.object(package, "parse_args", return_value=args), \
+                 mock.patch.object(package.sys, "platform", "darwin"), \
+                 mock.patch.object(package.shutil, "which", return_value="/test/tool"), \
+                 mock.patch.object(package, "call", side_effect=["arm64\n", "configured", "built"]) as call, \
+                 mock.patch("builtins.print"):
+                with self.assertRaises(FileNotFoundError):
+                    package.main()
+            command = call.call_args_list[1].args
+            self.assertEqual([item for item in command if item.startswith("-DCMAKE_OSX_DEPLOYMENT_TARGET=")],
+                             ["-DCMAKE_OSX_DEPLOYMENT_TARGET=" + selected])
+
+    def test_build_info_must_match_selected_minimum_os_exactly(self):
+        for selected in ("26.0", "27.0"):
+            info = {"display_version": "authored", "project_version": "1.0", "revision": "test",
+                    "dirty": True, "architecture": "arm64", "build_type": "Release",
+                    "deployment_target": selected}
+            with self.subTest(selected=selected):
+                package.validate_build_info(info, selected)
+                for conflicting in ("25.0", "26.0" if selected == "27.0" else "27.0", "27.0.0"):
+                    wrong = dict(info, deployment_target=conflicting)
+                    with self.assertRaises(RuntimeError):
+                        package.validate_build_info(wrong, selected)
 
     def test_notice_is_owned_by_actual_linked_version(self):
         actual = self.root / "Cellar/openssl@4/4.0.3"
@@ -167,6 +218,99 @@ class OutputIsolation(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(alpha.CheckFailure):
                 alpha.ctest_outer_budget({"tests": [{"name": "bad", "properties":
                     [{"name": "TIMEOUT", "value": value}]}]})
+
+
+class ProjectLicenseProvenance(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="oe-license-provenance-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+
+    def test_absent_license_remains_a_factual_publication_blocker(self):
+        result = package.project_license_report(self.root)
+        self.assertEqual(result["project_license"], "missing; publication blocker")
+        provenance = result["project_license_provenance"]
+        self.assertFalse(provenance["exists"])
+        self.assertFalse(provenance["regular_file"])
+        self.assertIsNone(provenance["sha256"])
+        self.assertEqual(provenance["distribution_review"], "NOT_RUN")
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_present_regular_license_records_bytes_without_legal_acceptance(self):
+        content = b"Independently authored license-provenance fixture\n"
+        path = self.root / "LICENSE"
+        path.write_bytes(content)
+        result = package.project_license_report(self.root)
+        self.assertEqual(result["project_license"], "present; distribution review NOT_RUN")
+        self.assertEqual(result["project_license_provenance"], {
+            "path": "LICENSE", "exists": True, "regular_file": True,
+            "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest(),
+            "distribution_review": "NOT_RUN"})
+        self.assertEqual(path.read_bytes(), content)
+
+    def test_symlink_license_is_refused_without_reading_its_target(self):
+        target = self.root / "outside-notice"
+        target.write_bytes(b"protected authored target\n")
+        (self.root / "LICENSE").symlink_to(target)
+        with mock.patch.object(package.os, "open", side_effect=AssertionError("must not open a symlink")):
+            with self.assertRaisesRegex(ValueError, "symbolic link"):
+                package.project_license_report(self.root)
+        self.assertEqual(target.read_bytes(), b"protected authored target\n")
+
+    def test_license_provenance_without_posix_nofollow_preserves_binary_bytes(self):
+        payload = b"Independently authored notice\r\nExact bytes\r\n"
+        (self.root / "LICENSE").write_bytes(payload)
+        with mock.patch.object(package.os, "O_NOFOLLOW", 0, create=True):
+            del package.os.O_NOFOLLOW
+            result = package.project_license_report(self.root)
+        self.assertEqual(result["project_license_provenance"]["sha256"],
+                         hashlib.sha256(payload).hexdigest())
+        self.assertEqual(result["project_license_provenance"]["bytes"], len(payload))
+
+    def test_opened_identity_mismatch_is_refused_before_read_without_nofollow(self):
+        path = self.root / "LICENSE"
+        path.write_bytes(b"original authored notice\n")
+        other = self.root / "other"
+        other.write_bytes(b"different authored file\n")
+        original_open = package.os.open
+        original_fdopen = package.os.fdopen
+
+        class NoContentRead:
+            def __init__(self, descriptor, mode):
+                self.stream = original_fdopen(descriptor, mode)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.stream.close()
+
+            def fileno(self):
+                return self.stream.fileno()
+
+            def read(self, *_):
+                raise AssertionError("conflicting file content must not be read")
+
+        with mock.patch.object(package.os, "O_NOFOLLOW", 0, create=True), \
+             mock.patch.object(package.os, "open", side_effect=lambda _path, flags: original_open(other, flags)), \
+             mock.patch.object(package.os, "fdopen", side_effect=NoContentRead) as fdopen:
+            del package.os.O_NOFOLLOW
+            with self.assertRaisesRegex(ValueError, "changed during"):
+                package.project_license_report(self.root)
+        self.assertEqual(fdopen.call_count, 1)
+        self.assertEqual(path.read_bytes(), b"original authored notice\n")
+
+    def test_nonregular_or_oversized_license_is_refused_before_open(self):
+        path = self.root / "LICENSE"
+        path.mkdir()
+        with self.assertRaisesRegex(ValueError, "bounded regular file"):
+            package.project_license_report(self.root)
+        path.rmdir()
+        with path.open("wb") as stream:
+            stream.truncate(package.PROJECT_LICENSE_LIMIT + 1)
+        with mock.patch.object(package.os, "open", side_effect=AssertionError("must not open an oversized file")):
+            with self.assertRaisesRegex(ValueError, "bounded regular file"):
+                package.project_license_report(self.root)
 
 
 class OptionalOriginalScope(unittest.TestCase):
@@ -275,7 +419,7 @@ class VisualMetadata(unittest.TestCase):
             lambda d: d["stages"][-1].update(group_key=1),
             lambda d: d["stages"][-1].update(variant=True),
             lambda d: d["stages"][-1].update(base_bytes=1),
-            lambda d: d["stages"][0].update(archive="DATA/China_General.sg3"),
+            lambda d: d["stages"][0].update(group_key=0x471),
             lambda d: d["files"][0].update(sha256="0" * 64),
             lambda d: d.update(selection="invented"),
         ]
@@ -285,6 +429,38 @@ class VisualMetadata(unittest.TestCase):
                 mutate(documents["original-houses.json"])
                 with self.assertRaises(ValueError):
                     bundle.validate_original_house_metadata(self.manifest, documents)
+
+    def test_shipped_type2_requires_the_evidenced_purchase_image(self):
+        mutations = [
+            {"image_index": 1509}, {"image_index": 1510},
+            {"group_key": 0x471}, {"variant": 1}, {"variant": True},
+            {"width": 160}, {"height": 89}, {"base_bytes": 3200},
+            {"ground_anchor": [79, 63]}, {"archive": "DATA/SprMain.sg3"},
+            # A coherent Shelter registration is still not the fresh Type2
+            # purchase, even though its own geometry and anchor are valid.
+            {"image_index": 1509, "group_key": 0x471, "height": 83,
+             "ground_anchor": [79, 63]},
+            # Internally coherent Type30 geometry cannot replace exact88px.
+            {"height": 89, "ground_anchor": [79, 69]},
+        ]
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                documents = copy.deepcopy(self.documents)
+                documents["original-houses.json"]["stages"][0].update(mutation)
+                with self.assertRaises(ValueError):
+                    bundle.validate_original_house_metadata(self.manifest, documents)
+
+    def test_shipped_type2_cannot_downgrade_to_a_runtime_fallback(self):
+        # Historical fallback-only profiles remain valid runtime inputs. The
+        # maintained bundle must ship its complete current native registration.
+        documents = copy.deepcopy(self.documents)
+        documents["original-houses.json"]["stages"][0] = {
+            "house_type": 2, "original_side": 2, "fallback": "Historical authored fallback"}
+        with self.assertRaises(ValueError):
+            bundle.validate_original_house_metadata(self.manifest, documents)
+        documents["original-houses.json"]["stages"][0]["archive"] = "DATA/China_General.sg3"
+        with self.assertRaises(ValueError):
+            bundle.validate_original_house_metadata(self.manifest, documents)
 
     def test_house_supplement_cannot_substitute_source_authority(self):
         changed = copy.deepcopy(self.manifest)

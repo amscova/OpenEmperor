@@ -4,6 +4,12 @@ Die optionale Originalwirtschaft bietet bezahlte Gebäude, Produktion, echte
 Kurierlieferungen und Hausentwicklung. Sie ist ein spielbarer Entwicklungsstand;
 vollständige Originalspiel- und Grafikparität fehlen noch.
 
+Die [OE50-Checkliste](../qa/oe50-human-checklist.md) führt durch eine isolierte
+menschliche Spielsitzung mit echtem Ausbau, Lieferankünften und vollständigem
+Neustart. Der [OE58-Nutzerbericht](../qa/oe58-human-playtest.md) bestätigt
+konkrete Start-, Bau-, Inspector- und Einzugsaktionen. Nicht einzeln berichtete
+Untertests und die menschliche Abnahme der neuen Darstellung bleiben NOT_RUN.
+
 ## Start und Ausbau
 
 Nach dem [Build](../../README.md) mit der eigenen Emperor-Installation starten:
@@ -12,11 +18,51 @@ Nach dem [Build](../../README.md) mit der eigenen Emperor-Installation starten:
 ./build/openemperor --data /pfad/zur/Emperor-Installation
 ```
 
-Im Hauptmenü **O Original economy → Cities/Xia.map → Normal →
-Paid four-house starter → Start sandbox** wählen. Die Stadt beginnt pausiert.
+Im Hauptmenü **Play Original economy** wählen. Das ist der empfohlene,
+experimentelle Einstieg für eine **neue** Stadt mit der bestehenden
+**Rule18 / Schema34 / Policy3**; es wird keine neue Regelgeneration angelegt.
+Datenordner, **Cities/Xia.map**, **Normal** und **Paid four-house starter**
+prüfen, dann **Start sandbox** wählen. Alternativ beginnt **Empty city** ohne
+Starterbauten. Die Stadt beginnt pausiert.
 **Space** startet die Simulation; **1x / 2x / 4x** unten ändern ihr Tempo.
 
-Für den separat versionierten Brandschutz im Hauptmenü **F Original fire
+Ein bestandener **Map Rules Check** prüft die allgemeinen Kartenregeln.
+Der bezahlte Starter braucht zusätzlich eine freie, legale ebene **24×13-Fläche**.
+Fehlt sie, zeigt **Paid starter unavailable** die Ursache vollständig an.
+**P Use Empty city** wählt eine leere Stadt auf derselben Karte; nach der
+erneuten Kartenprüfung mit **Start sandbox** starten. **Choose another map**
+kehrt zur Kartenauswahl zurück. Die Karte wechselt dabei nicht automatisch.
+
+Ein gekauftes, noch unbewohntes Common-Haus ist **Vacant / Type2**. Sein
+authored Baugrundstück zeigt den tatsächlichen 2×2-Footprint; es ist noch kein
+bewohntes Zelt. Erst echter Einzug aktiviert **Shelter / Type3** und dessen
+bereits unterstützte Originalgrafik. Die native Type2-Grafikzuordnung bleibt
+ungeklärt; siehe [Darstellungsvertrag](../reverse/original-house-visuals.md).
+
+Der [OE48-Bauplan](oe48-citywide-fire-reliability.md) erreicht mit unveränderter
+Rule18 eine bezahlte Stadt mit 13 bewohnten Häusern und 5200/5200 erfüllten
+aktuellen Bedürfnissen im geprüften 20400-Tick-Fenster. **Fünf Hausbrände bleiben
+real**; weder unbegrenzte Stabilität noch vollständige Originalparität oder
+menschliche Abnahme folgen daraus. Der Vier-Haus-Starter allein ist dieser
+ausgebaute Bauplan nicht.
+
+**L Load Save** lädt stattdessen einen bestehenden OpenEmperor-Spielstand;
+**Enter Continue** erscheint nur für eine bereits im Speicher gehaltene Stadt.
+Beides behält deren Regelgeneration. Fehlende Originaldaten oder eine nicht
+zugelassene Karte verhindern den Start mit Diagnose. Ein fehlgeschlagener
+Start/Ladevorgang ersetzt keine bestehende Stadt.
+
+Unter **Advanced / Legacy** bleiben die bisherigen Experimente und Profile
+einzeln wählbar. **O/F/S/M/W/I/D/T/U** und **N** funktionieren weiterhin als
+Hauptmenü-Tastenkürzel. **V Safe demolition economy** ist eine zusätzliche,
+separate Rule19-Auswahl für den unten beschriebenen begrenzten Abriss.
+**N New Sandbox** behält den City-v11-Rule3-Standard und
+die gespeicherte Profilwahl; gewöhnlicher City-v16 bleibt Rule4. Bridge-Rule5
+und Ramp-Rule6 werden dort weiterhin ausdrücklich gewählt. Die Empfehlung
+ändert keine gespeicherten Einstellungen oder alten Spielstände.
+
+**O Original economy** wählt weiter die historische **Rule10 / Schema26**.
+Für den separat versionierten Brandschutz **F Original fire
 protection** wählen. Das startet **Rule11 / Schema27 / Policy3** mit derselben
 bezahlten Stadt. **O Original economy** bleibt Rule10; bestehende Saves werden
 nicht umgewandelt. Über **F FireWatch $80 +2 workers** bis zu zwei Wachen
@@ -127,6 +173,21 @@ Leerstand. Der operative Überschuss beträgt4951Funds, der niedrigste Kontostan
 Versorgungsdefizite, Rückstufungen und Brände in der Stadt. Unbegrenzte
 Stabilität und menschliche native Abnahme bleiben offen.
 
+**T Deadline-aware services** wählt **Rule17 / Schema33 / Policy3** mit
+fristabhängiger Auswahl tatsächlicher Dienstbesuche. **U Deadline-aware food**
+wählt **Rule18 / Schema34 / Policy3**, also denselben Modus wie der empfohlene
+Einstieg. Nur die Auswahl von Market→House-Food-Lieferzielen kommt gegenüber
+Rule17 hinzu; Farm→Market, Mengen, Kapazitäten, Bewegung, Verbrauch und Unterhalt
+bleiben erhalten. Tatsächliche Ankunft erfüllt Versorgung beziehungsweise
+erneuert bestehende Besuchstimer. Die
+[OE46-](oe46-citywide-reliability.md) und
+[OE47-Auswertungen](oe47-food-reliability.md) halten Grenzen der jeweiligen
+Generation getrennt. Direkter Rule18-Start:
+
+```sh
+./build/openemperor --data /pfad/zur/Emperor-Installation --sandbox Cities/Xia.map --sandbox-rules sandbox-city-v16 --original-deadline-food-dispatch
+```
+
 Der [bezahlte High-Tier-Ausbau](oe38-paid-high-tier-progression.md) erreicht
 Common10 (Luxurious Apartment). In den geprüften20400 Folgeticks entstehen
 Hemp-/Ceramics-Lücken und Rückentwicklungen trotz positivem Betriebssaldo;
@@ -143,12 +204,68 @@ erst beim Spielen. Eine gebaute Quelle erfüllt allein keinen Hausbedarf.
 Der Bauplan braucht eine legale ebene **24×13-Fläche**. Scheitert die Suche,
 eine andere Karte oder **Empty** wählen. Für das Wohnziel sind mindestens
 sechs Häuser nötig; zusätzliche Häuser und Versorgung regulär kaufen.
-Auch pausierte Gebäude kosten Unterhalt. Häuser und Produktionsgebäude sind
-noch nicht abreißbar; Abriss gilt nur für neutrale Well72-Einflussquellen.
+Auch pausierte Gebäude kosten Unterhalt. Häuser und Produktionsgebäude bleiben
+in Rules10–18 nicht abreißbar; dort gilt Abriss nur für die bestehenden neutralen
+Well72-Einflussquellen.
 
 Der [geprüfte Ausbauplan](paid-progression.md) ergänzt zwei Häuser, vier Straßen
 sowie je eine Food-/Hemp-Farm mit Feld für 266 Funds. Er belegt das Wohnziel und
 ein begrenztes Versorgungsfenster; Brände und laufende Verluste bleiben offen.
+
+## Begrenzter Abriss und Wiederaufbau
+
+Für eine **neue** Stadt unter **Advanced / Legacy → V Safe demolition economy**
+ausdrücklich **Rule19 / Schema35 / Policy3** wählen. Der empfohlene Einstieg
+bleibt Rule18; Laden oder F5/F9 wandelt keine ältere Stadt um. Direktstart:
+
+```sh
+./build/openemperor --data /pfad/zur/Emperor-Installation --sandbox Cities/Xia.map --sandbox-rules sandbox-city-v16 --original-safe-demolition
+```
+
+Mit **5 Select** das regulär gekaufte Gebäude wählen. Der Inspector zeigt
+**Demolish** und den tatsächlichen Freigabe- oder Ablehnungsgrund. V1 erlaubt
+nur ein nie bewohntes, vollständig leeres **Common2×2-Haus** sowie eine
+**pausierte ClaySource** ohne Teilproduktion, Vorrat, Reservierung oder laufende
+Fahrt. Bereits gelieferter Clay bleibt am echten Ziel; der eigene Kurier muss
+vollständig heimgekehrt sein. Zusätzliche historische Verweise können den
+Abriss weiterhin verhindern. Ein lediglich pausiertes oder nahe einem anderen
+Gebäude stehendes Objekt ist nicht automatisch leer.
+
+**Demolish → Demolish (Enter)** bestätigt einmalig. **Cancel / Esc**, Fokusverlust
+oder eine Größenänderung brechen ab. Es gibt **keine Rückerstattung**. Auf den
+freigewordenen zulässigen Zellen mit dem normalen Bauwerkzeug neu bauen:
+regulärer Kaufpreis, neue ID, keine geerbten Bewohner oder Waren.
+Bewohnte oder früher bewohnte Häuser, Elite-Plots/4×4-Elites, Lager, Märkte,
+Farmen/Felder und andere Produktion/Dienste bleiben gesperrt. Der gespeicherte
+Abrissnachweis fasst höchstens acht neue Entfernungen; vorhandene Gebäude- und
+Kurierbudgets gelten weiter. Neutrale Well72-Entfernung behält ihren bisherigen
+separaten Vertrag. Details und Abnahmegrenzen:
+[OE51-Abrissvertrag](../gameplay/oe51-demolition.md).
+
+## Musikschule und Veranstaltungsstätte
+
+Unter **Advanced / Legacy → B Music venues (rule 22)** lässt sich ausdrücklich
+eine neue **Rule22 / Schema38 / Policy3**-Stadt starten. Der empfohlene Einstieg
+bleibt Rule18. **E Music** kauft die Musikschule, **G Theatre75** das separat
+bezahlte 4×4-Theatre; Toolbar und Tastatur wählen dieselben Bauwerkzeuge.
+Beide Gebäude benötigen legale Straßen und ihre tatsächlich zugeteilten
+Mitarbeiter. Erst ein wirklich gespawnter Performer mit eigener ID läuft von
+der Schule zum Theatre. Eine erfolgreiche Ankunft setzt dessen eigenen
+Musik-Zustand auf 32; der Performer endet dort ohne sichtbare Rückfahrt.
+
+Der Inspector trennt Spawnversuche, aktive Performer, tatsächliche Ankünfte und
+den verbleibenden Venue-Timer. Die Darstellung des Theatre und Performers ist
+ein eigener Fallback. **Dieser Modus versorgt keine Häuser mit Musik**: Weder
+Versand noch Venue-Ankunft setzt den Music96-Haustimer. Damit können
+musikabhängige Hausbedürfnisse unerfüllt bleiben. Die bisherigen direkten
+School→House-Besuche in Rule18 bleiben unverändert. Actor36, weitere Venue-Arten,
+Festivals und neue Religionsaktionen sind nicht freigeschaltet. Die Musikschule
+behält ihren bisherigen physischen DES-Beitrag aus dem vorbereiteten Modell;
+dieser ist vom Music96-Haustimer getrennt. Das Theatre erhält keinen neuen
+DES-Beitrag. Die begrenzte Kette ist automatisiert im World-, Speicher- und
+geskripteten SDL-Pfad geprüft; ihre native und menschliche Abnahme bleibt
+NOT_RUN. Vertrag und Prüfpfad stehen im
+[Musik-/Venue-Leitfaden](oe56-culture-venues.md).
 
 ## Bedienung und Versorgung prüfen
 
@@ -171,8 +288,47 @@ ein begrenztes Versorgungsfenster; Brände und laufende Verluste bleiben offen.
 pausiert. Nach einem Neustart **L Load Save → Open selected** wählen.
 Difficulty, Modell- und Kartenquelle müssen passen. Alte Entwicklungsrevisionen
 werden mit Diagnose verweigert; ein fehlgeschlagener Ladevorgang erhält die Stadt.
-Rule10/11/12/13/14/15 laden jeweils ihren eigenen Stand mit Schema26/27/28/29/30/31.
+Die Ladeansicht zeigt Profil, Rule und Schema zur Diagnose. Rules10–18 laden
+jeweils ihren eigenen Stand mit Schema26–34 und den exakten Vertragsmarkern.
+Es gibt keine Upgrade-Funktion für Originalwirtschafts-Saves.
 F5/F9 und Recovery ändern dabei keine Regelgeneration.
+Der neue Versuch **Advanced / Legacy → K Venue House music (23)** startet
+getrennt eine **Rule23 / Schema39 / Policy3**-Stadt. Der direkte Start lautet:
+
+```sh
+./build/openemperor --data /path/to/game --sandbox Cities/Xia.map --sandbox-rules sandbox-city-v16 --original-venue-house-service
+```
+
+Die bezahlte Schule liefert weiter einen tatsächlichen Performer an ein
+bezahltes Theatre. Erst vorhandene Music und vier berechtigte, voll besetzte
+Source-Aufrufe können einen eigenen Venue-Walker erzeugen. Dieser läuft über
+eine echte Straße zu einem bewohnten Haus und physisch zurück. Nur eine gültige
+Ankunft mit **dann noch vorhandener** Theatre-Music setzt House-Music auf96;
+Bau, Nähe, angekündigte Route, Zeichnen, F5/F9 und Laden erzeugen keine Versorgung.
+Bei Ablauf, pausierter/unbesetzter/brennender Quelle oder unzulässigem Haus
+bleibt die Gutschrift aus. Straßenunterbrechungen behalten begonnene Kanten und
+das normale Warten; Reparaturen werden regulär bezahlt. Ein zurückgekehrter
+Walker ist beendet, der nächste bekommt eine neue Identität.
+
+Die Schule zeigt Personal, Versuche und tatsächliche Performer. Das Theatre
+zeigt aktuelle Music, Walker-ID, Ziel, Route und tatsächliche Ankunft; die
+House-Seite **Visits** zeigt den echten Theatre-/Walker-/Performer-Beleg.
+Theatre und Walker verwenden gekennzeichnete authored Fallbackdarstellung.
+Zielwahl, Hin-/Rückfahrt und World-Zeitbasis sind ausdrücklich authored;
+vollständiges originales Wandern, Festivals und Original-Save-Import fehlen.
+Eine regulär bezahlte Xia/Normal-Probe mit fünf Häusern belegt zwei angenommene
+School→Theatre-Zyklen, einen vollständigen Venue-Walker-Hin-/Rückweg und weitere
+20400 aktive Ticks mit mindestens fünf bewohnten Häusern/110 Einwohnern und
+74 weiteren Music-Ankünften. Das ist eine endliche Probe; die Plain-Stufe
+entstand bereits vor Music, und vollständiger Brandschutz oder höhere
+Music-abhängige Entwicklung sind damit nicht belegt. Native-/Human-Abnahme
+bleibt NOT_RUN.
+Rule18 bleibt empfohlen. Rule22/Schema38 und ältere Städte bleiben exakt in
+ihrer eigenen Generation. Belege und Grenzen stehen im
+[OE57-Leitfaden](oe57-venue-house-service.md).
+
+Der Rule22-Musik-/Venue-Modus lädt ausschließlich seinen eigenen Rule22-/Schema38-Stand
+mit dem Marker `authored-music-venue-v1`; alte Städte werden nicht umgewandelt.
 
 **Autosave: ON** im Hauptmenü aktiviert Recovery: ein geschützter Startpunkt
 und bis zu fünf Checkpoints im Abstand von **60 simulierten Sekunden**.
@@ -182,8 +338,11 @@ F9 beginnt ebenfalls eine neue Historie; manuelle Saves bleiben separat.
 
 ## Grenzen und technische Einordnung
 
-Originalwirtschaft bleibt ausdrücklich optional: **City-v16 Rule10 / Schema26 /
-Policy3 / Entwicklungsrevision27**. Frühere Regeln und Saves behalten ihre
+Originalwirtschaft bleibt ausdrücklich optional und experimentell. Der
+empfohlene Einstieg verwendet die bestehende **City-v16 Rule18 / Schema34 /
+Policy3** mit Wirtschaftsrevision27. **O** behält den historischen
+**Rule10 / Schema26 / Policy3 / Entwicklungsrevision27**-Vertrag.
+Frühere Regeln und Saves behalten ihre
 Verträge. Modelldaten werden beim Start vorbereitet; Originaldateien bleiben
 unverändert. [Modellherkunft](model-provenance.md) und
 [Kernvergleich](core-parity.md) dokumentieren die belegten Regeln.
@@ -201,8 +360,15 @@ Rule13 übernimmt diese Grenzen. Seine bedarfsabhängige Warenauswahl erhöht we
 Hauslager noch Kurierzahl, Transportmenge, Geschwindigkeit oder Brandschutz.
 
 Rezepte, Ernte, Zuzug/Worker und Schule→Haus-Besuche enthalten eigene Regeln.
-Originale Veranstaltungs-/Performer-Abläufe und Krankheit fehlen. Mehrere
-Gebäude und Walker nutzen Fallbackbilder; passende Hausbilder decken Typen3–17
+Zusätzliche Modellnamen für Landwirtschaft und Industrie sind keine neuen
+Bauwerkzeuge. Die [OE55-Quellenprüfung](oe55-production.md) bleibt Forschung;
+sie schaltet keine weitere Produktionskette frei. Auch Saison, Jagd und Fischerei
+sind damit nicht als Originalverhalten umgesetzt.
+Rule22 ergänzt nur die begrenzte School→Performer→Theatre-Kette. Der separate
+Rule23-Versuch ergänzt echte Theatre→House-Music-Besuche mit authored Zielwahl
+und Rückweg. Vollständige originale Veranstaltungsabläufe, Festivals,
+Hero-/Götter-AI und Krankheit fehlen weiterhin. Mehrere Gebäude und Walker nutzen Fallbackbilder; passende
+Hausbilder decken Typen3–17
 ab. Common10 und separat in Rule14 auch Elite17 wurden bezahlt erreicht.
 Der beschriebene DES79-Blocker bleibt für Rule12/13 unverändert; Rule14s
 Elite17-Versorgung und Finanzierung sind noch nicht dauerhaft nachgewiesen.

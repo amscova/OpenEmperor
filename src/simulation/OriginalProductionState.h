@@ -7,6 +7,8 @@
 #include "simulation/OriginalIndustryState.h"
 #include "simulation/OriginalFinanceState.h"
 #include "simulation/OriginalFireProtectionState.h"
+#include "simulation/OriginalSafeDemolitionState.h"
+#include "simulation/OriginalCultureState.h"
 
 #include <array>
 #include <cstdint>
@@ -44,6 +46,10 @@ struct OriginalProductionState {
     OriginalIndustryState industry;
     OriginalFinanceState finance;
     std::optional<OriginalFireProtectionState> fire_protection;
+    // Rule19 only: closed paid purchases, never stock or active entities.
+    std::optional<OriginalSafeDemolitionState> safe_demolition;
+    // Rule22 only; old school-to-House services retain their exact authority.
+    std::optional<OriginalCultureState> culture;
     bool operator==(const OriginalProductionState&) const = default;
 };
 

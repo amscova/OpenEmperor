@@ -107,3 +107,72 @@ The per-field facts, precise text-line references, five bounded raw golden
 values, typed IDs and functional-mapping limits are in
 [model-provenance.md](../original-economy/model-provenance.md). Unknown risk,
 tax, resource-code, physical-quantity and time units stay unknown.
+
+## OE54 trade metadata boundary
+
+A fresh read-only check uses the same building-model SHA above and the common
+bounded model inspector (269 Building rows,15 House rows). Raw named candidates
+are Warehouse54 (Cost component40, Employees6), Trading Quay56 (140,10),
+Trading Station58 (140,9) and City Gate130 (70,9). Normal Building modifiers are
+100%. These columns do not establish complete purchase cost, footprint,
+constructibility, a foreign partner, gateway permission or merchant behavior.
+
+`Model/Trade.txt` is400 bytes, SHA-256
+`904a7da8ef334b963941b39ca17faeb8136810179a4b52ae14ede2afba0237ed`.
+Its named raw values include Clay25, Ceramics75, Land frequency34/capacity800
+and Sea frequency4/capacity1200. Currency/quantity normalization, buy/sell
+asymmetry, difficulty application and the clock behind those values remain
+**UNKNOWN**. OE54's prices6/3, portions4 and finite offers are **AUTHORED**.
+Figure labels20 (cart),45 (Traders) and47 (Trader Crew) likewise establish no
+actor factory, cargo unit or route. No original trader sprite is admitted from
+these labels; the authored caravan reuses an existing curated Pottery-cart
+presentation. No original executable was run.
+
+The protected Industrial175 exit-coordinate marker,177/178 river markers and
+GateHouse passages retain their existing source contracts. None grants an
+original external trade endpoint. The [OE54 contract](../original-economy/oe54-trade.md)
+uses a separately purchased, source-geometry-bound authored Warehouse gateway;
+original partners, empire routes, sea trade and merchant runtime remain unsupported.
+
+## Additional agriculture and industry candidates
+
+The same source model contains 269 Building records. A bounded census through
+the production `ModelData` reader retains each present ID, parsed label and raw
+Cost, Employees and Resource columns. The complete census stays private. The
+[production evidence guide](../original-economy/oe55-production.md) lists the
+selected farm, field, extraction, processing and supporting candidates together
+with their current World status and unresolved requirements.
+
+The additional labels include Orchard Shed (29), Fishing Quay (31), Hunter's
+Tent (33), Stoneworks (36), Salt Mine (37), Iron Smelter (40), Steel Furnace
+(41), Jade Carver's Studio (46), Shu Mint (48), Money Printer (49), Sculpture
+Studio (51), Carpenters' Guild (52), Mill (53), Rice Paddy (197), Cabbage Field
+(198), Soybean Field (199), Irrigation Ditch (202), Irrigation Pump (203) and
+Weaponsmith (226). These are research candidates, not construction or recipe
+mappings. The unused row 32 also has positive Cost 50 and Employees 10; positive
+values or adjacent IDs do not identify a producer.
+
+Across all 269 records, raw Resource is 0 except Herbalist's Stall (207), where
+it is 8. Its meaning remains unresolved. Zero does not establish an input-free
+producer, and neither value selects a commodity, quantity, harvest period or
+recipe. No additional footprint, parent/field attachment, fertility, hunting,
+fishing, seasonal clock, storage or downstream demand follows from these raw
+columns. Terrain/resource-marker labels likewise grant no paid extraction or
+source-admission authority.
+
+Repeated read-only queries reuse the shared reader and preserve source
+provenance. For example:
+
+```sh
+cmake --build build --target openemperor-model-inspect
+./build/openemperor-model-inspect /path/to/emperor \
+  --building 31 --building 197 --building 198 --building 199
+```
+
+Generic sparse-ID queries do not expand the named `OriginalRulesModel`
+capability set. All nine factory/material mappings documented in the
+[luxury-source contract](original-luxury-source-contract.md) already have paid
+World adapters; their authored unit recipes and periods remain distinct from
+original evidence. The consulted model observations establish no additional
+complete original production chain and activate no new World rule or save
+schema. No original executable was run for this census.

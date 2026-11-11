@@ -49,14 +49,17 @@ bool service_role(CourierRole role) {
     return role==CourierRole::Service || role==CourierRole::FireInspector ||
         role==CourierRole::HealthWorker || role==CourierRole::OriginalAncestor || role==CourierRole::OriginalWater ||
         role==CourierRole::OriginalDaoist || role==CourierRole::OriginalBuddhist || role==CourierRole::OriginalConfucian ||
-        role==CourierRole::OriginalMusic || role==CourierRole::OriginalAcrobat || role==CourierRole::OriginalDrama;
+        role==CourierRole::OriginalMusic || role==CourierRole::OriginalAcrobat || role==CourierRole::OriginalDrama ||
+        role==CourierRole::OriginalMusicPerformer || role==CourierRole::OriginalVenueMusic;
 }
 Object courier_target_kind(CourierRole role) {
     switch (role) {
+    case CourierRole::OriginalMusicPerformer: return Object::OriginalTheatre75;
     case CourierRole::OriginalFoodToMarket: return Object::Market;
     case CourierRole::OriginalFoodToHouse: return Object::Household;
     case CourierRole::OriginalDaoist:
     case CourierRole::OriginalBuddhist:
+    case CourierRole::OriginalVenueMusic:
     case CourierRole::OriginalMusic:
     case CourierRole::OriginalAcrobat:
     case CourierRole::OriginalDrama:
@@ -111,7 +114,8 @@ std::size_t building_limit(RulesProfile profile,Object kind) {
     case Object::OriginalDramaSchool213:
     case Object::OriginalConfucianAcademy219:
     case Object::OriginalAncestorShrine214:
-    case Object::OriginalWaterWell72: return 2;
+    case Object::OriginalWaterWell72:
+    case Object::OriginalTheatre75: return 2;
     case Object::OriginalHempFarm:
     case Object::OriginalHempField: return 2;
     case Object::OriginalElitePlot:
@@ -257,6 +261,7 @@ std::optional<Object> placed_object(CommandType type) {
     case CommandType::PlaceOriginalDaoistShrine: return Object::OriginalDaoistShrine215;
     case CommandType::PlaceOriginalBuddhistShrine: return Object::OriginalBuddhistShrine217;
     case CommandType::PlaceOriginalConfucianAcademy: return Object::OriginalConfucianAcademy219;
+    case CommandType::PlaceOriginalTheatre: return Object::OriginalTheatre75;
     case CommandType::PlaceOriginalMusicSchool: return Object::OriginalMusicSchool211;
     case CommandType::PlaceOriginalAcrobatSchool: return Object::OriginalAcrobatSchool212;
     case CommandType::PlaceOriginalDramaSchool: return Object::OriginalDramaSchool213;
@@ -291,12 +296,20 @@ bool courier_can_target(CourierRole role,const BuildingState& target) {
 
 bool courier_can_target(CourierRole role,const BuildingState& target,
                         RulesProfile profile,std::uint32_t rule_version) {
+    if(role==CourierRole::AuthoredLandTrader)return profile==RulesProfile::CityV16&&rule_version==kAuthoredLandTradeRuleVersion&&target.placed&&target.kind==Object::Warehouse;
+    if (role==CourierRole::OriginalVenueMusic && !original_venue_house_service_enabled(profile,rule_version)) return false;
+    if (role==CourierRole::OriginalMusicPerformer)
+        return original_music_venues_enabled(profile,rule_version) && target.placed && target.kind==Object::OriginalTheatre75;
     if (role==CourierRole::FireInspector)
         return target.placed && fire_eligible(target.kind,profile,rule_version);
     return courier_can_target(role,target);
 }
 
 BuildingFootprint building_footprint(RulesProfile profile,std::uint32_t rule_version,Object kind) {
+    if (kind==Object::OriginalTheatre75) {
+        if (!original_music_venues_enabled(profile,rule_version)) throw std::invalid_argument("Theatre75 requires Rule22 or explicit Rule23");
+        return {4,4};
+    }
     if (original_production_enabled(profile,rule_version)) {
         if (kind==Object::OriginalElitePlot) return {2,2};
         if (kind==Object::OriginalEliteHouse) return {4,4};
@@ -439,10 +452,12 @@ std::uint32_t current_rule_version(RulesProfile profile) {
 }
 
 bool rule_version_supported(RulesProfile profile,std::uint32_t version) {
+    if(source_cell_ramps_enabled(profile,version)||(profile==RulesProfile::CityV16&&version==kAuthoredLandTradeRuleVersion))return true;
     if (profile==RulesProfile::ProductionV2) return version==2;
     if (profile==RulesProfile::CityV11) return version>=1 && version<=4;
     if (profile==RulesProfile::CityV16) return (version>=1 && version<=16) ||
-        version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion;
+        version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion ||
+        version==kOriginalSafeDemolitionRuleVersion || original_music_venues_enabled(profile,version);
     if (fire_profile(profile)) return version==1;
     return version==1;
 }
@@ -468,6 +483,10 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     if (profile==RulesProfile::CityV16 && version==4) return city_v16_v4;
     static constexpr ProfileRules city_v16_v6{6,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==6) return city_v16_v6;
+    static constexpr ProfileRules city_v16_v20{20,32,64,32,5,800};
+    if(source_cell_ramps_enabled(profile,version))return city_v16_v20;
+    static constexpr ProfileRules city_v16_v21{21,32,64,32,5,800};
+    if(profile==RulesProfile::CityV16&&version==kAuthoredLandTradeRuleVersion)return city_v16_v21;
     static constexpr ProfileRules city_v16_v7{7,32,64,32,5,800};
     if (profile==RulesProfile::CityV16 && version==7) return city_v16_v7;
     static constexpr ProfileRules city_v16_v8{8,32,64,32,5,800};
@@ -485,6 +504,12 @@ const ProfileRules& profile_rules(RulesProfile profile,std::uint32_t version) {
     static constexpr ProfileRules city_v16_v16{16,32,64,32,5,800};
     static constexpr ProfileRules city_v16_v17{17,32,64,32,5,800};
     static constexpr ProfileRules city_v16_v18{18,32,64,32,5,800};
+    static constexpr ProfileRules city_v16_v19{19,32,64,32,5,800};
+    static constexpr ProfileRules city_v16_v22{22,32,64,32,5,800};
+    static constexpr ProfileRules city_v16_v23{23,32,64,32,5,800};
+    if (original_venue_house_service_enabled(profile,version)) return city_v16_v23;
+    if (original_music_venues_enabled(profile,version)) return city_v16_v22;
+    if (original_safe_demolition_enabled(profile,version)) return city_v16_v19;
     if (original_deadline_food_dispatch_enabled(profile,version)) return city_v16_v18;
     if (original_deadline_service_dispatch_enabled(profile,version)) return city_v16_v17;
     if (original_deadline_fire_dispatch_enabled(profile,version)) return city_v16_v16;
@@ -505,11 +530,12 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
 World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfile profile,
              std::uint32_t rule_version,std::shared_ptr<const MapPermissions> permissions,
              bool original_development,std::shared_ptr<const original::OriginalRulesModel> model,
-             std::shared_ptr<const OriginalTerrainFacts> terrain)
+             std::shared_ptr<const OriginalTerrainFacts> terrain,std::shared_ptr<const LandTradeBoundaryFacts> trade_boundary)
     : width_(width),height_(height),profile_(profile),
       rule_version_(rule_version==0 ? current_rule_version(profile):rule_version),
       buildable_(std::move(buildable)),permissions_(std::move(permissions)),
       original_rules_model_(std::move(model)),original_terrain_facts_(std::move(terrain)) {
+    land_trade_boundary_=std::move(trade_boundary);
     if (width<=0 || height<=0 || width>512 || height>512 ||
         buildable_.size()!=static_cast<std::size_t>(width)*static_cast<std::size_t>(height))
         throw std::invalid_argument("invalid bounded sandbox grid");
@@ -525,7 +551,9 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     (void)profile_rules(profile_,rule_version_);
     if (original_economy_enabled() && !original_development)
         throw std::invalid_argument("City-v16 rule 7 runtime is not ready; use the explicit infrastructure-only development factory");
-    if (!original_economy_enabled() && original_rules_model_)
+    if(authored_land_trade_enabled() ? (!land_trade_boundary_||!original_rules_model_||land_trade_boundary_->width()!=width||land_trade_boundary_->height()!=height):bool(land_trade_boundary_))
+        throw std::invalid_argument("land trade requires its explicit model/source-bound factory");
+    if (!original_economy_enabled() && !authored_land_trade_enabled() && original_rules_model_)
         throw std::invalid_argument("original rules model requires City-v16 rule 7");
     if (original_cardinal_water_enabled() ? (!original_terrain_facts_ || width!=OriginalTerrainFacts::width ||
             height!=OriginalTerrainFacts::height):bool(original_terrain_facts_))
@@ -545,6 +573,7 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     } else if (profile_==RulesProfile::CityV16 && rule_version_==3)
         permissions_=authored_simple_permissions(width_,height_,buildable_);
     if(ramps_supported())ramp_index_.assign(buildable_.size(),0);
+    if(source_cell_ramps_supported())source_cell_ramp_index_.assign(buildable_.size(),0);
     if (original_economy_enabled()) {
         original_economy_.emplace();
         if (original_rules_model_)
@@ -553,6 +582,7 @@ World::World(int width,int height,std::vector<std::uint8_t> buildable,RulesProfi
     if (original_influence_enabled()) original_influence_.emplace();
     if (original_goods_enabled()) original_goods_.emplace();
     if (original_production_enabled()) original_production_.emplace();
+    if(authored_land_trade_enabled()) {land_trade_.emplace();land_trade_->model_source=original_model_source(*original_rules_model_);land_trade_->source_map_sha256=land_trade_boundary_->source_map_sha256();}
     treasury_=city_profile(profile) ? starting_treasury_for(profile,rule_version_):0;
     objects_.assign(buildable_.size(),Object::Empty);
     owners_.assign(buildable_.size(),0);
@@ -782,6 +812,9 @@ std::int64_t World::construction_cost(CommandType type) const {
     case CommandType::PlaceOriginalMulberryTree:
         return original_production_enabled() ? original_rules_model_->building_value(
             *original_industry_model(*placed_object(type)),original::BuildingField::Cost):0;
+    case CommandType::PlaceOriginalTheatre:
+        return original_music_venues_enabled() ? original_rules_model_->building_value(
+            original::ModelBuilding::TheatrePavilion,original::BuildingField::Cost):0;
     case CommandType::PlaceOriginalMusicSchool:
         return original_production_enabled() ? original_rules_model_->building_value(
             original::ModelBuilding::MusicSchool,original::BuildingField::Cost):0;
@@ -807,6 +840,7 @@ std::int64_t World::construction_cost(CommandType type) const {
         return original_production_enabled() ? original_rules_model_->building_value(
             original::ModelBuilding::AncestralShrine,original::BuildingField::Cost):0;
     case CommandType::PlaceRamp:return ramps_supported()?ramp_cost:0;
+    case CommandType::PlaceSourceCellRamp:return source_cell_ramps_supported()?source_cell_ramp_cost:0;
     case CommandType::RemoveRamp:
     case CommandType::PlaceBridge: // Variable span price lives only in validate_bridge().span.paid_cost.
     case CommandType::RemoveBridge:
@@ -849,7 +883,10 @@ std::int64_t World::construction_cost(CommandType type) const {
     case CommandType::PlaceWorkshop:
     case CommandType::RemoveRoad:
     case CommandType::SetBuildingOperation:
-    case CommandType::SetBuildingWorkforcePriority:
+    case CommandType::SetBuildingWorkforcePriority: return 0;
+    case CommandType::ConfigureLandTrade: return authored_land_trade_enabled()?land_trade_license_cost:0;
+    case CommandType::ImportPottery:
+    case CommandType::ExportPottery:
     case CommandType::DemolishBuilding: return 0;
     }
     return 0;
@@ -870,6 +907,8 @@ int World::workforce_required(BuildingId id) const {
     case Object::OriginalSilkwormShed239:
         return original_production_enabled() ? original_rules_model_->building_value(
             *original_industry_model(value.kind),original::BuildingField::Employees):0;
+    case Object::OriginalTheatre75: return original_music_venues_enabled() ? original_rules_model_->building_value(
+        original::ModelBuilding::TheatrePavilion,original::BuildingField::Employees):0;
     case Object::OriginalMusicSchool211: return original_production_enabled() ? original_rules_model_->building_value(
         original::ModelBuilding::MusicSchool,original::BuildingField::Employees):0;
     case Object::OriginalAcrobatSchool212: return original_production_enabled() ? original_rules_model_->building_value(
@@ -906,7 +945,7 @@ int World::workforce_required(BuildingId id) const {
 }
 
 bool World::operation_controllable(Object kind) {
-    return original_industry_source(kind) || kind==Object::OriginalMusicSchool211 || kind==Object::OriginalAcrobatSchool212 ||
+    return kind==Object::OriginalTheatre75 || original_industry_source(kind) || kind==Object::OriginalMusicSchool211 || kind==Object::OriginalAcrobatSchool212 ||
         kind==Object::OriginalDramaSchool213 || kind==Object::OriginalDaoistShrine215 || kind==Object::OriginalBuddhistShrine217 ||
         kind==Object::OriginalConfucianAcademy219 || kind==Object::OriginalWaterWell72 || kind==Object::OriginalAncestorShrine214 || kind==Object::OriginalFoodFarm || kind==Object::OriginalHempFarm || kind==Object::ClaySource || kind==Object::Pottery || kind==Object::Warehouse ||
         kind==Object::Farm || kind==Object::ServicePost || kind==Object::Market || kind==Object::FireWatch || kind==Object::HealthPost;
@@ -1280,6 +1319,9 @@ bool World::city_economy_valid() const {
     if (!add_cost(roads_placed_total_,static_cast<std::uint64_t>(Rules::road_cost))) return false;
     for(const auto& ramp:ramps_)
         if(ramp.paid_cost!=ramp_cost || !add_cost(1,std::uint64_t(ramp.paid_cost)))return false;
+    for(const auto& ramp:source_cell_ramps_)
+        if(!source_cell_ramps_supported()||ramp.paid_cost!=source_cell_ramp_cost ||
+           !add_cost(1,std::uint64_t(ramp.paid_cost)))return false;
     for(const auto& bridge:bridges_)
         if(bridge.paid_cost<=0 || !add_cost(1,std::uint64_t(bridge.paid_cost)))return false;
     for (const auto& value:buildings_) if (value.placed) {
@@ -1295,7 +1337,9 @@ bool World::city_economy_valid() const {
             value.kind==Object::HealthPost && health_profile(profile_) ? Rules::health_post_cost:0;
         if (cost<=0 || !add_cost(1,static_cast<std::uint64_t>(cost))) return false;
     }
+    if(land_trade_&&land_trade_->binding&&!add_cost(1,std::uint64_t(land_trade_license_cost)))return false;
     if (construction_spent_total_!=expected_spending) return false;
+    if(!land_trade_state_valid())return false;
     if (maintenance_profile(profile_)) {
         if (!maintenance_economy_valid()) return false;
     } else {
@@ -1308,6 +1352,8 @@ bool World::city_economy_valid() const {
     return true;
 }
 DemolitionStatus World::demolition_status(BuildingId id) const {
+    if(land_trade_protected_building(id))return {false,DemolitionBlocker::HistoricalReference,"Bound trade Warehouses are permanent in this contract; no refund",{},0,0};
+    if (original_safe_demolition_enabled()) return original_safe_demolition_status(id);
     DemolitionStatus status;
     if (original_influence_enabled()) {
         const auto checked=validate_original_influence_command(demolish_building(id));
@@ -1378,7 +1424,16 @@ DemolitionStatus World::demolition_status(BuildingId id) const {
 }
 
 CommandResult World::validate(Command command) const {
+    if(command.type==CommandType::ConfigureLandTrade||command.type==CommandType::ImportPottery||command.type==CommandType::ExportPottery)return validate_land_trade_command(command);
+    if(command.type==CommandType::PlaceSourceCellRamp) {
+        const auto checked=validate_source_cell_ramp(command.cell,command.ramp_end);
+        return {checked.accepted,checked.accepted,checked.reason,command_sequence_,ticks_,checked.diagnostic};
+    }
+    if(command.type==CommandType::DemolishBuilding&&land_trade_protected_building(command.building_id))
+        return {false,false,"Bound trade Warehouses cannot be demolished",command_sequence_,ticks_};
     const auto construction=placed_object(command.type);
+    if (command.type==CommandType::PlaceOriginalTheatre && !original_music_venues_enabled())
+        return {false,false,"Theatre75 requires explicit Rule22 music venues",command_sequence_,ticks_};
     const bool industry_construction=construction && original_industry_model(*construction);
     if (command.type==CommandType::PlaceOriginalElitePlot && !original_production_enabled())
         return {false,false,"Elite plots require explicit original production rules",command_sequence_,ticks_};
@@ -1402,6 +1457,11 @@ CommandResult World::validate(Command command) const {
     if (command.type==CommandType::PlaceOriginalHempFarm || command.type==CommandType::PlaceOriginalHempField) {
         const auto checked=validate_original_hemp_command(command);if (!checked.accepted) return checked;
     }
+    if (original_safe_demolition_enabled() && command.type==CommandType::DemolishBuilding) {
+        const auto status=original_safe_demolition_status(command.building_id);
+        return {status.allowed,status.allowed,status.reason,
+            status.allowed ? command_sequence_+1:command_sequence_,ticks_};
+    }
     if (original_influence_enabled() && command_sequence_>=UINT64_MAX-1)
         return {false,false,"Original influence command counter exhausted",command_sequence_,ticks_};
     if (command.type==CommandType::PlaceOriginalInfluenceSource ||
@@ -1421,7 +1481,7 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceOriginalDaoistShrine && command.type!=CommandType::PlaceOriginalBuddhistShrine &&
         command.type!=CommandType::PlaceOriginalConfucianAcademy &&
         command.type!=CommandType::PlaceOriginalMusicSchool && command.type!=CommandType::PlaceOriginalAcrobatSchool &&
-        command.type!=CommandType::PlaceOriginalDramaSchool &&
+        command.type!=CommandType::PlaceOriginalDramaSchool && command.type!=CommandType::PlaceOriginalTheatre &&
         command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell &&
         command.type!=CommandType::SetBuildingOperation &&
         command.type!=CommandType::SetBuildingWorkforcePriority)
@@ -1492,7 +1552,7 @@ CommandResult World::validate(Command command) const {
         command.type!=CommandType::PlaceOriginalDaoistShrine && command.type!=CommandType::PlaceOriginalBuddhistShrine &&
         command.type!=CommandType::PlaceOriginalConfucianAcademy &&
         command.type!=CommandType::PlaceOriginalMusicSchool && command.type!=CommandType::PlaceOriginalAcrobatSchool &&
-        command.type!=CommandType::PlaceOriginalDramaSchool &&
+        command.type!=CommandType::PlaceOriginalDramaSchool && command.type!=CommandType::PlaceOriginalTheatre &&
         command.type!=CommandType::PlaceOriginalAncestorShrine && command.type!=CommandType::PlaceOriginalWaterWell && !industry_construction) {
         result.reason="Unknown placement command"; return result;
     }
@@ -1545,6 +1605,8 @@ CommandResult World::validate(Command command) const {
         if (kind) for (const auto cell:building_footprint_cells(profile_,rule_version_,*kind,command.cell)) {
             if (!in_bounds(cell)) return blocked(BuildBlocker::OutsideMap,cell,"Building footprint outside sandbox grid");
             if(ramp_endpoint(cell))return blocked(BuildBlocker::SandboxOccupied,cell,"Ramp endpoint reserved for a normal road");
+            if(source_cell_ramp_claim(cell))return blocked(BuildBlocker::SandboxOccupied,cell,
+                "Source-cell ramp axial claim reserved for normal roads");
             if(bridge_bank_at(cell))return blocked(BuildBlocker::ProtectedBridge,cell,"Bridge bank is reserved for land-road attachment");
             if (!buildable(cell)) return blocked(permissions_ ? permissions_->building_blocker(cell):
                 BuildBlocker::LegacyBuildabilityRestriction,cell,original_road(cell) ?
@@ -1644,7 +1706,7 @@ CommandResult World::validate(Command command) const {
         })>=static_cast<std::ptrdiff_t>(Rules::health_post_limit)) {
         result.reason="Health Post limit reached"; return result;
     }
-    if (command.type==CommandType::PlaceOriginalMusicSchool || command.type==CommandType::PlaceOriginalAcrobatSchool ||
+    if (command.type==CommandType::PlaceOriginalTheatre || command.type==CommandType::PlaceOriginalMusicSchool || command.type==CommandType::PlaceOriginalAcrobatSchool ||
         command.type==CommandType::PlaceOriginalDramaSchool || command.type==CommandType::PlaceOriginalDaoistShrine ||
         command.type==CommandType::PlaceOriginalBuddhistShrine || command.type==CommandType::PlaceOriginalConfucianAcademy) {
         const auto kind=*placed_object(command.type);
@@ -1675,7 +1737,7 @@ CommandResult World::validate(Command command) const {
         (next_building_id_==0 || next_building_id_==UINT32_MAX)) {
         result.reason="Building ID counter exhausted"; return result;
     }
-    const bool creates_courier=command.type==CommandType::PlaceClaySource ||
+    const bool creates_courier=(original_venue_house_service_enabled() && command.type==CommandType::PlaceOriginalTheatre) || command.type==CommandType::PlaceClaySource ||
         command.type==CommandType::PlacePottery || command.type==CommandType::PlaceWarehouse ||
         command.type==CommandType::PlaceFarm || command.type==CommandType::PlaceServicePost ||
         command.type==CommandType::PlaceMarket || command.type==CommandType::PlaceFireWatch ||
@@ -1686,12 +1748,23 @@ CommandResult World::validate(Command command) const {
         command.type==CommandType::PlaceOriginalAcrobatSchool || command.type==CommandType::PlaceOriginalDramaSchool ||
         (construction && original_industry_source(*construction));
     if (original_production_enabled()) {
-        if (command.type!=CommandType::PlaceRoad && buildings_.size()>=Rules::original_production_building_limit) {
+        std::size_t retired_buildings=0,retired_couriers=0;
+        if (original_safe_demolition_enabled()) {
+            if (!original_production_ || !original_production_->safe_demolition) {
+                result.reason="Missing safe demolition authority";return result;
+            }
+            const auto& retired=original_production_->safe_demolition->retired;
+            retired_buildings=retired.size();
+            retired_couriers=static_cast<std::size_t>(std::count_if(retired.begin(),retired.end(),
+                [](const auto& row){return row.courier_id.has_value();}));
+        }
+        if (command.type!=CommandType::PlaceRoad && buildings_.size()+retired_buildings>=Rules::original_production_building_limit) {
             result.reason="Original production building capacity reached";return result;
         }
         const std::size_t needed=(command.type==CommandType::PlaceMarket || command.type==CommandType::PlaceWarehouse) ? 2U:creates_courier ? 1U:0U;
         const auto capacity=Rules::original_production_courier_limit;
-        if (needed>capacity || couriers_.size()>capacity-needed) {
+        if (needed>capacity || couriers_.size()+retired_couriers>capacity-needed ||
+            (original_safe_demolition_enabled() && (!next_courier_id_ || next_courier_id_-1>capacity-needed))) {
             result.reason="Original production courier capacity reached";return result;
         }
     }
@@ -1802,6 +1875,23 @@ CommandResult World::execute(Command command) {
 }
 
 CommandResult World::execute_impl(Command command,bool refresh_after,bool influence_prepared) {
+    if(command.type==CommandType::ConfigureLandTrade||command.type==CommandType::ImportPottery||command.type==CommandType::ExportPottery)return execute_land_trade_command(command);
+    if(command.type==CommandType::PlaceSourceCellRamp) {
+        const auto checked=validate_source_cell_ramp(command.cell,command.ramp_end);
+        if(!checked.accepted)return {false,false,checked.reason,command_sequence_,ticks_,checked.diagnostic};
+        // Surface construction can close lateral road edges. Publish only the
+        // complete paid candidate with its derived index and refreshed routes.
+        World candidate=*this;
+        candidate.source_cell_ramps_.push_back(checked.ramp);
+        candidate.index_source_cell_ramp(candidate.source_cell_ramps_.back());
+        ++candidate.next_source_cell_ramp_id_;++candidate.command_sequence_;++candidate.road_revision_;
+        candidate.treasury_-=source_cell_ramp_cost;
+        candidate.construction_spent_total_+=std::uint64_t(source_cell_ramp_cost);
+        candidate.cached_route_.reset();if(refresh_after)candidate.refresh_routes();
+        performance::increment(performance::Counter::WorldExecutes);
+        *this=std::move(candidate);
+        return {true,true,"Authored source-cell ramp built; no upkeep or removal",command_sequence_,ticks_};
+    }
     if (command.type==CommandType::PlaceOriginalElitePlot && !original_production_enabled())
         return validate(command);
     if (original_influence_enabled() && !influence_prepared) {
@@ -1812,6 +1902,8 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
         if (result.accepted && result.changed) *this=std::move(candidate);
         return result;
     }
+    if (original_safe_demolition_enabled() && command.type==CommandType::DemolishBuilding)
+        return execute_original_safe_demolition(command,refresh_after);
     if (command.type==CommandType::PlaceOriginalInfluenceSource ||
         (original_influence_enabled() && command.type==CommandType::DemolishBuilding))
         return execute_original_influence_command(command,refresh_after);
@@ -1954,8 +2046,24 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
     }
     case CommandType::PlaceOriginalMusicSchool: {
         auto& source=add_v10_building(Object::OriginalMusicSchool211);source.placed_tick=ticks_;
-        original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Music211});
-        add_v10_courier(source.id,CourierRole::OriginalMusic,Good::Goods);break;
+        if (original_music_venues_enabled()) {
+            add_v10_courier(source.id,CourierRole::OriginalMusicPerformer,Good::Goods);
+            original_production_->culture->schools.push_back({source.id,couriers_.back().id});
+        } else {
+            original_production_->services.providers.push_back({source.id,OriginalServiceProviderType::Music211});
+            add_v10_courier(source.id,CourierRole::OriginalMusic,Good::Goods);
+        }
+        break;
+    }
+    case CommandType::PlaceOriginalTheatre: {
+        auto& venue=add_v10_building(Object::OriginalTheatre75);venue.placed_tick=ticks_;
+        original_production_->culture->venues.push_back({venue.id});
+        if (original_venue_house_service_enabled()) {
+            add_v10_courier(venue.id,CourierRole::OriginalVenueMusic,Good::Goods);
+            original_production_->services.providers.push_back({venue.id,OriginalServiceProviderType::Theatre75});
+            original_production_->culture->venue_house_service->sources.push_back({venue.id,couriers_.back().id});
+        }
+        break;
     }
     case CommandType::PlaceOriginalAcrobatSchool: {
         auto& source=add_v10_building(Object::OriginalAcrobatSchool212);source.placed_tick=ticks_;
@@ -2196,6 +2304,10 @@ CommandResult World::execute_impl(Command command,bool refresh_after,bool influe
     case CommandType::SetBuildingWorkforcePriority:
     case CommandType::DemolishBuilding:
     case CommandType::PlaceRamp:
+    case CommandType::ConfigureLandTrade:
+    case CommandType::ImportPottery:
+    case CommandType::ExportPottery:
+    case CommandType::PlaceSourceCellRamp:
     case CommandType::RemoveRamp:
     case CommandType::PlaceBridge:
     case CommandType::RemoveBridge:
@@ -2472,7 +2584,9 @@ std::optional<BuildingId> World::next_pottery_candidate(CourierId id) const {
 }
 
 CourierDispatchDecision World::courier_dispatch_status(CourierId id) const {
+    if(courier(id).role==CourierRole::AuthoredLandTrader)return {courier(id).phase==CourierPhase::IdleAtWorkshop?CourierDispatchStatus::Disabled:CourierDispatchStatus::AlreadyMoving,{}};
     const auto& c=courier(id);
+    if (c.role==CourierRole::OriginalMusicPerformer) return original_music_dispatch_status(c);
     if (!c.enabled) return {CourierDispatchStatus::Disabled,std::nullopt};
     if (c.route_pending) return {CourierDispatchStatus::NoRoad,c.target};
     if (c.phase!=CourierPhase::IdleAtWorkshop)
@@ -2959,6 +3073,8 @@ void World::advance_clay_pottery_production() {
 }
 
 void World::dispatch_v2(CourierState& courier) {
+    if (courier.role==CourierRole::OriginalMusicPerformer) {dispatch_original_music_performer(courier);return;}
+    if(courier.role==CourierRole::AuthoredLandTrader)return; // Explicit paid order only, never automatic dispatch.
     if (original_water_courier(courier.role)) {dispatch_original_water(courier);return;}
     if (original_service_courier(courier.role)) {dispatch_original_service(courier);return;}
     if (original_auxiliary_courier(courier.role)) {dispatch_original_auxiliary(courier);return;}
@@ -3092,6 +3208,7 @@ void World::dispatch_v2(CourierState& courier) {
     case CourierRole::OriginalLuxuryToWarehouse:
     case CourierRole::OriginalAuxToWarehouse:
     case CourierRole::OriginalAuxSupplier:
+    case CourierRole::OriginalVenueMusic:
     case CourierRole::OriginalMusic:
     case CourierRole::OriginalAcrobat:
     case CourierRole::OriginalDrama:
@@ -3200,6 +3317,8 @@ void World::move_v2(CourierState& courier) {
         return;
     }
     if (courier.path_vertex+1<courier.path.size()) return;
+    if(courier.role==CourierRole::OriginalMusicPerformer) {arrive_original_music_performer(courier);return;}
+    if(courier.role==CourierRole::AuthoredLandTrader) {arrive_land_trader(courier);return;}
     if (original_auxiliary_courier(courier.role)) {arrive_original_auxiliary(courier);return;}
     if (original_market_courier(courier.role)) {arrive_original_market(courier);return;}
     if (original_food_courier(courier.role)) {arrive_original_food(courier);return;}
@@ -3336,6 +3455,7 @@ void World::tick() {
 
 std::optional<Position> World::courier_position(CourierId id) const {
     const auto& c=courier(id);
+    if ((c.role==CourierRole::OriginalMusicPerformer || c.role==CourierRole::OriginalVenueMusic) && c.phase==CourierPhase::IdleAtWorkshop) return std::nullopt;
     if (!c.enabled) return std::nullopt;
     const auto& source=building(c.owner);
     if (!source.placed) return std::nullopt;
@@ -3475,6 +3595,14 @@ bool World::industry_balance_valid() const {
         };
         std::uint64_t clay=0,pottery=0,food=0;
         auto extracted=demolition_history_.clay_extracted;
+        if (original_safe_demolition_enabled()) {
+            if (!original_production_ || !original_production_->safe_demolition) return false;
+            const auto& retired=original_production_->safe_demolition->retired;
+            if (retired.size()>original_safe_demolition_retired_limit ||
+                retired.size()>building_cap-buildings_.size()) return false;
+            for (const auto& row:retired)
+                if (!add(extracted,row.clay_extracted)) return false;
+        }
         auto recipes=demolition_history_.pottery_completed;
         auto produced_food=demolition_history_.food_produced;
         auto consumed=demolition_history_.pottery_consumed;
@@ -3545,6 +3673,9 @@ bool World::industry_balance_valid() const {
                 if (source==original_production_->industry.sources.end() || source->building_id!=b.id || !add(clay,source->clay_used)) return false;
                 break;
             }
+            case Object::OriginalTheatre75:
+                if (!original_music_venues_enabled()) return false;
+                break;
             case Object::OriginalLoggingShed38:
             case Object::OriginalBronzeSmelter39:
             case Object::OriginalLacquerwareMaker44:
@@ -3622,15 +3753,18 @@ bool World::industry_balance_valid() const {
             if (!c.enabled || static_cast<std::uint32_t>(c.id)==0 ||
                 (i && !(couriers_[i-1].id<c.id)) || c.cargo<0 || c.cargo>Rules::courier_capacity ||
                 c.reserved<0 || c.reserved>Rules::courier_capacity ||
-                c.reserved!=(c.phase==CourierPhase::ToWarehouse ? c.cargo:0)) return false;
+                (c.role!=CourierRole::AuthoredLandTrader&&c.reserved!=(c.phase==CourierPhase::ToWarehouse ? c.cargo:0))) return false;
             const auto& owner=building(c.owner);
-            const Object owner_kind=c.role==CourierRole::OriginalAuxSupplier && original_production_enabled() ? Object::Warehouse:
+            const Object owner_kind=c.role==CourierRole::AuthoredLandTrader&&authored_land_trade_enabled()?Object::Warehouse:
+                c.role==CourierRole::OriginalAuxSupplier && original_production_enabled() ? Object::Warehouse:
                 c.role==CourierRole::OriginalLuxuryToWarehouse && original_production_enabled() && original_industry_goods::output(owner.kind) ? owner.kind:
                 c.role==CourierRole::OriginalAuxToWarehouse && original_production_enabled() && original_industry_source(owner.kind) && !original_industry_goods::output(owner.kind) ? owner.kind:
                 c.role==CourierRole::OriginalFoodToMarket ? Object::OriginalFoodFarm:
                 c.role==CourierRole::OriginalFoodToHouse ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse ? Object::OriginalHempFarm:
                 c.role==CourierRole::OriginalWater ? Object::OriginalWaterWell72:
+                c.role==CourierRole::OriginalVenueMusic && original_venue_house_service_enabled() ? Object::OriginalTheatre75:
+                c.role==CourierRole::OriginalMusicPerformer && original_music_venues_enabled() ? Object::OriginalMusicSchool211:
                 c.role==CourierRole::OriginalMusic ? Object::OriginalMusicSchool211:
                 c.role==CourierRole::OriginalAcrobat ? Object::OriginalAcrobatSchool212:
                 c.role==CourierRole::OriginalDrama ? Object::OriginalDramaSchool213:
@@ -3649,7 +3783,14 @@ bool World::industry_balance_valid() const {
                 c.role==CourierRole::FireInspector ? Object::FireWatch:
                 c.role==CourierRole::HealthWorker ? Object::HealthPost:Object::Empty;
             if (owner.kind!=owner_kind) return false;
-            if (c.role==CourierRole::Clay) { ++clay_couriers; clay+=static_cast<std::uint64_t>(c.cargo); }
+            if(c.role==CourierRole::AuthoredLandTrader) {
+                if(!authored_land_trade_enabled())return false;
+                pottery+=static_cast<std::uint64_t>(c.cargo);
+                const auto found=std::lower_bound(pottery_reservations.begin(),pottery_reservations.end(),c.owner,[](const auto& value,BuildingId key){return value.first<key;});
+                if(found==pottery_reservations.end()||found->first!=c.owner)return false;
+                found->second+=c.reserved;
+            }
+            else if (c.role==CourierRole::Clay) { ++clay_couriers; clay+=static_cast<std::uint64_t>(c.cargo); }
             else if (c.role==CourierRole::Pottery) { ++pottery_couriers; pottery+=static_cast<std::uint64_t>(c.cargo); }
             else if (c.role==CourierRole::Household) { ++house_couriers; pottery+=static_cast<std::uint64_t>(c.cargo); }
             else if (c.role==CourierRole::Food) { ++food_couriers; food+=static_cast<std::uint64_t>(c.cargo); }
@@ -3672,9 +3813,9 @@ bool World::industry_balance_valid() const {
             else if ((!original_food_courier(c.role) && c.role!=CourierRole::OriginalHempToWarehouse &&
                       c.role!=CourierRole::OriginalAncestor && c.role!=CourierRole::OriginalWater &&
                       c.role!=CourierRole::OriginalDaoist && c.role!=CourierRole::OriginalBuddhist && c.role!=CourierRole::OriginalConfucian && c.role!=CourierRole::OriginalMusic &&
-                      c.role!=CourierRole::OriginalAcrobat && c.role!=CourierRole::OriginalDrama &&
+                      c.role!=CourierRole::OriginalAcrobat && c.role!=CourierRole::OriginalDrama && c.role!=CourierRole::OriginalMusicPerformer && c.role!=CourierRole::OriginalVenueMusic &&
                       c.role!=CourierRole::OriginalLuxuryToWarehouse && c.role!=CourierRole::OriginalAuxToWarehouse && c.role!=CourierRole::OriginalAuxSupplier) || !original_production_enabled()) return false;
-            if (c.phase==CourierPhase::ToWarehouse && !service_role(c.role)) {
+            if (c.phase==CourierPhase::ToWarehouse && !service_role(c.role)&&c.role!=CourierRole::AuthoredLandTrader) {
                 auto& reservations=food_role(c.role) ? food_reservations:pottery_reservations;
                 const auto found=std::lower_bound(reservations.begin(),reservations.end(),c.target,
                     [](const auto& value,BuildingId key) { return value.first<key; });
@@ -3713,7 +3854,8 @@ bool World::industry_balance_valid() const {
                 (b.kind==Object::ServicePost && owned(CourierRole::Service)!=1) ||
                 (b.kind==Object::FireWatch && owned(CourierRole::FireInspector)!=1) ||
                 (b.kind==Object::HealthPost && owned(CourierRole::HealthWorker)!=1) ||
-                (b.kind==Object::OriginalMusicSchool211 && owned(CourierRole::OriginalMusic)!=1) ||
+                (b.kind==Object::OriginalTheatre75 && owned(CourierRole::OriginalVenueMusic)!=(original_venue_house_service_enabled() ? 1:0)) ||
+                (b.kind==Object::OriginalMusicSchool211 && owned(original_music_venues_enabled() ? CourierRole::OriginalMusicPerformer:CourierRole::OriginalMusic)!=1) ||
                 (b.kind==Object::OriginalAcrobatSchool212 && owned(CourierRole::OriginalAcrobat)!=1) ||
                 (b.kind==Object::OriginalDramaSchool213 && owned(CourierRole::OriginalDrama)!=1) ||
                 (b.kind==Object::OriginalDaoistShrine215 && owned(CourierRole::OriginalDaoist)!=1) ||
@@ -3734,10 +3876,12 @@ bool World::industry_balance_valid() const {
         clay+=static_cast<std::uint64_t>(Rules::pottery_recipe_clay)*recipes;
         const auto handed=original_production_enabled() ? original_production_->pottery_handed_off:0;
         if (handed>UINT64_MAX-pottery-consumed) return false;
+        const auto trade=land_trade_?land_trade_balance():LandTradeBalance{};
+        if(trade.exported>UINT64_MAX-pottery-consumed-handed||trade.imported>UINT64_MAX-pottery_completed_total_)return false;
         return extracted==clay_extracted_total_ && recipes==pottery_completed_total_ &&
             produced_food==food_produced_total_ &&
             clay==clay_extracted_total_ &&
-            pottery+consumed+handed==pottery_completed_total_ && food+consumed_food==food_produced_total_;
+            pottery+consumed+handed+trade.exported==pottery_completed_total_+trade.imported && food+consumed_food==food_produced_total_;
     }
     if (next_production_id_<8 || next_production_id_>10 ||
         next_courier_id_<4 || next_courier_id_>6 ||
@@ -4108,7 +4252,65 @@ bool World::navigation_valid() const {
 
 std::string World::canonical_state() const {
     std::ostringstream out;
-    if (original_deadline_food_dispatch_enabled()) out<<original_deadline_food_dispatch_contract<<":18:"
+    if (original_music_venues_enabled() && original_production_ && original_production_->culture) {
+        const auto& state=*original_production_->culture;
+        out<<"|music-venues:"<<state.next_performer_id;
+        for (const auto& school:state.schools) {
+            out<<"|school:"<<static_cast<std::uint32_t>(school.building_id)<<','<<static_cast<std::uint32_t>(school.courier_id)
+               <<','<<unsigned(school.spawn_counter)<<','<<school.attempts<<','<<school.spawned<<','<<school.latest_trip.has_value();
+            if (school.latest_trip) {
+                const auto& trip=*school.latest_trip;
+                out<<','<<static_cast<std::uint64_t>(trip.performer_id)<<','<<static_cast<std::uint32_t>(trip.venue_id)
+                   <<','<<trip.dispatched_tick<<','<<trip.arrival_tick.has_value();
+                if (trip.arrival_tick) out<<','<<*trip.arrival_tick;
+                out<<','<<trip.accepted;
+            }
+        }
+        for (const auto& venue:state.venues) {
+            out<<"|venue:"<<static_cast<std::uint32_t>(venue.building_id)<<','<<unsigned(venue.music_timer)<<','<<venue.last_arrival.has_value();
+            if (venue.last_arrival) {
+                const auto& w=*venue.last_arrival;
+                out<<','<<static_cast<std::uint64_t>(w.performer_id)<<','<<static_cast<std::uint32_t>(w.school_id)
+                   <<','<<static_cast<std::uint32_t>(w.courier_id)<<','<<w.dispatched_tick<<','<<w.arrival_tick;
+            }
+        }
+    }
+    if (original_venue_house_service_enabled()) {
+        const auto& service=*original_production_->culture->venue_house_service;
+        out<<"|venue-house:"<<service.next_walker_id;
+        for (const auto& row:service.sources) {
+            out<<'|'<<static_cast<std::uint32_t>(row.building_id)<<','
+                <<static_cast<std::uint32_t>(row.courier_id)<<','<<unsigned(row.spawn_counter)<<','<<row.attempts<<','<<row.spawned<<','<<row.first_music.has_value();
+            if(row.first_music) {
+                const auto& a=*row.first_music;
+                out<<','<<static_cast<std::uint64_t>(a.performer_id)<<','<<static_cast<std::uint32_t>(a.school_id)<<','
+                    <<static_cast<std::uint32_t>(a.courier_id)<<','<<a.dispatched_tick<<','<<a.arrival_tick;
+            }
+        }
+        const auto music=[&](const OriginalMusicArrival& a) {
+            out<<','<<static_cast<std::uint64_t>(a.performer_id)<<','<<static_cast<std::uint32_t>(a.school_id)<<','
+                <<static_cast<std::uint32_t>(a.courier_id)<<','<<a.dispatched_tick<<','<<a.arrival_tick;
+        };
+        const auto evidence=[&](const auto& proof) {if (proof) {
+            out<<"|venue-walker:"<<static_cast<std::uint64_t>(proof->walker_id)<<','<<proof->dispatched_tick;
+            music(proof->dispatch_music);out<<','<<proof->arrival_music.has_value();
+            if (proof->arrival_music) music(*proof->arrival_music);
+        }};
+        for (const auto& t:original_production_->services.trips) evidence(t.venue_walker);
+        for (const auto& w:original_production_->services.witnesses) evidence(w.venue_walker);
+        for (const auto& h:original_production_->housing.houses) {
+            const auto evaluation=[&](const auto& e) {for(const auto& w:e.service_witnesses) if(w) evidence(w->venue_walker);};
+            if(h.last_evaluation) evaluation(*h.last_evaluation);
+            for(const auto& t:h.first_transitions) if(t) evaluation(t->evaluation);
+        }
+    }
+    if(source_cell_ramps_supported())out<<authored_source_cell_ramp_contract<<":20|";
+    if (original_venue_house_service_enabled()) out<<original_venue_house_service_contract<<":23:"<<original_terrain_facts_->source_map_sha256()<<'|';
+    else if (original_music_venues_enabled()) out<<original_music_venues_contract<<":22:"
+        <<original_terrain_facts_->source_map_sha256()<<'|';
+    else if (original_safe_demolition_enabled()) out<<original_safe_demolition_contract<<":19:"
+        <<original_terrain_facts_->source_map_sha256()<<'|';
+    else if (original_deadline_food_dispatch_enabled()) out<<original_deadline_food_dispatch_contract<<":18:"
         <<original_terrain_facts_->source_map_sha256()<<'|';
     else if (original_deadline_service_dispatch_enabled()) out<<original_deadline_service_dispatch_contract<<":17:"
         <<original_terrain_facts_->source_map_sha256()<<'|';
@@ -4134,6 +4336,11 @@ std::string World::canonical_state() const {
        <<':'<<courier_cargo_<<':'<<warehouse_stock_<<':'<<static_cast<int>(phase_)
        <<':'<<path_vertex_<<':'<<edge_progress_;
     if (maintenance_profile(profile_)) out<<":maintenance:"<<maintenance_spent_total_;
+    if(land_trade_) {
+        const auto& t=*land_trade_;out<<":land-trade:"<<authored_land_trade_contract<<':'<<t.source_map_sha256<<':'<<t.model_source.format_version<<':'<<t.model_source.sha256<<':'<<t.model_source.byte_count<<':'<<int(t.model_source.difficulty)<<':'<<t.next_order_id;
+        if(t.binding)out<<":binding:"<<std::uint32_t(t.binding->warehouse)<<':'<<std::uint32_t(t.binding->gateway)<<':'<<std::uint32_t(t.binding->courier)<<':'<<t.binding->configured_tick;
+        for(const auto& order:t.orders) {out<<":order:"<<std::uint32_t(order.id)<<':'<<int(order.direction)<<':'<<order.ordered_tick<<':';if(order.boundary_tick)out<<*order.boundary_tick;else out<<'-';out<<':';if(order.completed_tick)out<<*order.completed_tick;else out<<'-';}
+    }
     if (demolition_supported()) out<<":v4:"<<demolition_history_.buildings<<':'
         <<demolition_history_.clay_extracted<<':'<<demolition_history_.pottery_completed<<':'
         <<demolition_history_.food_produced<<':'<<demolition_history_.pottery_consumed<<':'
@@ -4185,6 +4392,12 @@ std::string World::canonical_state() const {
         for(const auto& r:ramps_)out<<'|'<<r.id.value<<','<<r.endpoint_a.x<<','<<r.endpoint_a.y
             <<','<<r.endpoint_b.x<<','<<r.endpoint_b.y<<','<<int(r.height_a)<<','<<int(r.height_b)
             <<','<<r.paid_cost<<','<<r.placed_tick;
+    }
+    if(source_cell_ramps_supported()) {
+        out<<"|source-cell-ramps:"<<next_source_cell_ramp_id_;
+        for(const auto& ramp:source_cell_ramps_)out<<'|'<<ramp.id.value<<','<<ramp.source_cell.x<<','<<ramp.source_cell.y
+            <<','<<ramp.high_neighbor.x<<','<<ramp.high_neighbor.y<<','<<int(ramp.low_height)<<','<<int(ramp.high_height)
+            <<','<<ramp.paid_cost<<','<<ramp.placed_tick;
     }
     if(bridges_supported()) {
         out<<"|bridges:"<<next_bridge_id_;
@@ -4380,6 +4593,23 @@ std::string World::canonical_state() const {
                <<static_cast<std::uint32_t>(row.source)<<','<<static_cast<std::uint32_t>(row.target)<<','
                <<row.loaded<<','<<row.delivered<<','<<row.dispatched_tick<<','
                <<bool(row.arrival_tick)<<','<<row.arrival_tick.value_or(0);
+        if (original_production_->safe_demolition) {
+            out<<"|safe-demolition:"<<original_production_->safe_demolition->retired.size();
+            for (const auto& row:original_production_->safe_demolition->retired) {
+                out<<"|retired-purchase:"<<static_cast<std::uint32_t>(row.building_id)<<','
+                   <<static_cast<unsigned>(row.kind)<<','<<row.origin_x<<','<<row.origin_y<<','
+                   <<row.placed_tick<<','<<row.removed_tick<<','<<row.clay_extracted<<','
+                   <<bool(row.courier_id)<<','<<static_cast<std::uint32_t>(row.courier_id.value_or(static_cast<CourierId>(0)))<<','
+                   <<bool(row.clay_trip);
+                if (row.clay_trip) {
+                    const auto& trip=*row.clay_trip;
+                    out<<','<<static_cast<std::uint32_t>(trip.transfer.courier_id)<<','<<trip.transfer.sequence<<','
+                       <<static_cast<std::uint32_t>(trip.source)<<','<<static_cast<std::uint32_t>(trip.target)<<','
+                       <<trip.loaded<<','<<trip.delivered<<','<<trip.dispatched_tick<<','
+                       <<bool(trip.arrival_tick)<<','<<trip.arrival_tick.value_or(0);
+                }
+            }
+        }
     }
     return out.str();
 }
@@ -4430,10 +4660,12 @@ WorldSnapshot World::snapshot() const {
     s.demolition_history=demolition_history_;
     s.bridges=bridges_;s.next_bridge_id=next_bridge_id_;
     s.ramps=ramps_;s.next_ramp_id=next_ramp_id_;
+    s.source_cell_ramps=source_cell_ramps_;s.next_source_cell_ramp_id=next_source_cell_ramp_id_;
     s.original_economy=original_economy_;
     s.original_influence=original_influence_;
     s.original_goods=original_goods_;
     s.original_production=original_production_;
+    s.land_trade=land_trade_;
     for (int y=0;y<height_;++y) for (int x=0;x<width_;++x)
         if (object_at({x,y})==Object::Road) s.roads.push_back({x,y});
     s.workshop=workshop_; s.warehouse=warehouse_;
@@ -4474,8 +4706,9 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                           std::shared_ptr<const MapPermissions> permissions,
                           bool original_development,
                           std::shared_ptr<const original::OriginalRulesModel> model,
-                          std::shared_ptr<const OriginalTerrainFacts> terrain) {
+                          std::shared_ptr<const OriginalTerrainFacts> terrain,std::shared_ptr<const LandTradeBoundaryFacts> trade_boundary) {
     performance::increment(performance::Counter::WorldRestores);
+    validate_authored_land_trade_snapshot(s);
     if (!rule_version_supported(s.profile,s.rule_version))
         throw std::invalid_argument("unsupported sandbox rule version");
     validate_original_economy_snapshot(s);
@@ -4491,12 +4724,13 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
     if (permissions && (permissions->width()!=s.width || permissions->height()!=s.height))
         throw std::invalid_argument("saved map permissions dimensions mismatch");
     World w=permissions ? World(s.width,s.height,permissions->building_mask(),s.profile,
-        s.rule_version,permissions,original_development,std::move(model),std::move(terrain)):
-        World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development,std::move(model),std::move(terrain));
+        s.rule_version,permissions,original_development,std::move(model),std::move(terrain),std::move(trade_boundary)):
+        World(s.width,s.height,std::move(mask),s.profile,s.rule_version,{},original_development,std::move(model),std::move(terrain),std::move(trade_boundary));
     w.original_economy_=s.original_economy;
     w.original_influence_=s.original_influence;
     w.original_goods_=s.original_goods;
     w.original_production_=s.original_production;
+    w.land_trade_=s.land_trade;
     if (!maintenance_profile(s.profile) && s.maintenance_spent_total)
         throw std::invalid_argument("maintenance authority requires City-v16");
     w.maintenance_spent_total_=s.maintenance_spent_total;
@@ -4525,6 +4759,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
         fail("invalid sandbox counters or road count");
     const auto put=[&](Cell cell,Object object,BuildingId owner) {
         if(object!=Object::Road && (w.bridge_at(cell)||w.bridge_bank_at(cell)||w.ramp_endpoint(cell)))fail("saved building overlaps bridge span or bank");
+        if(object!=Object::Road&&w.source_cell_ramp_claim(cell))fail("saved building overlaps source-cell ramp axial claim");
         if (object==Object::Road ? (!w.road_buildable(cell) || w.fixed_passage(cell) || w.original_road(cell)):
             !w.buildable(cell)) fail(w.permissions_ ? "saved object outside permitted map cells":
                 "saved object outside buildable mask");
@@ -4536,6 +4771,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
     for (const auto cell:s.roads) put(cell,Object::Road,BuildingId::ClaySource);
     w.restore_bridges(s);
     w.restore_ramps(s);
+    w.restore_source_cell_ramps(s);
     w.ticks_=s.ticks; w.command_sequence_=s.command_sequence; w.road_revision_=s.road_revision;
     w.roads_placed_total_=s.roads_placed_total;
     w.roads_removed_total_=s.roads_removed_total;
@@ -4591,6 +4827,7 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                   (b.kind==Object::OriginalMusicSchool211 || b.kind==Object::OriginalAcrobatSchool212 ||
                    b.kind==Object::OriginalDramaSchool213 || b.kind==Object::OriginalDaoistShrine215 || b.kind==Object::OriginalBuddhistShrine217 ||
                    b.kind==Object::OriginalConfucianAcademy219 || b.kind==Object::OriginalAncestorShrine214 || b.kind==Object::OriginalWaterWell72)) && !w.original_production_enabled()) ||
+                (b.kind==Object::OriginalTheatre75 && !w.original_music_venues_enabled()) ||
                 (b.kind==Object::OriginalInfluenceSource && !w.original_influence_enabled()) || (b.kind==Object::Market && !market_profile(s.profile)) ||
                 (b.kind==Object::FireWatch && !fire_profile(s.profile)) ||
                 (b.kind==Object::Well && !water_profile(s.profile)) ||
@@ -4648,13 +4885,16 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
             }
             const auto& owner=w.building(c.owner);
             const auto& target=w.building(c.target);
-            const Object expected_owner=c.role==CourierRole::OriginalAuxSupplier && w.original_production_enabled() ? Object::Warehouse:
+            const Object expected_owner=c.role==CourierRole::AuthoredLandTrader&&w.authored_land_trade_enabled()?Object::Warehouse:
+                c.role==CourierRole::OriginalAuxSupplier && w.original_production_enabled() ? Object::Warehouse:
                 c.role==CourierRole::OriginalLuxuryToWarehouse && w.original_production_enabled() && original_industry_goods::output(owner.kind) ? owner.kind:
                 c.role==CourierRole::OriginalAuxToWarehouse && w.original_production_enabled() && original_industry_source(owner.kind) && !original_industry_goods::output(owner.kind) ? owner.kind:
                 c.role==CourierRole::OriginalFoodToMarket && w.original_production_enabled() ? Object::OriginalFoodFarm:
                 c.role==CourierRole::OriginalFoodToHouse && w.original_production_enabled() ? Object::Market:
                 c.role==CourierRole::OriginalHempToWarehouse && w.original_production_enabled() ? Object::OriginalHempFarm:
                 c.role==CourierRole::OriginalWater && w.original_production_enabled() ? Object::OriginalWaterWell72:
+                c.role==CourierRole::OriginalVenueMusic && w.original_venue_house_service_enabled() ? Object::OriginalTheatre75:
+                c.role==CourierRole::OriginalMusicPerformer && w.original_music_venues_enabled() ? Object::OriginalMusicSchool211:
                 c.role==CourierRole::OriginalMusic && w.original_production_enabled() ? Object::OriginalMusicSchool211:
                 c.role==CourierRole::OriginalAcrobat && w.original_production_enabled() ? Object::OriginalAcrobatSchool212:
                 c.role==CourierRole::OriginalDrama && w.original_production_enabled() ? Object::OriginalDramaSchool213:
@@ -4714,17 +4954,19 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
                   c.route_pending);
             w.couriers_.push_back(std::move(out));
         }
-        if (s.demolition_history.buildings>=UINT32_MAX ||
+        const auto retired_count=w.original_safe_demolition_enabled() && s.original_production &&
+            s.original_production->safe_demolition ? s.original_production->safe_demolition->retired.size():0;
+        if (retired_count>original_safe_demolition_retired_limit || s.demolition_history.buildings>=UINT32_MAX ||
             s.roads_placed_total<s.roads_removed_total ||
             s.roads_placed_total-s.roads_removed_total!=s.roads.size() ||
             s.road_revision<s.roads_placed_total ||
             s.road_revision-s.roads_placed_total<s.roads_removed_total ||
             s.road_revision-s.roads_placed_total-s.roads_removed_total!=
-                s.buildings.size()+2*s.demolition_history.buildings+s.bridges.size()+s.ramps.size()+
-                    (w.original_influence_enabled() ? 2*s.original_influence->removed_sources.size():0)+materialized ||
+                s.buildings.size()+2*s.demolition_history.buildings+s.bridges.size()+s.ramps.size()+s.source_cell_ramps.size()+
+                    (w.original_influence_enabled() ? 2*s.original_influence->removed_sources.size():0)+materialized+2*retired_count ||
             (w.demolition_supported() && (s.demolition_history.buildings>=UINT32_MAX ||
                 s.buildings.size()+s.demolition_history.buildings+1+
-                    (w.original_influence_enabled() ? s.original_influence->removed_sources.size():0)!=s.next_building_id)))
+                    (w.original_influence_enabled() ? s.original_influence->removed_sources.size():0)+retired_count!=s.next_building_id)))
             fail("City-v10 placement revision mismatch");
         w.clay_extracted_total_=s.clay_extracted_total;
         w.pottery_completed_total_=s.pottery_completed_total;
@@ -4988,6 +5230,12 @@ World World::restore_impl(const WorldSnapshot& s,std::vector<std::uint8_t> mask,
 }
 
 void World::import_snapshot(const WorldSnapshot& s) {
+    if(authored_land_trade_enabled()||(s.profile==RulesProfile::CityV16&&s.rule_version==kAuthoredLandTradeRuleVersion)) {
+        if(!authored_land_trade_enabled()||s.profile!=profile_||s.rule_version!=rule_version_)
+            throw std::invalid_argument("land trade snapshot import cannot cross generations");
+        auto replacement=restore_authored_land_trade(s,permissions_,original_rules_model_,land_trade_boundary_);
+        *this=std::move(replacement);return;
+    }
     World replacement=permissions_ ? restore(s,permissions_):restore(s,buildable_);
     *this=std::move(replacement);
 }

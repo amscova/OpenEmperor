@@ -117,7 +117,7 @@ its reserve warning does not promise future taxes or silently build facilities.
 
 ## Safe demolition
 
-City-v11 rule 4 and later support typed demolition through the inspector's
+The ordinary City-v11 rule 4 and later generations support typed demolition through the inspector's
 confirmation. The modal blocks ticks and map input; Escape, focus loss, resize
 or Cancel changes no World authority. Confirm revalidates once. There is no
 refund, stock discard or relocation command. Rebuilding pays the normal cost
@@ -148,6 +148,27 @@ construction spending and removal count so lifetime conservation still reconcile
 It contains no inventory, population, refund or entity tombstones. The explicit
 City-v11 v3→v4 copy upgrade preserves the source file and all authority at the
 same tick. Ordinary old loads acquire neither demolition nor a new schema.
+
+Original-economy Rules10–18 retain their separate conservative refusal contract.
+Explicit Rule19/schema35 adds only never-occupied Common2x2 Houses with no
+retained history and paused, physically drained Clay Sources after real return.
+It preserves retired paid identities, extraction, settled Clay history and closed
+upkeep in a bounded journal, with no refund or ID reuse. Occupied/Elite Houses
+and other production/service kinds remain refused. The ordinary resident-removal
+and reference-clearing rules above do not apply to this new original-economy
+slice. See [OE51 demolition](gameplay/oe51-demolition.md).
+
+The separate authored Rule20/schema36 terrain experiment inherits classic
+Rule6 city systems and its historical demolition contract. It has no Original
+economy or Rule19 retirement journal; new permanent source-cell ramp claims
+remain protected even after a road cut. See [OE53](rendering/oe53-terrain-integration.md).
+
+Rule21/schema37 [authored land trade](original-economy/oe54-trade.md) separately
+inherits classic Rule6. Two existing paid Warehouses support one finite
+Pottery caravan, without new workers, storage or global limits. Imports reserve
+real owner headroom before dispatch; only physical boundary/return arrivals
+load goods, earn export receipts or credit stock. Bound Warehouse identities
+remain permanent, while ordinary pause/fire and road-repair contracts apply.
 
 ## Fire
 

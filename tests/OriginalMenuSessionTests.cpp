@@ -68,8 +68,15 @@ void finish_load(Menu& menu) {
     check(menu.render(),"Draw actual Loading screen");menu.advance();
 }
 void start(Menu& menu) {wait_map(menu);key(menu,SDLK_RETURN);finish_load(menu);}
+void open_legacy(Menu& menu,SDL_Window* window,SDL_Renderer* renderer) {
+    check(menu.state()==Menu::State::MainMenu,"Legacy choices require the ordinary main menu");
+    if (!menu.diagnostic_button_rect("O Original economy"))
+        click(menu,window,renderer,"Advanced / Legacy");
+    check(menu.diagnostic_button_rect("O Original economy").has_value(),"Advanced / Legacy did not expose historical choices");
+}
 void enter_original(Menu& menu,SDL_Window* window,SDL_Renderer* renderer,bool by_mouse=false) {
-    if (by_mouse) click(menu,window,renderer,"O Original economy");else key(menu,SDLK_O);
+    if (by_mouse) {open_legacy(menu,window,renderer);click(menu,window,renderer,"O Original economy");}
+    else key(menu,SDLK_O);
     check(menu.state()==Menu::State::NewSandbox && menu.original_setup(),"Explicit Original entry did not select its own setup");
 }
 void capture(Menu& menu,SDL_Renderer* renderer,const fs::path& folder,const char* name) {
@@ -211,6 +218,7 @@ void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer,bool sustain
         !menu.original_market_logistics_setup() && !menu.original_cardinal_water_setup() &&
         !menu.original_inspector_coordination_setup() && !menu.original_deadline_fire_dispatch_setup() &&
         !menu.original_deadline_service_dispatch_setup()&&!menu.original_deadline_food_dispatch_setup(),"Original successor became a fresh-menu default");
+    open_legacy(menu,window,renderer);
     const auto bounds=[&](const std::string& label){check_bounds(menu,label,width,height);};
     bounds(option);
     bounds("M Needs-aware logistics");bounds("Autosave: ON");
@@ -253,28 +261,28 @@ void fire_protection_menu(SDL_Window* window,SDL_Renderer* renderer,bool sustain
             "U key did not select the explicit Rule18 preflight");
         key(menu,SDLK_ESCAPE);
         check(menu.state()==Menu::State::MainMenu,"Rule18 setup did not return to the main menu");
-        click(menu,window,renderer,option);
+        open_legacy(menu,window,renderer);click(menu,window,renderer,option);
     } else if(service_deadline) {
         key(menu,SDLK_T);wait_check(menu);
         check(menu.original_deadline_service_dispatch_setup()&&menu.map_rules_result().request.rule_version==17,
             "T key did not select the explicit Rule17 preflight");
         key(menu,SDLK_ESCAPE);
         check(menu.state()==Menu::State::MainMenu,"Rule17 setup did not return to the main menu");
-        click(menu,window,renderer,option);
+        open_legacy(menu,window,renderer);click(menu,window,renderer,option);
     } else if(deadline) {
         key(menu,SDLK_D);wait_check(menu);
         check(menu.original_deadline_fire_dispatch_setup() && menu.map_rules_result().request.rule_version==16,
             "D key did not select the explicit Rule16 preflight");
         key(menu,SDLK_ESCAPE);
         check(menu.state()==Menu::State::MainMenu,"Rule16 setup did not return to the main menu");
-        click(menu,window,renderer,option);
+        open_legacy(menu,window,renderer);click(menu,window,renderer,option);
     } else if(coordination) {
         key(menu,SDLK_I);wait_check(menu);
         check(menu.original_inspector_coordination_setup() && menu.map_rules_result().request.rule_version==15,
             "I key did not select the explicit Rule15 preflight");
         key(menu,SDLK_ESCAPE);
         check(menu.state()==Menu::State::MainMenu,"Rule15 setup did not return to the main menu");
-        click(menu,window,renderer,option); // Mouse and keyboard select the same action.
+        open_legacy(menu,window,renderer);click(menu,window,renderer,option); // Mouse and keyboard select the same action.
     } else if(cardinal)key(menu,SDLK_W);else if(logistics)key(menu,SDLK_M);else click(menu,window,renderer,option);
     wait_check(menu);
     check(menu.original_setup() && menu.original_fire_protection_setup()==(!sustainable&&!logistics&&!cardinal&&!coordination&&!deadline&&!service_deadline&&!food_deadline) &&
@@ -430,6 +438,392 @@ void process_load(const fs::path& root,SDL_Window* window,SDL_Renderer* renderer
     std::cout<<"Actual menu new-process restore and F9 matched full tick "<<saved.world.ticks<<" SaveDocument\n";
     menu.shutdown();
 }
+
+constexpr std::array<std::pair<const char*,SDL_Keycode>,10> historical_entries{{
+    {"N New Sandbox",SDLK_N},{"O Original economy",SDLK_O},
+    {"F Original fire protection",SDLK_F},{"S Sustainable economy",SDLK_S},
+    {"M Needs-aware logistics",SDLK_M},{"W Cardinal-water economy",SDLK_W},
+    {"I Inspector coordination",SDLK_I},{"D Deadline-aware fire dispatch",SDLK_D},
+    {"T Deadline-aware services",SDLK_T},{"U Deadline-aware food",SDLK_U}
+}};
+void expect_compact_main(Menu& menu) {
+    check(menu.state()==Menu::State::MainMenu && !menu.original_setup(),
+        "Opening the main menu silently selected an Original rule");
+    check(menu.diagnostic_button_rect("Play Original economy").has_value() &&
+        menu.diagnostic_button_rect("Advanced / Legacy").has_value(),
+        "Main menu lacks its recommended entry or explicit historical choices");
+    for (const auto& [label,shortcut]:historical_entries) {
+        (void)shortcut;
+        check(!menu.diagnostic_button_rect(label),"Historical generation leaked into the compact main menu");
+    }
+    check(!menu.diagnostic_button_rect("Enter Continue"),"Fresh menu suggests Continue without an active city");
+    expect_legacy_preferences(menu);
+}
+void enter_recommended(Menu& menu,SDL_Window* window,SDL_Renderer* renderer) {
+    click(menu,window,renderer,"Play Original economy");wait_check(menu);
+    const auto& selected=menu.map_rules_result().request;
+    check(menu.state()==Menu::State::NewSandbox && menu.original_setup() &&
+        menu.original_deadline_food_dispatch_setup() && selected.rule_version==18 &&
+        selected.profile==sim::RulesProfile::CityV16 && selected.policy_version==3,
+        "Confirmed recommended entry did not select the existing Rule18/Policy3 contract");
+    check(menu.original_difficulty()==orig::Difficulty::Normal && menu.original_paid_starter(),
+        "Fresh recommended setup changed Normal difficulty or paid-start defaults");
+    expect_legacy_preferences(menu);
+}
+void recommended_paid_start(Menu& menu) {
+    key(menu,SDLK_RETURN);finish_load(menu);
+    check(menu.state()==Menu::State::Playing && menu.sandbox() && menu.sandbox()->paused(),
+        "Recommended menu did not publish a paused real World");
+    const auto& world=menu.sandbox()->world();
+    check(world.rule_version()==18 && world.profile()==sim::RulesProfile::CityV16 &&
+        world.original_deadline_food_dispatch_enabled() && world.ticks()==0 &&
+        world.total_population()==0 && house_count(world)==4 && world.construction_spent_total()>0 &&
+        world.construction_spent_total()<=12000 &&
+        world.treasury()==12000-static_cast<std::int64_t>(world.construction_spent_total()) &&
+        world.original_rules_model()->difficulty()==orig::Difficulty::Normal,
+        "Recommended start did not buy the actual four-house Rule18 city from its12000-Funds budget");
+}
+void player_mode_menu(SDL_Window*& window,SDL_Renderer*& renderer,const fs::path& captures) {
+    oe::testing::economy::Temp source;const auto data=source.root/"data";
+    oe_production_fixture::write_model(data);
+    constexpr std::array<std::pair<int,int>,3> sizes{{{1280,800},{1600,900},{1920,1080}}};
+    for (const auto& [width,height]:sizes) {
+        SDL_DestroyRenderer(renderer);renderer=nullptr;SDL_DestroyWindow(window);window=nullptr;
+        check(SDL_CreateWindowAndRenderer("Player mode menu",width,height,SDL_WINDOW_RESIZABLE,&window,&renderer),
+            "Create requested real SDL menu aperture");
+        const auto name=std::to_string(width)+"x"+std::to_string(height);
+        const auto app=source.root/("player-"+name);seed_preferences(app,data);
+        Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);expect_compact_main(menu);
+        const float logical_width=static_cast<float>(width)/1.5F,logical_height=static_cast<float>(height)/1.5F;
+        check_bounds(menu,"Play Original economy",logical_width,logical_height);
+        check_bounds(menu,"Advanced / Legacy",logical_width,logical_height);
+        capture(menu,renderer,captures,("player.main."+name).c_str());
+        // Every focus/layout boundary cancels the explicit Rule18 selection.
+        constexpr std::array<Uint32,8> boundaries{SDL_EVENT_WINDOW_FOCUS_LOST,SDL_EVENT_WINDOW_MOUSE_LEAVE,
+            SDL_EVENT_WINDOW_HIDDEN,SDL_EVENT_WINDOW_MINIMIZED,SDL_EVENT_WINDOW_RESIZED,
+            SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED,SDL_EVENT_WINDOW_DISPLAY_CHANGED,SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED};
+        for (const auto type:boundaries) {
+            const auto p=button_point(menu,window,renderer,"Play Original economy");mouse(menu,p,true);
+            SDL_Event event{};event.type=type;route(menu,event);mouse(menu,p,false);menu.advance();
+            check(menu.state()==Menu::State::MainMenu && !menu.original_setup() &&
+                menu.diagnostic_pressed_action()==-1 && menu.diagnostic_pending_action()==-1,
+                "Canceled recommended press selected a rule or retained a pending action");
+        }
+        open_legacy(menu,window,renderer);
+        std::vector<SDL_FRect> controls;
+        for (const auto& [label,shortcut]:historical_entries) {
+            (void)shortcut;check_bounds(menu,label,logical_width,logical_height);
+            const auto rect=menu.diagnostic_button_rect(label);check(rect.has_value(),"Advanced menu lost a historical generation");
+            for (const auto& other:controls)
+                check(!SDL_HasRectIntersectionFloat(&*rect,&other),"Historical menu hitboxes overlap");
+            controls.push_back(*rect);
+        }
+        capture(menu,renderer,captures,("player.legacy."+name).c_str());
+        key(menu,SDLK_ESCAPE);expect_compact_main(menu);
+        enter_recommended(menu,window,renderer);
+        for (const auto* label:{"Previous map","Next map","D Difficulty: Normal","P Paid four-house starter",
+                               "Start sandbox","Back","Check again"})
+            check_bounds(menu,label,logical_width,logical_height);
+        capture(menu,renderer,captures,("player.setup."+name).c_str());
+        for (std::size_t next=0;next<orig::difficulty_count;++next) {
+            if (next%2==0) key(menu,SDLK_D);
+            else {
+                constexpr const char* names[]={"Very Easy","Easy","Normal","Hard","Very Hard"};
+                click(menu,window,renderer,std::string("D Difficulty: ")+
+                    names[static_cast<std::size_t>(menu.original_difficulty())]);
+            }
+            check(static_cast<std::size_t>(menu.original_difficulty())==(3+next)%orig::difficulty_count,
+                "Recommended difficulty click/key did not select the actual next difficulty");
+        }
+        menu.shutdown();
+    }
+    // Shortcuts remain reachable without expanding historical controls. Each
+    // selection performs the real map preflight, including unchanged N Rule3.
+    for (std::size_t i=0;i<historical_entries.size();++i) {
+        const auto app=source.root/("shortcut-"+std::to_string(i));seed_preferences(app,data);
+        Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);expect_compact_main(menu);
+        key(menu,historical_entries[i].second);wait_check(menu);
+        const auto request=menu.map_rules_result().request;
+        const auto expected_rule=i==0 ? 3U:static_cast<unsigned>(i)+9U;
+        check(menu.state()==Menu::State::NewSandbox && request.rule_version==expected_rule &&
+            request.profile==(i==0 ? sim::RulesProfile::CityV11:sim::RulesProfile::CityV16) &&
+            request.policy_version==(i==0 ? 0U:3U) && menu.original_setup()==(i!=0),
+            "Collapsed-menu historical shortcut changed its rule/profile/policy contract");
+        menu.shutdown();
+        Menu clicked({},source.root/("clicked-"+std::to_string(i)),std::make_unique<Dialog>());
+        // Give the independent click case the same historical default preferences.
+        seed_preferences(clicked.app_root(),data);clicked.initialize(window,renderer);
+        open_legacy(clicked,window,renderer);click(clicked,window,renderer,historical_entries[i].first);
+        wait_check(clicked);
+        check(clicked.map_rules_result().request==request,
+            "Historical button and shortcut selected different map/rule/profile/policy identities");
+        clicked.shutdown();
+    }
+    for (const bool paid:{true,false}) {
+        const auto app=source.root/(paid ? "recommended-paid":"recommended-empty");seed_preferences(app,data);
+        auto dialog=std::make_unique<Dialog>();auto* callbacks=dialog.get();
+        Menu menu({},app,std::move(dialog));menu.initialize(window,renderer);enter_recommended(menu,window,renderer);
+        click(menu,window,renderer,"Next map");wait_check(menu);
+        check(menu.map_rules_result().request.map_relative==fs::path("Cities/B.map"),"Recommended map selection did not select B");
+        click(menu,window,renderer,"Previous map");wait_check(menu);
+        check(menu.map_rules_result().request.map_relative==fs::path("Cities/A.map"),"Recommended map selection did not return to A");
+        if (paid) recommended_paid_start(menu);
+        else {
+            click(menu,window,renderer,"P Paid four-house starter");
+            check(!menu.original_paid_starter(),"Recommended Empty choice did not change the explicit start type");
+            key(menu,SDLK_RETURN);finish_load(menu);
+            const auto& world=menu.sandbox()->world();
+            check(menu.state()==Menu::State::Playing && menu.sandbox()->paused() && world.rule_version()==18 &&
+                world.ticks()==0 && world.treasury()==12000 && world.construction_spent_total()==0 &&
+                world.buildings().empty() && world.total_population()==0,
+                "Recommended Empty city bought a starter or changed initial funds/rule/ticks");
+        }
+        expect_legacy_preferences(menu);key(menu,SDLK_F5);
+        const auto manual=menu.settings().last_save;
+        const auto bytes=oe_influence_fixture::read_text(manual);
+        const auto saved=oe::persistence::read_save(manual);same(saved,menu.sandbox()->capture_save_document());
+        check(saved.source_schema_version==34 && saved.world.rule_version==18 &&
+            saved.map_permissions_policy_version==3 && saved.map_relative==fs::path("Cities/A.map") &&
+            !saved.map_sha256.empty() && saved.world.original_economy->model_source->difficulty==orig::Difficulty::Normal,
+            "Recommended F5 changed the existing Rule18/Schema34/source/difficulty identity");
+        auto json=nlohmann::json::parse(bytes);
+        check(json.at("rules").at("deadline_food_dispatch")==sim::original_deadline_food_dispatch_contract,
+            "Recommended save omitted the existing Rule18 contract marker");
+        for (int tick=0;tick<20;++tick) menu.sandbox()->tick_once();
+        key(menu,SDLK_F9);same(saved,menu.sandbox()->capture_save_document());
+        check(oe_influence_fixture::read_text(manual)==bytes,"Recommended F9 rewrote its source save");
+        const auto retained=menu.sandbox()->world().snapshot();
+        json.at("rules").erase("deadline_food_dispatch");
+        const auto missing_marker=source.root/(paid ? "paid-missing-marker.json":"empty-missing-marker.json");
+        oe_influence_fixture::write_text(missing_marker,json.dump());
+        external_load(menu,*callbacks,window,renderer,missing_marker);
+        check(menu.state()==Menu::State::LoadSandbox && menu.sandbox()->world().snapshot()==retained &&
+            oe_influence_fixture::read_text(manual)==bytes,
+            "A Rule18 save without its marker replaced the active city or changed historical bytes");
+        const auto truncated=source.root/(paid ? "paid-truncated.json":"empty-truncated.json");
+        oe_influence_fixture::write_text(truncated,bytes.substr(0,bytes.size()/2));
+        external_load(menu,*callbacks,window,renderer,truncated);
+        check(menu.state()==Menu::State::LoadSandbox && menu.sandbox()->world().snapshot()==retained &&
+            oe_influence_fixture::read_text(manual)==bytes,
+            "Truncated recommended save replaced the active city or changed historical bytes");
+        menu.shutdown();
+        // Ordinary load in a fresh session preserves the saved generation and
+        // never repeats paid construction. Separate-process coverage is below.
+        auto fresh_dialog=std::make_unique<Dialog>();auto* fresh_callbacks=fresh_dialog.get();
+        Menu fresh({},app,std::move(fresh_dialog));fresh.initialize(window,renderer);expect_compact_main(fresh);
+        external_load(fresh,*fresh_callbacks,window,renderer,manual);
+        check(fresh.state()==Menu::State::Playing && fresh.sandbox()->paused(),"Recommended save could not load after restart");
+        same(saved,fresh.sandbox()->capture_save_document());
+        check(oe_influence_fixture::read_text(manual)==bytes,"Restart load rewrote the Rule18 save");fresh.shutdown();
+    }
+}
+void player_mode_process_write(const fs::path& root,SDL_Window* window,SDL_Renderer* renderer) {
+    check(!fs::exists(root),"Recommended process-save evidence root must be fresh");
+    oe::testing::economy::Temp source;fs::create_directories(root);
+    fs::copy(source.root/"data",root/"data",fs::copy_options::recursive);
+    const auto data=fs::canonical(root/"data"),app=root/"app";
+    oe_production_fixture::write_model(data);seed_preferences(app,data);
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    enter_recommended(menu,window,renderer);recommended_paid_start(menu);
+    for (int tick=0;tick<400;++tick) menu.sandbox()->tick_once();key(menu,SDLK_F5);
+    const auto saved=oe::persistence::read_save(menu.settings().last_save);
+    check(saved.source_schema_version==34 && saved.world.rule_version==18,"Recommended writer changed its save generation");
+    same(saved,menu.sandbox()->capture_save_document());menu.shutdown();
+}
+void player_mode_process_load(const fs::path& root,SDL_Window* window,SDL_Renderer* renderer) {
+    const auto app=root/"app",save=oe::menu::read_settings(app).value.last_save;
+    const auto bytes=oe_influence_fixture::read_text(save);const auto saved=oe::persistence::read_save(save);
+    auto dialog=std::make_unique<Dialog>();auto* callbacks=dialog.get();
+    Menu menu({},app,std::move(dialog));menu.initialize(window,renderer);expect_compact_main(menu);
+    external_load(menu,*callbacks,window,renderer,save);
+    check(menu.state()==Menu::State::Playing && menu.sandbox()->paused() && saved.source_schema_version==34 &&
+        menu.sandbox()->world().rule_version()==18,"Recommended fresh process changed the saved generation");
+    same(saved,menu.sandbox()->capture_save_document());
+    for (int tick=0;tick<20;++tick) menu.sandbox()->tick_once();key(menu,SDLK_F9);
+    same(saved,menu.sandbox()->capture_save_document());
+    check(oe_influence_fixture::read_text(save)==bytes,"Recommended new-process load/F9 rewrote its source save");
+    menu.shutdown();
+}
+void player_mode_real(const fs::path& data,const fs::path& output,SDL_Window* window,SDL_Renderer* renderer) {
+    check(!fs::exists(output),"Real recommended evidence output must be fresh");
+    const auto source=fs::canonical(data),target=fs::weakly_canonical(output);
+    const auto private_root=fs::weakly_canonical(fs::path(__FILE__).parent_path().parent_path()/".local/oe49");
+    const auto relative=target.lexically_relative(private_root);
+    check(!relative.empty() && relative!="." && *relative.begin()!="..",
+        "Real recommended evidence must stay below ignored .local/oe49");
+    const auto to_source=target.lexically_relative(source),from_source=source.lexically_relative(target);
+    check(!to_source.empty() && *to_source.begin()==".." &&
+        !from_source.empty() && *from_source.begin()=="..",
+        "Real recommended output overlaps original files");
+    const auto app=output/"app";seed_preferences(app,source);
+    auto settings=oe::menu::read_settings(app).value;settings.last_map="Cities/Xia.map";
+    oe::menu::write_settings(app,settings);
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    capture(menu,renderer,output/"captures","main");
+    enter_recommended(menu,window,renderer);capture(menu,renderer,output/"captures","setup");
+    recommended_paid_start(menu);
+    check(menu.sandbox()->world().treasury()==10596 && menu.sandbox()->world().construction_spent_total()==1404,
+        "Pinned Xia/Normal paid starter changed its actual budget");
+    const auto document=menu.sandbox()->capture_save_document();key(menu,SDLK_F5);
+    const auto bytes=oe_influence_fixture::read_text(menu.settings().last_save);
+    for (int i=0;i<20;++i) menu.sandbox()->tick_once();key(menu,SDLK_F9);
+    same(document,menu.sandbox()->capture_save_document());
+    check(oe_influence_fixture::read_text(menu.settings().last_save)==bytes,"Real F9 changed manual source bytes");
+    std::cout<<"Real recommended Xia/Normal Rule18 paid starter: tick0, Funds10596, construction1404, four Houses; F5/F9 complete equality\n";
+    menu.shutdown();
+}
+
+void starter_availability(SDL_Window*& window,SDL_Renderer*& renderer,const fs::path& captures) {
+    oe::testing::economy::Temp source;const auto data=source.root/"data";
+    oe_production_fixture::write_model(data);
+    // A valid authored map with alternating signed source heights, rather than
+    // a name-based exception or an injected placement verdict.
+    fs::remove(data/"Cities/Broken.map");
+    oe::testing::economy::write(data/"Cities/C.map",oe::testing::economy::map_file(true,false));
+    constexpr std::array<std::pair<int,int>,4> sizes{{{900,600},{1280,800},{1600,900},{1920,1080}}};
+    for (const auto& [width,height]:sizes) {
+        SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);renderer=nullptr;window=nullptr;
+        check(SDL_CreateWindowAndRenderer("Starter availability",width,height,SDL_WINDOW_RESIZABLE,&window,&renderer),
+            "Create starter error test aperture");
+        const auto name=std::to_string(width)+"x"+std::to_string(height);
+        const auto app=source.root/("starter-"+name);seed_preferences(app,data);
+        Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+        enter_recommended(menu,window,renderer);recommended_paid_start(menu);key(menu,SDLK_F5);
+        const auto retained=menu.sandbox()->capture_save_document();
+        key(menu,SDLK_ESCAPE);enter_recommended(menu,window,renderer);
+        click(menu,window,renderer,"Next map");wait_check(menu);
+        click(menu,window,renderer,"Next map");wait_check(menu);
+        check(menu.map_rules_result().request.map_relative==fs::path("Cities/C.map"),
+            "Select the actual no-layout authored map");
+        const auto files=recovery_files(app);
+        key(menu,SDLK_RETURN);finish_load(menu);
+        check(menu.state()==Menu::State::StarterUnavailable && menu.original_paid_starter() &&
+            menu.message().find("24x13")!=std::string::npos,
+            "A passed map without a starter area lacks the distinct placement error");
+        same(retained,menu.sandbox()->capture_save_document());
+        check(recovery_files(app)==files,"Refused starter changed settings, manual save or Recovery files");
+        check_bounds(menu,"P Use Empty city",static_cast<float>(width)/1.5F,static_cast<float>(height)/1.5F);
+        check_bounds(menu,"Choose another map",static_cast<float>(width)/1.5F,static_cast<float>(height)/1.5F);
+        capture(menu,renderer,captures,("starter.unavailable."+name).c_str());
+        // UI press/release boundaries retain the previous city and cannot turn
+        // a canceled error-dialog action into an Empty selection.
+        constexpr std::array<Uint32,3> boundaries{SDL_EVENT_WINDOW_FOCUS_LOST,
+            SDL_EVENT_WINDOW_RESIZED,SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED};
+        for (const auto type:boundaries) {
+            const auto p=button_point(menu,window,renderer,"P Use Empty city");mouse(menu,p,true);
+            SDL_Event event{};event.type=type;route(menu,event);mouse(menu,p,false);menu.advance();
+            check(menu.state()==Menu::State::StarterUnavailable && menu.original_paid_starter(),
+                "Canceled error-dialog click silently selected Empty city");
+        }
+        key(menu,SDLK_RETURN);
+        check(menu.state()==Menu::State::StarterUnavailable,
+            "Enter silently accepted a different construction mode after failed placement");
+        click(menu,window,renderer,"Choose another map");wait_check(menu);
+        check(menu.map_rules_result().request.map_relative==fs::path("Cities/C.map") && menu.original_paid_starter(),
+            "Returning to map selection silently switched the map or starter preference");
+        key(menu,SDLK_RETURN);finish_load(menu);
+        check(menu.state()==Menu::State::StarterUnavailable,"Repeated refusal lost the placement explanation");
+        if (width==1280) key(menu,SDLK_P);
+        else click(menu,window,renderer,"P Use Empty city");
+        wait_check(menu);
+        check(!menu.original_paid_starter() && menu.map_rules_result().request.map_relative==fs::path("Cities/C.map"),
+            "Explicit Empty selection changed the chosen map");
+        same(retained,menu.sandbox()->capture_save_document());
+        key(menu,SDLK_RETURN);finish_load(menu);
+        check(menu.state()==Menu::State::Playing && menu.sandbox()->paused() &&
+            menu.sandbox()->world().ticks()==0 && menu.sandbox()->world().treasury()==12000 &&
+            menu.sandbox()->world().buildings().empty() && menu.sandbox()->world().rule_version()==18,
+            "Explicit Empty start bypassed normal preparation or bought a starter");
+        menu.shutdown();
+    }
+    // Empty is a layout choice only; an unsupported manager must still fail
+    // the ordinary map-rules preflight and cannot enter Loading.
+    oe::testing::economy::write(data/"Cities/C.map",oe::testing::economy::map_file(false));
+    const auto app=source.root/"unsupported";seed_preferences(app,data);
+    auto settings=oe::menu::read_settings(app).value;settings.last_map="Cities/C.map";
+    oe::menu::write_settings(app,settings);
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    click(menu,window,renderer,"Play Original economy");key(menu,SDLK_P);
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while (menu.map_rules_result().status==oe::maps::MapRulesStatus::Checking &&
+        std::chrono::steady_clock::now()<deadline) {menu.advance();std::this_thread::yield();}
+    check(menu.map_rules_result().status==oe::maps::MapRulesStatus::UnsupportedForRules ||
+        menu.map_rules_result().status==oe::maps::MapRulesStatus::InputError,
+        "Unsupported Empty control did not finish its actual map rules check");
+    key(menu,SDLK_RETURN);
+    check(!menu.map_rules_can_start() && menu.state()==Menu::State::NewSandbox && !menu.sandbox(),
+        "Empty city bypassed unsupported original map rules");
+    menu.shutdown();
+    std::cout<<"Starter rules/placement separation, complete error dialog, explicit Empty/map choice, "
+        "retained World/files and pointer cancellation PASS\n";
+}
+
+void starter_availability_real(const fs::path& data,const fs::path& output,
+                               SDL_Window*& window,SDL_Renderer*& renderer) {
+    check(!fs::exists(output),"Real starter evidence output must be fresh");
+    const auto source=fs::canonical(data),target=fs::weakly_canonical(output);
+    const auto to_source=target.lexically_relative(source),from_source=source.lexically_relative(target);
+    check(!to_source.empty() && *to_source.begin()==".." &&
+        !from_source.empty() && *from_source.begin()=="..","Real starter output overlaps original files");
+    fs::create_directories(output);
+    nlohmann::json rows=nlohmann::json::array();
+    constexpr std::array<std::pair<int,int>,3> sizes{{{1280,800},{1600,900},{1920,1080}}};
+    for (const auto& [width,height]:sizes) {
+        SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);renderer=nullptr;window=nullptr;
+        check(SDL_CreateWindowAndRenderer("Real starter availability",width,height,SDL_WINDOW_RESIZABLE,&window,&renderer),
+            "Create real starter test aperture");
+        const auto name=std::to_string(width)+"x"+std::to_string(height);
+        const auto app=output/name;seed_preferences(app,source);
+        auto settings=oe::menu::read_settings(app).value;settings.last_map="Cities/ASSR-Loulan.map";
+        oe::menu::write_settings(app,settings);
+        Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+        enter_recommended(menu,window,renderer);
+        const auto request=menu.map_rules_result().request;
+        check(request.map_relative==fs::path("Cities/ASSR-Loulan.map"),"Real control selected a different map");
+        const auto files=recovery_files(app);
+        key(menu,SDLK_RETURN);finish_load(menu);
+        check(menu.state()==Menu::State::StarterUnavailable && !menu.sandbox() && recovery_files(app)==files,
+            "Real no-layout starter did not refuse without publishing files or a World");
+        capture(menu,renderer,output/"captures",("loulan.unavailable."+name).c_str());
+        const auto reason=menu.message();click(menu,window,renderer,"P Use Empty city");wait_check(menu);
+        check(menu.map_rules_result().request==request && !menu.original_paid_starter(),
+            "Real explicit Empty choice changed the map, rules or source identity");
+        key(menu,SDLK_RETURN);finish_load(menu);
+        check(menu.state()==Menu::State::Playing && menu.sandbox()->paused() &&
+            menu.sandbox()->world().ticks()==0 && menu.sandbox()->world().treasury()==12000 &&
+            menu.sandbox()->world().buildings().empty(),"Real map could not start an ordinary checked Empty city");
+        const auto saved=menu.sandbox()->capture_save_document();key(menu,SDLK_F5);
+        const auto persisted=oe::persistence::read_save(menu.settings().last_save);
+        check(persisted.source_schema_version==34,"Real Empty city changed its historical save schema");
+        for (int i=0;i<20;++i) menu.sandbox()->tick_once();key(menu,SDLK_F9);
+        same(saved,menu.sandbox()->capture_save_document());
+        rows.push_back({{"map",request.map_relative.generic_string()},{"resolution",name},
+            {"map_rules","AUTOMATED_PASS"},{"starter","REFUSED"},{"reason",reason},
+            {"empty_city","AUTOMATED_PASS"},{"f5_f9_full_document","AUTOMATED_PASS"},
+            {"source_sha256",saved.map_sha256},{"rule",saved.world.rule_version},
+            {"schema",persisted.source_schema_version},{"funds",saved.world.treasury}});
+        menu.shutdown();
+    }
+    const auto app=output/"xia";seed_preferences(app,source);
+    auto settings=oe::menu::read_settings(app).value;settings.last_map="Cities/Xia.map";
+    oe::menu::write_settings(app,settings);
+    Menu menu({},app,std::make_unique<Dialog>());menu.initialize(window,renderer);
+    enter_recommended(menu,window,renderer);recommended_paid_start(menu);
+    const auto saved=menu.sandbox()->capture_save_document();
+    check(saved.world.treasury==10596 && saved.world.construction_spent_total==1404,
+        "Real Xia starter changed paid accounting");
+    key(menu,SDLK_F5);const auto persisted=oe::persistence::read_save(menu.settings().last_save);
+    check(persisted.source_schema_version==34,"Real Xia starter changed its historical save schema");
+    rows.push_back({{"map","Cities/Xia.map"},{"map_rules","AUTOMATED_PASS"},{"starter","AUTOMATED_PASS"},
+        {"source_sha256",saved.map_sha256},{"rule",saved.world.rule_version},{"schema",persisted.source_schema_version},
+        {"tick",saved.world.ticks},{"funds",saved.world.treasury},{"houses",house_count(menu.sandbox()->world())}});
+    menu.shutdown();
+    oe_influence_fixture::write_text(output/"report.json",nlohmann::json{
+        {"status","AUTOMATED_PASS"},{"scope","Actual production MenuSession, software SDL; no native human acceptance"},
+        {"cases",rows}}.dump(2));
+    std::cout<<"Real Loulan map-rules PASS/starter refusal/explicit checked Empty, "
+        "three readable menu apertures and unchanged Xia paid starter PASS\n";
+}
 } // namespace
 
 int main(int argc,char** argv) {
@@ -437,7 +831,21 @@ int main(int argc,char** argv) {
     try {
         check(SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"dummy") && SDL_Init(SDL_INIT_VIDEO),"Initialize dummy SDL");
         check(SDL_CreateWindowAndRenderer("Original menu",900,600,SDL_WINDOW_RESIZABLE,&window,&renderer),"Create minimum-size actual menu");
-        if (argc==3 && std::string_view(argv[1])=="--process-save") {
+        if ((argc==2 && std::string_view(argv[1])=="--starter-availability") ||
+            (argc==3 && std::string_view(argv[1])=="--starter-availability-capture")) {
+            starter_availability(window,renderer,argc==3 ? fs::absolute(argv[2]):fs::path{});
+        } else if (argc==4 && std::string_view(argv[1])=="--starter-availability-real") {
+            starter_availability_real(fs::absolute(argv[2]),fs::absolute(argv[3]),window,renderer);
+        } else if (argc==4 && std::string_view(argv[1])=="--player-mode-real") {
+            player_mode_real(fs::absolute(argv[2]),fs::absolute(argv[3]),window,renderer);
+        } else if ((argc==2 && std::string_view(argv[1])=="--player-mode-menu") ||
+            (argc==3 && std::string_view(argv[1])=="--player-mode-capture")) {
+            player_mode_menu(window,renderer,argc==3 ? fs::absolute(argv[2]):fs::path{});
+        } else if (argc==3 && std::string_view(argv[1])=="--player-mode-process-save") {
+            player_mode_process_write(fs::absolute(argv[2]),window,renderer);
+        } else if (argc==3 && std::string_view(argv[1])=="--player-mode-process-load") {
+            player_mode_process_load(fs::absolute(argv[2]),window,renderer);
+        } else if (argc==3 && std::string_view(argv[1])=="--process-save") {
             process_write(fs::absolute(argv[2]),window,renderer);
         } else if (argc==3 && std::string_view(argv[1])=="--process-load") {
             process_load(fs::absolute(argv[2]),window,renderer);
@@ -481,7 +889,9 @@ int main(int argc,char** argv) {
             auto dialog=std::make_unique<Dialog>();auto* callbacks=dialog.get();
             Menu menu({},app,std::move(dialog));menu.initialize(window,renderer);
             expect_legacy_preferences(menu);check(!menu.original_setup(),"Original became the fresh default");
-            check_bounds(menu,"O Original economy");capture(menu,renderer,captures,"menu.main.minimum");
+            capture(menu,renderer,captures,"menu.main.minimum");
+            open_legacy(menu,window,renderer);check_bounds(menu,"O Original economy");
+            capture(menu,renderer,captures,"menu.main.legacy.minimum");
             enter_original(menu,window,renderer,true);wait_map(menu);
             check(menu.original_difficulty()==orig::Difficulty::Normal && menu.original_paid_starter(),
                 "Original setup did not default to Normal and the explicit paid plan");

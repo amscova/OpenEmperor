@@ -3,11 +3,96 @@
 OpenEmperor is an alpha. Supported sandbox behavior does not establish
 complete original-game compatibility.
 
-- **Original economy is experimental.** Rules10–18 are opt-in and include authored
+- **Further production chains remain research-only.** The existing Wheat/Millet,
+  Hemp, Clay/Ceramics, Tea, Silk, Bronzeware, Lacquerware and Paper paths include
+  authored harvest periods, recipes or resource management. Additional model
+  labels and their raw Cost/Employees/Resource columns do not establish complete
+  crop, mining, fishing or seasonal behavior. OE55 adds no new crop, World rule,
+  save schema or playable production chain. See the
+  [production evidence boundary](docs/original-economy/oe55-production.md).
+- **Land trade is authored, finite and opt-in.** Rule21/schema37 uses classic
+  Rule6 and two paid Warehouses, one explicitly bound boundary gateway and one
+  real caravan. Only four-unit Pottery imports/exports at authored unit prices 6/3 are
+  supported, with 8 units each and a 24-Funds export budget. Original merchant
+  routes, partner lists, pricing units, ships/ports and empire trade remain
+  unsupported; model labels/markers grant no gateway. No mid-trip cancellation,
+  refund, replenishment or bound-Warehouse demolition exists. See [OE54](docs/original-economy/oe54-trade.md).
+- **Source-cell ramps are authored and opt-in.** Rule20/schema36 inherits the
+  classic Rule6 economy and adds one bounded one-level source-cell surface.
+  It does not activate original raw ramps or native233–244 artwork. All four
+  freshly checked original maps retain zero legal differing-height normal-land
+  pairs. Original normalization, actor rounding, compositor, Ferries and complex
+  wall geometry remain unresolved. See the [OE53 scope](docs/rendering/oe53-terrain-integration.md).
+- **Original economy is experimental.** **Play Original economy** explicitly
+  selects the existing recommended Rule18/schema34 for a new city. It adds no
+  World rule, save schema or migration; **Advanced / Legacy** retains all earlier
+  choices and shortcuts. City-v11 rule3 and ordinary City-v16 rule4 defaults
+  remain exact. Rules10–19 are opt-in and include authored
   immigration, workforce, recipes, harvesting, school-to-house visits and Rule13
   needs-aware goods selection.
-  Original venue/performer chains and illness are missing. Houses and productive
-  buildings cannot yet be demolished; incompatible development saves are refused.
+  The separate [Rule22 music-venue experiment](docs/original-economy/oe56-culture-venues.md)
+  replaces Music211's direct House visit with a paid one-way performer to
+  Theatre75 and its own duration. It grants no House Music96 effect in Rule22. The separate
+  [Rule23 Theatre-to-House experiment](docs/original-economy/oe57-venue-house-service.md)
+  adds actual current-Music House visits through an explicitly authored targeted
+  roundtrip. Its paid Xia/Normal five-House city completes two School arrivals,
+  a real venue-walker lifetime and 20400 active continuation ticks with at least
+  five occupied Houses/population 110 and 74 further Music visits. Its Plain
+  stage predates Music, the Watch later burns, and finite positive operations
+  do not establish full progression, citywide fire protection or lifetime profit.
+  Original Actor36's roaming/RNG clock and binary-save lifecycle,
+  other venue chains, festivals, Hero/God AI and illness remain unresolved.
+  The bounded chain has automated World, persistence and scripted SDL coverage;
+  native/human acceptance is NOT_RUN. Rules10–18 retain
+  their House/production demolition refusal; incompatible development saves are refused.
+- **Original artwork remains bounded.** OE52 adds ten source-registered static
+  bases in Original production, sharing the existing Well image. Static source
+  pixels and authored front-cell anchors do not establish original animation
+  cadence, runtime pivots or whole-scene composition parity. OE60 adds the
+  source-published static Hemp Farm192 and Farmhouse193 bodies. OE60.5 adds
+  six original images per Hemp194, Wheat195 and Millet196 field, selected by
+  an explicitly authored mapping of the paid parent Farm's existing 80-tick
+  progress. Original per-field quantity, variation and calendar/work state
+  remain unreconstructed; these images do not establish original growth parity.
+  Missing ownership or incompatible sources retain named authored fallbacks.
+  Unassigned service/culture/religion/luxury walker families and pending
+  Elite plots retain their named historical fallbacks. Existing Market,
+  Warehouse and FireWatch core previews are not newly identified original
+  registrations. See the [OE52 evidence and validation](docs/rendering/oe52-original-visuals.md)
+  and [OE60 farm/field boundary](docs/rendering/oe60-original-farm-visuals.md).
+- **Fresh Common Type2 artwork has a narrow original binding.** The pinned
+  normal purchase path publishes group `0x47a`, variant0, physical1508 before
+  resident admission; the ordinary setter's `0x471`/physical1509–1510 is a
+  different lifecycle context. Native1508 is selected only for an actual2×2
+  Common House in Original production with the exact empty Vacant2 state and
+  no recorded first admission. Existing validated Housing history supplies that distinction;
+  there is no new World or save authority. Missing/incompatible source art and
+  F4 retain the authored foundation; unsupported body/lifecycle combinations keep
+  named fallbacks. Forged previously occupied Common-to-Vacant restores remain
+  refused. Original binary-save graphic identity, runtime variation and
+  whole-scene parity are separate limits. The
+  [OE59 contract](docs/rendering/oe59-original-vacant-houses.md) distinguishes
+  these source findings from the [OE58 user account](docs/qa/oe58-human-playtest.md),
+  which has no accompanying screenshot file. New native human visual acceptance
+  remains NOT_RUN.
+- **Map admission does not guarantee a paid starter fits.** General selected-rule
+  checks and legal empty24×13 starter placement are separate. The OE58 user
+  reports Loulan passing the former, then refusing the starter with a clipped
+  message. OE58 keeps that refusal and adds a fully readable typed dialog with
+  explicit Empty City/other-map choices. Scripted real Loulan/Xia controls and
+  opened three-size captures pass; placement permissions, selected map,
+  retained session and settings remain authoritative. New human acceptance is
+  still unrun.
+  See the [reported scope and follow-up](docs/qa/oe58-human-playtest.md).
+- **Rule19 demolition is deliberately limited.** The separate **V Safe demolition
+  economy** opt-in uses schema35 and permits only never-admitted, empty Common2×2
+  Houses and paused Clay Sources whose physical production, delivery and return
+  have fully settled. Occupied/previously admitted Houses, Elite bodies,
+  Warehouse/Market, Farm/Field and other production/service kinds remain refused.
+  Retained history can also prevent removal; no goods or people are discarded.
+  There is no refund, original demolition-parity claim or migration. Its journal
+  has eight retirement slots and preserves the existing lifetime entity budgets.
+  See the [OE51 contract and validation scope](docs/gameplay/oe51-demolition.md).
 - **Rule10 has no purchasable fire protection.** Natural fires temporarily remove
   occupied Houses from the live goal while `PlaceFireWatch` is refused. The
   [paid progression check](docs/original-economy/paid-progression.md) reaches the goal
@@ -97,7 +182,10 @@ complete original-game compatibility.
   sites have worse individual fire measures. This is not full city stability,
   indefinite fairness or a flawless bootstrap:27 Food misses precede the measured
   window. Plans have different real entry ticks, so their window differences do
-  not isolate the additional Market's effect. Rule19/schema35 is not allocated;
+  not isolate the additional Market's effect. At that OE48 assessment
+  Rule19/schema35 was not allocated; the separately selected
+  [OE51 contract](docs/gameplay/oe51-demolition.md) now allocates it. That assessment
+  did not establish any additional economy generation;
   all historical generations and application defaults remain exact. Native human
   acceptance and complete original-runtime parity remain open.
 - **High-tier progression has a bounded Rule12 blocker.** The
@@ -138,12 +226,21 @@ complete original-game compatibility.
   interpenetrating sprites can differ from the original. SG3 mirror references
   are unsupported; sprite shadows are not bit-identical to original RGB555 output.
   Automatic visual profiles recognise only the pinned GOG-derived asset revision.
-- **Manual acceptance remains open.** Native pointer/focus/resize behavior,
-  external displays, original-map visuals and sustained human play still need
-  acceptance. Automated checks do not establish these results.
+- **Manual acceptance remains partial.** The [OE58 account](docs/qa/oe58-human-playtest.md)
+  supplies concrete **USER_REPORTED_PASS** for paid Xia startup, Road/fifth-House
+  construction, inspection and tent appearance after resident entry. No new
+  user screenshot or direct native observation accompanies this task. The
+  [OE50 assessment](docs/qa/oe50-native-playtest.md) retains its historical
+  **HUMAN_NOT_RUN** results; general favorable feedback does not establish all
+  pointer/focus/resize subcases, external displays/DPI, complete native Recovery,
+  multi-hour play, every historical generation or clean-Mac acceptance. Human
+  acceptance of the new changes remains NOT_RUN until specifically reported.
 - **macOS distribution is local development only.** The app is ad-hoc signed,
   without Developer ID signing or notarization. Independent clean-Mac and
-  Finder/Gatekeeper acceptance remain unverified.
+  Finder/Gatekeeper acceptance remain unverified. The current OE50 dependencies
+  require explicitly selecting `--min-os 27.0`; the packaging default remains
+  `26.0`, and verification still refuses dependencies newer than the selected
+  minimum.
 
 The [original-economy player guide](docs/original-economy/player-handoff.md)
 explains the current starter. [Documentation](docs/README.md) links to the

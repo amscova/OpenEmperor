@@ -52,6 +52,21 @@ ctest --test-dir build -j8
 build\openemperor.exe --data "C:\GOG Games\Emperor - Rise of the Middle Kingdom"
 ```
 
+On first launch, select the Emperor data directory. **Play Original economy**
+opens the recommended experimental mode for a new city. Check the data folder,
+map, difficulty and paid starter or empty start before **Start sandbox**.
+
+For a first city, choose **Cities/Xia.map**, **Normal** and **Paid four-house
+starter**, then press **Space** to run. This explicitly selects the existing
+Rule18 economy; its measured city still has five House fires. The
+[player guide](docs/original-economy/player-handoff.md) covers production,
+development, saving and the remaining limits.
+
+**Advanced / Legacy → N New Sandbox** retains the classic sandbox profiles and
+their defaults; **O/F/S/M/W/I/D/T/U** retain the individual economy experiments.
+**L Load Save** continues an existing OpenEmperor save with its own rules.
+Saving or loading never upgrades an original-economy generation.
+
 Point `--data` at the installed game folder, not the GOG installer. Settings, saves and recovery histories are stored in `%APPDATA%\OpenEmperor\OpenEmperor\`.
 
 ## Status

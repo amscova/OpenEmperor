@@ -194,7 +194,9 @@ CommandResult World::validate_original_influence_command(Command command) const 
         if (!source_type_valid(command.source_type)) return reject("Unsupported original influence source type");
         if (original_influence_->sources.size()>=original_influence_source_limit)
             return reject("Original influence source limit reached");
-        if (original_production_enabled() && buildings_.size()>=Rules::original_production_building_limit)
+        const auto retired=original_safe_demolition_enabled() && original_production_ &&
+            original_production_->safe_demolition ? original_production_->safe_demolition->retired.size():0;
+        if (original_production_enabled() && buildings_.size()+retired>=Rules::original_production_building_limit)
             return reject("Original production building collection limit reached");
         if (treasury_<original_influence_source_cost) return reject("Not enough money");
         if (original_production_enabled() && construction_spent_total_>UINT64_MAX-static_cast<std::uint64_t>(original_influence_source_cost))
@@ -276,9 +278,25 @@ void World::rebuild_original_influence_cache() {
     if (original_production_enabled()) {
         for (const auto& p:original_production_->water.providers) sources.push_back({p.building_id,OriginalInfluenceSourceType::Well72});
         for (const auto& p:original_production_->services.providers) {
+            // Rule23 adds a physical visitor channel, not a new desirability
+            // source. Preserve Rule22's explicit absence of Theatre DES.
+            if (original_venue_house_service_enabled() && p.type==OriginalServiceProviderType::Theatre75 &&
+                building(p.building_id).kind==Object::OriginalTheatre75) continue;
             const auto model=original_influence_model(building(p.building_id).kind);
             if (!model) invalid("paid Provider lost its own named desirability model");
             sources.push_back({p.building_id,static_cast<OriginalInfluenceSourceType>(*model)});
+        }
+        if (original_music_venues_enabled()) {
+            if (!original_production_->culture) invalid("Music influence requires its exact culture state");
+            // Rule22 changes the School's visitor owner, not its existing
+            // physical model influence. The Theatre supplies no new DES source.
+            for (const auto& school:original_production_->culture->schools) {
+                const auto kind=building(school.building_id).kind;
+                const auto model=original_influence_model(kind);
+                if (kind!=Object::OriginalMusicSchool211 || !model)
+                    invalid("paid Music School lost its own named desirability model");
+                sources.push_back({school.building_id,static_cast<OriginalInfluenceSourceType>(*model)});
+            }
         }
         std::sort(sources.begin(),sources.end(),[](const auto& a,const auto& b){return a.building_id<b.building_id;});
     }

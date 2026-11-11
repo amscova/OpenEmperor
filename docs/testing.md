@@ -44,6 +44,254 @@ documented with the affected feature, for example
 [joined ramp rendering](rendering/multi-ramp-integration.md). A finite scripted
 scenario does not prove every layout, long-play outcome or original-game parity.
 
+## House graphics and paid-starter presentation (OE58/OE59)
+
+Keep the [human report](qa/oe58-human-playtest.md) separate from software-SDL
+results. The [OE59 contract](rendering/oe59-original-vacant-houses.md) binds the
+pinned fresh Common purchase to group `0x47a`, variant0, physical1508. Its native
+158×88 image uses the existing Type30 base12800 and front-cell anchor79,68.
+Selection requires the actual2×2 Common body, exact empty Vacant2 state and a
+matching Housing row with no first admission; the renderer adds no saved
+authority. The
+[OE58 authored foundation](rendering/oe58-vacant-house-visual.md) remains the
+fallback for unavailable artwork, unsupported lifecycle states and F4.
+Ordinary setter group `0x471` and Shelter3's1509 image are not Type2 substitutes.
+Use the actual production View, lifecycle and menu tests:
+
+```sh
+ctest --test-dir build --output-on-failure -R 'original-(house-visual|house-inspector|starter-availability-menu|player-mode|menu)|native-input|map-rules|map-permissions|save|recovery'
+ctest --test-dir build --output-on-failure -R '^original-(house-evolution-(synthetic|real)|housing(-stages)?-(world|world-real|save)|house-inspection(-real)?|building-visual-profile(-real)?|building-paid-production-view)$'
+OPENEMPEROR_UI_CAPTURE_DIR="$PWD/.local/oe59/house-captures-01" ctest --test-dir build --output-on-failure -R '^original-house-visual-production-view$'
+./build/openemperor-original-menu-session-tests --starter-availability-capture .local/oe58/menu-captures-01
+./build/openemperor-original-menu-session-tests --starter-availability-real /path/to/emperor .local/oe58/menu-real-01
+```
+
+Configure the real-data tests with
+`-DOPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT=/path/to/emperor` and the normal copied
+application resources. Choose fresh output roots and preserve the original
+inputs. The House profile checks all16 native House entries, strict Type2/Shelter
+registration separation, exact RGBA/alpha, eager deduplication, named fallbacks
+and unchanged budgets. The complete core/House/Original-building profile now has
+56 physical textures and4,770,512 RGBA bytes, including the two OE60 farm bodies
+and the OE60.5 field stages; the shared Well and Millet-stage5 image still avoid
+duplicate uploads. Historical schema1/2 supplements retain their original
+ten-/twelve-body selection and field fallbacks.
+The paid View checks the four-house Xia/Normal starter, the actual fifth-House
+purchase and preview, real Space-driven admission to Shelter3, complete F5/F9
+state/byte equality, rejection of a forged formerly occupied Vacant state,
+native alpha picking, foreground/camera clipping and pure render/hover queries.
+Record their actual results for the tested source before claiming acceptance.
+
+The authored menu case separates map admission from failed layout placement, retains complete
+previous World/files, cancels focus/layout-boundary presses, and verifies that
+Empty cannot bypass failed map rules. Its real-data counterpart checks actual
+Loulan refusal and explicit Empty startup at1280×800/1600×900/1920×1080, full
+F5/F9 equality and the unchanged Xia paid starter. Open every new capture;
+PNG creation alone is not visual acceptance. Native human, external-display,
+clean-Mac and distribution checks retain separate results. Run the full Release
+suite, focused Debug/sanitizers and complete historical save comparisons before
+accepting a presentation change.
+Original binary-save graphics, original runtime variation and whole-scene
+parity remain separate from this fresh-purchase binding; no original EXE
+execution or native human acceptance follows from the scripted tests.
+
+## Production evidence queries (OE55)
+
+The existing read-only model inspector accepts repeated sparse Building IDs:
+
+```sh
+./build/openemperor-model-inspect /path/to/emperor --building 193 --building 195
+ctest --test-dir build --output-on-failure -R '^original-model-inspector-cli$'
+```
+
+Queries report raw labels and Cost/Employees/Resource columns with the complete
+source fingerprint. They do not infer commodity codes, recipes, footprints,
+field ownership, periods or World admission. Missing rows reject the entire
+query; invalid/duplicate IDs fail before loading, and unrepresentable UTF-8
+observations fail without partial JSON. With no query, the provenance report is
+unchanged. The CLI test uses independently authored sparse input only. The
+[production gap register](original-economy/oe55-production.md) separates current
+paid adapters from unsupported additional chains; research is not paid gameplay
+acceptance. Run the complete suite and relevant Debug/sanitizer cases as well.
+
+## Physical Theatre-to-House Music (OE57)
+
+Run `original-venue-house-service-world`, `original-venue-house-service-save`,
+`original-venue-house-service-menu`, `original-venue-house-service-view` and
+`original-venue-house-service-cli` beside all Rule22 tests, the full Release suite and focused Debug/ASan/UBSan
+service, housing, model, input, persistence and historical tests. The authored
+fixtures earn residents and staffing through paid commands and ordinary ticks.
+Check four eligible full-staff callbacks after real Music input and after real
+return, distinct lifetime/channel identities, actual House96 assignment,
+current-input expiry/refusal, source pause/staff loss/natural fire, complete
+footprints, road cut/begun-edge/wait/paid repair and real return/retirement.
+
+Schema39 negatives include exact generation/markers, first and current Music
+proofs, compacted minimum travel, per-source/global identity/sequence order,
+shared simultaneous model workforce, actual fire timelines, forged arrivals,
+active routes, all embedded House evaluation histories, funds and live model/map
+identity. Refusal preserves the prior World and canonical file bytes. Never
+weaken older schema admission or compare only a digest summary.
+
+The new Save binary supports separate `--create OUTPUT [TICKS]` and
+`--restore INPUT OUTPUT [TICKS]` processes, only under fresh `.local/oe57/` paths.
+Compare whole canonical SaveDocuments at0/103 ticks. The paid Xia integration
+must additionally earn at least five occupied Houses, two School→Theatre inputs,
+a completed physical Theatre→House→Theatre lifecycle and at least20400 actual
+continuation ticks. Preserve independent full Creator/Restore and Recovery/F5/F9
+bytes, Rule22's actual-source regression, schemas1–38 and Rule18 Golden City.
+
+Open every new scripted-SDL capture:1280×800,1600×900,1920×1080 at1×/2×/4×,
+actual outward/returning actor foot and picking, source and House-Visits Inspectors,
+menu controls, scrolling, clipping and explicit authored fallback presentation.
+One hundred pure frames must retain the twelve authority/preparation counters
+at zero. Software SDL is separate from native human acceptance and complete
+Original parity. The [OE57 assessment](original-economy/oe57-venue-house-service.md)
+records actual runs, counts and remaining limits; a finite paid sample is not
+continuous supply, sustainable profit or Original roaming parity.
+
+## Music performers and Theatre venues (OE56)
+
+Run `original-music-venue-world`, `original-music-venue-save`,
+`original-music-venue-menu` and `original-music-venue-view` beside the complete
+Release suite and relevant historical culture, service, housing and model tests.
+The new tests use authored source inputs and real paid World commands. Check
+attempt versus actual spawn, unique Performer IDs, one-way movement/retirement,
+actual venue arrival and 32-duration expiry, conservation of money, and the
+absence of a House Music96 effect. Keep historical Rule18 Golden City and
+schemas 1–37 exact; new markers or culture state must not enter older saves.
+Include nonzero signed Music School model-DES fields in complete restoration
+checks. The School's inherited physical influence must survive culture
+ownership; Theatre75 is not a new DES source or a House Music visit.
+
+The Save target supports independent `--create OUTPUT [TICKS]` and
+`--restore INPUT OUTPUT [TICKS]` processes with fresh `.local/oe56/` paths.
+Compare the entire canonical documents at zero and 103 continuation ticks.
+The registered Save test separately covers active, arrived and expired state,
+source binding and Recovery.
+The [culture/venue contract](original-economy/oe56-culture-venues.md#reusable-validation)
+gives commands and refusal expectations. Open the MenuSession/SandboxView PNGs:
+inspect the actual actor foot/direction and selected identity, complete 4×4
+claims, aperture/Inspector clipping and authored fallback labels at the tested
+window sizes and 1×/2×/4×. An owned RGBA target is read before Present. Confirm
+pure frames keep all twelve preparation/authority counters at zero. Scripted
+SDL, native delivery, human acceptance and complete Original parity remain
+separate gates; the new native/human checks are NOT_RUN. Repeat focused Debug
+and ASan/UBSan checks without changing old timeouts or tolerances.
+
+## Authored finite land trade (OE54)
+
+Run `authored-land-trade-world`, `authored-land-trade-save`,
+`authored-land-trade-menu` and `authored-land-trade-view` alongside the complete
+suite. Fixtures buy roads, two Warehouses and production using actual commands;
+they do not inject stocks or grants. The World test audits every transaction
+phase, paid own-production exports, prepaid imports, finite offers, headroom,
+road cuts/repair and hostile restores. Save CLI `--create OUTPUT [TICKS]` and
+`--restore INPUT OUTPUT [TICKS]` use fresh ignored `.local/oe54/` outputs for
+independent complete-document comparisons. Menu/View write owned software
+captures; open them and distinguish scripted SDL from native/human acceptance.
+See the [OE54 contract](original-economy/oe54-trade.md).
+
+## Authored source-cell ramps (OE53)
+
+Run `source-cell-ramp-world`, `source-cell-ramp-save`, `source-cell-ramp-menu`,
+`source-cell-ramp-rendering` and `source-cell-ramp-view` beside the full suite.
+The World/Save tests use paid authored inputs; the actual SandboxView test
+prepares four signed/oriented original-format authored maps and reserves a new
+private `.local/oe53/view-*` directory. It writes36 software PNGs through an
+owned RGBA target before Present. Open those captures; synthetic pixel checks
+and SDL events do not establish native or human acceptance. The Save test
+provides separate `--create OUTPUT [TICKS]` and `--restore INPUT OUTPUT [TICKS]` modes
+under fresh `.local/oe53/` paths for full-document continuation comparisons.
+See the [OE53 contract](rendering/oe53-terrain-integration.md).
+
+## Original building visuals and farm/field boundaries (OE52/OE60/OE60.5)
+
+`original-building-visual-profile` checks authored inputs, atomic source/metadata
+refusal, native Type30 geometry and deduplicated budgets. Schema1 retains the
+historical ten native roles; schema2 explicitly selects twelve native bodies
+and three fallback-only fields. Schema3 adds the exact authored selector
+`authored-farm-progress-six-canonical-0-v1` and six ordered original images per
+field role. Check all stage boundaries, invalid progress, unknown schemas,
+missing/duplicate roles, mixed native/fallback keys, historical native-field
+refusal, wrong crop/offset/geometry, animated payload refusal, incomplete last
+payload, the two farm registrations, shared physical-image reuse and the exact
+combined budget boundary. Static lookup never implicitly selects a field stage.
+Its `-real` companion
+uses the explicitly configured `OPENEMPEROR_ORIGINAL_MODEL_TEST_ROOT` and the
+actual copied application resources. `original-building-selection-wiring`
+checks automatic/custom/fingerprint precedence without claiming pixel acceptance.
+
+Set `OPENEMPEROR_OE52_PAID_TEST_SAVE` to an explicitly supplied earned
+Rule18/schema34/policy3 Xia save to register
+`original-building-paid-production-view`. The complete66-body/46-courier city is
+required; there are no original-data fixtures in Git. The test reserves a new
+private output below `.local/oe60-5/` for each invocation (explicit historical
+`.local/oe60/` and `.local/oe52/` output parents remain accepted), checks full F5/F9 bytes,
+126 size/zoom cases, ordinary pointer selection, F4 and resource/authority guards.
+The matrix covers twelve native bodies and the two field kinds actually bought
+in that immutable city, at1280×800/1600×900/1920×1080 and1×/2×/4×. It captures37
+PNGs with owned-target readback before Present. Open the images;
+its `report.json` deliberately leaves visual review and native/human acceptance
+unconfirmed. See the historical [OE52 assessment](rendering/oe52-original-visuals.md)
+and the current [OE60 contract](rendering/oe60-original-farm-visuals.md).
+
+```sh
+ctest --test-dir build --output-on-failure -R '^original-(building-(visual-profile(-real)?|selection-wiring|paid-production-view)|field-paid-growth-view|production-(world|view|save)|food-(world|save)|hemp-(world|save)|house-visual-production-view)$'
+```
+
+`original-field-paid-growth-view` needs only the configured original-data root,
+not the earned-city fixture. It retains the normally paid Xia/Normal Rule18
+starter, buys a second Food Farmhouse, Wheat field and worker Houses through
+normal commands, and observes all80 existing parent progress values for all
+three crops. Its162 size/zoom/stage cases use owned-target readback;18 representative
+PNGs show every crop/stage at1280×800/4× with the actual authored-stage Inspector
+details. Check exact source pixels, ordinary opaque/transparent pointer probes, F4, ten real
+ticks of a normally paused Wheat Farm, resumption, actual harvest, complete
+F5/F9 equality and all twelve pure-frame counters. Open the images separately.
+The original per-field quantity, variation and calendar/work state remain
+outside this explicitly authored six-stage mapping.
+
+Adjacent-field order checks must derive projected positions independently from
+the actual paid Field cell, source height and complete Farm footprint. Require
+real source-alpha overlap witnesses that the old front-cell painter overwrote,
+then verify the Field pixel at1×/2×/4×. Ordinary clicks must retain ground-owner
+selection; explicit F1 diagnostics with a fresh submitted frame must pick the
+visible Field alpha at the same overlap point. Earlier ordinary pointer probes
+alone do not establish that F1 result. Do not derive expected
+positions from `original_building_visual_diagnostic().image_origin` or merely
+search for any still-visible pixel. The synthetic building-depth cases also
+protect front neighbors and preserve historical keys when all four neighbor
+constraints cannot be satisfied. Check that preparation follows placement,
+layout revision and F9 without per-frame neighbor scans or new asset work.
+
+Additionally compare the existing longer paid Farm exercise, including loading,
+arrival and natural source fire. Farm bodies must remain825/793, while fields
+must use only their actual paid parent's progress. Compare full Funds, IDs,
+workers, progress, stock, cargo, reservations,
+conservation and SaveDocument bytes against a freshly built previous engine.
+Use actual F5/F9 and a separately launched restore process. Full Release,
+focused Debug/ASan/UBSan, historical Rules1–23/schemas1–39, Rule18 Golden City
+and Rule22/23 culture checks remain required. Native/human acceptance is separate.
+
+## Rule19 safe demolition
+
+The explicit Rule19/schema35 slice has focused tests
+`original-safe-demolition-world`, `original-safe-demolition-save`,
+`original-safe-demolition-menu` and `original-safe-demolition-view`. Run them
+alongside the complete historical suite; Rule18 saves remain schema34 and never
+acquire a retirement journal. The view test accepts `--capture NEW_DIR` for
+actual scripted SDL PNGs at 1×/2×/4×; open the generated images. Scripted event
+delivery does not establish native or human acceptance.
+
+`openemperor-original-safe-demolition-save-tests --create
+.local/oe51/NEW/creator.json` earns a paid, drained Clay removal and an empty
+House removal. In separate processes use `--restore INPUT NEW_OUTPUT [TICKS]`
+to check complete canonical bytes at zero ticks and independent continuation.
+Inputs and outputs must be explicit private paths; existing outputs are refused.
+See the [OE51 contract and measured evidence](gameplay/oe51-demolition.md) for
+the bounded type matrix, refusal cases and required long-window comparison.
+
 ## Rule16, Rule17 and Rule18 dispatch experiments
 
 OE48 adds legal paid planning controls and fire inspection to this QA launcher,

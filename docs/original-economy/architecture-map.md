@@ -20,6 +20,26 @@ parity remains partial; see [the play guide](player-handoff.md) and [Known Issue
 | Rule16 / schema32 / revision27 | Separate authored deadline-aware Inspector dispatch; inherits the cardinal-water/market/economy contracts, ranks physical deadlines without building-class preference and coalesces usable incoming trips. Retention assessment is separate. |
 | Rule17 / schema33 / revision27 | Separate authored deadline-aware service selection; inherits Rule16's fire policy and all economy/bounds, ranks actual expiry and physical travel, coalesces real same-role visits and retains a complete canonical House cursor. |
 | Rule18 / schema34 / revision27 | Separate authored deadline-aware Market-to-House Food selection; inherits Rule17's services, fire and economy. Physical stock, real incoming cargo and prepared route timing determine urgency; production, Farm-to-Market selection and all bounds remain unchanged. |
+| Rule19 / schema35 / revision27 | Explicit authored safe demolition of never-occupied Common2x2 Houses and paused, physically settled Clay Sources. Inherits Rule18; bounded retirement provenance retains paid identities, extraction, latest completed Clay trip and closed installed upkeep. No refund, migration or budget increase. |
+| Rule22 / schema38 / revision27 | Explicit paid Music211→Performer34→Theatre75 slice. Inherits Rule18 and replaces only Music's direct House-service adapter. Actual one-way arrival owns a separate venue32 timer; no House96, Actor36 or Rule19 retirement authority. Automated World/save/scripted SDL coverage; native/human NOT_RUN. |
+| Rule23 / schema39 / revision27 | Explicit paid School→Performer→Theatre→VenueWalker→occupied House Music. Inherits Rule22 and the unchanged Rule18 economy. Real current-Music arrival alone assigns the existing House96 timer; cached targeted roundtrip, phase35 clock, typed lifetime IDs and strict JSON are authored. Rules1–22/schemas1–38 stay separate; Original roaming/clock/save parity and native human acceptance remain open. |
+
+The separate [OE53 source-cell terrain experiment](../rendering/oe53-terrain-integration.md)
+uses Rule20/schema36 and inherits **classic Rule6**, with no Original economy
+state or revision27 inheritance. It retains unchanged policy3, old RampLinks
+and BridgeSpans, while native raw ramp admission remains refused.
+
+The separate [OE54 land-trade experiment](oe54-trade.md) is Rule21/schema37
+and likewise inherits classic Rule6. Existing native Pottery/Warehouse/Courier
+inventories remain sole authority; finite external offers and paid orders have
+their own source/model/difficulty-bound journal. No Original goods, finance,
+merchant, partner or gateway contract is expanded.
+
+The [production candidate register](oe55-production.md) is research-only.
+Raw model rows do not extend the prepared capability list, World object kinds,
+two-crop Food state, six House goods or five auxiliary materials. No additional
+crop, recipe, rule or schema is activated. The existing Rule18 economy and the
+separate classic Rule21 trade contract retain their own authority and saves.
 
 Rules1–14 and schemas1–30 retain their identities and canonical bytes. City-v11
 Rule3 and City-v16 Rule4 defaults are unchanged; no automatic migration opts older
@@ -182,8 +202,10 @@ thirteen occupied Houses complete5200/5200 current evaluations. Five House fires
 2915 burning ticks remain, including individual fire regressions. This meets
 the finite intermediate goal, not full city stability or original parity.
 Its naturally later entry also changes the observation calendar;27 pre-window
-Food misses remain recorded. Rule19/schema35 stays unallocated and Rules1–18/
-schemas1–34, all defaults, prices, timers, limits and physical authority stay exact.
+Food misses remain recorded. Rule19/schema35 was unallocated during that OE48
+assessment; it is now the separate demolition contract above. The OE48 player
+plan itself preserves Rules1–18/schemas1–34, defaults, prices, timers, limits
+and physical authority.
 
 `ModelData` reads the selected installation's `Model/EmperorBuildingModels.txt`
 within its canonical root: regular file, at most 256 KiB, lines at most 4096 bytes,
@@ -301,6 +323,47 @@ chains remain incomplete. See [spawn](../reverse/original-service-spawn-contract
 [culture](../reverse/original-culture-source-contract.md) and
 [religion](../reverse/original-religion-source-contract.md) evidence.
 
+The separate [Rule22 music-venue contract](oe56-culture-venues.md) replaces only
+Music211's House visitor with a typed monotone Performer ID per successful spawn.
+The fixed paid courier is a bounded movement channel, not the performer's
+identity; after its actual one-way arrival it has no live position or visible
+actor. A paid 4×4 Theatre75 owns the sole Music32 timer and real arrival witness.
+The authored phase35 clock handles attempts and duration; arrival precedes that
+tick's countdown. At most two Music Schools and two venues fit inside the unchanged
+82-body/58-channel bounds. There is no Music House grant, Actor36, new religion
+effect or automatic migration. Old School→House and religious services remain
+exact in their own generations. Schema38 requires its own marker and culture
+authority plus all inherited Rule18 source/terrain/model/policy contracts.
+
+The Music School remains an inherited physical model-DES source even though its
+Rule22 lifecycle is stored in `culture.schools`. Runtime influence caches and
+complete-save validation must see that same source. The Theatre is not added to
+the influence mapper. This preserves School desirability without introducing a
+House Music96 visit, free venue aura or a new Original75 source observation.
+
+The separate [Rule23 venue House contract](oe57-venue-house-service.md) extends
+that exact School/Performer/Venue slice with one paid Theatre-owned movement
+channel per venue, within the existing58 combined channels. Each successful
+spawn allocates a distinct typed monotone VenueWalkerId. No current Music means
+no eligible source callback; the fourth eligible full-staff phase35 call may
+choose one legal cached occupied-House route using the inherited service
+selector. This targeted physical outward/return policy is authored; the
+Original instead distributes near an actual roaming actor.
+
+Only actual accepted House arrival queries CURRENT venue Music and assigns the
+existing sole Music96 timer/witness. Current source operation/staff/fire are
+additional authored arrival gates; expiry, refusal, dispatch, render and restore
+grant nothing. Home arrival retires that lifetime without a visible idle actor.
+Schema39's mandatory new marker, immutable first receipt and per-trip/per-House
+Music provenance retain exact paid source/model/map/terrain identities, global
+and per-source ID/sequence/clock/return bounds and shared workforce/fire history.
+All embedded housing evaluations preserve actual visit provenance. No second
+service simulator, route authority, House timer, Theatre DES source, extra
+worker, limit increase or migration is introduced. Rule22 remains exactly38;
+Rule18 remains recommended, while23 is selected through Advanced/Legacy or its
+separate CLI flag. See the [Actor36 source investigation](oe57-actor36-investigation.md)
+for evidence classifications and unresolved Original semantics.
+
 ## Houses, geometry, finance and presentation
 
 Common types 2–10 remain 2×2 and terminal at 10; Elite 11–17 are a separate family.
@@ -380,6 +443,16 @@ model validation. No queue, forecast, deadline or cache becomes saved authority.
 Historical Rules1–17 and schemas1–33 remain exact, without migration. The
 [OE47 assessment](oe47-food-reliability.md) records causal Food evidence, paid
 controls and the independent gameplay and compatibility gates.
+
+Schema35/Rule19 requires the exact
+`rules.safe_demolition: "authored-safe-demolition-v1"` marker, all Rule18 markers
+and a mandatory `original_production.safe_demolition` journal. Separate factories
+and restore paths validate active plus retired purchase/courier order, source-bound
+footprints, closed upkeep and extraction/trip conservation. At most eight retired
+purchases fit within the existing lifetime collection limits. Retired rows own no
+cells, inventory, residents, workers or future transport. Other kinds and any
+unsettled or retained references are refused. Historical Rules1–18/schemas1–34
+remain exact. See the [OE51 contract](../gameplay/oe51-demolition.md).
 
 See [testing.md](../testing.md) for build/sanitizer setup. With a configured `build` and your own data:
 

@@ -5,6 +5,7 @@
 #include "renderer/StoredGraphicsRenderer.h"
 #include "renderer/AuthoredTerrainSides.h"
 #include "renderer/RampRenderer.h"
+#include "renderer/SourceCellRampRenderer.h"
 #include "renderer/RampTopology.h"
 #include "simulation/World.h"
 #include "simulation/CityStartGuidance.h"
@@ -105,6 +106,25 @@ public:
         maps::StoredMapSession session,
         std::optional<original::Difficulty> difficulty=std::nullopt,
         bool paid_starter=false);
+    // Explicit Rule22/schema38: paid Music performer to Theatre, no House effect.
+    static std::unique_ptr<SandboxView> create_original_music_venues(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
+    // Explicit Rule23/schema39: paid Theatre-owned physical Music House visits.
+    static std::unique_ptr<SandboxView> create_original_venue_house_service(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
+    // Explicit authored Rule19/schema35; never changes historical demolition rights.
+    static std::unique_ptr<SandboxView> create_original_safe_demolition(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt,
+        bool paid_starter=false);
+    // Explicit classic Rule21/schema37; never activates Original economy.
+    static std::unique_ptr<SandboxView> create_authored_land_trade(
+        maps::StoredMapSession session,
+        std::optional<original::Difficulty> difficulty=std::nullopt);
     // Explicit authored Rule13/schema29 logistics, separate from Rule12 saves.
     static std::unique_ptr<SandboxView> create_original_market_logistics(
         maps::StoredMapSession session,
@@ -131,7 +151,7 @@ public:
     unsigned ramp_visual_adjacency(simulation::RampId id,bool committed=false) const {
         return committed?ramp_topology_.committed_mask(id):ramp_topology_.effective_mask(id);
     }
-    std::size_t ramp_geometry_bytes() const { return ramp_presentation_.geometry_bytes(); }
+    std::size_t ramp_geometry_bytes() const { return ramp_presentation_.geometry_bytes()+source_cell_ramp_presentation_.geometry_bytes(); }
     void shutdown();
     void handle_event(const SDL_Event& event, bool& running);
     void update(double frame_seconds);
@@ -162,6 +182,8 @@ public:
         return budget_warning_;
     }
     bool resolve_budget_warning(bool build_anyway);
+    sandbox_ui::Rect diagnostic_budget_build_rect() const { return budget_build_rect(); }
+    sandbox_ui::Rect diagnostic_budget_cancel_rect() const { return budget_cancel_rect(); }
     bool demolition_pending() const { return pending_demolition_.has_value(); }
     bool resolve_demolition(bool confirm);
     const simulation::World& world() const { return *world_; }
@@ -232,6 +254,32 @@ public:
     void set_original_house_visuals(const std::filesystem::path& manifest,
                                    VisualProfileSource source=VisualProfileSource::Builtin,
                                    std::string fallback_reason={});
+    void set_original_building_visuals(const std::filesystem::path& manifest,
+        VisualProfileSource source=VisualProfileSource::Builtin,std::string fallback_reason={});
+    struct OriginalBuildingDisplayStats {
+        bool configured=false,active=false;
+        std::string fallback_reason,preparation_error;
+        std::array<bool,assets::original_building_role_count> configured_roles{};
+        std::array<std::uint64_t,assets::original_building_role_count> drawn_instances{},authored_fallbacks{};
+    };
+    OriginalBuildingDisplayStats original_building_display_stats() const;
+    struct OriginalBuildingVisualDiagnostic {
+        bool applicable=false,configured=false,active=false;
+        assets::OriginalBuildingVisualRole role=assets::OriginalBuildingVisualRole::WaterWell;
+        std::uint16_t model_type=0;
+        std::uint8_t actual_side=0;
+        std::optional<assets::AssetId> asset;
+        std::uint16_t image_width=0,image_height=0;
+        double ground_x=0,ground_y=0;
+        scene::Point ground{},image_origin{};
+        std::optional<simulation::BuildingId> field_farm;
+        std::optional<std::uint8_t> field_stage;
+        int field_farm_progress=0;
+        bool field_order_adjusted=false,field_order_ambiguous=false;
+        std::optional<scene::WorldDrawKey> field_painter_key;
+        std::string selection,evidence,fallback_reason;
+    };
+    OriginalBuildingVisualDiagnostic original_building_visual_diagnostic(simulation::BuildingId id) const;
     struct OriginalHouseDisplayStats {
         bool configured=false,active=false;
         VisualProfileSource source=VisualProfileSource::Fallback;
@@ -244,6 +292,7 @@ public:
     OriginalHouseDisplayStats original_house_display_stats() const;
     struct OriginalHouseVisualDiagnostic {
         bool applicable=false,configured=false,active=false;
+        bool authored_vacant_foundation=false;
         std::uint16_t house_type=0;
         std::uint8_t actual_side=0;
         std::optional<assets::AssetId> asset;
@@ -356,6 +405,7 @@ public:
     std::optional<simulation::BuildingId> selected_building() const;
     sandbox_ui::Rect diagnostic_operation_toggle_rect() const { return operation_toggle_rect(); }
     sandbox_ui::InspectorLayout inspector_layout() const;
+    sandbox_ui::Rect diagnostic_land_trade_button_rect(int index) const { return land_trade_button_rect(index); }
     int inspector_scroll() const { return inspector_layout().scroll; }
     int inspector_hint_scroll() const { return inspector_layout().hint_scroll; }
     std::optional<simulation::Cell> hovered_cell() const { return hovered_; }
@@ -415,9 +465,11 @@ private:
     void cycle_original_house_overlay();
     int original_house_scroll_limit() const;
     bool draw_original_house_panel();
+    bool draw_demolition_controls();
     bool draw_original_house_overlay();
     bool draw_original_house_overlay_legend();
     void request_road_connectivity_diagnosis();
+    enum class LandTradeAction { Bind, Import, Export, Demolish };
     enum class OperationAction { Toggle, PriorityHigh, PriorityNormal, PriorityLow };
     struct DrawInstance {
         scene::WorldDrawKey key;
@@ -432,6 +484,7 @@ private:
         int ramp_half=0;
         bool ramp_front=false;
         unsigned ramp_adjacency=0;
+        const simulation::SourceCellRamp* source_cell_ramp=nullptr;
     };
     // Descriptors of the dynamic pixels actually submitted to the painter.
     // Image pixels remain in the eagerly loaded profiles; no hit mask is copied.
@@ -445,6 +498,7 @@ private:
         int ramp_half=0;
         bool ramp_front=false;
         unsigned ramp_adjacency=0;
+        std::optional<simulation::SourceCellRampId> source_cell_ramp;
         std::optional<std::size_t> image;
         scene::Point origin;
         double width=0,height=0;
@@ -455,6 +509,7 @@ private:
         int footprint_side=1;
     };
     void record_visual_hit(const DrawInstance& instance);
+    void apply_original_field_order(DrawInstance& instance) const;
     bool select_visual(scene::Point screen);
     void clear_visual_selection();
     void clear_hidden_walker_selection();
@@ -474,6 +529,11 @@ private:
     bool draw_demolition_overlay();
     sandbox_ui::Rect demolition_button_rect() const;
     void request_demolition();
+    bool land_trade_selected() const;
+    sandbox_ui::Rect land_trade_button_rect(int index) const;
+    std::optional<LandTradeAction> land_trade_action_at(double x,double y) const;
+    void perform_land_trade_action(LandTradeAction action);
+    std::vector<std::string> land_trade_hint_lines() const;
     bool draw_text(double x,double y,const std::string& text,int max_width);
     bool action_enabled(sandbox_ui::Action action) const;
     void perform_action(sandbox_ui::Action action);
@@ -507,7 +567,23 @@ private:
     };
     OriginalHouseVisualSelection original_house_visual_selection(simulation::Cell cell,
         simulation::Object kind,bool placement_preview=false) const;
+    struct OriginalFieldVisualSelection {
+        std::optional<simulation::BuildingId> farm;
+        std::optional<std::uint8_t> stage;
+        int progress=0;
+        const assets::BuildingVisualEntry* entry=nullptr;
+    };
+    OriginalFieldVisualSelection original_field_visual_selection(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview=false) const;
+    void prepare_original_field_order(bool force=false);
+    const assets::BuildingVisualEntry* original_building_entry(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview=false) const;
+    const assets::BuildingVisualEntry* resolved_building_entry(simulation::Cell cell,
+        simulation::Object kind,bool placement_preview=false) const;
     assets::BuildingVisualProfile core_building_visual_profile() const;
+    bool append_requested_original_building_visuals(assets::BuildingVisualProfile& profile,
+        VisualProfileSource core_source,const std::filesystem::path& manifest,
+        VisualProfileSource source,std::string& reason,std::string& error) const;
     bool append_requested_original_house_visuals(assets::BuildingVisualProfile& profile,
         VisualProfileSource core_source,const std::filesystem::path& manifest,
         VisualProfileSource source,std::string& reason,std::string& error) const;
@@ -574,6 +650,10 @@ private:
     AuthoredTerrainSides authored_terrain_sides_;
     RampTopology ramp_topology_;
     RampPresentation ramp_presentation_;
+    SourceCellRampPresentation source_cell_ramp_presentation_;
+    simulation::SourceCellRampValidation source_cell_ramp_preview_{};
+    scene::Point source_cell_ramp_ground(const simulation::SourceCellRamp& ramp) const;
+    void prepare_source_cell_ramp_visuals();
     void refresh_ramp_visual_topology();
     std::optional<simulation::Cell> ramp_start_;
     simulation::RampValidation ramp_preview_{};
@@ -650,6 +730,15 @@ private:
     bool original_deadline_food_dispatch() const {
         return simulation::original_deadline_food_dispatch_enabled(rules_,requested_rule_version_);
     }
+    bool original_music_venues() const {
+        return simulation::original_music_venues_enabled(rules_,requested_rule_version_);
+    }
+    bool original_venue_house_service() const {
+        return simulation::original_venue_house_service_enabled(rules_,requested_rule_version_);
+    }
+    bool original_safe_demolition() const {
+        return simulation::original_safe_demolition_enabled(rules_,requested_rule_version_);
+    }
     bool original_deadline_fire_dispatch() const {
         return simulation::original_deadline_fire_dispatch_enabled(rules_,requested_rule_version_);
     }
@@ -707,6 +796,21 @@ private:
     std::string original_house_fallback_reason_="No original House profile selected";
     std::string original_house_preparation_error_;
     std::array<std::uint64_t,16> original_house_drawn_instances_{},original_house_authored_fallbacks_{};
+    std::filesystem::path original_building_manifest_;
+    VisualProfileSource original_building_source_=VisualProfileSource::Fallback;
+    std::string original_building_fallback_reason_="No original building profile selected";
+    std::string original_building_preparation_error_;
+    std::array<std::uint64_t,assets::original_building_role_count> original_building_draws_{},original_building_fallbacks_{};
+    // At most two Hemp and three Food fields. Geometry only, prepared at World
+    // publication/layout revision boundaries; no neighbor discovery in render.
+    struct OriginalFieldOrder {
+        simulation::BuildingId id{};
+        scene::WorldDrawKey key{};
+        bool adjusted=false,ambiguous=false;
+    };
+    std::array<OriginalFieldOrder,5> original_field_order_{};
+    std::size_t original_field_order_count_=0;
+    std::uint64_t original_field_order_revision_=UINT64_MAX;
     bool building_enabled_=true;
     std::array<std::uint64_t,assets::building_role_count> building_drawn_instances_{};
     std::array<std::uint64_t,assets::building_role_count> building_placeholder_fallbacks_{};
@@ -740,6 +844,7 @@ private:
     std::optional<simulation::Command> pending_command_;
     std::optional<sandbox_ui::RoadPlan> pending_road_;
     std::optional<bool> budget_button_pressed_;
+    std::optional<LandTradeAction> pressed_land_trade_action_;
     std::optional<OperationAction> pressed_operation_action_;
     // Reused by draw_world(); its capacity remains bounded by the fixed World grid.
     std::vector<DrawInstance> draw_instances_;

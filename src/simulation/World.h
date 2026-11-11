@@ -2,6 +2,8 @@
 #include "simulation/MapPermissions.h"
 #include "simulation/Bridge.h"
 #include "simulation/Ramp.h"
+#include "simulation/SourceCellRamp.h"
+#include "simulation/AuthoredLandTrade.h"
 #include "simulation/OriginalEconomyState.h"
 #include "simulation/OriginalInfluenceState.h"
 #include "simulation/OriginalTerrainFacts.h"
@@ -237,12 +239,31 @@ inline constexpr std::uint32_t kOriginalInspectorCoordinationRuleVersion=15;
 inline constexpr std::uint32_t kOriginalDeadlineFireDispatchRuleVersion=16;
 inline constexpr std::uint32_t kOriginalDeadlineServiceDispatchRuleVersion=17;
 inline constexpr std::uint32_t kOriginalDeadlineFoodDispatchRuleVersion=18;
+inline constexpr std::uint32_t kOriginalSafeDemolitionRuleVersion=19;
+inline constexpr std::uint32_t kAuthoredSourceCellRampRuleVersion=20;
+inline constexpr std::uint32_t kOriginalMusicVenuesRuleVersion=22;
+inline constexpr std::uint32_t kOriginalVenueHouseServiceRuleVersion=23;
+inline constexpr const char* original_venue_house_service_contract="authored-venue-house-service-v1";
+constexpr bool original_venue_house_service_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalVenueHouseServiceRuleVersion;
+}
+inline constexpr const char* original_music_venues_contract="authored-music-venue-v1";
+constexpr bool original_music_venues_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && (version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion);
+}
+constexpr bool source_cell_ramps_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kAuthoredSourceCellRampRuleVersion;
+}
 inline constexpr const char* original_market_logistics_contract="authored-needs-aware-market-v1";
 inline constexpr const char* original_cardinal_water_contract="verified-cardinal-water-desirability-v1";
 inline constexpr const char* original_inspector_coordination_contract="authored-inspector-coordination-v1";
 inline constexpr const char* original_deadline_fire_dispatch_contract="authored-deadline-fire-dispatch-v1";
 inline constexpr const char* original_deadline_service_dispatch_contract="authored-deadline-service-dispatch-v1";
 inline constexpr const char* original_deadline_food_dispatch_contract="authored-deadline-food-dispatch-v1";
+inline constexpr const char* original_safe_demolition_contract="authored-safe-demolition-v1";
+constexpr bool original_safe_demolition_enabled(RulesProfile profile,std::uint32_t version) {
+    return profile==RulesProfile::CityV16 && version==kOriginalSafeDemolitionRuleVersion;
+}
 constexpr bool original_deadline_food_dispatch_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && version==kOriginalDeadlineFoodDispatchRuleVersion;
 }
@@ -261,7 +282,8 @@ constexpr bool original_cardinal_water_enabled(RulesProfile profile,std::uint32_
 constexpr bool original_cardinal_terrain_enabled(RulesProfile profile,std::uint32_t version) {
     return original_cardinal_water_enabled(profile,version) || original_inspector_coordination_enabled(profile,version) ||
         original_deadline_fire_dispatch_enabled(profile,version) || original_deadline_service_dispatch_enabled(profile,version) ||
-        original_deadline_food_dispatch_enabled(profile,version);
+        original_deadline_food_dispatch_enabled(profile,version) || original_safe_demolition_enabled(profile,version) ||
+        original_music_venues_enabled(profile,version);
 }
 constexpr bool original_market_logistics_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && version==kOriginalMarketLogisticsRuleVersion;
@@ -270,10 +292,10 @@ constexpr bool original_market_selection_enabled(RulesProfile profile,std::uint3
     return original_market_logistics_enabled(profile,version) || original_cardinal_terrain_enabled(profile,version);
 }
 constexpr bool original_sustainable_economy_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion);
+    return profile==RulesProfile::CityV16 && (version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion);
 }
 constexpr bool original_fire_protection_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion);
+    return profile==RulesProfile::CityV16 && (version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion);
 }
 constexpr std::size_t original_food_farm_limit(RulesProfile profile,std::uint32_t version) {
     return original_sustainable_economy_enabled(profile,version) ? 3U:2U;
@@ -287,7 +309,7 @@ constexpr std::size_t original_food_trip_limit(RulesProfile profile,std::uint32_
 inline constexpr std::int64_t original_production_starting_treasury=12000;
 constexpr bool original_production_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && (version==kOriginalProductionRuleVersion ||
-        version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion);
+        version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion);
 }
 inline constexpr std::int64_t original_influence_starting_treasury=2000;
 inline constexpr std::int64_t original_influence_source_cost=60;
@@ -296,22 +318,22 @@ inline constexpr std::size_t original_influence_purchase_limit=33;
 constexpr bool original_influence_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalInfluenceRuleVersion || version==kOriginalGoodsRuleVersion ||
-         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion);
+         version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion);
 }
 constexpr bool original_goods_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 && (version==kOriginalGoodsRuleVersion ||
-        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion);
+        version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion);
 }
 constexpr bool original_economy_enabled(RulesProfile profile,std::uint32_t version) {
     return profile==RulesProfile::CityV16 &&
         (version==kOriginalEconomyRuleVersion || version==kOriginalInfluenceRuleVersion ||
-         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion);
+         version==kOriginalGoodsRuleVersion || version==kOriginalProductionRuleVersion || version==kOriginalFireProtectionRuleVersion || version==kOriginalSustainableRuleVersion || version==kOriginalMarketLogisticsRuleVersion || version==kOriginalCardinalWaterRuleVersion || version==kOriginalInspectorCoordinationRuleVersion || version==kOriginalDeadlineFireDispatchRuleVersion || version==kOriginalDeadlineServiceDispatchRuleVersion || version==kOriginalDeadlineFoodDispatchRuleVersion || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion);
 }
 constexpr bool bridges_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13 || version==14 || version==15 || version==16 || version==17 || version==18);
+    return source_cell_ramps_enabled(profile,version) || (profile==RulesProfile::CityV16&&version==kAuthoredLandTradeRuleVersion) || (profile==RulesProfile::CityV16 && (version==5 || version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13 || version==14 || version==15 || version==16 || version==17 || version==18 || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion));
 }
 constexpr bool ramps_rule_enabled(RulesProfile profile,std::uint32_t version) {
-    return profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13 || version==14 || version==15 || version==16 || version==17 || version==18);
+    return source_cell_ramps_enabled(profile,version) || (profile==RulesProfile::CityV16&&version==kAuthoredLandTradeRuleVersion) || (profile==RulesProfile::CityV16 && (version==6 || version==7 || version==8 || version==9 || version==10 || version==11 || version==12 || version==13 || version==14 || version==15 || version==16 || version==17 || version==18 || version==kOriginalSafeDemolitionRuleVersion || version==kOriginalMusicVenuesRuleVersion || version==kOriginalVenueHouseServiceRuleVersion));
 }
 
 constexpr std::int64_t starting_treasury_for(RulesProfile profile) {
@@ -331,7 +353,7 @@ enum class Object : std::uint8_t {
     OriginalDaoistShrine215, OriginalBuddhistShrine217, OriginalConfucianAcademy219,
     OriginalMusicSchool211, OriginalAcrobatSchool212, OriginalDramaSchool213,
     OriginalLoggingShed38, OriginalBronzeSmelter39, OriginalBronzewareMaker42, OriginalLacquerwareMaker44, OriginalPaperMaker45, OriginalWeaver47, OriginalTeaCuringShed237, OriginalLacquerRefinery238, OriginalSilkwormShed239, OriginalTeaBush26, OriginalLacquerTree27, OriginalMulberryTree28,
-    OriginalElitePlot, OriginalEliteHouse
+    OriginalElitePlot, OriginalEliteHouse, OriginalTheatre75
 };
 // Classification for the opt-in original production adapter. Older rule
 // admission continues to reject the appended Elite body/command identities.
@@ -415,7 +437,7 @@ enum class CommandType { PlaceRoad, PlaceWorkshop, PlaceWarehouse, PlaceClaySour
                          PlaceOriginalFoodFarm, PlaceOriginalWheatField, PlaceOriginalMilletField, PlaceOriginalAncestorShrine, PlaceOriginalWaterWell,
                          PlaceOriginalDaoistShrine, PlaceOriginalBuddhistShrine, PlaceOriginalConfucianAcademy,
                          PlaceOriginalMusicSchool, PlaceOriginalAcrobatSchool, PlaceOriginalDramaSchool,
-                         PlaceOriginalLoggingShed, PlaceOriginalBronzeSmelter, PlaceOriginalBronzewareMaker, PlaceOriginalLacquerwareMaker, PlaceOriginalPaperMaker, PlaceOriginalWeaver, PlaceOriginalTeaCuringShed, PlaceOriginalLacquerRefinery, PlaceOriginalSilkwormShed, PlaceOriginalTeaBush, PlaceOriginalLacquerTree, PlaceOriginalMulberryTree, PlaceOriginalElitePlot };
+                         PlaceOriginalLoggingShed, PlaceOriginalBronzeSmelter, PlaceOriginalBronzewareMaker, PlaceOriginalLacquerwareMaker, PlaceOriginalPaperMaker, PlaceOriginalWeaver, PlaceOriginalTeaCuringShed, PlaceOriginalLacquerRefinery, PlaceOriginalSilkwormShed, PlaceOriginalTeaBush, PlaceOriginalLacquerTree, PlaceOriginalMulberryTree, PlaceOriginalElitePlot, PlaceSourceCellRamp, ConfigureLandTrade, ImportPottery, ExportPottery, PlaceOriginalTheatre };
 // Pure construction-command identity shared by validation and presentation.
 std::optional<Object> placed_object(CommandType type);
 // Fixed identities of active paid industry bodies; no file/model lookup here.
@@ -433,9 +455,14 @@ struct Command {
     Cell ramp_end{};
     RampId ramp_id{};
     OriginalInfluenceSourceType source_type=OriginalInfluenceSourceType::Well72;
+    BuildingId trade_gateway=static_cast<BuildingId>(0);
 };
 Command place_bridge(Cell bank_a,Cell bank_b);
 Command place_ramp(Cell endpoint_a,Cell endpoint_b);
+Command place_source_cell_ramp(Cell source_cell,Cell high_neighbor);
+Command configure_land_trade(BuildingId warehouse,BuildingId gateway);
+Command import_pottery();
+Command export_pottery();
 Command demolish_building(BuildingId id);
 Command set_building_operation(BuildingId id,bool enabled);
 Command set_building_workforce_priority(BuildingId id,WorkforcePriority priority);
@@ -471,7 +498,8 @@ enum class CourierRole : std::uint8_t {
     OriginalHempToWarehouse=12, OriginalFoodToMarket=13, OriginalFoodToHouse=14, OriginalAncestor=15, OriginalWater=16,
     OriginalDaoist=17, OriginalBuddhist=18, OriginalConfucian=19,
     OriginalMusic=20, OriginalAcrobat=21, OriginalDrama=22,
-    OriginalLuxuryToWarehouse=23, OriginalAuxToWarehouse=24, OriginalAuxSupplier=25
+    OriginalLuxuryToWarehouse=23, OriginalAuxToWarehouse=24, OriginalAuxSupplier=25, AuthoredLandTrader=26,
+    OriginalMusicPerformer=27, OriginalVenueMusic=28
 };
 enum class CourierDispatchStatus : std::uint8_t {
     Ready,
@@ -623,7 +651,9 @@ struct DemolitionHistory {
 enum class DemolitionBlocker {
     None, UnsupportedProfile, MissingBuilding, UnsupportedKind, OnFire,
     OwnedActiveCourier, IncomingDelivery, IncomingReservation, OwnedPayload,
-    ActiveRecipe, StoredGoods, ExhaustedCounter
+    ActiveRecipe, StoredGoods, ExhaustedCounter,
+    OccupiedHouse, HistoricalReference, HistoryCapacity, DependentField,
+    OperationEnabled, ActiveProduction
 };
 struct DemolitionStatus {
     bool allowed=false;
@@ -665,10 +695,13 @@ struct WorldSnapshot {
     std::uint32_t next_bridge_id=1;
     std::vector<RampLink> ramps;
     std::uint32_t next_ramp_id=1;
+    std::vector<SourceCellRamp> source_cell_ramps;
+    std::uint32_t next_source_cell_ramp_id=1;
     std::optional<OriginalEconomyState> original_economy;
     std::optional<OriginalInfluenceState> original_influence;
     std::optional<OriginalGoodsState> original_goods;
     std::optional<OriginalProductionState> original_production;
+    std::optional<AuthoredLandTradeState> land_trade;
     bool operator==(const WorldSnapshot&) const = default;
 };
 struct ResourceInventory {
@@ -683,7 +716,17 @@ const char* delivery_phase_name(CourierPhase phase);
 
 class World {
 public:
+    bool authored_land_trade_enabled() const {return profile_==RulesProfile::CityV16 && rule_version_==kAuthoredLandTradeRuleVersion;}
+    const std::optional<AuthoredLandTradeState>& land_trade_state() const {return land_trade_;}
+    LandTradeBalance land_trade_balance() const;
+    static World create_authored_land_trade(std::shared_ptr<const MapPermissions>,
+        std::shared_ptr<const original::OriginalRulesModel>,std::shared_ptr<const LandTradeBoundaryFacts>);
+    static World restore_authored_land_trade(const WorldSnapshot&,std::shared_ptr<const MapPermissions>,
+        std::shared_ptr<const original::OriginalRulesModel>,std::shared_ptr<const LandTradeBoundaryFacts>);
+    static void validate_authored_land_trade_snapshot(const WorldSnapshot&);
     bool original_economy_enabled() const { return simulation::original_economy_enabled(profile_,rule_version_); }
+    bool original_venue_house_service_enabled() const { return simulation::original_venue_house_service_enabled(profile_,rule_version_); }
+    bool original_music_venues_enabled() const { return simulation::original_music_venues_enabled(profile_,rule_version_); }
     bool original_influence_enabled() const { return simulation::original_influence_enabled(profile_,rule_version_); }
     bool original_goods_enabled() const { return simulation::original_goods_enabled(profile_,rule_version_); }
     bool original_production_enabled() const { return simulation::original_production_enabled(profile_,rule_version_); }
@@ -692,7 +735,10 @@ public:
     bool original_market_logistics_enabled() const { return simulation::original_market_logistics_enabled(profile_,rule_version_); }
     bool original_cardinal_water_enabled() const { return simulation::original_cardinal_terrain_enabled(profile_,rule_version_); }
     bool original_deadline_service_dispatch_enabled() const { return simulation::original_deadline_service_dispatch_enabled(profile_,rule_version_); }
-    bool original_deadline_food_dispatch_enabled() const { return simulation::original_deadline_food_dispatch_enabled(profile_,rule_version_); }
+    bool original_deadline_food_dispatch_enabled() const {
+        return simulation::original_deadline_food_dispatch_enabled(profile_,rule_version_) || original_safe_demolition_enabled() || original_music_venues_enabled();
+    }
+    bool original_safe_demolition_enabled() const { return simulation::original_safe_demolition_enabled(profile_,rule_version_); }
     bool original_deadline_fire_dispatch_enabled() const { return simulation::original_deadline_fire_dispatch_enabled(profile_,rule_version_); }
     bool original_inspector_coordination_enabled() const { return simulation::original_inspector_coordination_enabled(profile_,rule_version_); }
     bool original_market_selection_enabled() const { return simulation::original_market_selection_enabled(profile_,rule_version_); }
@@ -726,6 +772,13 @@ public:
     std::shared_ptr<const original::OriginalRulesModel> original_rules_model() const { return original_rules_model_; }
     bool bridges_supported() const { return bridges_rule_enabled(profile_,rule_version_); }
     bool ramps_supported() const { return ramps_rule_enabled(profile_,rule_version_); }
+    bool source_cell_ramps_supported() const { return source_cell_ramps_enabled(profile_,rule_version_); }
+    static World create_authored_source_cell_ramps(std::shared_ptr<const MapPermissions> permissions);
+    std::span<const SourceCellRamp> source_cell_ramps() const { return source_cell_ramps_; }
+    const SourceCellRamp* source_cell_ramp_source_at(Cell cell) const;
+    const SourceCellRamp* source_cell_ramp_claim(Cell cell) const;
+    SourceCellRampValidation validate_source_cell_ramp(Cell source_cell,Cell high_neighbor) const;
+    std::optional<double> source_cell_ramp_surface_height(Position position) const;
     std::span<const RampLink> ramps() const { return ramps_; }
     const RampLink* ramp_endpoint(Cell cell) const;
     const RampLink* ramp_between(Cell a,Cell b) const;
@@ -771,6 +824,20 @@ public:
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model);
     static void validate_original_production_snapshot(const WorldSnapshot& snapshot);
+    static World create_original_music_venues(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model,
+        std::shared_ptr<const OriginalTerrainFacts> terrain);
+    static World restore_original_music_venues(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model,
+        std::shared_ptr<const OriginalTerrainFacts> terrain);
+    static void validate_original_music_venues_snapshot(const WorldSnapshot& snapshot);
+    static World create_original_venue_house_service(std::shared_ptr<const MapPermissions>,
+        std::shared_ptr<const original::OriginalRulesModel>,std::shared_ptr<const OriginalTerrainFacts>);
+    static World restore_original_venue_house_service(const WorldSnapshot&,
+        std::shared_ptr<const MapPermissions>,std::shared_ptr<const original::OriginalRulesModel>,
+        std::shared_ptr<const OriginalTerrainFacts>);
+    static void validate_original_venue_house_service_snapshot(const WorldSnapshot&);
     static void validate_original_fire_protection_snapshot(const WorldSnapshot& snapshot);
     // Explicit authored paid fire protection; historical Rule10 factories remain Rule10-only.
     static World create_original_fire_protection(std::shared_ptr<const MapPermissions> permissions,
@@ -824,6 +891,15 @@ public:
         std::shared_ptr<const original::OriginalRulesModel> model,
         std::shared_ptr<const OriginalTerrainFacts> terrain);
     static World restore_original_deadline_food_dispatch(const WorldSnapshot& snapshot,
+        std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model,
+        std::shared_ptr<const OriginalTerrainFacts> terrain);
+    // Explicit authored, bounded empty-House/settled-Clay retirement. Historical
+    // generation factories never admit or migrate this authority.
+    static World create_original_safe_demolition(std::shared_ptr<const MapPermissions> permissions,
+        std::shared_ptr<const original::OriginalRulesModel> model,
+        std::shared_ptr<const OriginalTerrainFacts> terrain);
+    static World restore_original_safe_demolition(const WorldSnapshot& snapshot,
         std::shared_ptr<const MapPermissions> permissions,
         std::shared_ptr<const original::OriginalRulesModel> model,
         std::shared_ptr<const OriginalTerrainFacts> terrain);
@@ -982,7 +1058,8 @@ private:
           RulesProfile profile,std::uint32_t rule_version,
           std::shared_ptr<const MapPermissions> permissions,bool original_development=false,
           std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
-          std::shared_ptr<const OriginalTerrainFacts> terrain=nullptr);
+          std::shared_ptr<const OriginalTerrainFacts> terrain=nullptr,
+          std::shared_ptr<const LandTradeBoundaryFacts> trade_boundary=nullptr);
     void update_health();
     void update_fire();
     CommandResult execute_impl(Command command,bool refresh_after,bool influence_prepared=false);
@@ -995,6 +1072,9 @@ private:
     bool permission_edge_allowed(Cell from,Cell to) const;
     BuildBlocker ramp_land_blocker(Cell cell) const;
     void restore_ramps(const WorldSnapshot& snapshot);
+    SourceCellRampValidation validate_source_cell_ramp_geometry(Cell source,Cell high,bool require_roads) const;
+    void index_source_cell_ramp(const SourceCellRamp& ramp);
+    void restore_source_cell_ramps(const WorldSnapshot& snapshot);
     void index_ramp(const RampLink& link);
     void restore_bridges(const WorldSnapshot& snapshot);
     void index_bridge(const BridgeSpan& span);
@@ -1002,7 +1082,8 @@ private:
                               std::shared_ptr<const MapPermissions> permissions,
                               bool original_development=false,
                               std::shared_ptr<const original::OriginalRulesModel> model=nullptr,
-                              std::shared_ptr<const OriginalTerrainFacts> terrain=nullptr);
+                              std::shared_ptr<const OriginalTerrainFacts> terrain=nullptr,
+          std::shared_ptr<const LandTradeBoundaryFacts> trade_boundary=nullptr);
     std::optional<std::vector<Cell>> find_road_route(Cell start,Cell goal) const;
     std::optional<std::vector<Cell>> find_route_to_building(Cell start,BuildingId target) const;
     const std::vector<Cell>* route_for_revision();
@@ -1073,6 +1154,15 @@ private:
     void dispatch_original_service(CourierState& courier);
     void arrive_original_service(CourierState& courier);
     void decay_original_services();
+    void validate_original_music_venues_state() const;
+    void validate_original_music_venues_model() const;
+    CourierDispatchDecision original_music_dispatch_status(const CourierState&) const;
+    void dispatch_original_music_performer(CourierState&);
+    void arrive_original_music_performer(CourierState&);
+    void decay_original_music_venues();
+    void validate_original_venue_house_service_state() const;
+    void validate_original_venue_house_service_model() const;
+    bool original_venue_music_available(BuildingId) const;
     void validate_original_water_model() const;
     static void validate_original_water_snapshot(const WorldSnapshot&);
     void validate_original_water_state() const;
@@ -1105,6 +1195,12 @@ private:
     std::vector<bool> workforce_allocation() const;
     bool building_staffed_for_tick(BuildingId id) const;
     bool industry_balance_valid() const;
+    CommandResult validate_land_trade_command(Command) const;
+    CommandResult execute_land_trade_command(Command);
+    bool land_trade_state_valid() const;
+    void arrive_land_trader(CourierState&);
+    bool land_trade_protected_building(BuildingId) const;
+
     void dispatch_v2(CourierState& courier);
     void move_v2(CourierState& courier);
     bool valid_return_path(const CourierState& courier) const;
@@ -1112,6 +1208,8 @@ private:
     void reroute_v2(CourierState& courier);
     BuildingState& mutable_building(BuildingId id);
     CourierState& mutable_courier(CourierId id);
+    DemolitionStatus original_safe_demolition_status(BuildingId id) const;
+    CommandResult execute_original_safe_demolition(Command command,bool refresh_after);
     void move_courier();
     int width_;
     int height_;
@@ -1123,6 +1221,8 @@ private:
     std::optional<OriginalInfluenceState> original_influence_;
     std::optional<OriginalGoodsState> original_goods_;
     std::optional<OriginalProductionState> original_production_;
+    std::optional<AuthoredLandTradeState> land_trade_;
+    std::shared_ptr<const LandTradeBoundaryFacts> land_trade_boundary_;
     std::shared_ptr<const OriginalInfluenceCache> original_influence_cache_;
     std::uint64_t original_influence_cache_build_count_=0;
     std::shared_ptr<const original::OriginalRulesModel> original_rules_model_;
@@ -1136,6 +1236,9 @@ private:
     std::vector<RampLink> ramps_;
     std::uint32_t next_ramp_id_=1;
     std::vector<std::uint8_t> ramp_index_; // Rule6-only derived endpoint lookup, never persisted.
+    std::vector<SourceCellRamp> source_cell_ramps_;
+    std::uint32_t next_source_cell_ramp_id_=1;
+    std::vector<std::uint8_t> source_cell_ramp_index_; // Three bounded axial claims per link; derived only.
     std::vector<std::uint8_t> bridge_index_,bridge_bank_index_; // Rule5-only derived lookups, never persisted.
     std::uint32_t next_household_id_=first_household_id;
     std::uint32_t next_production_id_=8;

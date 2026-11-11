@@ -3,7 +3,9 @@
 #include "persistence/SandboxSave.h"
 #include "core/Version.h"
 #include "app/ResourceLocator.h"
+#include "simulation/OriginalEconomyStarter.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <stdexcept>
 #include <utility>
@@ -19,8 +21,46 @@ enum Action { ChooseFolder=1, NewGame, LoadGame, Resume, DataFolder, Quit,
     CancelUpgrade, ToggleAutosave, ToggleSaveView, DeleteRecovery, ConfirmDeleteRecovery,
     CancelDeleteRecovery, GreatWallChoice, RecheckMap, BridgesChoice, RampsChoice,
     OriginalNewGame, OriginalDifficulty, OriginalStarter, OriginalFireProtectionNewGame, OriginalSustainableEconomyNewGame,
-    OriginalMarketLogisticsNewGame, OriginalCardinalWaterNewGame, OriginalInspectorCoordinationNewGame, OriginalDeadlineFireDispatchNewGame, OriginalDeadlineServiceDispatchNewGame, OriginalDeadlineFoodDispatchNewGame,
+    OriginalMarketLogisticsNewGame, OriginalCardinalWaterNewGame, OriginalInspectorCoordinationNewGame, OriginalDeadlineFireDispatchNewGame, OriginalDeadlineServiceDispatchNewGame, OriginalDeadlineFoodDispatchNewGame, OriginalSafeDemolitionNewGame, RecommendedOriginalNewGame, AdvancedModes, SourceCellRampsChoice, AuthoredLandTradeNewGame,
+    OriginalMusicVenuesNewGame, OriginalVenueHouseServiceNewGame, StarterEmptyCity, StarterChooseMap,
     MapSelectBase=1000, SaveSelectBase=2000, RecoverySelectBase=3000 };
+// Presentation and explicit selection only; no new rule/save authority.
+struct OriginalChoice {
+    int action;
+    std::uint32_t rule;
+    SDL_Keycode shortcut;
+    const char* label;
+    const char* detail;
+};
+constexpr OriginalChoice original_choices[]={
+    {OriginalVenueHouseServiceNewGame,simulation::kOriginalVenueHouseServiceRuleVersion,SDLK_K,"K Venue House music (23)","Paid School to Theatre to physical House Music visits"},
+    {OriginalMusicVenuesNewGame,simulation::kOriginalMusicVenuesRuleVersion,SDLK_B,"B Music venues (rule 22)","Paid Music School to Theatre; no House effect"},
+    {OriginalNewGame,simulation::kOriginalProductionRuleVersion,SDLK_O,"O Original economy","Original model economy"},
+    {OriginalFireProtectionNewGame,simulation::kOriginalFireProtectionRuleVersion,SDLK_F,"F Original fire protection","Paid fire protection"},
+    {OriginalSustainableEconomyNewGame,simulation::kOriginalSustainableRuleVersion,SDLK_S,"S Sustainable economy","Three Food chains and upkeep"},
+    {OriginalMarketLogisticsNewGame,simulation::kOriginalMarketLogisticsRuleVersion,SDLK_M,"M Needs-aware logistics","Needs-aware goods distribution"},
+    {OriginalCardinalWaterNewGame,simulation::kOriginalCardinalWaterRuleVersion,SDLK_W,"W Cardinal-water economy","Cardinal-water House desirability"},
+    {OriginalInspectorCoordinationNewGame,simulation::kOriginalInspectorCoordinationRuleVersion,SDLK_I,"I Inspector coordination","Coordinated Inspector dispatch"},
+    {OriginalDeadlineFireDispatchNewGame,simulation::kOriginalDeadlineFireDispatchRuleVersion,SDLK_D,"D Deadline-aware fire dispatch","Deadline-aware fire dispatch"},
+    {OriginalDeadlineServiceDispatchNewGame,simulation::kOriginalDeadlineServiceDispatchRuleVersion,SDLK_T,"T Deadline-aware services","Deadline-aware services"},
+    {OriginalDeadlineFoodDispatchNewGame,simulation::kOriginalDeadlineFoodDispatchRuleVersion,SDLK_U,"U Deadline-aware food","Recommended experimental economy"},
+    {OriginalSafeDemolitionNewGame,simulation::kOriginalSafeDemolitionRuleVersion,SDLK_V,"V Safe demolition economy","Empty House and drained ClaySource demolition"},
+};
+const OriginalChoice* original_choice(int action) {
+    if (action==RecommendedOriginalNewGame) action=OriginalDeadlineFoodDispatchNewGame;
+    const auto it=std::find_if(std::begin(original_choices),std::end(original_choices),
+        [action](const auto& choice){return choice.action==action;});
+    return it==std::end(original_choices) ? nullptr:it;
+}
+const OriginalChoice* original_key_choice(SDL_Keycode key) {
+    const auto it=std::find_if(std::begin(original_choices),std::end(original_choices),
+        [key](const auto& choice){return choice.shortcut==key;});
+    return it==std::end(original_choices) ? nullptr:it;
+}
+const char* original_detail(std::uint32_t rule) {
+    for (const auto& choice:original_choices) if (choice.rule==rule) return choice.detail;
+    return "Original economy";
+}
 constexpr const char* difficulty_names[]={"Very Easy","Easy","Normal","Hard","Very Hard"};
 std::string original_save_status(bool enabled) {
     return enabled ? "F5/F9 saves | Autosave ON (60s simulated)":"F5/F9 saves | Autosave OFF";
@@ -106,6 +146,7 @@ void MenuSession::set_state(State state) {
     if (state_!=state && dialog_kind_!=DialogKind::None) {
         ++dialog_generation_; dialog_->cancel_pending(); dialog_kind_=DialogKind::None;
     }
+    if (state==State::MainMenu && state_!=state) advanced_modes_open_=false;
     state_=state; pressed_action_=-1; pending_action_.reset();
     if (entering_setup) check_selected_map();
     rebuild_buttons();
@@ -186,16 +227,13 @@ void MenuSession::open_dialog(DialogKind kind) {
 }
 std::optional<maps::MapRulesRequest> MenuSession::selected_map_request() const {
     if (map_index_>=catalog_.entries.size() || catalog_.data_root.empty()) return std::nullopt;
-    const auto profile=original_new_game_ ? simulation::RulesProfile::CityV16:settings_.profile;
-    const auto version=original_new_game_ ? (original_deadline_food_dispatch_new_game_ ? simulation::kOriginalDeadlineFoodDispatchRuleVersion:
-             original_deadline_service_dispatch_new_game_ ? simulation::kOriginalDeadlineServiceDispatchRuleVersion:
-             original_deadline_fire_dispatch_new_game_ ? simulation::kOriginalDeadlineFireDispatchRuleVersion:
-             original_inspector_coordination_new_game_ ? simulation::kOriginalInspectorCoordinationRuleVersion:
-        original_cardinal_water_new_game_ ? simulation::kOriginalCardinalWaterRuleVersion:original_market_logistics_new_game_ ? simulation::kOriginalMarketLogisticsRuleVersion:
-        original_sustainable_economy_new_game_ ? simulation::kOriginalSustainableRuleVersion:original_fire_protection_new_game_ ?
-        simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion):
-        ramps_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 6U:bridges_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 5U:
-        simulation::current_rule_version(settings_.profile);
+    const auto profile=(original_setup() || authored_land_trade_new_game_) ? simulation::RulesProfile::CityV16:settings_.profile;
+    const auto version=original_rule_version_.value_or(
+        authored_land_trade_new_game_ ? simulation::kAuthoredLandTradeRuleVersion:
+        source_cell_ramps_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? simulation::kAuthoredSourceCellRampRuleVersion:
+        ramps_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 6U:
+        bridges_new_game_ && settings_.profile==simulation::RulesProfile::CityV16 ? 5U:
+        simulation::current_rule_version(settings_.profile));
     return maps::MapRulesRequest{catalog_.data_root,catalog_.entries[map_index_].relative_path,
         profile,version,maps::map_rules_policy_version(profile,version)};
 }
@@ -233,7 +271,7 @@ void MenuSession::start_load(const fs::path& path) {
 void MenuSession::finish_loading() {
     if (state_!=State::Loading || !loading_drawn_) return;
     try {
-        fs::path map; simulation::RulesProfile profile=original_new_game_ ?
+        fs::path map; simulation::RulesProfile profile=(original_setup() || authored_land_trade_new_game_) ?
             simulation::RulesProfile::CityV16:settings_.profile;
         std::optional<persistence::SaveDocument> document;
         fs::path save_path=pending_save_path_;
@@ -243,14 +281,19 @@ void MenuSession::finish_loading() {
             document=persistence::read_save(save_path);
             // A managed checkpoint selected through the file chooser is still a
             // recovery source. Give it a new manual target so F5 cannot overwrite it.
-            if (!recovery_load && simulation::original_production_enabled(
-                    document->world.profile,document->world.rule_version)) {
+            if (!recovery_load && (simulation::original_production_enabled(
+                    document->world.profile,document->world.rule_version) ||
+                    simulation::source_cell_ramps_enabled(document->world.profile,document->world.rule_version) ||
+                    document->world.rule_version==simulation::kAuthoredLandTradeRuleVersion)) {
                 const auto resolved=fs::canonical(save_path);
                 const auto recovery_root=fs::weakly_canonical(app_root_/"recovery");
                 const auto relative=resolved.lexically_relative(recovery_root);
                 if (!relative.empty() && *relative.begin()!="..") {
                     persistence::RecoveryStore store(app_root_,settings_.data_root,
-                        persistence::recovery_storage_budget_bytes,persistence::RecoveryAccess::OriginalProduction);
+                        persistence::recovery_storage_budget_bytes,
+                        (simulation::source_cell_ramps_enabled(document->world.profile,document->world.rule_version) ||
+                         document->world.rule_version==simulation::kAuthoredLandTradeRuleVersion) ?
+                            persistence::RecoveryAccess::LegacyOnly:persistence::RecoveryAccess::OriginalProduction);
                     const auto catalog=store.catalog();
                     for (const auto& history:catalog.histories) {
                         if (!history.error.empty()) continue;
@@ -271,26 +314,31 @@ void MenuSession::finish_loading() {
             map=catalog_.entries.at(map_index_).relative_path;
             save_path=new_save_target(app_root_,settings_.data_root);
         }
+        if (!document && !starting_map_check_)
+            throw std::runtime_error("Check the selected map rules before starting.");
+        const auto version=document ? document->world.rule_version:starting_map_check_->request.rule_version;
+        const bool original=simulation::original_production_enabled(profile,version);
         auto loaded=maps::load_stored_map_session(settings_.data_root,map,
             maps::FootprintPolicy::EdgeByte4x4Preview,maps::StoredGraphicsProfile::Slot8,great_wall_mode_,
             starting_map_check_ && !document ? starting_map_check_->input_sha256:std::string{},
-            document ? simulation::original_cardinal_terrain_enabled(document->world.profile,document->world.rule_version):
-                (original_cardinal_water_new_game_||original_inspector_coordination_new_game_||original_deadline_fire_dispatch_new_game_||original_deadline_service_dispatch_new_game_||original_deadline_food_dispatch_new_game_));
+            version==simulation::kAuthoredLandTradeRuleVersion ||
+                simulation::original_cardinal_terrain_enabled(profile,version));
         if (upgrade_copy_ || recovery_load) {
             save_path=new_save_target(app_root_,settings_.data_root);
         }
-        const bool original=document ? simulation::original_production_enabled(profile,document->world.rule_version):
-            original_new_game_;
-        const auto version=document ? document->world.rule_version:original ?
-            (original_deadline_food_dispatch_new_game_ ? simulation::kOriginalDeadlineFoodDispatchRuleVersion:
-             original_deadline_service_dispatch_new_game_ ? simulation::kOriginalDeadlineServiceDispatchRuleVersion:
-             original_deadline_fire_dispatch_new_game_ ? simulation::kOriginalDeadlineFireDispatchRuleVersion:
-             original_inspector_coordination_new_game_ ? simulation::kOriginalInspectorCoordinationRuleVersion:
-             original_cardinal_water_new_game_ ? simulation::kOriginalCardinalWaterRuleVersion:original_market_logistics_new_game_ ? simulation::kOriginalMarketLogisticsRuleVersion:
-             original_sustainable_economy_new_game_ ? simulation::kOriginalSustainableRuleVersion:
-             original_fire_protection_new_game_ ? simulation::kOriginalFireProtectionRuleVersion:simulation::kOriginalProductionRuleVersion):
-            ramps_new_game_ && profile==simulation::RulesProfile::CityV16 ? 6U:bridges_new_game_ && profile==simulation::RulesProfile::CityV16 ? 5U:simulation::current_rule_version(profile);
-        auto view=simulation::original_deadline_food_dispatch_enabled(profile,version) ?
+        auto view=version==simulation::kAuthoredLandTradeRuleVersion ?
+            SandboxView::create_authored_land_trade(std::move(loaded),
+                document ? std::nullopt:std::optional{original_difficulty_}) :
+            simulation::original_venue_house_service_enabled(profile,version) ?
+            SandboxView::create_original_venue_house_service(std::move(loaded),
+                document ? std::nullopt:std::optional{original_difficulty_},!document && original_paid_starter_) :
+            simulation::original_music_venues_enabled(profile,version) ?
+            SandboxView::create_original_music_venues(std::move(loaded),
+                document ? std::nullopt:std::optional{original_difficulty_},!document && original_paid_starter_) :
+            simulation::original_safe_demolition_enabled(profile,version) ?
+            SandboxView::create_original_safe_demolition(std::move(loaded),
+                document ? std::nullopt:std::optional{original_difficulty_},!document && original_paid_starter_) :
+            simulation::original_deadline_food_dispatch_enabled(profile,version) ?
             SandboxView::create_original_deadline_food_dispatch(std::move(loaded),
                 document ? std::nullopt:std::optional{original_difficulty_},!document && original_paid_starter_):
             simulation::original_deadline_service_dispatch_enabled(profile,version) ?
@@ -338,6 +386,8 @@ void MenuSession::finish_loading() {
             visuals.health_walker_fallback_reason);
         view->set_original_house_visuals(visuals.original_house,visuals.original_house_source,
             visuals.original_house_fallback_reason);
+        view->set_original_building_visuals(visuals.original_building,visuals.original_building_source,
+            visuals.original_building_fallback_reason);
         view->initialize(window_,renderer_);
         if (starting_map_check_ && !document &&
             view->capture_save_document().map_sha256!=starting_map_check_->input_sha256)
@@ -358,6 +408,11 @@ void MenuSession::finish_loading() {
         if (upgraded) message_=upgrade_target_version_==4 ?
             "Demolition enabled in a new City-v11-v4 copy; original save unchanged.":
             "Operation controls enabled in a new City-v11-v3 copy; original save unchanged.";
+    } catch (const simulation::OriginalStarterPlacementError& e) {
+        candidate_.reset();candidate_autosave_.reset();pending_recovery_parent_.reset();
+        upgrade_copy_=false;
+        message_=e.what();
+        set_state(State::StarterUnavailable);
     } catch (const std::exception& e) {
         candidate_.reset();
         candidate_autosave_.reset(); pending_recovery_parent_.reset();
@@ -458,125 +513,54 @@ void MenuSession::perform(int action) {
             }
             return;
         }
+        if (const auto* choice=original_choice(action)) {
+            authored_land_trade_new_game_=false;
+            original_rule_version_=choice->rule;
+            advanced_visuals_open_=false;
+            set_state(State::NewSandbox);
+            message_=std::string(choice->detail)+"; "+original_save_status(settings_.autosave_enabled);
+            return;
+        }
         switch (action) {
         case ChooseFolder: open_dialog(DialogKind::Folder); break;
+        case AuthoredLandTradeNewGame:
+            authored_land_trade_new_game_=true;original_rule_version_.reset();advanced_visuals_open_=false;
+            set_state(State::NewSandbox);
+            message_="Authored finite Pottery trade; buy two Warehouses, connect roads, select city Warehouse and G bind.";
+            break;
         case NewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_inspector_coordination_new_game_=false;
-            original_cardinal_water_new_game_=false;
-            original_market_logistics_new_game_=false;
-            original_sustainable_economy_new_game_=false;
-            original_fire_protection_new_game_=false;
-            original_new_game_=false;advanced_visuals_open_=false;set_state(State::NewSandbox);break;
-        case OriginalNewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_inspector_coordination_new_game_=false;
-            original_cardinal_water_new_game_=false;
-            original_market_logistics_new_game_=false;
-            original_sustainable_economy_new_game_=false;
-            original_fire_protection_new_game_=false;
-            original_new_game_=true;advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_=original_save_status(settings_.autosave_enabled);break;
-        case OriginalFireProtectionNewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_inspector_coordination_new_game_=false;
-            original_cardinal_water_new_game_=false;
-            original_market_logistics_new_game_=false;
-            original_sustainable_economy_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule11: authored paid Fire Watch and real Inspector visits; "+
-                original_save_status(settings_.autosave_enabled);break;
-        case OriginalSustainableEconomyNewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_inspector_coordination_new_game_=false;
-            original_cardinal_water_new_game_=false;
-            original_market_logistics_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=false;original_sustainable_economy_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule12: three paid Food chains, authored upkeep and paid fire protection; "+
-                original_save_status(settings_.autosave_enabled);break;
-        case OriginalMarketLogisticsNewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_inspector_coordination_new_game_=false;
-            original_cardinal_water_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=false;
-            original_sustainable_economy_new_game_=false;original_market_logistics_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule13: authored needs-aware goods distribution; "+
-                original_save_status(settings_.autosave_enabled);break;
-        case OriginalCardinalWaterNewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_inspector_coordination_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=false;
-            original_sustainable_economy_new_game_=false;original_market_logistics_new_game_=false;
-            original_cardinal_water_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule14: cardinal-water house desirability, inherited needs-aware logistics; "+
-                original_save_status(settings_.autosave_enabled);break;
-        case OriginalInspectorCoordinationNewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=false;
-            original_sustainable_economy_new_game_=false;original_market_logistics_new_game_=false;
-            original_cardinal_water_new_game_=false;original_inspector_coordination_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule15: authored Inspector coordination, inherited cardinal-water economy; "+
-                original_save_status(settings_.autosave_enabled);break;
-        case OriginalDeadlineFireDispatchNewGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=false;
-            original_sustainable_economy_new_game_=false;original_market_logistics_new_game_=false;
-            original_cardinal_water_new_game_=false;original_inspector_coordination_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule16: authored deadline-aware fire dispatch, inherited cardinal-water economy; "+
-                original_save_status(settings_.autosave_enabled);break;
-        case OriginalDeadlineServiceDispatchNewGame:
-            original_deadline_food_dispatch_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=false;
-            original_sustainable_economy_new_game_=false;original_market_logistics_new_game_=false;
-            original_cardinal_water_new_game_=false;original_inspector_coordination_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;original_deadline_service_dispatch_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule17: authored deadline-aware services, inherited paid fire dispatch; "+
-                original_save_status(settings_.autosave_enabled);break;
-        case OriginalDeadlineFoodDispatchNewGame:
-            original_deadline_service_dispatch_new_game_=false;
-            original_new_game_=true;original_fire_protection_new_game_=false;
-            original_sustainable_economy_new_game_=false;original_market_logistics_new_game_=false;
-            original_cardinal_water_new_game_=false;original_inspector_coordination_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=true;
-            advanced_visuals_open_=false;set_state(State::NewSandbox);
-            message_="Rule18: authored deadline-aware Food, inherited services and fire dispatch; "+
-                original_save_status(settings_.autosave_enabled);break;
+            authored_land_trade_new_game_=false;original_rule_version_.reset();advanced_visuals_open_=false;
+            set_state(State::NewSandbox);break;
+        case AdvancedModes:
+            advanced_modes_open_=!advanced_modes_open_;
+            pressed_action_=-1;rebuild_buttons();break;
         case OriginalDifficulty:
-            if (state_==State::NewSandbox && original_new_game_) {
+            if (state_==State::NewSandbox && (original_setup() || authored_land_trade_new_game_)) {
                 original_difficulty_=static_cast<original::Difficulty>(
                     (static_cast<std::size_t>(original_difficulty_)+1U)%original::difficulty_count);
                 rebuild_buttons();
             }
             break;
         case OriginalStarter:
-            if (state_==State::NewSandbox && original_new_game_) {
+            if (state_==State::NewSandbox && original_setup()) {
                 original_paid_starter_=!original_paid_starter_;rebuild_buttons();
             }
             break;
+        case StarterEmptyCity:
+            if (state_==State::StarterUnavailable) {
+                original_paid_starter_=false;
+                set_state(State::NewSandbox);
+                message_="Empty city selected on the same map. Check map rules, then Start.";
+            }
+            break;
+        case StarterChooseMap:
+            if (state_==State::StarterUnavailable) {
+                set_state(State::NewSandbox);
+                message_="Choose another map with Previous map or Next map, then Start.";
+            }
+            break;
         case LoadGame:
-            original_deadline_service_dispatch_new_game_=false;original_deadline_food_dispatch_new_game_=false;
-            original_deadline_fire_dispatch_new_game_=false;
-            original_inspector_coordination_new_game_=false;
-            original_cardinal_water_new_game_=false;
-            original_market_logistics_new_game_=false;
-            original_sustainable_economy_new_game_=false;
-            original_fire_protection_new_game_=false;
-            original_new_game_=false;advanced_visuals_open_=false;
+            original_rule_version_.reset();advanced_visuals_open_=false;
             refresh_saves();set_state(State::LoadSandbox);break;
         case ToggleAutosave: {
             AutosaveResult result;
@@ -617,14 +601,20 @@ void MenuSession::perform(int action) {
             rebuild_buttons(); break;
         }
         case Demo: demo_=!demo_; settings_.prepared_starter=demo_; rebuild_buttons(); break;
+        case SourceCellRampsChoice:
+            if(settings_.profile==simulation::RulesProfile::CityV16) {
+                source_cell_ramps_new_game_=!source_cell_ramps_new_game_;
+                ramps_new_game_=false;bridges_new_game_=false;check_selected_map();rebuild_buttons();
+            }
+            break;
         case RampsChoice:
             if(settings_.profile==simulation::RulesProfile::CityV16) {
-                ramps_new_game_=!ramps_new_game_;check_selected_map();rebuild_buttons();
+                ramps_new_game_=!ramps_new_game_;source_cell_ramps_new_game_=false;check_selected_map();rebuild_buttons();
             }
             break;
         case BridgesChoice:
             if(settings_.profile==simulation::RulesProfile::CityV16) {
-                bridges_new_game_=!bridges_new_game_;check_selected_map();rebuild_buttons();
+                bridges_new_game_=!bridges_new_game_;source_cell_ramps_new_game_=false;check_selected_map();rebuild_buttons();
             }
             break;
         case GreatWallChoice:
@@ -781,7 +771,9 @@ void MenuSession::handle_event(const SDL_Event& event) {
             if (state_==State::ConfirmLeave) activate_button(ConfirmCancel);
             else if (state_==State::ConfirmUpgrade) activate_button(CancelUpgrade);
             else if (state_==State::ConfirmDeleteRecovery) activate_button(CancelDeleteRecovery);
+            else if (state_==State::StarterUnavailable) activate_button(StarterChooseMap);
             else if (state_==State::NewSandbox || state_==State::LoadSandbox) activate_button(Back);
+            else if (state_==State::MainMenu && advanced_modes_open_) activate_button(AdvancedModes);
             else if (state_!=State::Loading) activate_button(Quit);
         } else if (event.key.key==SDLK_RETURN || event.key.key==SDLK_KP_ENTER) {
             if (state_==State::MainMenu && sandbox_) activate_button(Resume);
@@ -789,29 +781,17 @@ void MenuSession::handle_event(const SDL_Event& event) {
             else if (state_==State::LoadSandbox) activate_button(OpenSave);
             else if (state_==State::ConfirmUpgrade) activate_button(ConfirmUpgradeCopy);
             else if (state_==State::ConfirmDeleteRecovery) activate_button(ConfirmDeleteRecovery);
+        } else if (event.key.key==SDLK_H && state_==State::MainMenu) {
+            activate_button(AuthoredLandTradeNewGame);
         } else if (event.key.key==SDLK_N && state_==State::MainMenu) {
             activate_button(NewGame);
-        } else if (event.key.key==SDLK_O && state_==State::MainMenu) {
-            activate_button(OriginalNewGame);
-        } else if (event.key.key==SDLK_F && state_==State::MainMenu) {
-            activate_button(OriginalFireProtectionNewGame);
-        } else if (event.key.key==SDLK_S && state_==State::MainMenu) {
-            activate_button(OriginalSustainableEconomyNewGame);
-        } else if (event.key.key==SDLK_M && state_==State::MainMenu) {
-            activate_button(OriginalMarketLogisticsNewGame);
-        } else if (event.key.key==SDLK_W && state_==State::MainMenu) {
-            activate_button(OriginalCardinalWaterNewGame);
-        } else if (event.key.key==SDLK_U && state_==State::MainMenu) {
-            activate_button(OriginalDeadlineFoodDispatchNewGame);
-        } else if (event.key.key==SDLK_T && state_==State::MainMenu) {
-            activate_button(OriginalDeadlineServiceDispatchNewGame);
-        } else if (event.key.key==SDLK_D && state_==State::MainMenu) {
-            activate_button(OriginalDeadlineFireDispatchNewGame);
-        } else if (event.key.key==SDLK_I && state_==State::MainMenu) {
-            activate_button(OriginalInspectorCoordinationNewGame);
-        } else if (event.key.key==SDLK_D && state_==State::NewSandbox && original_new_game_) {
+        } else if (const auto* choice=state_==State::MainMenu ? original_key_choice(event.key.key):nullptr) {
+            activate_button(choice->action);
+        } else if (event.key.key==SDLK_D && state_==State::NewSandbox && (original_setup() || authored_land_trade_new_game_)) {
             activate_button(OriginalDifficulty);
-        } else if (event.key.key==SDLK_P && state_==State::NewSandbox && original_new_game_) {
+        } else if (event.key.key==SDLK_P && state_==State::StarterUnavailable) {
+            activate_button(StarterEmptyCity);
+        } else if (event.key.key==SDLK_P && state_==State::NewSandbox && original_setup()) {
             activate_button(OriginalStarter);
         } else if (event.key.key==SDLK_L && state_==State::MainMenu) {
             activate_button(LoadGame);
@@ -902,9 +882,9 @@ void MenuSession::update(double seconds) {
 }
 void MenuSession::rebuild_buttons() {
     buttons_.clear();
-    auto add=[&](int action,std::string label,int x,int y,int w=180) {
+    auto add=[&](int action,std::string label,int x,int y,int w=180,int h=32) {
         buttons_.push_back({SDL_FRect{static_cast<float>(x),static_cast<float>(y),
-            static_cast<float>(w),32.0f},std::move(label),action});
+            static_cast<float>(w),static_cast<float>(h)},std::move(label),action});
     };
     if (state_==State::DataSetup) {
         add(ChooseFolder,"Choose Game Data Folder",40,135,230);
@@ -912,30 +892,75 @@ void MenuSession::rebuild_buttons() {
         add(Quit,"Quit",40,235);
         if (!catalog_.entries.empty()) add(Back,"Back",230,235);
     } else if (state_==State::MainMenu) {
-        if (sandbox_) add(Resume,"Enter Continue",40,100,210);
-        add(NewGame,"N New Sandbox",40,sandbox_?136:100,210);
-        add(LoadGame,"L Load Save",40,sandbox_?172:136,210);
-        add(DataFolder,"Data folder",40,sandbox_?208:172,210);
-        buttons_.back().label="Original Data Folder";
-        add(Quit,"Quit",40,sandbox_?244:208,210);
-        add(OriginalInspectorCoordinationNewGame,"I Inspector coordination",40,sandbox_?280:244,230);
-        add(OriginalDeadlineFireDispatchNewGame,"D Deadline-aware fire dispatch",280,88,280);
-        add(OriginalDeadlineServiceDispatchNewGame,"T Deadline-aware services",280,326,280);
-        add(OriginalDeadlineFoodDispatchNewGame,"U Deadline-aware food",40,326,230);
-        add(OriginalNewGame,"O Original economy",280,122,280);
-        add(OriginalFireProtectionNewGame,"F Original fire protection",280,156,280);
-        add(OriginalSustainableEconomyNewGame,"S Sustainable economy",280,190,280);
-        add(OriginalMarketLogisticsNewGame,"M Needs-aware logistics",280,224,280);
-        add(OriginalCardinalWaterNewGame,"W Cardinal-water economy",280,258,280);
-        if (sandbox_ && sandbox_->world().original_production_enabled()) {
-            add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",280,292,280);
-        } else add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",280,292,280);
-        if (settings_reset_required_) {
-            add(ResetSettings,"Reset preferences",280,40,280);
+        if (!advanced_modes_open_) {
+            const int offset=sandbox_ ? 36:0;
+            if (sandbox_) add(Resume,"Enter Continue",40,100,520);
+            add(RecommendedOriginalNewGame,"Play Original economy",40,100+offset,520);
+            add(LoadGame,"L Load Save",40,136+offset,230);
+            add(AdvancedModes,"Advanced / Legacy",280,136+offset,280);
+            add(DataFolder,"Original Data Folder",40,172+offset,230);
+            add(Quit,"Quit",280,172+offset,280);
+            add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",40,208+offset,230);
+            if (settings_reset_required_) add(ResetSettings,"Reset preferences",280,208+offset,280);
+            return;
         }
+        add(AdvancedModes,"Back to main menu",280,40,280);
+        int left_y=88;
+        if (sandbox_) { add(Resume,"Enter Continue",40,left_y,210);left_y+=34; }
+        add(NewGame,"N New Sandbox",40,left_y,210);left_y+=34;
+        add(LoadGame,"L Load Save",40,left_y,210);left_y+=34;
+        add(DataFolder,"Data folder",40,left_y,210);left_y+=34;
+        buttons_.back().label="Original Data Folder";
+        add(Quit,"Quit",40,left_y,210);left_y+=34;
+        for (const auto& choice:original_choices) {
+            if (choice.action==OriginalVenueHouseServiceNewGame) {
+                add(choice.action,choice.label,40,4,230,28);
+                continue;
+            }
+            if (choice.action==OriginalMusicVenuesNewGame) {
+                add(choice.action,choice.label,280,4,280,28);
+                continue;
+            }
+            const bool coordination=choice.action==OriginalInspectorCoordinationNewGame;
+            const bool food=choice.action==OriginalDeadlineFoodDispatchNewGame;
+            const bool demolition=choice.action==OriginalSafeDemolitionNewGame;
+            const int y=coordination ? left_y:demolition ? left_y+34:food ? 326:
+                choice.action==OriginalDeadlineFireDispatchNewGame ? 88:
+                choice.action==OriginalDeadlineServiceDispatchNewGame ? 326:
+                122+34*static_cast<int>(choice.rule-simulation::kOriginalProductionRuleVersion);
+            const bool left=coordination || food || demolition;
+            add(choice.action,choice.label,left ? 40:280,y,left ? 230:280);
+        }
+        add(AuthoredLandTradeNewGame,"H Land trade (rule 21)",40,292,230);
+        if (sandbox_) {
+            // Nine retained-city actions share the bounded left column.
+            // Fresh-menu positions and every action/shortcut remain unchanged.
+            constexpr std::array order{Resume,NewGame,LoadGame,DataFolder,Quit,
+                OriginalInspectorCoordinationNewGame,OriginalSafeDemolitionNewGame,
+                AuthoredLandTradeNewGame,OriginalDeadlineFoodDispatchNewGame};
+            for (std::size_t i=0;i<order.size();++i) {
+                const auto button=std::find_if(buttons_.begin(),buttons_.end(),[&](const auto& value){return value.action==order[i];});
+                if (button!=buttons_.end()) {button->rect.y=88.F+30.F*static_cast<float>(i);button->rect.h=28.F;}
+            }
+        }
+        add(ToggleAutosave,settings_.autosave_enabled?"Autosave: ON":"Autosave: OFF",
+            280,292,settings_reset_required_?124:280);
+        if (settings_reset_required_) add(ResetSettings,"Reset preferences",412,292,148);
+    } else if (state_==State::StarterUnavailable) {
+        add(StarterEmptyCity,"P Use Empty city",40,246,360);
+        add(StarterChooseMap,"Choose another map",40,288,360);
     } else if (state_==State::NewSandbox) {
-        if (original_new_game_) {
-            add(MapPrev,"Previous map",40,90);add(MapNext,"Next map",230,90);
+        if (authored_land_trade_new_game_) {
+            add(MapPrev,"Previous map",40,110);add(MapNext,"Next map",230,110);
+            add(OriginalDifficulty,std::string("D Model difficulty: ")+
+                difficulty_names[static_cast<std::size_t>(original_difficulty_)],40,220,400);
+            add(Start,"Start sandbox",40,310);add(Back,"Back",230,310);
+            buttons_[buttons_.size()-2].enabled=map_rules_can_start();
+            add(RecheckMap,"Check again",430,310,130);
+            return;
+        }
+        if (original_setup()) {
+            add(MapPrev,"Previous map",40,110);add(MapNext,"Next map",230,110);
             add(OriginalDifficulty,std::string("D Difficulty: ")+
                 difficulty_names[static_cast<std::size_t>(original_difficulty_)],40,204,370);
             add(OriginalStarter,original_paid_starter_ ?
@@ -949,6 +974,7 @@ void MenuSession::rebuild_buttons() {
         add(ProfilePrev,"Previous rules",40,205); add(ProfileNext,"Next rules",230,205);
         add(Demo,demo_?"Prepared starter settlement":"Empty city",40,270,260);
         if(settings_.profile==simulation::RulesProfile::CityV16) {
+            add(SourceCellRampsChoice,source_cell_ramps_new_game_?"Source-cell ramps ON (rule 20)":"Source-cell ramps (rule 20)",430,285,280,26);
             add(RampsChoice,ramps_new_game_?"Ramps + Bridges ON (rule 6)":"Enable Ramps + Bridges (rule 6)",430,250,280);
             add(BridgesChoice,bridges_new_game_?"Bridges V1 ON (rule 5)":"Enable Bridges V1 (rule 5)",430,205,280);
         }
@@ -1038,19 +1064,14 @@ bool MenuSession::render() {
             SDL_RenderDebugText(renderer_,static_cast<float>(x),static_cast<float>(y),s.c_str());
     };
     const auto heading=state_==State::DataSetup?"OpenEmperor":
-        state_==State::MainMenu?"OpenEmperor":state_==State::NewSandbox?
-            (original_new_game_ ? (original_deadline_food_dispatch_new_game_ ? "New deadline-aware Food":
-                original_deadline_service_dispatch_new_game_ ? "New deadline-aware services":
-                original_deadline_fire_dispatch_new_game_ ? "New deadline-aware fire dispatch":
-                original_inspector_coordination_new_game_ ? "New Inspector coordination":
-                original_cardinal_water_new_game_ ? "New cardinal-water economy":original_market_logistics_new_game_ ? "New needs-aware logistics":
-                original_sustainable_economy_new_game_ ? "New Sustainable economy":original_fire_protection_new_game_ ?
-                "New Original fire protection":"New Original economy"):"New sandbox"):
+        state_==State::MainMenu?(advanced_modes_open_?"Advanced / Legacy":"OpenEmperor"):state_==State::NewSandbox?
+            (authored_land_trade_new_game_ ? "New authored land trade":original_setup() ? "New Original economy":"New sandbox"):
         state_==State::LoadSandbox?"Load sandbox":state_==State::Loading?"Loading...":
+        state_==State::StarterUnavailable?"Paid starter unavailable":
         state_==State::ConfirmUpgrade?(upgrade_target_version_==4 ? "Enable demolition in a copy":"Enable operation controls in a copy"):
         state_==State::ConfirmDeleteRecovery?"Delete recovery history":"Unsaved progress";
     if (!label(40,40,heading)) return false;
-    if (((state_==State::NewSandbox && !original_new_game_) || state_==State::LoadSandbox) &&
+    if (((state_==State::NewSandbox && !original_setup() && !authored_land_trade_new_game_) || state_==State::LoadSandbox) &&
         !label(40,70,"Great Wall choice applies on load; preview is not original restore.")) return false;
     if (state_==State::DataSetup) {
         if (!label(40,56,std::string(version::display)+" | Clean-room reimplementation")) return false;
@@ -1059,38 +1080,49 @@ bool MenuSession::render() {
         if (!label(40,103,"Do not select the GOG installer file itself.")) return false;
     } else if (state_==State::MainMenu) {
         if (!label(40,56,std::string(version::display))) return false;
-        if (!label(40,70,"Experimental sandbox using your own Emperor game data")) return false;
-        if (!label(280,79,"Original data: Ready")) return false;
-        if (sandbox_ && !label(40,88,"Retained tick "+std::to_string(sandbox_->world().ticks())+
+        if (!label(40,70,advanced_modes_open_ ? "Historical opt-ins":
+                "Experimental sandbox using your own Emperor game data")) return false;
+        if (advanced_modes_open_ && !label(280,79,"Original data: Ready")) return false;
+        if (!advanced_modes_open_ &&
+            (!label(40,286,"Recommended, experimental | new paid city or empty start") ||
+             !label(40,304,"Original campaigns and Emperor saves unsupported."))) return false;
+        if (sandbox_ && !label(40,advanced_modes_open_ ? 79:88,"Retained tick "+std::to_string(sandbox_->world().ticks())+
             (sandbox_->dirty()?" (unsaved)":" (saved)"))) return false;
-    } else if (state_==State::NewSandbox && original_new_game_ && map_index_<catalog_.entries.size()) {
+    } else if (state_==State::NewSandbox && authored_land_trade_new_game_ && map_index_<catalog_.entries.size()) {
+        const auto& e=catalog_.entries[map_index_];
+        const auto columns=static_cast<std::size_t>(std::max(16,(width-80)/8));
+        const auto bounded=[&](std::string text){return text.size()>columns ? text.substr(0,columns-3)+"...":text;};
+        if (!label(40,62,"Rule21 / policy3 / save37 | Authored finite Pottery trade") ||
+            !label(40,82,bounded("Map: "+e.relative_path.generic_string())) ||
+            !label(40,154,map_rules_can_start() ? "Map rules checked; source boundary checked on Start.":
+                bounded(map_preflight_.result().reason.empty()?"Checking selected map...":map_preflight_.result().reason)) ||
+            !label(40,174,"Empty classic city; buy two Warehouses and connect roads.") ||
+            !label(40,192,"G bind city to boundary Warehouse; I import / E export.") ||
+            !label(40,258,"Pottery: 4/order; import $24; export $12; finite offers.") ||
+            !label(40,280,"License $40; actual caravan arrival; no original trade parity.") ||
+            !label(40,350,"Experimental; no automatic migration. Starts paused.")) return false;
+    } else if (state_==State::NewSandbox && original_setup() && map_index_<catalog_.entries.size()) {
         const auto& e=catalog_.entries[map_index_];
         const auto columns=static_cast<std::size_t>(std::max(16,(width-80)/8));
         auto map_name="Map "+std::to_string(map_index_+1)+" / "+std::to_string(catalog_.entries.size())+
             ": "+e.relative_path.generic_string();
         if (map_name.size()>columns) map_name=map_name.substr(0,columns-3)+"...";
-        if (!label(40,55,original_deadline_food_dispatch_new_game_ ?
-                "Rule18 | authored deadline-aware Food | inherited services/fire":original_deadline_service_dispatch_new_game_ ?
-                "Rule17 | authored deadline-aware services | Rule16 fire dispatch":original_deadline_fire_dispatch_new_game_ ?
-                "Rule16 | authored deadline-aware fire dispatch | Rule14 economy":original_inspector_coordination_new_game_ ?
-                "Rule15 | authored Inspector coordination | Rule14 economy":original_cardinal_water_new_game_ ?
-                "Rule14 | cardinal-water house desirability":original_market_logistics_new_game_ ?
-                "Rule13 | authored needs-aware market logistics":original_sustainable_economy_new_game_ ?
-                "Rule12 | authored sustainable economy | fire protection":original_fire_protection_new_game_ ?
-                "Rule11 | authored fire protection | original economy":
-                "Rule10 | paid authored plan | original model data") ||
-            !label(40,72,map_name)) return false;
+        auto root_name="Data: "+settings_.data_root.string();
+        if (root_name.size()>columns) root_name="Data: ..."+root_name.substr(root_name.size()-(columns-9));
+        if (!label(40,55,std::string(original_detail(*original_rule_version_))+
+                " (rule "+std::to_string(*original_rule_version_)+")") ||
+            !label(40,72,map_name) || !label(40,88,root_name)) return false;
         const auto& check=map_preflight_.result();
         const char* status=check.status==maps::MapRulesStatus::Checking ? "Checking selected map...":
             check.status==maps::MapRulesStatus::MapRulesChecked ? "Original map rules checked (policy3).":
             check.status==maps::MapRulesStatus::UnsupportedForRules ? "Map unsupported with Original economy.":
             check.status==maps::MapRulesStatus::InputError ? "Map check failed. Check files and retry.":
             "Select a map to check its rules.";
-        if (!label(40,132,status)) return false;
+        if (!label(40,151,status)) return false;
         std::string detail=check.status==maps::MapRulesStatus::MapRulesChecked ?
-            "Start checks model, graphics and paid placement. Empty stocks and residents; real production starts paused.":
+            "Start checks model, graphics and paid placement. Starts paused; no free goods or residents.":
             check.reason+(check.detail.empty()?"":" Details: "+check.detail);
-        for (int y=151;!detail.empty() && y<=183;y+=16) {
+        for (int y=167;!detail.empty() && y<=183;y+=16) {
             auto length=std::min(columns,detail.size());
             if (length<detail.size()) {
                 const auto space=detail.rfind(' ',length);
@@ -1102,7 +1134,7 @@ bool MenuSession::render() {
             if (!label(40,y,line)) return false;
         }
         if (!label(40,286,original_save_status(settings_.autosave_enabled)) ||
-            !label(40,350,"Arrows: map | D: difficulty | P: setup | Enter: start")) return false;
+            !label(40,350,"Experimental: original campaigns and Emperor saves unsupported.")) return false;
     } else if (state_==State::NewSandbox && map_index_<catalog_.entries.size()) {
         const auto& e=catalog_.entries[map_index_];
         if (!label(40,85,"Map "+std::to_string(map_index_+1)+" / "+std::to_string(catalog_.entries.size())+
@@ -1177,7 +1209,10 @@ bool MenuSession::render() {
                 " | schema "+std::to_string(e.schema)+" rule "+std::to_string(e.rule_version))) return false;
             if (e.error.empty() && simulation::original_production_enabled(
                     simulation::RulesProfile::CityV16,e.rule_version) &&
-                e.schema==(e.rule_version==simulation::kOriginalDeadlineFoodDispatchRuleVersion ? 34U:
+                e.schema==(e.rule_version==simulation::kOriginalVenueHouseServiceRuleVersion ? 39U:
+                    e.rule_version==simulation::kOriginalMusicVenuesRuleVersion ? 38U:
+                    e.rule_version==simulation::kOriginalSafeDemolitionRuleVersion ? 35U:
+                    e.rule_version==simulation::kOriginalDeadlineFoodDispatchRuleVersion ? 34U:
                            e.rule_version==simulation::kOriginalDeadlineServiceDispatchRuleVersion ? 33U:
                     e.rule_version==simulation::kOriginalDeadlineFireDispatchRuleVersion ? 32U:
                     e.rule_version==simulation::kOriginalInspectorCoordinationRuleVersion ? 31U:
@@ -1191,6 +1226,28 @@ bool MenuSession::render() {
         if (!label(40,345,compatibility_.compatible() ?
             "Visuals: Compatible preview detected":"Visuals: Diagnostic fallback")) return false;
         if (advanced_visuals_open_ && !label(40,385,"Advanced visual previews (developer overrides)")) return false;
+    } else if (state_==State::StarterUnavailable) {
+        const auto columns=static_cast<std::size_t>(std::max(16,(width-80)/8));
+        auto map_name="Map: "+catalog_.entries.at(map_index_).relative_path.generic_string();
+        if (map_name.size()>columns) map_name=map_name.substr(0,columns-3)+"...";
+        if (!label(40,80,map_name)) return false;
+        std::string detail="Map rules passed. This paid starter needs a separate legal empty 24x13 level area. "
+            "There is no such area on this map.";
+        int y=112;
+        while (!detail.empty()) {
+            auto length=std::min(columns,detail.size());
+            if (length<detail.size()) {
+                const auto space=detail.rfind(' ',length);
+                if (space!=std::string::npos && space>0) length=space;
+            }
+            if (!label(40,y,detail.substr(0,length))) return false;
+            detail.erase(0,length);
+            while (!detail.empty() && detail.front()==' ') detail.erase(0,1);
+            y+=16;
+        }
+        if (!label(40,192,"Use Empty city on this map, or choose another map.") ||
+            !label(40,212,"Empty city still requires a successful map rules check.") ||
+            !label(40,340,"No city was replaced. No construction was charged.")) return false;
     } else if (state_==State::Loading) {
         const auto item=pending_save_path_.empty() && map_index_<catalog_.entries.size()
             ? catalog_.entries[map_index_].relative_path.filename().string()
@@ -1215,13 +1272,14 @@ bool MenuSession::render() {
             !SDL_RenderFillRect(renderer_,&b.rect) ||
             !label(static_cast<int>(b.rect.x)+8,static_cast<int>(b.rect.y)+11,b.label)) return false;
     }
-    if (!message_.empty() && !label(40,std::max(25,height-34),message_.substr(0,static_cast<std::size_t>(std::max(0,width/8-12))))) return false;
+    if (state_!=State::StarterUnavailable && !message_.empty() &&
+        !label(40,std::max(25,height-34),message_.substr(0,static_cast<std::size_t>(std::max(0,width/8-12))))) return false;
     const std::string footer="OpenEmperor "+std::string(version::display)+" | "+std::string(version::target)+
         " | Clean-room reimplementation | rev "+std::string(version::revision)+
         (version::dirty?" dirty":"")+" | "+std::string(version::build_type);
     if (!label(40,std::max(12,height-18),footer.substr(0,static_cast<std::size_t>(std::max(0,width/8-12))))) return false;
     if (!SDL_SetRenderScale(renderer_,1,1)) return false;
-    const bool okay=SDL_RenderPresent(renderer_);
+    const bool okay=SDL_GetRenderTarget(renderer_) || SDL_RenderPresent(renderer_);
     if (okay && state_==State::Loading) loading_drawn_=true;
     return okay;
 }

@@ -3,9 +3,11 @@
 #include "EconomyStartViewFixture.h"
 #include "OriginalFinanceFixture.h"
 #include "app/WalkerPose.h"
+#include "app/VisualSelection.h"
 #include "assets/BuildingVisualProfile.h"
 #include "core/PerformanceDiagnostics.h"
 #include "maps/LandscapeProvenance.h"
+#include "maps/MapRulesCheck.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <cstdlib>
@@ -180,6 +182,7 @@ Scene build(oe::SandboxView& view) {
 }
 Json visual_json(const oe::SandboxView::OriginalHouseVisualDiagnostic& d) {
     Json result{{"applicable",d.applicable},{"configured",d.configured},{"active",d.active},{"type",d.house_type},{"actual_side",d.actual_side},
+        {"authored_vacant_foundation",d.authored_vacant_foundation},
         {"native_dimensions",{d.image_width,d.image_height}},{"ground_anchor",{d.ground_x,d.ground_y}},
         {"world_ground",{d.ground.x,d.ground.y}},{"world_image_origin",{d.image_origin.x,d.image_origin.y}},
         {"selection",d.selection},{"evidence",d.evidence},{"fallback_reason",d.fallback_reason}};
@@ -269,9 +272,280 @@ void stages(oe::SandboxView& view,SDL_Renderer* renderer,const assets::BuildingV
     }
     check(view.world().snapshot()==snapshot,"Stage camera/selection/pixels changed authoritative paid state");
 }
+void vacant_matrix(oe::SandboxView& view,SDL_Window* window,SDL_Renderer* renderer,
+        const fs::path& data,const fs::path& save,const fs::path& out,sim::BuildingId id,
+        const std::string& label,bool shelter,bool real_map,const assets::BuildingVisualProfile* profile=nullptr) {
+    const auto authority=view.world().snapshot();const auto textures=view.building_texture_count();
+    const auto type=shelter ? 3U:2U;
+    check(static_cast<unsigned>(house(view,id).type)==type && (house(view,id).occupants>0)==shelter,
+        "Vacant/Shelter matrix did not use a real empty/admitted House");
+    for(const auto size:std::array<std::array<int,2>,3>{{{1280,800},{1600,900},{1920,1080}}}) {
+        check(SDL_SetWindowSize(window,size[0],size[1]),"Vacant matrix resize failed");
+        SDL_Event e{};e.type=SDL_EVENT_WINDOW_RESIZED;e.window.data1=size[0];e.window.data2=size[1];event(view,e);
+        e={};e.type=SDL_EVENT_WINDOW_FOCUS_GAINED;event(view,e);view.update(0);
+        for(const double z:{1.,2.,4.}) {
+            zoom(view,renderer,z);const auto d=view.original_house_visual_diagnostic(id);
+            check(d.house_type==type && d.actual_side==2 && d.authored_vacant_foundation==(!shelter && !d.active) &&
+                (!real_map || (d.active && d.asset && d.asset->image_index==(shelter ? 1509U:1508U))),
+                "Vacant/Shelter selected the wrong original lifecycle identity or lost its fallback");
+            Json native_pixels=Json::object();
+            if (profile) {
+                native_pixels["native_alpha_preflight"]=verify_visual(view,renderer,*profile,id);
+                native_pixels["native_alpha_preflight_camera_offset"]={view.camera().offset.x,view.camera().offset.y};
+            }
+            center(view,{d.ground.x,d.ground.y-20});view.set_tool(5);
+            if(view.debug_diagnostics())key(view,SDLK_F1);
+            check(view.render(),"Vacant matrix frame failed");
+            for(int y=0;y<2;++y)for(int x=0;x<2;++x) {
+                const Point tile{d.ground.x+(x-y)*40,d.ground.y+(x+y-2)*20};
+                const auto p=view.camera().world_to_screen(tile);
+                const auto picked=view.pick(p);
+                check(picked && view.world().building_owner_at(*picked)==id,"House footprint-cell ground pick lost its actual owner");
+                click(view,renderer,p);check(view.selected_building()==id,"House footprint click selected another owner");
+            }
+            if(!shelter && !d.active) {
+                key(view,SDLK_F1);view.set_tool(5);check(view.render(),"Vacant visible-pixel frame failed");
+                click(view,renderer,view.camera().world_to_screen({d.ground.x,d.ground.y-20}));
+                check(view.selected_building()==id,"Authored foundation's visible interior was not selectable");
+                // A transparent bounding-box corner also lies outside the
+                // logical footprint, so ordinary ground selection cannot
+                // legitimately choose this same House after the visual miss.
+                const auto corner=view.camera().world_to_screen({d.ground.x+65,d.ground.y-48});
+                const auto corner_cell=view.pick(corner);
+                check(!corner_cell || view.world().building_owner_at(*corner_cell)!=id,
+                    "Transparent corner witness still lies in the authoritative House footprint");
+                click(view,renderer,corner);
+                check(view.selected_building()!=id,"Invisible foundation margin retained a rectangular House hit");
+                key(view,SDLK_F1);view.set_tool(5);
+                click(view,renderer,view.camera().world_to_screen({d.ground.x,d.ground.y-20}));
+                check(view.original_house_inspector_active(),"Vacant click did not open the real House inspector");
+                const auto lines=view.original_house_section_lines();
+                std::string inspector;for(const auto& line:lines)inspector+=line+' ';
+                check(inspector.find("authored vacant foundation")!=std::string::npos,
+                    "Vacant inspector omitted the explicit authored representation");
+                // Independently chosen opaque interiors must remain readable
+                // without a red marker or borrowed native roof.
+                check(view.render(),"Vacant material witness frame failed");const auto frame=pixels(renderer);
+                const auto masonry=pixel(frame.get(),view.camera().world_to_screen({d.ground.x+47,d.ground.y-20}));
+                const auto earth=pixel(frame.get(),view.camera().world_to_screen({d.ground.x+62,d.ground.y-20}));
+                check(masonry[0]>150 && masonry[1]>150 && masonry[2]>120 && earth[0]>earth[1] && earth[1]>earth[2],
+                    "Unselected foundation lost pale masonry or warm cleared-earth contrast");
+            }
+            if (d.active) {
+                const auto lines=view.original_house_section_lines();std::string inspector;
+                for(const auto& line:lines)inspector+=line+' ';
+                check(inspector.find("#"+std::to_string(d.asset->image_index))!=std::string::npos &&
+                    inspector.find("authored vacant foundation")==std::string::npos,
+                    "Native House inspector omitted its actual original image or claimed an authored foundation");
+            }
+            const auto name="oe59-"+label+"-"+std::to_string(size[0])+"x"+std::to_string(size[1])+"-"+std::to_string(int(z))+"x";
+            key(view,SDLK_F5);const auto bytes=f::read_text(save);
+            const auto persisted=oe::persistence::read_save(save);
+            check(persisted.world==authority,"Vacant/Shelter persisted capture changed complete World authority");
+            check(view.render(),"Vacant/Shelter final frame failed");
+            check(view.world().snapshot()==authority,"Vacant/Shelter capture changed complete World authority");
+            if(!out.empty()) {
+                auto frame=pixels(renderer);check(SDL_SavePNG(frame.get(),(out/(name+".png")).string().c_str()),"Vacant matrix PNG failed");
+                const auto pointer=view.camera().world_to_screen({d.ground.x,d.ground.y-(shelter ? 0:20)});
+                Json observed{{"actual_sandbox_renderer",true},{"scripted_software",true},{"native_human","NOT_RUN"},
+                    {"real_map_and_model",real_map},{"tick",view.world().ticks()},{"building_id",static_cast<unsigned>(id)},
+                    {"occupants",house(view,id).occupants},{"visual",visual_json(d)},
+                    {"window",size},{"zoom",view.camera().zoom},{"camera_offset",{view.camera().offset.x,view.camera().offset.y}},
+                    {"map_rect",{view.layout().map.x,view.layout().map.y,view.layout().map.w,view.layout().map.h}},
+                    {"selection_render_point",{pointer.x,pointer.y}},{"selected_building",static_cast<unsigned>(*view.selected_building())},
+                    {"rule",view.world().rule_version()},{"schema",persisted.source_schema_version},
+                    {"funds",view.world().treasury()},{"construction_spent",view.world().construction_spent_total()},
+                    {"complete_world_equal",true},{"persisted_save_world_equal",true},{"actual_all_four_owned_cells_picked",true}};
+                observed.update(native_pixels);f::write_text(out/(name+".observed.json"),observed.dump(2)+"\n");
+            }
+            key(view,SDLK_F9);key(view,SDLK_F5);
+            check(view.world().snapshot()==authority && f::read_text(save)==bytes &&
+                view.capture_save_document().world==authority && view.building_texture_count()==textures &&
+                view.original_house_visual_diagnostic(id).asset==d.asset &&
+                view.original_house_visual_diagnostic(id).active==d.active,
+                "Vacant/Shelter camera/picking/F5/F9 changed complete World, save bytes or texture ownership");
+            if(real_map && !shelter && size[0]==1280) {
+                // The ordinary player view must show the paid body without
+                // relying on either a selected footprint or its inspector.
+                std::optional<Point> clear;
+                for(const Point offset:{Point{-40,20},Point{40,20},Point{-80,-40},Point{80,-40}}) {
+                    const auto p=view.camera().world_to_screen({d.ground.x+offset.x,d.ground.y+offset.y});
+                    const auto cell=view.pick(p);
+                    if(view.layout().map.contains(p.x,p.y) && cell && !view.world().building_owner_at(*cell)) {clear=p;break;}
+                }
+                check(clear.has_value(),"Unselected witness did not find adjacent real unowned ground");
+                click(view,renderer,*clear);check(!view.selected_building(),"Ground click did not clear House selection");
+                for(const bool hovered:{false,true}) {
+                    const auto pointer=hovered ? view.camera().world_to_screen({d.ground.x,d.ground.y-20}):Point{1,1};
+                    const auto raw=window_point(renderer,pointer);SDL_Event motion{};motion.type=SDL_EVENT_MOUSE_MOTION;
+                    motion.motion.x=static_cast<float>(raw.x);motion.motion.y=static_cast<float>(raw.y);event(view,motion);view.update(0);
+                    check(!view.selected_building() && !view.original_house_inspector_active() &&
+                        (hovered ? view.hovered_cell() && view.world().building_owner_at(*view.hovered_cell())==id:!view.hovered_cell()),
+                        "Actual normal/hover capture retained House selection or lost its requested pointer state");
+                    check(view.render() && view.world().snapshot()==authority,"Normal/hover frame changed paid authority");
+                    const auto frame=pixels(renderer);
+                    // Sample the source pixel's interior. Exact source edges
+                    // can truncate into the preceding readback row after the
+                    // double camera and SDL_FRect float conversions.
+                    const auto material_point=view.camera().world_to_screen({d.image_origin.x+126.5,d.image_origin.y+48.5});
+                    const auto material=pixel(frame.get(),material_point);
+                    const auto* entry=profile ? profile->find_original_house(2,2):nullptr;
+                    check(entry && material==native(profile->unique_images.at(entry->image_index),126,48),
+                        "Unselected/hover House lost an independently decoded opaque1508 pixel");
+                    if(!out.empty()) {
+                        const auto extra=name+(hovered ? "-hover":"-unselected");
+                        check(SDL_SavePNG(frame.get(),(out/(extra+".png")).string().c_str()),"Normal/hover PNG failed");
+                        Json observed{{"actual_sandbox_renderer",true},{"scripted_software",true},{"native_human","NOT_RUN"},
+                            {"real_map_and_model",true},{"tick",view.world().ticks()},{"building_id",static_cast<unsigned>(id)},
+                            {"visual",visual_json(d)},{"window",size},{"zoom",view.camera().zoom},
+                            {"camera_offset",{view.camera().offset.x,view.camera().offset.y}},
+                            {"map_rect",{view.layout().map.x,view.layout().map.y,view.layout().map.w,view.layout().map.h}},
+                            {"pointer_render_point",{pointer.x,pointer.y}},{"selected_building",nullptr},{"hovered_house",hovered},
+                            {"native_material_source_pixel",{126,48}},{"native_material_render_point",{material_point.x,material_point.y}},
+                            {"native_material_rgba",material},
+                            {"rule",view.world().rule_version()},{"schema",persisted.source_schema_version},
+                            {"funds",view.world().treasury()},{"construction_spent",view.world().construction_spent_total()},
+                            {"complete_world_equal",true},{"persisted_save_world_equal",true}};
+                        f::write_text(out/(extra+".observed.json"),observed.dump(2)+"\n");
+                    }
+                }
+            }
+        }
+    }
+    // Render/hover only: no new preparation, simulation or navigation work.
+    perf::set_enabled(true);perf::reset();
+    for(unsigned n=0;n<10;++n) {
+        SDL_Event e{};e.type=SDL_EVENT_MOUSE_MOTION;e.motion.x=1;e.motion.y=1;event(view,e);
+        view.update(0);check(view.render(),"Pure vacant/Shelter frame failed");
+    }
+    for(std::size_t n=0;n<static_cast<std::size_t>(perf::Counter::Count);++n)
+        check(perf::counter(static_cast<perf::Counter>(n))==0,"Vacant/Shelter render or hover performed preparation/World work");
+    perf::set_enabled(false);check(view.world().snapshot()==authority,"Pure vacant frames changed authority");
+    (void)data;
+}
+void real_fifth_house(SDL_Window* window,SDL_Renderer* renderer,const fs::path& original,
+        const fs::path& resources,const fs::path& out,const fs::path& root) {
+    check(SDL_SetWindowSize(window,1280,800),"Real fifth-House initial resize failed");
+    const auto checked=oe::maps::check_map_rules({fs::canonical(original),"Cities/Xia.map",sim::RulesProfile::CityV16,18,3});
+    check(checked.status==oe::maps::MapRulesStatus::MapRulesChecked && !checked.input_sha256.empty(),
+        "Real Xia/Rule18 map-rules preflight failed");
+    auto session=oe::maps::load_stored_map_session(original,"Cities/Xia.map",oe::maps::FootprintPolicy::EdgeByte4x4Preview,
+        oe::maps::StoredGraphicsProfile::Slot8,oe::maps::GreatWallPresentationMode::Automatic,checked.input_sha256,true);
+    auto view=oe::SandboxView::create_original_deadline_food_dispatch(std::move(session),orig::Difficulty::Normal,true);
+    const auto art=oe::detect_and_select_visual_profiles(original,resources);
+    if(!art.building.empty())view->set_building_visuals(art.building,art.building_source);
+    if(!art.road.empty())view->set_road_visuals(art.road,art.road_source);
+    view->set_original_house_visuals(art.original_house,art.original_house_source,art.original_house_fallback_reason);
+    view->set_original_building_visuals(art.original_building,art.original_building_source,art.original_building_fallback_reason);
+    assets::BuildingVisualProfile profile;assets::append_original_house_visual_profile(original,art.original_house,profile);
+    const auto save=root/"save/oe59-paid-fifth.json";view->configure_save(original,"Cities/Xia.map",save);
+    view->initialize(window,renderer);
+    const auto& initial=view->world().original_economy_state()->houses;
+    check(view->world().rule_version()==18 && initial.size()==4 && !view->world().total_population() &&
+        view->world().treasury()==10596 && view->world().ticks()==0,"Real Xia/Normal four-House starter differs");
+    const auto origin=view->world().building(initial.front().building_id).cell;
+    const auto first_ground=view->original_house_visual_diagnostic(initial.front().building_id).ground;
+    for(const auto& h:initial) {
+        const auto d=view->original_house_visual_diagnostic(h.building_id);
+        const orig::HouseState empty{.type=orig::HouseType::Vacant};
+        check(h.house==empty && d.active && d.asset && d.asset->image_index==1508 &&
+            d.image_width==158 && d.image_height==88 && d.ground_x==79 && d.ground_y==68 && !d.authored_vacant_foundation,
+            "Actual paid four-House starter did not select native1508 from its empty persisted origin");
+    }
+    vacant_matrix(*view,window,renderer,original,save,out,initial.front().building_id,"xia-starter-vacant",false,true,&profile);
+    zoom(*view,renderer,1);if(view->debug_diagnostics())key(*view,SDLK_F1);
+    buy(*view,sim::CommandType::PlaceRoad,{origin.x+16,origin.y+1});
+    const auto before=view->world().treasury();const auto spent=view->world().construction_spent_total();
+    const auto sequence=view->world().command_sequence();
+    const Point fifth_ground{first_ground.x+12*40,first_ground.y+12*20};
+    center(*view,{fifth_ground.x,fifth_ground.y-40});view->set_tool(5);
+    check(view->render(),"Vacant preview background frame failed");
+    const auto preview_sample=view->camera().world_to_screen({fifth_ground.x+47.5,fifth_ground.y-19.5});
+    const auto background=pixel(pixels(renderer).get(),preview_sample);
+    const auto preview_authority=view->world().snapshot();view->set_tool(7);
+    const auto pointer=window_point(renderer,view->camera().world_to_screen({fifth_ground.x,fifth_ground.y-40}));
+    SDL_Event motion{};motion.type=SDL_EVENT_MOUSE_MOTION;motion.motion.x=static_cast<float>(pointer.x);
+    motion.motion.y=static_cast<float>(pointer.y);event(*view,motion);view->update(0);
+    check(view->hovered_cell()==sim::Cell{origin.x+12,origin.y} && view->preview(*view->hovered_cell()).accepted,
+        "Actual fifth-House preview did not target its legal paid footprint");
+    SDL_BlendMode blend_before{},blend_after{};check(SDL_GetRenderDrawBlendMode(renderer,&blend_before),"Preview blend query failed");
+    check(view->render() && SDL_GetRenderDrawBlendMode(renderer,&blend_after) && blend_after==blend_before,
+        "Vacant preview leaked renderer blend state");
+    const auto preview=pixel(pixels(renderer).get(),preview_sample);
+    for(std::size_t channel=0;channel<3;++channel) {
+        const auto* entry=profile.find_original_house(2,2);check(entry!=nullptr,"Native Vacant preview lacks its admitted image");
+        const auto color=native(profile.unique_images.at(entry->image_index),126,48);
+        check(color[3]==255,"Independent Vacant preview witness is transparent");
+        const double expected=(128.*color[channel]+127.*background[channel])/255.;
+        check(std::abs(preview[channel]-expected)<3,"Vacant preview lost actual native1508 translucent compositing");
+    }
+    check(view->world().snapshot()==preview_authority,"Placement preview bought or changed the unbuilt House");
+    if(!out.empty()) {
+        const auto frame=pixels(renderer);check(SDL_SavePNG(frame.get(),(out/"oe59-xia-fifth-preview.png").string().c_str()),"Vacant preview PNG failed");
+        f::write_text(out/"oe59-xia-fifth-preview.observed.json",Json{{"actual_sandbox_renderer",true},{"scripted_software",true},
+            {"native_human","NOT_RUN"},{"real_map_and_model",true},{"window",{1280,800}},{"zoom",view->camera().zoom},
+            {"background_pixel",background},{"preview_pixel",preview},{"complete_world_equal",true},
+            {"renderer_blend_state_equal",true},{"not_purchased",true}}.dump(2)+"\n");
+    }
+    click(*view,renderer,view->camera().world_to_screen({fifth_ground.x,fifth_ground.y-40}));
+    const auto id=view->world().building_owner_at({origin.x+12,origin.y});
+    check(id && view->world().original_economy_state()->houses.size()==5 &&
+        view->world().treasury()==before-80 && view->world().construction_spent_total()==spent+80 &&
+        view->world().command_sequence()==sequence+1 && view->world().ticks()==0 && house(*view,*id).occupants==0,
+        "Actual fifth-House map click did not buy exactly one empty80-Funds House");
+    const auto construction=view->world().construction_spent_total();
+    if(!out.empty())oe::persistence::write_save(out/"oe59-xia-fifth-vacant.save.json",view->capture_save_document(),original,view->buildable_mask());
+    vacant_matrix(*view,window,renderer,original,save,out,*id,"xia-fifth-vacant",false,true,&profile);
+    const auto empty=view->world().snapshot();key(*view,SDLK_F4);
+    const auto fallback=view->original_house_visual_diagnostic(*id);
+    check(fallback.configured && !fallback.active && fallback.authored_vacant_foundation &&
+        fallback.asset && fallback.asset->image_index==1508 && fallback.fallback_reason=="F4 authored comparison",
+        "F4 did not preserve the native identity and visible OE58 foundation fallback");
+    center(*view,{fallback.ground.x,fallback.ground.y-20});check(view->render(),"OE58 F4 fallback frame failed");
+    if(!out.empty()) {
+        const auto frame=pixels(renderer);check(SDL_SavePNG(frame.get(),(out/"oe59-xia-fifth-f4-foundation.png").string().c_str()),"F4 foundation PNG failed");
+    }
+    key(*view,SDLK_F4);check(view->world().snapshot()==empty && view->original_house_visual_diagnostic(*id).active,
+        "Native/foundation comparison changed authority or failed to restore native art");
+    key(*view,SDLK_SPACE);check(!view->paused(),"Space did not start actual immigration");
+    while(!house(*view,*id).occupants && view->world().ticks()<2000)view->update(.1);
+    key(*view,SDLK_SPACE);check(view->paused(),"Space did not pause the admitted House");
+    check(house(*view,*id).occupants>0 && house(*view,*id).type==orig::HouseType::Shelter &&
+        view->world().building_owner_at({origin.x+12,origin.y})==id &&
+        view->world().construction_spent_total()==construction && view->world().command_sequence()==sequence+1,
+        "Real immigration did not preserve the paid House identity/construction while changing Vacant2 to Shelter3");
+    vacant_matrix(*view,window,renderer,original,save,out,*id,"xia-fifth-shelter",true,true,&profile);
+    if(!out.empty())oe::persistence::write_save(out/"oe59-xia-fifth-shelter.save.json",view->capture_save_document(),original,view->buildable_mask());
+    // Current World has no supported eviction-to-Vacant command. A former
+    // resident cannot be relabelled as a fresh purchase through JSON/restore.
+    const auto admitted=view->world().snapshot();const auto bytes=f::read_text(save);
+    auto bad=view->capture_save_document();
+    for(auto& h:bad.world.original_economy->houses)if(h.building_id==*id)h.house=orig::HouseState{.type=orig::HouseType::Vacant};
+    bool refused=false;
+    try {oe::persistence::write_save(save,bad,original,view->buildable_mask());}
+    catch(const std::exception&){refused=true;}
+    check(refused && f::read_text(save)==bytes && view->world().snapshot()==admitted &&
+        view->original_house_visual_diagnostic(*id).asset->image_index==1509,
+        "Forged formerly occupied Vacant was published, reset authority or selected fresh1508");
+    view->shutdown();
+}
+void vacant_grass_contrast(SDL_Window* window,SDL_Renderer* renderer,const fs::path& out,bool dark) {
+    oe::testing::economy::Temp temp;const auto data=fs::canonical(temp.root)/"data";
+    Bytes grass(3200);for(std::size_t n=0;n<grass.size();n+=2)u16(grass,n,dark ? 0x0d23:0x3f6a);
+    write(data/"DATA/China_Terrain.555",grass);
+    fs::create_directories(data/"Model");f::write_text(data/"Model/EmperorBuildingModels.txt",oe_finance_fixture::authored_model(3));
+    auto session=oe::maps::load_stored_map_session(data,"Cities/A.map",oe::maps::FootprintPolicy::EdgeByte4x4Preview,
+        oe::maps::StoredGraphicsProfile::Slot8);
+    auto view=oe::SandboxView::create_original_production_save_fixture(std::move(session));
+    const auto save=temp.root/"saves/vacant.json";view->configure_save(data,"Cities/A.map",save);view->initialize(window,renderer);
+    buy(*view,sim::CommandType::PlaceRoad,{111,113});const auto id=buy(*view,sim::CommandType::PlaceHousehold,{110,111});
+    vacant_matrix(*view,window,renderer,data,save,out,id,dark ? "authored-dark-grass":"authored-light-grass",false,false);
+    view->shutdown();
+}
 void camera_edges(oe::SandboxView& view,SDL_Renderer* renderer,const assets::BuildingVisualProfile& profile,
                   const fs::path& data,const fs::path& out,sim::BuildingId id,sim::BuildingId other) {
     const auto saved=view.world().snapshot();const auto d=view.original_house_visual_diagnostic(id);
+    const std::string prefix=d.house_type==2 ? "houses.vacant-":"houses.";
     const auto* entry=profile.find_original_house(d.house_type,d.actual_side);check(entry!=nullptr,"Culling witness lacks proven native House art");
     const auto& image=profile.unique_images.at(entry->image_index);
     for (double z:{1.,2.,4.}) {
@@ -291,7 +565,7 @@ void camera_edges(oe::SandboxView& view,SDL_Renderer* renderer,const assets::Bui
             click(view,renderer,p);if (view.selected_building()==id && !view.input_diagnostic_state().selected_landscape) visible=p;
         }
         check(visible.has_value(),"Visible native roof was culled or unpickable because its ground center lies outside map");
-        capture(view,renderer,data,out,id,"houses.camera-edge.zoom"+std::to_string(static_cast<int>(z)),
+        capture(view,renderer,data,out,id,prefix+"camera-edge.zoom"+std::to_string(static_cast<int>(z)),
             {{"front_ground_outside_map",{ground.x,ground.y}},{"visible_opaque_native_pixel",{visible->x,visible->y}},
              {"native_edge_culling_and_picking",true}});
     }
@@ -307,7 +581,7 @@ void camera_edges(oe::SandboxView& view,SDL_Renderer* renderer,const assets::Bui
     click(view,renderer,covered,false);
     check(view.selected_building()==other && !view.input_diagnostic_state().selected_landscape,
         "Native image under the sidepanel intercepted a real UI click");
-    capture(view,renderer,data,out,id,"houses.ui-clipped",{{"opaque_native_pixel_covered_by_ui",{covered.x,covered.y}},
+    capture(view,renderer,data,out,id,prefix+"ui-clipped",{{"opaque_native_pixel_covered_by_ui",{covered.x,covered.y}},
         {"different_selected_house",static_cast<unsigned>(other)},{"ui_click_did_not_select_hidden_house",true}});
     check(view.world().snapshot()==saved,"Camera-edge or UI clipping proof changed paid World authority");
 }
@@ -370,7 +644,7 @@ bool walker_feet(oe::SandboxView& view,SDL_Renderer* renderer,const assets::Walk
     return false;
 }
 void foreground( SDL_Window* window,SDL_Renderer* renderer,const fs::path& data,const fs::path& metadata,
-                 const assets::BuildingVisualProfile& profile,const fs::path& out) {
+                 const assets::BuildingVisualProfile& profile,const fs::path& out,bool vacant=false) {
     const auto session=[&](const char* map){return oe::maps::load_stored_map_session(data,map,
         oe::maps::FootprintPolicy::EdgeByte4x4Preview,oe::maps::StoredGraphicsProfile::Slot8);};
     std::array<std::unique_ptr<oe::SandboxView>,2> views;
@@ -381,12 +655,13 @@ void foreground( SDL_Window* window,SDL_Renderer* renderer,const fs::path& data,
         views[n]->configure_save(data,map,data/(n ? "foreground-save.json":"foreground-control-save.json"));
         views[n]->set_original_house_visuals(metadata);views[n]->initialize(window,renderer);
         buy(*views[n],sim::CommandType::PlaceRoad,{112,107});ids[n]=buy(*views[n],sim::CommandType::PlaceHousehold,{112,108});
-        for (unsigned i=0;i<120;++i) views[n]->tick_once();
-        check(house(*views[n],ids[n]).type==orig::HouseType::Shelter,"Isolated paid foreground House did not enter actual Shelter3");
+        if(!vacant)for (unsigned i=0;i<120;++i) views[n]->tick_once();
+        check(house(*views[n],ids[n]).type==(vacant ? orig::HouseType::Vacant:orig::HouseType::Shelter),
+            "Isolated paid foreground House has the wrong actual empty/admitted state");
         key(*views[n],SDLK_F1);views[n]->set_tool(5);
     }
     check(views[0]->world().snapshot()==views[1]->world().snapshot(),"Authored foreground changed the identical paid World control");
-    const auto* entry=profile.find_original_house(3,2);check(entry!=nullptr,"Actual Shelter foreground witness has no proven native sprite");
+    const auto* entry=profile.find_original_house(vacant ? 2:3,2);check(entry!=nullptr,"Actual House foreground witness has no proven native sprite");
     const auto& image=profile.unique_images.at(entry->image_index);
     for (double z:{1.,2.,4.}) {
         std::array<Surface,2> frames{Surface(nullptr,SDL_DestroySurface),Surface(nullptr,SDL_DestroySurface)};
@@ -413,7 +688,7 @@ void foreground( SDL_Window* window,SDL_Renderer* renderer,const fs::path& data,
         check(views[1]->input_diagnostic_state().selected_landscape,"Opaque foreground click selected the hidden House instead of the visible stored overlay");
         click(*views[1],renderer,*hole);check(views[1]->selected_building()==ids[1] && !views[1]->input_diagnostic_state().selected_landscape,
             "Actual foreground transparent opening did not select the visible native House");
-        capture(*views[1],renderer,data,out,ids[1],"houses.foreground.zoom"+std::to_string(static_cast<int>(z)),
+        capture(*views[1],renderer,data,out,ids[1],std::string(vacant ? "houses.vacant-foreground.zoom":"houses.foreground.zoom")+std::to_string(static_cast<int>(z)),
             {{"opaque_foreground_pixel",{solid->x,solid->y}},{"native_house_through_hole",{hole->x,hole->y}},
              {"opaque_expected_rgba",{0,0,255,255}},{"hole_expected_rgba",hole_color},
              {"authored_foreground",true},{"original_cliff_identity",false},{"paid_control_snapshot_equal",true}});
@@ -457,6 +732,10 @@ int main(int argc,char** argv) {
         check(SDL_CreateWindowAndRenderer("Paid original House art",1280,900,SDL_WINDOW_HIDDEN,&window,&renderer),"Original House software window failed");
         check(std::string(SDL_GetRendererName(renderer))=="software","Original House visual test did not use actual SDL software rendering");
         oe::testing::economy::Temp temp;const auto root=fs::canonical(temp.root),data=root/"data";
+        fs::path out;if (const auto* dir=std::getenv("OPENEMPEROR_UI_CAPTURE_DIR")) {out=dir;fs::create_directories(out);}
+        real_fifth_house(window,renderer,original,resources,out,root);
+        vacant_grass_contrast(window,renderer,out,false);vacant_grass_contrast(window,renderer,out,true);
+        check(SDL_SetWindowSize(window,1280,900),"Restore historical House visual test window failed");
         for (const auto* name:{"China_General.sg3","China_General.555","SprMain.sg3","SprMain.555"})
             check(fs::copy_file(original/"DATA"/name,data/"DATA"/name),"Read-only original asset copy into private fixture failed");
         authored_foreground(data);write(data/"Cities/A.map",map_bytes(false));write(data/"Cities/B.map",map_bytes(true));
@@ -470,10 +749,10 @@ int main(int argc,char** argv) {
         view->set_walker_visuals(walkers);view->set_road_visuals(road_profile(data));view->initialize(window,renderer);
         check(view->paused() && view->original_house_display_stats().configured && view->original_house_display_stats().active,
             "Explicit protected original House extension did not activate");
-        fs::path out;if (const auto* dir=std::getenv("OPENEMPEROR_UI_CAPTURE_DIR")) {out=dir;fs::create_directories(out);}
         const auto scene=build(*view);const auto first=scene.commons.front();
         stages(*view,renderer,profile,data,out,first,"houses.common-vacant",2);
         stages(*view,renderer,profile,data,out,scene.elite,"houses.elite-plot",11);
+        camera_edges(*view,renderer,profile,data,out,first,scene.commons[1]);
         while (view->world().ticks()<120) view->tick_once();
         check(view->world().building(scene.elite).kind==sim::Object::OriginalEliteHouse && house(*view,scene.elite).occupants==2,
             "Paid first admission did not atomically materialize the real4x4 Elite body");
@@ -549,6 +828,7 @@ int main(int argc,char** argv) {
         check(view->world().snapshot()==pure && view->world().original_influence_cache_build_count()==cache &&
             view->road_plan_build_count()==plans && view->water_preview_build_count()==water && view->road_connectivity_check_count()==routes &&
             view->walker_texture_count()==walker_textures && view->building_texture_count()==textures,"Pure original House frames changed caches/routes/textures/World");
+        foreground(window,renderer,data,metadata,profile,out,true);
         foreground(window,renderer,data,metadata,profile,out);
         legacy_refusal(window,renderer,data,metadata);
         // Prepared sprite selection must survive loss of its *private* copied
